@@ -1,0 +1,235 @@
+<title>Tibi 书架</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Charis+SIL:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono&display=swap">
+<link rel="stylesheet" href="v2.css">
+<style>
+/* 书架页专属样式（D10：形态 / 类型 / 标签三个维度） */
+.lb { max-width: 1040px; margin: 0 auto; padding: 24px 32px 80px; display: flex; flex-direction: column; gap: 16px; }
+.lbh { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lbh .sum { font-size: 12.5px; color: var(--ink-3); }
+.lbh .sp { flex: 1; }
+.lbtools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lbtools .find { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line); background: var(--surface); min-width: 190px; }
+.lbtools .find:focus-within { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.lbtools .find svg { width: 15px; height: 15px; color: var(--ink-3); flex: none; }
+.lbtools .find input { border: 0; background: none; outline: 0; font: inherit; font-size: 13px; color: var(--ink); width: 100%; }
+.lbtools .find input::placeholder { color: var(--ink-3); }
+.lbtools .seg { display: inline-flex; padding: 2px; border-radius: 8px; background: var(--sunken); gap: 2px; }
+.lbtools .seg button { height: 26px; padding: 0 12px; border-radius: 6px; font-size: 12.5px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 5px; }
+.lbtools .seg button .n { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.lbtools .seg button.on { background: var(--surface); color: var(--ink); font-weight: 500; box-shadow: 0 0 0 1px var(--line); }
+.lbtools .seg.view button { width: 30px; padding: 0; justify-content: center; color: var(--ink-3); } .lbtools .seg.view button.on { color: var(--ink); }
+.lbtools .seg.view svg { width: 15px; height: 15px; }
+.lbtools .sortsel { height: 30px; border-radius: 8px; padding: 0 30px 0 12px; font: inherit; font-size: 12.5px; color: var(--ink-2); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 13px; cursor: pointer; }
+.tagbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tagbar .lbl { font-size: 12px; color: var(--ink-3); margin-right: 2px; }
+.tagbar .clear { font-size: 12px; color: var(--ink-3); background: none; text-decoration: underline; text-underline-offset: 3px; margin-left: 4px; }
+.lbsec { display: flex; flex-direction: column; gap: 10px; }
+.lbsec h2 { margin: 6px 0 0; font-size: 13px; font-weight: 500; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
+.lbsec h2 .n { font-weight: 400; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.card { position: relative; }
+.card .more { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--ink-3); opacity: 0; background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
+.card .more svg { width: 15px; height: 15px; }
+.card:hover .more, .card .more:focus-visible, .card.menu-open .more { opacity: 1; }
+.card .more:hover { color: var(--ink); background: var(--hover); }
+.card .m .done { color: var(--ok); }
+.card.book .t::before { content: ""; display: inline-block; width: 12px; height: 14px; margin-right: 6px; vertical-align: -1px; border-radius: 2px 3px 3px 2px; background: linear-gradient(90deg, var(--ink-3) 0 2px, var(--line-2) 2px); opacity: .7; }
+/* 列表视图 */
+.rows { border-radius: 16px; box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.rows .hd, .rows .r { display: grid; grid-template-columns: minmax(0, 1fr) 170px 70px 80px 140px 90px 32px; gap: 12px; align-items: center; padding: 0 14px 0 16px; }
+.rows .hd { height: 36px; font-size: 11.5px; color: var(--ink-3); background: var(--sunken); }
+.rows .r { height: 56px; text-decoration: none; color: inherit; position: relative; cursor: pointer; }
+.rows .r + .r::before { content: ""; position: absolute; left: 16px; right: 14px; top: 0; height: 1px; background: var(--line); }
+.rows .r:hover { background: var(--hover); }
+.rows .r .t { font-family: var(--f-read); font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rows .r .t small { display: block; font-family: var(--f-ui); font-weight: 400; font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+.rows .r .c { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.rows .r .tags { gap: 3px; }
+.rows .r .pg { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); }
+.rows .r .pg .bar2 { flex: 1; height: 3px; margin: 0; }
+.rows .r .more { position: static; opacity: 0; }
+.rows .r:hover .more { opacity: 1; }
+/* 卡片菜单 */
+.cmenu { position: fixed; z-index: 60; min-width: 220px; max-width: 280px; padding: 6px; border-radius: 12px; background: var(--surface); box-shadow: 0 0 0 1px var(--line), 0 12px 32px rgba(0,0,0,.12); display: none; }
+.cmenu.on { display: block; }
+.cmenu button { display: flex; align-items: center; gap: 9px; width: 100%; height: 32px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: var(--ink); text-align: left; }
+.cmenu button:hover { background: var(--hover); }
+.cmenu button svg { width: 15px; height: 15px; color: var(--ink-3); }
+.cmenu .sep { height: 1px; background: var(--line); margin: 5px 4px; }
+.cmenu button.danger { color: var(--hard); }
+.cmenu .sub { padding: 2px 10px 6px 34px; display: flex; gap: 4px; flex-wrap: wrap; }
+.cmenu .sub .pill, .cmenu .sub .tagf { height: 24px; padding: 0 9px; font-size: 11.5px; width: auto; }
+.cmenu .sub .pill { box-shadow: inset 0 0 0 1px var(--line); }
+.cmenu .sub .pill.on { box-shadow: none; }
+.nores { padding: 48px 0; text-align: center; font-size: 13px; color: var(--ink-3); }
+</style>
+
+<div class="app" id="app">
+  <aside class="side" id="side">
+    <div class="brand"><span class="logo"><img class="mark-img" src="img/logo.svg" alt="Tibi"><span class="hide-c">Tibi</span></span><button class="ibtn hide-c cbtn" id="collapseBtn" title="折叠 / 展开侧栏（⌘\）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button></div>
+    <button class="newbtn search" title="搜索文章、单词与设置（⌘K）"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><span class="hide-c">搜索</span><span class="k hide-c">⌘K</span></button>
+    <nav class="nav">
+      <a href="#" data-link="home" title="首页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 11l8-6 8 6v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg><span class="hide-c">首页</span></a>
+      <a href="#" class="cur" title="书架"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.8-1 3 15.5-3.8 1z"/></svg><span class="hide-c">书架</span><span class="n hide-c">8</span></a>
+      <a href="#" data-link="words" title="生词本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="hide-c">生词本</span><span class="n hide-c" id="navWords">33</span></a>
+      <a href="#" data-link="review" title="复习"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg><span class="hide-c">复习</span><span class="n badge hide-c">18</span></a>
+      <a href="#" data-link="stats" title="统计"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span class="hide-c">统计</span></a>
+      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">3</span></a>
+    </nav>
+    <div class="sideh hide-c" id="sideH">最近</div>
+    <div class="recent hide-c" id="recent"></div>
+    <div class="sidefoot">
+      <div class="streak" title="连续 9 天 · 今日 12 / 20 分钟">
+        <svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle id="ringArc" cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="87.96" transform="rotate(-90 18 18)"/></svg>
+        <div class="hide-c"><div class="t">连续 9 天</div><div class="s">今日 12 / 20 分钟</div></div>
+      </div>
+      <div class="user"><span class="av">你</span><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
+    </div>
+  </aside>
+  <section class="main">
+    <header class="top">
+      <button class="ibtn" id="menuBtn" title="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+      <span class="crumb"><b>书架</b></span>
+      <span class="sp"></span>
+      <a class="pill" data-link="home" href="#" title="回首页导入（⌘N）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>导入文章</a>
+      <button class="pill" id="themeBtn" title="切换深浅色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button>
+    </header>
+    <div class="scroll" id="scroll">
+      <main class="lb">
+        <section class="lbh">
+          <span class="sum" id="sum"></span><span class="sp"></span>
+        </section>
+        <section class="lbtools" id="tools">
+          <label class="find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><input id="q" placeholder="在书架里找…" aria-label="筛选书架"></label>
+          <div class="seg" id="kind"><button class="on" data-k="all">全部</button><button data-k="article">文章</button><button data-k="book">书</button></div>
+          <select class="sortsel" id="sort" aria-label="排序"><option value="fit">最适合我</option><option value="opened">最近打开</option><option value="added">最近导入</option><option value="progress">按进度</option><option value="mins">按时长</option></select>
+          <div class="seg view" id="view"><button class="on" data-v="grid" title="网格"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg></button><button data-v="list" title="列表"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button></div>
+        </section>
+        <section class="tagbar" id="tagbar"></section>
+        <div id="body"></div>
+      </main>
+    </div>
+  </section>
+</div>
+<div class="cmenu" id="cmenu" role="menu"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/motion@11.11.17/dist/motion.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/overlayscrollbars/2.10.1/browser/overlayscrollbars.browser.es6.min.js"></script>
+<script src="v2-shell.js"></script>
+<script src="v2-fox.js"></script>
+<script>
+initShell({ onLayout: () => {} });
+/* 三个维度：形态 kind（文章 / 书，系统决定）、类型 g（处理策略，自动识别可改）、标签 tags（用户的，Tibi 建议） */
+const GEN = { tech: '技术', news: '新闻', lit: '文学', academic: '学术', general: '一般' };
+const DAY = 86400000, now = Date.now();
+/* 与首页同一份书架数据，多了导入 / 打开时间 */
+const DOCS = IS_EMPTY ? [] : [
+  { id: 'tech', kind: 'article', g: 'tech', tags: ['Rust', '内存管理'], t: 'Understanding Ownership in Rust', ex: 'Ownership is the feature that makes Rust distinctive among systems languages.', src: '自拟示例', mins: 4, ratio: 7.2, lv: ['偏难', 'hard'], p: 45, open: true, added: now - 2 * DAY, opened: now - 3600000 },
+  { id: 'novel', kind: 'book', g: 'lit', tags: ['经典小说'], t: 'Pride and Prejudice', ex: 'It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.', src: 'Jane Austen', mins: 2, ratio: 2.6, lv: ['学习区', 'mid'], p: 8, open: true, book: { ch: 1, of: 61, chp: 62 }, added: now - 6 * DAY, opened: now - DAY },
+  { id: 'news', kind: 'article', g: 'news', tags: ['城市', '气候'], t: 'Cities Turn to Sponge Design as Floods Intensify', ex: 'From Rotterdam to Wuhan, planners are embracing so-called sponge designs.', src: '自拟示例', mins: 3, ratio: 9.8, lv: ['偏难', 'hard'], p: 0, open: true, added: now - 3 * 3600000, opened: 0 },
+  { id: 'rustbook', kind: 'book', g: 'tech', tags: ['Rust'], t: 'The Rust Programming Language', ex: 'This book assumes that you have written code in another programming language.', src: 'Klabnik & Nichols', mins: 9, ratio: 3.4, lv: ['学习区', 'mid'], p: 15, book: { ch: 4, of: 21, chp: 30 }, added: now - 9 * DAY, opened: now - 2 * DAY },
+  { id: 'async', kind: 'article', g: 'tech', tags: ['Rust', '异步'], t: 'A Gentle Introduction to Async Rust', ex: 'Concurrency is about dealing with many things at once, not doing them at once.', src: '自拟示例', mins: 9, ratio: 3.1, lv: ['学习区', 'mid'], p: 0, added: now - 3 * DAY, opened: 0 },
+  { id: 'holmes', kind: 'article', g: 'lit', tags: ['福尔摩斯', '经典小说'], t: 'A Scandal in Bohemia', ex: 'To Sherlock Holmes she is always the woman.', src: 'Arthur Conan Doyle', mins: 38, ratio: 4.4, lv: ['学习区', 'mid'], p: 12, added: now - 12 * DAY, opened: now - 8 * DAY },
+  { id: 'trains', kind: 'article', g: 'news', tags: ['旅行'], t: 'The Quiet Return of Night Trains in Europe', ex: 'The distinctive hum of a sleeper carriage is back on several routes.', src: '自拟示例', mins: 5, ratio: 1.6, lv: ['舒适', 'ok'], p: 100, added: now - 10 * DAY, opened: now - 9 * DAY },
+  { id: 'ctx', kind: 'article', g: 'academic', tags: ['机器学习', 'Transformer'], t: 'How Transformers Handle Long Context', ex: 'Attention cost grows quadratically with the length of the input.', src: '自拟示例', mins: 12, ratio: 6.3, lv: ['偏难', 'hard'], p: 0, added: now - 5 * DAY, opened: 0 },
+];
+let kind = 'all', sort = 'fit', view = 'grid', q = ''; const sel = new Set();   // sel 里系统类型记作 g:tech，用户标签记作原名
+const ago = t => { if (!t) return '还没打开'; const d = Math.floor((now - t) / DAY); return d === 0 ? '今天' : d === 1 ? '昨天' : d < 7 ? `${d} 天前` : d < 30 ? `${Math.floor(d / 7)} 周前` : `${Math.floor(d / 30)} 个月前`; };
+const fit = d => Math.abs(d.ratio - 4) + (d.p >= 100 ? 10 : d.p > 0 ? -2 : 0);   // 生词率接近学习区（约 4%）最适合；读到一半的优先，读完的靠后
+const SORTS = { fit: (a, b) => fit(a) - fit(b), opened: (a, b) => b.opened - a.opened, added: (a, b) => b.added - a.added, progress: (a, b) => b.p - a.p, mins: (a, b) => a.mins - b.mins };
+const ICON_MORE = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>';
+const progText = d => d.p >= 100 ? '<span class="done">已读完</span>' : d.p > 0 ? d.p + '%' : d.mins + ' 分钟';
+const tagsHtml = (d, n = 3) => d.tags.slice(0, n).map(t => `<span class="tagc">${esc(t)}</span>`).join('');
+function cardHtml(d) {
+  const bar = d.book ? `<div class="bar2 two" title="本章 ${d.book.chp}% · 全书 ${d.p}%"><i><b style="width:${d.book.chp}%"></b></i><i><b style="width:${d.p}%"></b></i></div>` : d.p > 0 && d.p < 100 ? `<div class="bar2"><i style="width:${d.p}%"></i></div>` : '';
+  return `<a class="card nocv${d.book ? ' book' : ''}" href="${d.open ? URLS.reader : '#'}" data-id="${d.id}">
+    <div class="row"><span class="g">${d.book ? '书 · ' : ''}${GEN[d.g]}</span><span class="g">${progText(d)}</span></div>
+    <div class="t">${esc(d.t)}</div><div class="ex">${esc(d.ex)}</div>
+    <div class="m"><span class="lv ${d.lv[1]}">${d.lv[0]}</span><span>生词率 ${d.ratio}%</span>${d.book ? `<span class="ch">第 ${d.book.ch} / ${d.book.of} 章</span>` : ''}</div>
+    ${bar}
+    <button class="more" data-more="${d.id}" title="更多" aria-label="更多操作">${ICON_MORE}</button></a>`;
+}
+function rowHtml(d) {
+  return `<a class="r" href="${d.open ? URLS.reader : '#'}" data-id="${d.id}">
+    <div class="t">${esc(d.t)}<small>${d.book ? '书 · ' : ''}${d.src}${d.book ? ` · 第 ${d.book.ch} / ${d.book.of} 章` : ''}</small></div>
+    <span class="tags"><span class="tagc sys">${GEN[d.g]}</span>${tagsHtml(d, 2)}</span><span class="c">${d.mins} 分钟</span><span class="c"><span class="lv ${d.lv[1]}">${d.lv[0]}</span> ${d.ratio}%</span>
+    <span class="pg">${d.p >= 100 ? '<span class="done">已读完</span>' : `<span class="bar2"><i style="width:${d.p}%"></i></span><span>${d.p}%</span>`}</span>
+    <span class="c">${ago(d.opened)}</span><button class="more ibtn" data-more="${d.id}" title="更多" aria-label="更多操作">${ICON_MORE}</button></a>`;
+}
+function userTags() { const m = new Map(); DOCS.forEach(d => d.tags.forEach(t => m.set(t, (m.get(t) || 0) + 1))); return [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'zh')); }
+function renderTagbar() {
+  const gs = Object.keys(GEN).filter(g => DOCS.some(d => d.g === g)).map(g => [g, DOCS.filter(d => d.g === g).length]);
+  const chip = (key, label, n, sys) => `<button class="tagf${sys ? ' sys' : ''}${sel.has(key) ? ' on' : ''}" data-tag="${esc(key)}">${esc(label)}<span class="n">${n}</span></button>`;
+  $('#tagbar').innerHTML = `<span class="lbl">标签</span>${gs.map(([g, n]) => chip('g:' + g, GEN[g], n, true)).join('')}<span class="tagsep"></span>${userTags().map(([t, n]) => chip(t, t, n, false)).join('')}${sel.size ? '<button class="clear" id="clearTags">清除</button>' : ''}`;
+  $('#tagbar').querySelectorAll('[data-tag]').forEach(b => b.onclick = () => { const k = b.dataset.tag; sel.has(k) ? sel.delete(k) : sel.add(k); render(true); });
+  const c = $('#clearTags'); if (c) c.onclick = () => { sel.clear(); render(true); };
+}
+function matches(d) {
+  if (kind !== 'all' && d.kind !== kind) return false;
+  for (const k of sel) { if (k.startsWith('g:') ? d.g !== k.slice(2) : !d.tags.includes(k)) return false; }   // 多选标签 = 同时满足
+  return !q || (d.t + ' ' + d.ex + ' ' + d.src + ' ' + d.tags.join(' ')).toLowerCase().includes(q);
+}
+function render(animate) {
+  const body = $('#body');
+  if (!DOCS.length) {
+    $('#tools').hidden = true; $('#tagbar').hidden = true; $('#sum').textContent = ''; const nb = document.querySelector('.nav a.cur .n'); if (nb) nb.textContent = '0';
+    emptyState(body, { state: 'listening', title: '书架还是空的', desc: '去首页把你想读的英文交给 Tibi：粘贴网址或一段文字，拖入 PDF、EPUB 或截图，也可以先读三篇公有领域的示例。', actions: [{ t: '去首页导入', pri: true, link: 'home' }, { t: '让 Tibi 找几篇', link: 'home' }] });
+    return;
+  }
+  $('#tools').hidden = false; $('#tagbar').hidden = false;
+  const books = DOCS.filter(d => d.kind === 'book').length, reading = DOCS.filter(d => d.p > 0 && d.p < 100).length, done = DOCS.filter(d => d.p >= 100).length;
+  $('#sum').textContent = `${DOCS.length - books} 篇文章 · ${books} 本书 · 读到一半 ${reading} · 读完 ${done}`;
+  renderTagbar();
+  const list = DOCS.filter(matches).sort(SORTS[sort]);
+  if (!list.length) { body.innerHTML = `<div class="nores">没有符合的${kind === 'book' ? '书' : '文章'}${q ? `：“${esc(q)}”` : ''}${sel.size ? '，试试去掉一个标签' : ''}</div>`; return; }
+  if (view === 'grid') {
+    const groups = sort === 'fit' ? [['现在读正合适', list.filter(d => d.p < 100)], ['读完了', list.filter(d => d.p >= 100)]] : [['', list]];
+    body.innerHTML = groups.filter(g => g[1].length).map(([h, ds]) => `<section class="lbsec">${h ? `<h2>${h} <span class="n">${ds.length}</span></h2>` : ''}<div class="grid">${ds.map(cardHtml).join('')}</div></section>`).join('');
+  } else {
+    body.innerHTML = `<div class="rows"><div class="hd"><span>标题</span><span>类型 · 标签</span><span>时长</span><span>难度</span><span>进度</span><span>最近打开</span><span></span></div>${list.map(rowHtml).join('')}</div>`;
+  }
+  body.querySelectorAll('a[data-id]').forEach(a => { if (a.getAttribute('href') !== '#') ext(a); else a.onclick = e => { if (e.target.closest('.more')) return; e.preventDefault(); toast('原型中只有阅读器里的三篇可以打开'); }; });
+  body.querySelectorAll('[data-more]').forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); openMenu(b, b.dataset.more); });
+  if (animate) anim(body.querySelectorAll('.card, .rows'), { opacity: [0, 1], y: [10, 0] }, { duration: 0.4, ease: EASE, delay: stag(0.03) });
+}
+/* 卡片菜单：继续阅读 / 标签 / 修改类型 / 重新分析 / 导出 / 删除 */
+let menuFor = null;
+function openMenu(btn, id) {
+  const d = DOCS.find(x => x.id === id), m = $('#cmenu'); menuFor = btn.closest('.card, .r'); document.querySelectorAll('.menu-open').forEach(x => x.classList.remove('menu-open')); menuFor.classList.add('menu-open');
+  const all = userTags().map(x => x[0]);
+  m.innerHTML = `<button data-a="open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6c3-1 6-1 8 1 2-2 5-2 8-1v12c-3-1-6-1-8 1-2-2-5-2-8-1z"/></svg>${d.p > 0 && d.p < 100 ? (d.book ? `继续读第 ${d.book.ch} 章` : '继续阅读') : d.p >= 100 ? '再读一遍' : '开始阅读'}</button>
+    <button data-a="tags"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 4h7l9 9-7 7-9-9zM8 8h.01"/></svg>标签</button>
+    <div class="sub" id="tagsub">${all.map(t => `<button class="tagf${d.tags.includes(t) ? ' on' : ''}" data-t="${esc(t)}">${esc(t)}</button>`).join('')}<button class="tagf" data-t="">＋ 新标签</button></div>
+    <button data-a="type"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h10M4 17h7"/></svg>类型 <span style="margin-left:auto;color:var(--ink-3);font-size:12px">${GEN[d.g]} · 决定着色与总结策略</span></button>
+    <div class="sub">${Object.entries(GEN).map(([k, v]) => `<button class="pill${k === d.g ? ' on' : ''}" data-g="${k}">${v}</button>`).join('')}</div>
+    <button data-a="reanalyze"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg>重新分析（用当前词库）</button>
+    <button data-a="export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>导出 Markdown</button>
+    <div class="sep"></div><button class="danger" data-a="del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h14M9 7V4h6v3M8 7l1 13h6l1-13"/></svg>删除${d.book ? '这本书' : ''}</button>`;
+  const r = btn.getBoundingClientRect(); m.classList.add('on');
+  m.style.left = Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 12) + 'px'; m.style.top = Math.min(r.bottom + 6, innerHeight - m.offsetHeight - 12) + 'px';
+  m.querySelectorAll('[data-t]').forEach(b => b.onclick = e => { e.stopPropagation(); const t = b.dataset.t;
+    if (!t) { const v = prompt('新标签'); if (v && v.trim() && !d.tags.includes(v.trim())) { d.tags.push(v.trim()); closeMenu(); render(false); } return; }
+    const i = d.tags.indexOf(t); i >= 0 ? d.tags.splice(i, 1) : d.tags.push(t); b.classList.toggle('on'); render(false); });
+  m.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { d.g = b.dataset.g; closeMenu(); render(false); toast(`《${d.t}》已改为${GEN[d.g]}，着色与总结策略会按新类型重新生成`); });
+  m.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
+    const a = b.dataset.a; if (a === 'tags' || a === 'type') return; closeMenu();
+    if (a === 'open') { if (d.open) { location.href = URLS.reader; } else toast('原型中只有阅读器里的三篇可以打开'); }
+    else if (a === 'reanalyze') toast('原型：会按你现在的已知词库重新标注，AI 结果沿用缓存');
+    else if (a === 'export') toast('原型：导出为 Markdown，含你的标注与笔记');
+    else if (a === 'del') { const i = DOCS.indexOf(d); DOCS.splice(i, 1); render(false); toast(`已删除《${d.t}》`, () => { DOCS.splice(i, 0, d); render(false); }); }
+  });
+}
+function closeMenu() { $('#cmenu').classList.remove('on'); if (menuFor) menuFor.classList.remove('menu-open'); menuFor = null; }
+addEventListener('click', e => { if (!e.target.closest('#cmenu') && !e.target.closest('[data-more]')) closeMenu(); });
+addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+addEventListener('scroll', closeMenu, true);
+/* 工具栏 */
+$('#kind').querySelectorAll('button').forEach(b => b.onclick = () => { kind = b.dataset.k; $('#kind').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); render(true); });
+$('#sort').onchange = () => { sort = $('#sort').value; render(true); };
+$('#view').querySelectorAll('button').forEach(b => b.onclick = () => { view = b.dataset.v; $('#view').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); render(true); });
+$('#q').addEventListener('input', () => { q = $('#q').value.trim().toLowerCase(); render(false); });
+if (/^#tag=/.test(location.hash)) sel.add(decodeURIComponent(location.hash.slice(5)));
+render(true); demoToggle();
+</script>
+<script src="v2-search.js"></script>

@@ -1,0 +1,1362 @@
+<title>LexiRead 阅读器原型</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Charis+SIL:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Geist:wght@400;500&family=JetBrains+Mono&family=Noto+Sans+SC:wght@400;500&display=swap">
+<style>
+/* 字体：英文 Charter（参考 Kami，github.com/tw93/kami），中文阿里巴巴普惠体 3.0，代码 JetBrains Mono；全页一套字体，靠字号与间距区分层级。
+   Charter 优先用系统自带（macOS），否则用基于 Charter 的开源字体 Charis SIL；普惠体为原型用子集，许可见 fonts/README.md */
+@font-face { font-family: "Alibaba PuHuiTi 3.0"; src: local("Alibaba PuHuiTi 3.0 55 Regular"), local("AlibabaPuHuiTi-3-55-Regular"), url("../fonts/AlibabaPuHuiTi-3-55-Regular.subset.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Alibaba PuHuiTi 3.0"; src: local("Alibaba PuHuiTi 3.0 65 Medium"), local("AlibabaPuHuiTi-3-65-Medium"), url("../fonts/AlibabaPuHuiTi-3-65-Medium.subset.woff2") format("woff2"); font-weight: 500 700; font-display: swap; }
+/* 纸与墨（克制版）：桌面色的无边框窗口，中间一张带极淡纹理的纸；正文衬线、界面无衬线；标注像荧光笔与铅笔 */
+:root {
+  --desk: #e8e5de;
+  --desk-2: #e1ddd4;
+  --paper: #fbfaf6;
+  --ink: #24221e;
+  --ink-2: #5d5950;
+  --ink-3: #9a958a;
+  --rule: rgba(36,34,30,.09);
+  --accent: #2d4a7c;
+  --accent-wash: rgba(45,74,124,.08);
+  --hl-new: rgba(110,155,220,.34);
+  --hl-1: rgba(226,170,50,.50);
+  --hl-2: rgba(226,170,50,.36);
+  --hl-3: rgba(226,170,50,.23);
+  --hl-4: rgba(226,170,50,.12);
+  --pencil: #8d8a83;
+  --play: rgba(45,74,124,.07);
+  --ok: #4f7a4a; --mid: #a77a1f; --hard: #a8503c;
+  /* 左栏深色块（默认 靛蓝）；右栏为悬浮面板，不做撞色 */
+  --rail-bg: #22304f; --rail-ink: #f2eee5; --rail-ink-2: rgba(242,238,229,.74); --rail-ink-3: rgba(242,238,229,.5);
+  --rail-hover: rgba(255,255,255,.06); --rail-cur: rgba(255,255,255,.11); --rail-accent: #f0c98a;
+  --rail-ok: #a9d4a0; --rail-mid: #f0c46a; --rail-hard: #f39d86;
+  /* 右栏与中栏同构：桌面上的标签条 + 一张纸；品牌色取自左栏，用于选中的标签与发送按钮 */
+  --track: rgba(36,34,30,.06);
+  --scroll: rgba(36,34,30,.14); --scroll-hover: rgba(36,34,30,.30); --scroll-active: rgba(36,34,30,.42);
+  --brand: var(--rail-bg); --brand-ink: var(--rail-ink);
+  --shade: none; /* 扁平化：界面不使用投影，用细线与底色区分层级 */
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35 0 0 0 0 .3 0 0 0 0 .22 0 0 0 .04 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  --f-kami: Charter, "Bitstream Charter", "Charis SIL", "Alibaba PuHuiTi 3.0", "Noto Sans SC", Georgia, serif;
+  --f-display: var(--f-kami);
+  --f-read: var(--f-kami);
+  --f-zh: var(--f-kami);
+  --f-ui: var(--f-kami);
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --read-font: var(--f-read);
+  --read-size: 20px;
+  --read-lh: 1.72;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --desk: #121110; --desk-2: #191816; --paper: #1b1a17; --ink: #e9e4d8; --ink-2: #aaa496; --ink-3: #6f6a60; --rule: rgba(233,228,216,.08);
+    --accent: #9db6e0; --accent-wash: rgba(157,182,224,.10);
+    --hl-new: rgba(110,155,230,.30); --hl-1: rgba(230,180,70,.40); --hl-2: rgba(230,180,70,.28); --hl-3: rgba(230,180,70,.18); --hl-4: rgba(230,180,70,.09);
+    --pencil: #8a857b; --play: rgba(157,182,224,.08); --ok: #8fbf86; --mid: #d9a94e; --hard: #df8a74;
+    --rail-bg: #172036; --rail-ink: #e9e4d8; --rail-ink-2: rgba(233,228,216,.7); --rail-ink-3: rgba(233,228,216,.45); --rail-hover: rgba(255,255,255,.05); --rail-cur: rgba(255,255,255,.08); --rail-accent: #e6c08a;
+    --track: rgba(255,255,255,.06); --scroll: rgba(255,255,255,.12); --scroll-hover: rgba(255,255,255,.26); --scroll-active: rgba(255,255,255,.38); --brand: color-mix(in srgb, var(--rail-bg), #ffffff 20%);
+    --shade: none;
+    --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .85 0 0 0 .035 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --desk: #121110; --desk-2: #191816; --paper: #1b1a17; --ink: #e9e4d8; --ink-2: #aaa496; --ink-3: #6f6a60; --rule: rgba(233,228,216,.08);
+  --accent: #9db6e0; --accent-wash: rgba(157,182,224,.10);
+  --hl-new: rgba(110,155,230,.30); --hl-1: rgba(230,180,70,.40); --hl-2: rgba(230,180,70,.28); --hl-3: rgba(230,180,70,.18); --hl-4: rgba(230,180,70,.09);
+  --pencil: #8a857b; --play: rgba(157,182,224,.08); --ok: #8fbf86; --mid: #d9a94e; --hard: #df8a74;
+  --rail-bg: #172036; --rail-ink: #e9e4d8; --rail-ink-2: rgba(233,228,216,.7); --rail-ink-3: rgba(233,228,216,.45); --rail-hover: rgba(255,255,255,.05); --rail-cur: rgba(255,255,255,.08); --rail-accent: #e6c08a;
+  --track: rgba(255,255,255,.06); --scroll: rgba(255,255,255,.12); --scroll-hover: rgba(255,255,255,.26); --scroll-active: rgba(255,255,255,.38); --brand: color-mix(in srgb, var(--rail-bg), #ffffff 20%);
+  --shade: none;
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .85 0 0 0 .035 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  color-scheme: dark;
+}
+:root[data-paper="sepia"] { --paper: #f4ecda; --desk: #e4dccb; --desk-2: #ddd4c1; --ink: #3a3024; --ink-2: #6c604e; --ink-3: #a09380; }
+
+/* 其他左栏配色（阅读设置 → 左栏颜色） */
+:root[data-palette="green"] { --rail-bg: #1f3d35; --rail-accent: #f2b8a8; }
+:root[data-palette="ink"] { --rail-bg: #1f1f1d; --rail-accent: #d8e070; }
+:root[data-palette="plain"] { --rail-bg: var(--desk); --rail-ink: var(--ink); --rail-ink-2: var(--ink-2); --rail-ink-3: var(--ink-3); --rail-hover: var(--desk-2); --rail-cur: var(--paper); --rail-accent: var(--accent); --rail-ok: var(--ok); --rail-mid: var(--mid); --rail-hard: var(--hard); --brand: var(--ink); --brand-ink: var(--paper); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-palette="green"] { --rail-bg: #12241f; }
+  :root:not([data-theme="light"])[data-palette="ink"] { --rail-bg: #0c0c0b; }
+}
+:root[data-theme="dark"][data-palette="green"] { --rail-bg: #12241f; }
+:root[data-theme="dark"][data-palette="ink"] { --rail-bg: #0c0c0b; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+/* 滚动条：始终可见的极淡细滑块（约 4px），无轨道，上下留白避开圆角；悬停 / 拖动滑块时变粗加深。
+   不用"悬停区域才显示"：Chromium 对 :hover::-webkit-scrollbar-thumb 不会及时重绘，表现不稳定 */
+* { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
+::-webkit-scrollbar { width: 12px; height: 12px; background: transparent; }
+::-webkit-scrollbar-track { background: transparent; margin: 8px 0; }
+::-webkit-scrollbar-thumb { background-color: var(--scroll); border-radius: 99px; border: 4px solid transparent; background-clip: padding-box; min-height: 36px; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-hover); border-width: 3px; }
+::-webkit-scrollbar-thumb:active { background-color: var(--scroll-active); border-width: 3px; }
+::-webkit-scrollbar-corner, ::-webkit-scrollbar-button { display: none; background: transparent; }
+.rail { --scroll: rgba(255,255,255,.16); --scroll-hover: rgba(255,255,255,.32); --scroll-active: rgba(255,255,255,.45); }
+.page pre { --scroll: rgba(36,34,30,.12); }
+@supports selector(::-webkit-scrollbar) { * { scrollbar-color: auto; scrollbar-width: auto; } }
+html, body { height: 100%; }
+body {
+  background: var(--desk); color: var(--ink); font-family: var(--f-ui); font-size: 13.5px; -webkit-font-smoothing: antialiased;
+  padding-block: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+:focus-visible { outline: 1.5px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+.lbl-i { color: var(--ink-3); font-size: 12.5px; }
+
+.app {
+  height: 100%; display: grid; grid-template-columns: 236px minmax(0,1fr) 360px;
+  background: var(--desk); border-radius: 14px; overflow: hidden; position: relative;
+  box-shadow: 0 0 0 .5px var(--rule);
+}
+
+/* 中栏：顶栏 / 纸面 / 页脚 */
+.center { display: grid; grid-template-rows: auto minmax(0,1fr) auto; grid-template-columns: minmax(0,1fr); min-width: 0; min-height: 0; }
+/* 顶栏 */
+.bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 12px 18px 6px; min-width: 0; }
+.bar .l, .bar .r { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.bar .r { justify-content: flex-end; }
+.dots { display: flex; gap: 7px; }
+.dots i { width: 11px; height: 11px; border-radius: 50%; background: var(--rail-hover); box-shadow: inset 0 0 0 .5px var(--rail-ink-3); display: block; }
+.railtop { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 0 10px; }
+.railtop .tbtn { color: var(--rail-ink-2); }
+.railtop .tbtn:hover { color: var(--rail-ink); }
+.tbtn { color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 2px; transition: color .15s; white-space: nowrap; }
+.tbtn:hover { color: var(--ink); }
+.tbtn.on { color: var(--accent); }
+.tbtn svg { width: 15px; height: 15px; }
+.titlebox { text-align: center; min-width: 0; }
+.titlebox .t { font-weight: 500; font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tog { font-size: 12.5px; color: var(--ink-2); padding: 4px 10px; border-radius: 999px; box-shadow: inset 0 0 0 .75px var(--rule); transition: color .15s, background .15s, box-shadow .15s; white-space: nowrap; }
+.tog:hover { color: var(--ink); box-shadow: inset 0 0 0 .75px var(--ink-3); }
+.tog.on { background: var(--brand); color: var(--brand-ink); box-shadow: none; }
+.speed { color: var(--ink-2); font-size: 12.5px; font-variant-numeric: tabular-nums; background: transparent; border: 0; padding: 2px; -webkit-appearance: none; appearance: none; cursor: pointer; }
+#railBtn { display: none; }
+
+/* 左栏：深色块 */
+.rail { overflow-y: auto; background: var(--rail-bg); color: var(--rail-ink); min-height: 0; }
+.rail-inner { padding: 16px 12px 18px 14px; display: flex; flex-direction: column; gap: 26px; }
+.rail h4 { margin: 0 0 8px 10px; font-weight: 500; font-size: 12px; color: var(--rail-ink-3); }
+.doclist { display: flex; flex-direction: column; gap: 2px; }
+.docitem { text-align: left; border-radius: 10px; padding: 10px 10px 11px; display: flex; flex-direction: column; gap: 4px; transition: background .2s; }
+.docitem:hover { background: var(--rail-hover); }
+.docitem.cur { background: var(--rail-cur); }
+.docitem .dt { font-weight: 500; font-size: 13.5px; line-height: 1.35; color: var(--rail-ink); }
+.meta { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--rail-ink-3); flex-wrap: wrap; }
+.lvl { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; }
+.lvl::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.lvl.ok { color: var(--ok); } .lvl.mid { color: var(--mid); } .lvl.hard { color: var(--hard); }
+.rail .lvl.ok { color: var(--rail-ok); } .rail .lvl.mid { color: var(--rail-mid); } .rail .lvl.hard { color: var(--rail-hard); }
+.toc { display: flex; flex-direction: column; }
+.toc button { text-align: left; padding: 6px 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--rail-ink-2); font-size: 13px; }
+.toc button:hover:not(:disabled) { background: var(--rail-hover); }
+.toc button.cur { color: var(--rail-ink); background: var(--rail-cur); }
+.toc button.cur span::before { content: "·"; margin-left: -9px; margin-right: 5px; color: var(--rail-accent); font-weight: 600; }
+.toc small { color: var(--rail-ink-3); font-size: 11.5px; }
+.toc button:disabled { cursor: default; color: var(--rail-ink-3); font-size: 12px; }
+.legend { display: flex; flex-direction: column; gap: 9px; padding: 0 10px; font-size: 12.5px; color: var(--rail-ink-2); }
+.legend div { display: flex; gap: 10px; align-items: center; }
+.legend .sw { font-family: var(--f-read); font-size: 14px; color: var(--rail-ink); min-width: 58px; }
+
+/* 纸面 */
+.sheetwrap { min-height: 0; padding: 2px 22px 0; display: flex; }
+.reader {
+  flex: 1; overflow-y: auto; scroll-behavior: smooth; position: relative;
+  background-color: var(--paper); background-image: var(--grain);
+  border-radius: 6px 6px 0 0; box-shadow: 0 0 0 .5px var(--rule);
+}
+.page { max-width: 660px; margin: 0 auto; padding: 64px 40px 96px; font-family: var(--read-font); font-size: var(--read-size); line-height: var(--read-lh); font-optical-sizing: auto; hanging-punctuation: first; }
+.eyebrow { font-family: var(--f-ui); font-size: 12.5px; color: var(--ink-3); display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.eyebrow span + span::before { content: "·"; margin-right: 8px; }
+.page h1 { font-family: var(--read-font); font-weight: 600; font-size: 1.85em; line-height: 1.2; letter-spacing: -.01em; margin: 0 0 1.1em; text-wrap: balance; }
+.page p { margin: 0 0 1.05em; }
+/* 显示译文 */
+.page .ptr { display: none; font-family: var(--f-zh); font-size: .78em; line-height: 1.75; color: var(--ink-2); margin: -.55em 0 1.2em; padding-left: .9em; box-shadow: inset 2px 0 0 var(--rule); }
+.page .ptr-h { margin-top: -.6em; font-size: .72em; }
+.page.tr-on .ptr { display: block; }
+/* 行间释义：生词、学习中的词与短语上方显示简短中文 */
+.page.gloss-on { line-height: calc(var(--read-lh) + .3); }
+.page.gloss-on h1 { line-height: 1.2; }
+.page h1 .w::after, .page h1 .ph::after { display: none !important; }
+.page.gloss-on .w, .page.gloss-on .ph { position: relative; }
+.page.gloss-on .w.s0[data-g]::after, .page.gloss-on .w.s1[data-g]::after, .page.gloss-on .w.s2[data-g]::after, .page.gloss-on .w.s3[data-g]::after, .page.gloss-on .w.s4[data-g]::after, .page.gloss-on .ph.pl::after {
+  content: attr(data-g); position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, .15em);
+  font-family: var(--f-zh); font-size: 10.5px; line-height: 1.1; font-weight: 400; color: var(--accent); white-space: nowrap; pointer-events: none; text-indent: 0;
+}
+.page.gloss-on .ph.pl .w::after { display: none; }
+.page.gloss-on .ph.pl::after { color: var(--accent); }
+.mode-clean .w::after, .mode-clean .ph::after { display: none !important; }
+/* 手绘风格：选中框与短语下划线交给 Rough Notation 绘制 */
+html.rough .w.sel { box-shadow: none; }
+html.rough .page:not(.mode-new):not(.mode-clean) .ph { text-decoration-color: transparent; }
+html.rough .ph.sel { background: none; }
+.rough-annotation { z-index: 0; }
+.page pre { font-family: var(--f-mono); font-size: 13.5px; line-height: 1.7; background: var(--accent-wash); border-radius: 6px; padding: 18px 20px 16px; overflow-x: auto; margin: 0 0 1.3em; position: relative; }
+.page pre::before { content: "代码 · 不参与标注"; display: block; font-family: var(--f-ui); font-size: 11.5px; color: var(--ink-3); margin-bottom: 8px; }
+.page code.inl { font-family: var(--f-mono); font-size: .78em; background: var(--accent-wash); padding: 2px 5px; border-radius: 4px; }
+.tk-kw { color: var(--accent); } .tk-str { color: var(--ok); } .tk-com { color: var(--ink-3); }
+
+.sent { border-radius: 3px; transition: background .35s ease, box-shadow .35s ease; }
+.sent.playing { background: var(--play); box-shadow: 0 0 0 4px var(--play); }
+.w { cursor: pointer; border-radius: 2px; background-repeat: no-repeat; background-size: 100% 100%; transition: box-shadow .2s; }
+.w:hover { box-shadow: inset 0 -1.5px 0 var(--ink-3); }
+/* 荧光笔：色带只覆盖字的下半部分 */
+.w.s0 { background: linear-gradient(to bottom, transparent 34%, var(--hl-new) 34%, var(--hl-new) 90%, transparent 90%); }
+.w.s1 { background: linear-gradient(to bottom, transparent 34%, var(--hl-1) 34%, var(--hl-1) 90%, transparent 90%); }
+.w.s2 { background: linear-gradient(to bottom, transparent 34%, var(--hl-2) 34%, var(--hl-2) 90%, transparent 90%); }
+.w.s3 { background: linear-gradient(to bottom, transparent 34%, var(--hl-3) 34%, var(--hl-3) 90%, transparent 90%); }
+.w.s4 { background: linear-gradient(to bottom, transparent 34%, var(--hl-4) 34%, var(--hl-4) 90%, transparent 90%); }
+.w.s99 { text-decoration: underline dotted var(--pencil); text-decoration-thickness: 1.6px; text-underline-offset: 5px; }
+.w.sel { box-shadow: 0 0 0 1.5px var(--accent); border-radius: 3px; }
+.ph { text-decoration: underline solid var(--accent); text-decoration-thickness: 1px; text-underline-offset: 6px; text-decoration-skip-ink: none; }
+.ph.sel { background: var(--accent-wash); border-radius: 3px; }
+.mode-new .w.s1, .mode-new .w.s2, .mode-new .w.s3, .mode-new .w.s4 { background: transparent; }
+.mode-new .ph, .mode-clean .ph { text-decoration-color: transparent; }
+.mode-clean .w { background: transparent !important; text-decoration: none !important; }
+.flash { animation: flash 1.4s ease; }
+@keyframes flash { 0%,35% { box-shadow: 0 0 0 5px var(--accent-wash), 0 0 0 1.5px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+.endcard { font-family: var(--f-ui); margin-top: 56px; padding-top: 28px; border-top: .5px solid var(--rule); display: flex; flex-direction: column; gap: 12px; }
+.endcard h3 { margin: 0; font-weight: 600; font-size: 15px; }
+.endcard p { margin: 0; color: var(--ink-2); font-family: var(--f-zh); font-size: 14px; line-height: 1.8; max-width: 34em; }
+.row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+.btn { font-size: 13px; color: var(--ink-2); padding: 4px 0; border-bottom: .5px solid var(--ink-3); transition: color .15s, border-color .15s; }
+.btn:hover { color: var(--accent); border-color: var(--accent); }
+.btn.pri { background: var(--ink); color: var(--paper); border: 0; border-radius: 99px; padding: 8px 16px; }
+.btn.pri:hover { background: var(--accent); color: var(--paper); }
+.btn:disabled { opacity: .45; cursor: default; }
+
+/* 侧栏 */
+.panel { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding-right: 14px; }
+.tabs { display: flex; gap: 0; margin: 9px 0 8px; padding: 3px; border-radius: 999px; background: var(--track); align-items: center; position: relative; }
+.tabdot { position: absolute; left: 0; top: 3px; bottom: 3px; width: 60px; border-radius: 999px; background: var(--brand); z-index: 0; }
+.tab { flex: 1; z-index: 1; font-size: 13px; font-weight: 500; color: var(--ink-3); padding: 6px 0; border-radius: 999px; transition: color .2s; white-space: nowrap; }
+.tab:hover { color: var(--ink-2); }
+.tab.on, .tab.on .n { color: var(--brand-ink); }
+.tab .n { font-weight: 400; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.sheetclose { display: none; margin-left: auto; color: var(--ink-3); }
+.psheet { flex: 1; min-height: 0; display: flex; flex-direction: column; background-color: var(--paper); background-image: var(--grain); border-radius: 6px 6px 0 0; box-shadow: 0 0 0 .5px var(--rule); }
+.pbody { flex: 1; overflow-y: auto; padding: 22px 22px 22px; min-height: 0; }
+.pfoot { padding: 9px 4px 11px; font-size: 12px; color: var(--ink-3); display: flex; justify-content: space-between; gap: 10px; white-space: nowrap; overflow: hidden; }
+.pfoot b { font-weight: 500; color: var(--ink-2); }
+.pane { display: flex; flex-direction: column; gap: 22px; }
+
+/* 词卡：一张索引卡 */
+.icard { display: flex; flex-direction: column; gap: 20px; }
+.sec { display: flex; flex-direction: column; gap: 8px; }
+.sec > h5 { margin: 0; font-weight: 500; font-size: 12px; color: var(--ink-3); display: flex; gap: 8px; align-items: baseline; }
+.sec > h5 .note { color: var(--accent); font-weight: 600; }
+.empty { color: var(--ink-2); line-height: 1.85; font-family: var(--f-zh); font-size: 14px; }
+.kbd { font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); border: .5px solid var(--ink-3); border-radius: 4px; padding: 0 5px; }
+.whead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hw { font-family: var(--f-read); font-weight: 600; font-size: 30px; line-height: 1.1; letter-spacing: -.01em; word-break: break-word; }
+.pron { display: flex; gap: 10px; align-items: baseline; color: var(--ink-2); font-size: 13px; flex-wrap: wrap; margin-top: 8px; }
+.pron .ipa { font-family: var(--f-read); font-style: italic; font-size: 15px; }
+.stars { color: var(--mid); letter-spacing: 1px; font-size: 11px; }
+.tags { color: var(--ink-3); font-size: 12px; }
+.say { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none; color: var(--ink-2); box-shadow: inset 0 0 0 .5px var(--ink-3); transition: color .15s, box-shadow .15s; }
+.say:hover { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.gloss { font-family: var(--f-zh); font-size: 14px; line-height: 1.75; color: var(--ink); }
+.ask { font-family: var(--f-zh); font-size: 13.5px; line-height: 1.7; color: var(--ink-2); padding: 12px 14px; border-radius: 8px; border: 1px dashed var(--pencil); display: flex; flex-direction: column; gap: 10px; }
+.defs { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 4px; font-family: var(--f-zh); font-size: 14px; line-height: 1.7; color: var(--ink); }
+.defs li::marker { color: var(--ink-3); font-size: 12px; }
+details summary { cursor: pointer; color: var(--ink-3); font-size: 12.5px; list-style: none; }
+details summary::before { content: "＋ "; font-style: normal; }
+details[open] summary::before { content: "－ "; }
+.en { color: var(--ink-2); font-style: italic; font-family: var(--f-read); font-size: 15px; line-height: 1.6; margin-top: 4px; }
+.quote { font-family: var(--f-read); font-size: 15.5px; line-height: 1.65; color: var(--ink); }
+.quote mark { background: linear-gradient(to bottom, transparent 34%, var(--hl-new) 34%, var(--hl-new) 90%, transparent 90%); color: inherit; }
+.tr { color: var(--ink-2); font-family: var(--f-zh); font-size: 14px; line-height: 1.75; margin-top: 4px; }
+.divider { height: .5px; background: var(--rule); }
+.typing-dots { display: inline-flex; gap: 4px; padding: 6px 0; }
+.typing-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: blink 1.1s infinite ease-in-out; }
+.typing-dots i:nth-child(2) { animation-delay: .15s; } .typing-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+
+/* 学习状态：六个墨点 */
+.pips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+/* 熟练度阶梯：从"生词"到"掌握"六档，当前档及之前的格子按各自标注色填充 */
+.pip { display: flex; flex-direction: column; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-3); padding-top: 2px; }
+.pip i { display: block; width: 100%; height: 8px; border-radius: 4px; background: var(--track); transition: background .25s; }
+.pip:hover { color: var(--ink-2); }
+.pip:hover i { box-shadow: inset 0 0 0 1px var(--ink-3); }
+.pip.on { color: var(--ink); font-weight: 500; }
+.pip.fill[data-s="0"] i { background: var(--hl-new); } .pip.fill[data-s="1"] i { background: var(--hl-1); } .pip.fill[data-s="2"] i { background: var(--hl-2); }
+.pip.fill[data-s="3"] i { background: var(--hl-3); } .pip.fill[data-s="4"] i { background: color-mix(in srgb, var(--hl-4), var(--ink-3) 25%); } .pip.fill[data-s="5"] i { background: var(--ink-2); }
+.pip.on i { box-shadow: inset 0 0 0 1.25px var(--ink-2); }
+.stagedesc { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+.stagedesc b { font-weight: 500; color: var(--ink); }
+.subrow { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: 12.5px; color: var(--ink-3); flex-wrap: wrap; }
+.subrow .lbl-i { font-size: 12px; }
+.linkbtn { color: var(--ink-2); font-size: 12.5px; border-bottom: .5px solid transparent; }
+.linkbtn:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 14px; line-height: 1.6; margin: 0; }
+.kv dt { font-family: var(--f-read); white-space: nowrap; color: var(--ink); }
+.kv dd { margin: 0; color: var(--ink-2); font-family: var(--f-zh); font-size: 13.5px; }
+.plist { display: flex; flex-direction: column; }
+.pitem { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; text-align: left; padding: 7px 0; border-bottom: .5px solid var(--rule); }
+.pitem:last-child { border-bottom: 0; }
+.pitem b { font-family: var(--f-read); font-weight: 400; font-size: 15px; text-decoration: underline solid var(--accent); text-decoration-thickness: 1px; text-underline-offset: 5px; }
+.pitem span { color: var(--ink-2); font-family: var(--f-zh); font-size: 13px; text-align: right; }
+.pitem:hover b { color: var(--accent); }
+.meter { height: 3px; border-radius: 2px; background: var(--rule); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); transform-origin: left; }
+
+.vgroup { display: flex; flex-direction: column; }
+.vrow { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: baseline; padding: 7px 0; text-align: left; border-bottom: .5px solid var(--rule); }
+.vrow:last-child { border-bottom: 0; }
+.vrow b { font-family: var(--f-read); font-weight: 400; font-size: 15.5px; justify-self: start; padding: 0 2px; }
+.vrow span { color: var(--ink-2); font-family: var(--f-zh); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.vrow:hover b { color: var(--accent); }
+
+/* 助手 */
+.ahead { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+.ahead select { font-size: 12.5px; font-weight: 500; color: var(--ink-2); background: transparent; border: 0; padding: 0; max-width: 100%; }
+.ctxline { color: var(--ink-3); font-size: 12px; line-height: 1.6; }
+.ctxline b { font-weight: 400; color: var(--ink-2); }
+.msgs { display: flex; flex-direction: column; gap: 16px; }
+.msg { line-height: 1.75; font-size: 13.5px; font-family: var(--f-zh); }
+.msg.u { align-self: flex-end; background: var(--track); padding: 8px 14px; border-radius: 16px 16px 4px 16px; max-width: 88%; font-size: 13.5px; }
+.msg.a p { margin: 0 0 8px; } .msg.a p:last-child { margin: 0; }
+.msg.a ol, .msg.a ul { margin: 4px 0; padding-left: 1.3em; }
+.msg.a i { font-family: var(--f-read); }
+.tool { border: .5px solid var(--ink-3); border-radius: 8px; padding: 10px 12px; font-family: var(--f-mono); font-size: 11.5px; line-height: 1.7; display: flex; flex-direction: column; gap: 4px; margin: 8px 0; color: var(--ink-2); }
+.tool code { color: var(--accent); }
+.tool .row { justify-content: space-between; gap: 8px; }
+.memref { font-size: 12px; color: var(--ink-3); }
+.suggest { display: flex; gap: 8px; flex-wrap: wrap; }
+.suggest button { font-family: var(--f-zh); font-size: 12.5px; color: var(--ink-2); padding: 6px 12px; border-radius: 99px; background: var(--track); transition: color .15s, background .15s; }
+.suggest button:hover { color: var(--ink); background: transparent; box-shadow: inset 0 0 0 .75px var(--ink-3); }
+.composer { margin: 0 16px 16px; padding: 5px 5px 5px 16px; display: flex; gap: 8px; align-items: center; border-radius: 999px; background: var(--track); transition: box-shadow .2s, background .2s; }
+.composer:focus-within { background: var(--paper); box-shadow: inset 0 0 0 1px var(--accent); }
+.composer textarea { flex: 1; min-width: 0; resize: none; border: 0; outline: none; background: transparent; padding: 8px 0; font-family: var(--f-zh); font-size: 13.5px; color: var(--ink); height: 36px; line-height: 20px; }
+.send { width: 32px; height: 32px; border-radius: 50%; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; flex: none; transition: transform .15s; }
+.send:hover { transform: scale(1.06); }
+.composer textarea::placeholder { color: var(--ink-3); }
+.typing { color: var(--ink-3); }
+.memlist { display: flex; flex-direction: column; gap: 8px; font-size: 13px; padding: 14px 16px; border-radius: 10px; background: var(--paper); background-image: var(--grain); box-shadow: 0 0 0 .5px var(--rule); font-family: var(--f-zh); line-height: 1.6; }
+.memlist div { display: grid; grid-template-columns: 40px 1fr; gap: 10px; }
+.memlist em { font-style: normal; color: var(--ink-3); font-size: 12px; }
+
+/* 页脚 */
+.foot { padding: 9px 22px 11px; display: flex; gap: 18px; align-items: center; font-size: 12px; color: var(--ink-3); min-width: 0; }
+.prog { width: 120px; height: 2px; border-radius: 2px; background: var(--rule); overflow: hidden; flex: none; }
+.prog i { display: block; height: 100%; width: 0; background: var(--ink-2); transition: width .2s; }
+.foot .counts { display: flex; gap: 14px; flex-wrap: wrap; }
+.foot b { font-weight: 500; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.foot .sp { flex: 1; }
+.sw0 { background: linear-gradient(to bottom, transparent 34%, var(--hl-new) 34%, var(--hl-new) 90%, transparent 90%); }
+.sw1 { background: linear-gradient(to bottom, transparent 34%, var(--hl-1) 34%, var(--hl-1) 90%, transparent 90%); }
+
+/* 浮层 */
+.pop { position: absolute; z-index: 30; background: var(--paper); border-radius: 12px; box-shadow: 0 0 0 1px var(--rule); }
+.seltool { display: flex; gap: 2px; padding: 5px; }
+.seltool button { padding: 6px 12px; border-radius: 8px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.seltool button:hover { background: var(--accent-wash); color: var(--accent); }
+.settings { position: fixed; top: 58px; right: 34px; width: 300px; padding: 18px; display: flex; flex-direction: column; gap: 16px; font-size: 13px; }
+.settings label, .settings .grp { display: flex; flex-direction: column; gap: 8px; }
+.settings .lab { font-weight: 500; color: var(--ink-3); font-size: 12px; display: flex; justify-content: space-between; }
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg button { padding: 5px 11px; border-radius: 99px; font-size: 12.5px; color: var(--ink-2); box-shadow: inset 0 0 0 .75px var(--rule); }
+.seg button:hover { color: var(--ink); }
+.seg button.on { color: var(--paper); background: var(--ink); box-shadow: none; }
+.seg .ff-serif { font-family: var(--f-read); font-size: 14px; } .seg .ff-classic { font-family: "Source Serif 4", serif; font-size: 14px; } .seg .ff-sans { font-family: "Geist", sans-serif; }
+input[type=range] { accent-color: var(--ink); width: 100%; }
+.toast { position: fixed; left: 50%; bottom: calc(52px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 99px; display: flex; gap: 16px; align-items: center; font-family: var(--f-zh); font-size: 13px; z-index: 40;  max-width: calc(100% - 32px); }
+.toast button { color: var(--paper); font-family: var(--f-ui); opacity: .85; border-bottom: .5px solid currentColor; }
+
+@media (max-width: 1120px) {
+  .app { grid-template-columns: minmax(0,1fr) 340px; }
+  .rail:not(.open) { display: none !important; }
+  .rail.open { display: flex; position: absolute; z-index: 25; top: 0; bottom: 0; left: 0; width: 270px; }
+  #railBtn { display: inline-flex; }
+  .sheetwrap { padding: 2px 14px 0; }
+}
+@media (max-width: 760px) {
+  body { padding-block: 0; padding-left: 0; padding-right: 0; }
+  .app { border-radius: 0; box-shadow: none; padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+  .dots, .bar .hide-s { display: none; }
+  .bar { padding: 10px 14px 6px; grid-template-columns: auto minmax(0,1fr) auto; }
+  .speed { display: none; }
+  .tog { padding: 4px 8px; font-size: 12px; }
+  .bar .r, .bar .l { gap: 8px; }
+  .bar { grid-template-columns: auto 0 auto; justify-content: space-between; }
+  .titlebox { display: none; }
+  .app { grid-template-columns: minmax(0,1fr); }
+  .sheetwrap { padding: 2px 0 0; }
+  .reader { border-radius: 0; }
+  .page { padding: 36px 22px 120px; }
+  .page h1 { font-size: 2.1em; }
+  .panel { position: fixed; z-index: 35; left: 0; right: 0; bottom: 0; height: 64%; margin: 0; background: var(--desk); padding: 0 10px; border-radius: 18px 18px 0 0; box-shadow: 0 -1px 0 var(--rule); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); transform: translateY(105%); transition: transform .3s ease; }
+  .panel.open { transform: none; }
+  .tabs { margin: 10px 0 8px; }
+  .pfoot { display: none; }
+  .sheetclose { padding: 0 8px; z-index: 1; }
+  .sheetclose { display: inline-flex; }
+  .foot { padding: 8px 14px; gap: 12px; }
+  .foot .prog { width: 48px; }
+  .foot .eta, .foot .ratio-w { display: none; }
+  .settings { right: 12px; left: 12px; width: auto; top: 54px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+</style>
+<style>
+/* OverlayScrollbars 2.10.1 样式（MIT，内联） */
+/*! 
+ * OverlayScrollbars
+ * Version: 2.10.1
+ * 
+ * Copyright (c) Rene Haas | KingSora.
+ * https://github.com/KingSora
+ * 
+ * Released under the MIT license.
+ */.os-size-observer,.os-size-observer-listener{box-sizing:border-box;direction:inherit;overflow:hidden;pointer-events:none;scroll-behavior:auto!important;visibility:hidden}.os-size-observer,.os-size-observer-listener,.os-size-observer-listener-item,.os-size-observer-listener-item-final{left:0;position:absolute;top:0;writing-mode:horizontal-tb}.os-size-observer{border:inherit;bottom:0;box-sizing:inherit;contain:strict;display:flex;flex-direction:row;flex-wrap:nowrap;left:0;margin:-133px;padding:inherit;right:0;top:0;transform:scale(.1);z-index:-1}.os-size-observer:before{box-sizing:inherit;content:"";flex:none;height:10px;padding:10px;width:10px}.os-size-observer-appear{animation:os-size-observer-appear-animation 1ms forwards}.os-size-observer-listener{border:inherit;box-sizing:border-box;flex:auto;margin:-133px;padding:inherit;position:relative;transform:scale(10)}.os-size-observer-listener.ltr{margin-left:0;margin-right:-266px}.os-size-observer-listener.rtl{margin-left:-266px;margin-right:0}.os-size-observer-listener:empty:before{content:"";height:100%;width:100%}.os-size-observer-listener:empty:before,.os-size-observer-listener>.os-size-observer-listener-item{border:inherit;box-sizing:content-box;display:block;flex:auto;padding:inherit;position:relative}.os-size-observer-listener-scroll{box-sizing:border-box;display:flex}.os-size-observer-listener-item{bottom:0;direction:ltr;flex:none;overflow:hidden;right:0}.os-size-observer-listener-item-final{transition:none}@keyframes os-size-observer-appear-animation{0%{cursor:auto}to{cursor:none}}.os-trinsic-observer{border:none;box-sizing:border-box;contain:strict;flex:none;height:0;margin:0;max-height:1px;max-width:0;overflow:hidden;padding:0;position:relative;top:calc(100% + 1px);z-index:-1}.os-trinsic-observer:not(:empty){height:calc(100% + 1px);top:-1px}.os-trinsic-observer:not(:empty)>.os-size-observer{height:1000%;min-height:1px;min-width:1px;width:1000%}[data-overlayscrollbars-initialize],[data-overlayscrollbars-viewport~=scrollbarHidden]{scrollbar-width:none!important}[data-overlayscrollbars-initialize]::-webkit-scrollbar,[data-overlayscrollbars-initialize]::-webkit-scrollbar-corner,[data-overlayscrollbars-viewport~=scrollbarHidden]::-webkit-scrollbar,[data-overlayscrollbars-viewport~=scrollbarHidden]::-webkit-scrollbar-corner{-webkit-appearance:none!important;appearance:none!important;display:none!important;height:0!important;width:0!important}[data-overlayscrollbars-initialize]:not([data-overlayscrollbars]):not(html):not(body){overflow:auto}html[data-overlayscrollbars-body]{overflow:hidden}html[data-overlayscrollbars-body],html[data-overlayscrollbars-body]>body{height:100%;margin:0;width:100%}html[data-overlayscrollbars-body]>body{margin:0;overflow:visible}[data-overlayscrollbars]{position:relative}[data-overlayscrollbars-padding],[data-overlayscrollbars~=host]{align-items:stretch!important;display:flex;flex-direction:row!important;flex-wrap:nowrap!important;scroll-behavior:auto!important}[data-overlayscrollbars-padding],[data-overlayscrollbars-viewport]:not([data-overlayscrollbars]){border:none;box-sizing:inherit;flex:auto!important;height:auto;margin:0;min-width:0;padding:0;position:relative;width:100%;z-index:0}[data-overlayscrollbars-viewport]:not([data-overlayscrollbars]){--os-vaw:0;--os-vah:0;outline:none}[data-overlayscrollbars-viewport]:not([data-overlayscrollbars]):focus{outline:none}[data-overlayscrollbars-viewport][data-overlayscrollbars-viewport~=arrange]:before{content:"";height:var(--os-vah);min-height:1px;min-width:1px;pointer-events:none;position:absolute;width:var(--os-vaw);z-index:-1}[data-overlayscrollbars-padding],[data-overlayscrollbars-viewport],[data-overlayscrollbars]{overflow:hidden!important}[data-overlayscrollbars-padding~=noClipping],[data-overlayscrollbars~=noClipping]{overflow:visible!important}[data-overlayscrollbars-viewport~=measuring]{overflow:hidden!important;scroll-behavior:auto!important;scroll-snap-type:none!important}[data-overlayscrollbars-viewport~=overflowXVisible]:not([data-overlayscrollbars-viewport~=measuring]){overflow-x:visible!important}[data-overlayscrollbars-viewport~=overflowXHidden]{overflow-x:hidden!important}[data-overlayscrollbars-viewport~=overflowXScroll]{overflow-x:scroll!important}[data-overlayscrollbars-viewport~=overflowYVisible]:not([data-overlayscrollbars-viewport~=measuring]){overflow-y:visible!important}[data-overlayscrollbars-viewport~=overflowYHidden]{overflow-y:hidden!important}[data-overlayscrollbars-viewport~=overflowYScroll]{overflow-y:scroll!important}[data-overlayscrollbars-viewport~=noContent]:not(#osFakeId){font-size:0!important;line-height:0!important}[data-overlayscrollbars-viewport~=noContent]:not(#osFakeId):after,[data-overlayscrollbars-viewport~=noContent]:not(#osFakeId):before,[data-overlayscrollbars-viewport~=noContent]:not(#osFakeId)>*{clip:rect(0,0,0,0)!important;border-width:0!important;display:none!important;height:1px!important;margin:-1px!important;overflow:hidden!important;padding:0!important;position:absolute!important;white-space:nowrap!important;width:1px!important}[data-overlayscrollbars-viewport~=scrolling]{scroll-behavior:auto!important;scroll-snap-type:none!important}[data-overlayscrollbars-content]{box-sizing:inherit}[data-overlayscrollbars-contents]:not(#osFakeId):not([data-overlayscrollbars-padding]):not([data-overlayscrollbars-viewport]):not([data-overlayscrollbars-content]){display:contents}[data-overlayscrollbars-grid],[data-overlayscrollbars-grid] [data-overlayscrollbars-padding]{display:grid;grid-template:1fr/1fr}[data-overlayscrollbars-grid]>[data-overlayscrollbars-padding],[data-overlayscrollbars-grid]>[data-overlayscrollbars-padding]>[data-overlayscrollbars-viewport],[data-overlayscrollbars-grid]>[data-overlayscrollbars-viewport]{height:auto!important;width:auto!important}@property --os-scroll-percent{syntax:"<number>";inherits:true;initial-value:0}@property --os-viewport-percent{syntax:"<number>";inherits:true;initial-value:0}.os-scrollbar{--os-viewport-percent:0;--os-scroll-percent:0;--os-scroll-direction:0;--os-scroll-percent-directional:calc(var(--os-scroll-percent) - (var(--os-scroll-percent) + (1 - var(--os-scroll-percent))*-1)*var(--os-scroll-direction));contain:size layout;contain:size layout style;opacity:0;pointer-events:none;position:absolute;transition:opacity .15s,visibility .15s,top .15s,right .15s,bottom .15s,left .15s;visibility:hidden}body>.os-scrollbar{position:fixed;z-index:99999}.os-scrollbar-transitionless{transition:none!important}.os-scrollbar-track{border:none!important;padding:0!important;position:relative}.os-scrollbar-handle{position:absolute}.os-scrollbar-handle,.os-scrollbar-track{height:100%;pointer-events:none;width:100%}.os-scrollbar.os-scrollbar-handle-interactive .os-scrollbar-handle,.os-scrollbar.os-scrollbar-track-interactive .os-scrollbar-track{pointer-events:auto;touch-action:none}.os-scrollbar-horizontal{bottom:0;left:0}.os-scrollbar-vertical{right:0;top:0}.os-scrollbar-rtl.os-scrollbar-horizontal{right:0}.os-scrollbar-rtl.os-scrollbar-vertical{left:0;right:auto}.os-scrollbar-visible{opacity:1;visibility:visible}.os-scrollbar-auto-hide.os-scrollbar-auto-hide-hidden{opacity:0;visibility:hidden}.os-scrollbar-interaction.os-scrollbar-visible{opacity:1;visibility:visible}.os-scrollbar-unusable,.os-scrollbar-unusable *,.os-scrollbar-wheel,.os-scrollbar-wheel *{pointer-events:none!important}.os-scrollbar-unusable .os-scrollbar-handle{opacity:0!important;transition:none!important}.os-scrollbar-horizontal .os-scrollbar-handle{bottom:0;left:calc(var(--os-scroll-percent-directional)*100%);transform:translateX(calc(var(--os-scroll-percent-directional)*-100%));width:calc(var(--os-viewport-percent)*100%)}.os-scrollbar-vertical .os-scrollbar-handle{height:calc(var(--os-viewport-percent)*100%);right:0;top:calc(var(--os-scroll-percent-directional)*100%);transform:translateY(calc(var(--os-scroll-percent-directional)*-100%))}@supports (container-type:size){.os-scrollbar-track{container-type:size}.os-scrollbar-horizontal .os-scrollbar-handle{left:auto;transform:translateX(calc(var(--os-scroll-percent-directional)*100cqw + var(--os-scroll-percent-directional)*-100%))}.os-scrollbar-vertical .os-scrollbar-handle{top:auto;transform:translateY(calc(var(--os-scroll-percent-directional)*100cqh + var(--os-scroll-percent-directional)*-100%))}.os-scrollbar-rtl.os-scrollbar-horizontal .os-scrollbar-handle{left:0;right:auto}}.os-scrollbar-rtl.os-scrollbar-vertical .os-scrollbar-handle{left:0;right:auto}.os-scrollbar.os-scrollbar-horizontal.os-scrollbar-cornerless,.os-scrollbar.os-scrollbar-horizontal.os-scrollbar-cornerless.os-scrollbar-rtl{left:0;right:0}.os-scrollbar.os-scrollbar-vertical.os-scrollbar-cornerless,.os-scrollbar.os-scrollbar-vertical.os-scrollbar-cornerless.os-scrollbar-rtl{bottom:0;top:0}@media print{.os-scrollbar{display:none}}.os-scrollbar{--os-size:0;--os-padding-perpendicular:0;--os-padding-axis:0;--os-track-border-radius:0;--os-track-bg:none;--os-track-bg-hover:none;--os-track-bg-active:none;--os-track-border:none;--os-track-border-hover:none;--os-track-border-active:none;--os-handle-border-radius:0;--os-handle-bg:none;--os-handle-bg-hover:none;--os-handle-bg-active:none;--os-handle-border:none;--os-handle-border-hover:none;--os-handle-border-active:none;--os-handle-min-size:33px;--os-handle-max-size:none;--os-handle-perpendicular-size:100%;--os-handle-perpendicular-size-hover:100%;--os-handle-perpendicular-size-active:100%;--os-handle-interactive-area-offset:0}.os-scrollbar-track{background:var(--os-track-bg);border:var(--os-track-border);border-radius:var(--os-track-border-radius);transition:opacity .15s,background-color .15s,border-color .15s}.os-scrollbar-track:hover{background:var(--os-track-bg-hover);border:var(--os-track-border-hover)}.os-scrollbar-track:active{background:var(--os-track-bg-active);border:var(--os-track-border-active)}.os-scrollbar-handle{background:var(--os-handle-bg);border:var(--os-handle-border);border-radius:var(--os-handle-border-radius)}.os-scrollbar-handle:hover{background:var(--os-handle-bg-hover);border:var(--os-handle-border-hover)}.os-scrollbar-handle:active{background:var(--os-handle-bg-active);border:var(--os-handle-border-active)}.os-scrollbar-handle:before,.os-scrollbar-track:before{bottom:0;content:"";display:block;left:0;position:absolute;right:0;top:0}.os-scrollbar-horizontal{height:var(--os-size);padding:var(--os-padding-perpendicular) var(--os-padding-axis);right:var(--os-size)}.os-scrollbar-horizontal.os-scrollbar-rtl{left:var(--os-size);right:0}.os-scrollbar-horizontal .os-scrollbar-track:before{bottom:calc(var(--os-padding-perpendicular)*-1);top:calc(var(--os-padding-perpendicular)*-1)}.os-scrollbar-horizontal .os-scrollbar-handle{height:var(--os-handle-perpendicular-size);max-width:var(--os-handle-max-size);min-width:var(--os-handle-min-size);transition:opacity .15s,background-color .15s,border-color .15s,height .15s}.os-scrollbar-horizontal .os-scrollbar-handle:before{bottom:calc(var(--os-padding-perpendicular)*-1);top:calc((var(--os-padding-perpendicular) + var(--os-handle-interactive-area-offset))*-1)}.os-scrollbar-horizontal:hover .os-scrollbar-handle{height:var(--os-handle-perpendicular-size-hover)}.os-scrollbar-horizontal:active .os-scrollbar-handle{height:var(--os-handle-perpendicular-size-active)}.os-scrollbar-vertical{bottom:var(--os-size);padding:var(--os-padding-axis) var(--os-padding-perpendicular);width:var(--os-size)}.os-scrollbar-vertical .os-scrollbar-track:before{left:calc(var(--os-padding-perpendicular)*-1);right:calc(var(--os-padding-perpendicular)*-1)}.os-scrollbar-vertical .os-scrollbar-handle{max-height:var(--os-handle-max-size);min-height:var(--os-handle-min-size);transition:opacity .15s,background-color .15s,border-color .15s,width .15s;width:var(--os-handle-perpendicular-size)}.os-scrollbar-vertical .os-scrollbar-handle:before{left:calc((var(--os-padding-perpendicular) + var(--os-handle-interactive-area-offset))*-1);right:calc(var(--os-padding-perpendicular)*-1)}.os-scrollbar-vertical.os-scrollbar-rtl .os-scrollbar-handle:before{left:calc(var(--os-padding-perpendicular)*-1);right:calc((var(--os-padding-perpendicular) + var(--os-handle-interactive-area-offset))*-1)}.os-scrollbar-vertical:hover .os-scrollbar-handle{width:var(--os-handle-perpendicular-size-hover)}.os-scrollbar-vertical:active .os-scrollbar-handle{width:var(--os-handle-perpendicular-size-active)}.os-theme-none.os-scrollbar,[data-overlayscrollbars-viewport~=measuring]>.os-scrollbar{display:none!important}.os-theme-dark,.os-theme-light{--os-size:10px;--os-padding-perpendicular:2px;--os-padding-axis:2px;--os-track-border-radius:10px;--os-handle-interactive-area-offset:4px;--os-handle-border-radius:10px;box-sizing:border-box}.os-theme-dark{--os-handle-bg:rgba(0,0,0,.44);--os-handle-bg-hover:rgba(0,0,0,.55);--os-handle-bg-active:rgba(0,0,0,.66)}.os-theme-light{--os-handle-bg:hsla(0,0%,100%,.44);--os-handle-bg-hover:hsla(0,0%,100%,.55);--os-handle-bg-active:hsla(0,0%,100%,.66)}
+/* LexiRead 主题：细圆角滑块，滚动时出现、停止后自动隐藏，悬停 / 拖动时变粗加深 */
+.os-theme-lexi {
+  --os-size: 12px; --os-padding-perpendicular: 3px; --os-padding-axis: 8px;
+  --os-track-border-radius: 99px; --os-track-bg: transparent; --os-track-bg-hover: transparent; --os-track-bg-active: transparent;
+  --os-handle-border-radius: 99px; --os-handle-bg: var(--scroll); --os-handle-bg-hover: var(--scroll-hover); --os-handle-bg-active: var(--scroll-active);
+  --os-handle-min-size: 36px; --os-handle-perpendicular-size: 66%; --os-handle-perpendicular-size-hover: 100%; --os-handle-perpendicular-size-active: 100%;
+  --os-handle-interactive-area-offset: 4px;
+}
+.reader .os-viewport { scroll-behavior: smooth; }
+</style>
+
+<div class="app" id="app">
+  <nav class="rail" id="rail"><div class="rail-inner">
+    <div class="railtop">
+      <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+      <a class="tbtn" id="backBtn" title="返回首页" href="https://claude.ai/artifact/25jzi4f4fvQg9qbpiQziqd" target="_blank" rel="noopener" style="text-decoration:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M15 18l-6-6 6-6"/></svg>书架</a>
+    </div>
+    <div><h4>最近阅读</h4><div class="doclist" id="doclist"></div></div>
+    <div id="tocWrap"><h4>目录</h4><div class="toc" id="toc"></div></div>
+    <div><h4>标注</h4>
+      <div class="legend">
+        <div><span class="sw"><span class="sw0">word</span></span>生词</div>
+        <div><span class="sw"><span class="sw1">word</span></span>学习中，越熟越淡</div>
+        <div><span class="sw" style="text-decoration:underline dotted var(--rail-ink-3);text-decoration-thickness:1.6px;text-underline-offset:5px">word</span>推断认识，待确认</div>
+        <div><span class="sw" style="text-decoration:underline solid var(--rail-accent);text-decoration-thickness:1px;text-underline-offset:5px">phrase</span>短语</div>
+      </div>
+    </div>
+  </div></nav>
+
+  <div class="center">
+    <header class="bar">
+      <div class="l">
+        <button class="tbtn" id="railBtn" title="书架与目录"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+        <button class="tog" id="trTog" aria-pressed="false" title="在每段下方显示中文译文（T）">译文</button>
+        <button class="tog" id="glossTog" aria-pressed="false" title="在生词和学习中的词上方显示简短释义（G）">行间释义</button>
+      </div>
+      <div class="titlebox"><div class="t" id="docTitle"></div></div>
+      <div class="r">
+        <button class="tbtn" id="playBtn" title="朗读（P）"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg><span class="hide-s">朗读</span></button>
+        <select class="speed" id="speed" aria-label="朗读速度"><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option></select>
+        <button class="tbtn" id="setBtn" title="阅读设置"><span style="font-family:var(--f-read);font-weight:600;font-size:16px;line-height:1">Aa</span></button>
+      </div>
+    </header>
+
+    <div class="sheetwrap"><section class="reader" id="reader"><article class="page" id="page"></article></section></div>
+
+    <footer class="foot">
+      <div class="prog"><i id="progBar"></i></div>
+      <span id="progTxt">0%</span>
+      <div class="counts">
+        <span>生词 <b id="cNew">0</b></span>
+        <span>学习中 <b id="cLearn">0</b></span>
+        <span>待确认 <b id="cUnc">0</b></span>
+      </div>
+      <span class="sp"></span>
+      <span class="ratio-w" id="ratio"></span>
+      <span class="eta" id="eta"></span>
+    </footer>
+  </div>
+
+  <aside class="panel" id="panel" aria-label="侧栏">
+    <div class="tabs" role="tablist">
+      <button class="tab on" data-tab="card">词卡</button>
+      <button class="tab" data-tab="sum">总结</button>
+      <button class="tab" data-tab="asst">助手</button>
+      <button class="tab" data-tab="vocab">生词 <span class="n" id="vocabN"></span></button>
+      <button class="sheetclose" id="sheetClose" title="收起"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 9l6 6 6-6"/></svg></button>
+      <i class="tabdot" id="tabdot" aria-hidden="true"></i>
+    </div>
+    <div class="psheet">
+    <div class="pbody" id="pbody">
+      <div class="pane" id="pane-card"></div>
+      <div class="pane" id="pane-sum" hidden></div>
+      <div class="pane" id="pane-asst" hidden></div>
+      <div class="pane" id="pane-vocab" hidden></div>
+    </div>
+    <div class="composer" id="composer" hidden>
+      <textarea id="askInput" placeholder="问问 Lexi…" aria-label="向助手提问"></textarea>
+      <button class="send" id="askSend" aria-label="发送"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+    </div>
+    </div>
+    <footer class="pfoot"><span>✦ Lexi · 内置 DeepSeek</span><span>记得关于你的 <b>4</b> 件事</span></footer>
+  </aside>
+</div>
+
+<div class="pop seltool" id="selTool" hidden>
+  <button id="mkPhrase">标记为短语</button>
+  <button id="askSel">问 Lexi</button>
+</div>
+
+<div class="pop settings" id="settings" hidden>
+  <div class="grp"><span class="lab">纸面</span>
+    <div class="seg" id="paperSeg"><button data-p="auto" class="on">跟随系统</button><button data-p="light">白纸</button><button data-p="sepia">米色纸</button><button data-p="dark">夜读</button></div>
+  </div>
+  <div class="grp"><span class="lab">左栏颜色</span>
+    <div class="seg" id="palSeg"><button data-pal="indigo" class="on">靛蓝</button><button data-pal="green">墨绿</button><button data-pal="ink">炭黑</button><button data-pal="plain">素色</button></div>
+  </div>
+  <div class="grp"><span class="lab">正文字体</span>
+    <div class="seg" id="fontSeg"><button data-f="serif" class="ff-serif on">Charter</button><button data-f="classic" class="ff-classic">Source Serif</button><button data-f="sans" class="ff-sans">Geist</button></div>
+  </div>
+  <div class="grp"><span class="lab">手绘风格</span>
+    <div class="seg" id="roughSeg"><button data-r="on" class="on">开</button><button data-r="off">关</button></div>
+  </div>
+  <div class="grp"><span class="lab">标注</span>
+    <div class="seg" id="modeSeg"><button data-m="all" class="on">全部</button><button data-m="new">仅生词</button><button data-m="clean">纯净阅读</button></div>
+  </div>
+  <label for="fs"><span class="lab">字号 <span id="fsv">20</span></span><input type="range" id="fs" min="16" max="26" value="20"></label>
+  <label for="lh"><span class="lab">行距 <span id="lhv">1.72</span></span><input type="range" id="lh" min="1.5" max="2.1" step="0.02" value="1.72"></label>
+  <div class="empty" style="font-size:12.5px;line-height:2"><span class="kbd">0</span> 生词 <span class="kbd">1</span>–<span class="kbd">4</span> 见过→熟悉 <span class="kbd">K</span> 掌握 <span class="kbd">I</span> 忽略 <span class="kbd">J</span> 下一个生词 <span class="kbd">P</span> 朗读 <span class="kbd">T</span> 译文 <span class="kbd">G</span> 行间释义</div>
+</div>
+
+<div class="toast" id="toast" hidden><span id="toastTxt"></span><button id="toastUndo">撤销</button></div>
+
+<script src="https://cdn.jsdelivr.net/npm/motion@11.11.17/dist/motion.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/rough-notation/0.5.1/rough-notation.iife.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/overlayscrollbars/2.10.1/browser/overlayscrollbars.browser.es6.min.js"></script>
+<script>
+/* ============ 滚动条（OverlayScrollbars：滚动时出现，停下后自动隐藏；库加载失败时退回原生细滚动条） ============ */
+const OSG = window.OverlayScrollbarsGlobal;
+function osInit(sel) {
+  const host = document.querySelector(sel);
+  if (!OSG) return host;
+  try {
+    const os = OSG.OverlayScrollbars(host, { overflow: { x: 'hidden' }, scrollbars: { theme: 'os-theme-lexi', autoHide: 'scroll', autoHideDelay: 900, clickScroll: true } });
+    return os.elements().viewport;
+  } catch (e) { return host; }
+}
+const READER = osInit('#reader'), PBODY = osInit('#pbody');
+osInit('#rail');
+
+/* ============ 示例数据（原型用；正式版来自 ECDICT + 用户词库 + AI 缓存） ============ */
+const STATUS_LABEL = {0:'生词',1:'见过',2:'眼熟',3:'认得',4:'熟悉',5:'掌握',98:'忽略',99:'待确认'};
+
+// 用户词库：lemma → 状态。未出现的词按「词汇量画像」推断为已知（原型简化）
+const VOCAB = {
+  upshot:0, overhead:2, distinctive:3, deterministically:0, reclaim:0, binding:99, verify:4, outlive:0, dangle:0, notoriously:0, steep:99, grapple:0, intuitive:1, constraint:99,
+  intensify:4, stormwater:0, embrace:3, permeable:0, wetland:99, advocate:2, ancillary:0, habitat:2, skeptic:1, oversell:0, dent:0, runoff:0, retrofit:0, mindset:99, channel:99,
+  acknowledge:3, rightful:99, impatiently:2, objection:4
+};
+const IGNORE = new Set(['rust','c','bennet','netherfield','park','long','mr','mrs','s1','s2']);
+const LEMMA = { moves:'move', dropped:'drop', reclaimed:'reclaim', dangling:'dangle', grappling:'grapple', outlives:'outlive', constraints:'constraint', verifies:'verify', intensify:'intensify', embracing:'embrace', wetlands:'wetland', advocates:'advocate', habitats:'habitat', skeptics:'skeptic', oversold:'oversell', retrofitting:'retrofit', channeling:'channel', acknowledged:'acknowledge', points:'point', goes:'go', called:'call', find:'find', taken:'take', made:'make', has:'have', had:'have', is:'be', are:'be', was:'be', been:'be' };
+
+const DICT = {
+  upshot:{g:'结果', ph:'/ˈʌpʃɒt/', stars:1, tags:['GRE'], zh:['n. 最终结果；结局'], en:'the final or eventual outcome of a series of events', ctx:'（这一切带来的）最终结果。这里指：所有权机制最终换来的好处。'},
+  overhead:{g:'开销', ph:'/ˈəʊvəhed/', stars:3, tags:['CET6','IELTS'], zh:['n. 经常性开支；（计算机）开销','adj. 头顶上的'], en:'the extra cost in time or resources needed to do something', ctx:'运行时开销：程序运行时额外消耗的性能与资源。'},
+  distinctive:{g:'独特的', ph:'/dɪˈstɪŋktɪv/', stars:3, tags:['CET6'], zh:['adj. 独特的，与众不同的'], en:'having a quality that makes it different and easy to recognize', ctx:'独特的：让 Rust 在系统语言中与众不同。'},
+  deterministically:{g:'确定性地', ph:'/dɪˌtɜːmɪˈnɪstɪkli/', stars:0, tags:[], zh:['adv. 确定性地'], en:'in a way that is fully determined by known rules', ctx:'以确定、可预知的方式（在离开作用域的那一刻释放内存），对比垃圾回收在不确定的时间回收。'},
+  reclaim:{g:'回收', ph:'/rɪˈkleɪm/', stars:2, tags:['CET6','TOEFL'], zh:['v. 收回；回收；开垦'], en:'to take back something that was lost or used', ctx:'（内存被）回收。'},
+  binding:{g:'绑定', ph:'/ˈbaɪndɪŋ/', stars:2, tags:['CET6'], zh:['n. 捆绑；装订；（编程）绑定','adj. 有约束力的'], en:'(programming) an association between a name and a value', ctx:'变量绑定：变量名 s1 与它所拥有的值之间的关联。'},
+  verify:{g:'验证', ph:'/ˈverɪfaɪ/', stars:3, tags:['CET4','IELTS'], zh:['v. 核实；证明'], en:'to check that something is true or correct', ctx:'（借用检查器）检查并确保。'},
+  outlive:{g:'比…存活久', ph:'/ˌaʊtˈlɪv/', stars:1, tags:['TOEFL'], zh:['v. 比…活得长；比…持久'], en:'to live or last longer than', ctx:'（引用）存活得比它指向的值更久。'},
+  dangle:{g:'悬垂', ph:'/ˈdæŋɡl/', stars:2, tags:['CET6'], zh:['v. 悬挂，摇晃'], en:'to hang or swing loosely', ctx:'dangling pointer：悬垂指针，指向已被释放内存的指针。'},
+  notoriously:{g:'出了名地', ph:'/nəʊˈtɔːriəsli/', stars:2, tags:['CET6','IELTS'], zh:['adv. 众所周知地（多含贬义）'], en:'in a way that is famous for something bad', ctx:'出了名地（难以排查）。'},
+  steep:{g:'陡峭的', ph:'/stiːp/', stars:3, tags:['CET4'], zh:['adj. 陡峭的；（价格）过高的；急剧的'], en:'rising or falling sharply', ctx:'steep learning curve：学习曲线陡峭，即入门难度大。'},
+  grapple:{g:'较劲', ph:'/ˈɡræpl/', stars:2, tags:['CET6','IELTS'], zh:['v. 扭打；努力解决'], en:'to try hard to deal with a difficult problem', ctx:'grapple with：费力地应付（借用检查器），像在和它较劲。'},
+  intuitive:{g:'直观的', ph:'/ɪnˈtjuːɪtɪv/', stars:2, tags:['CET6'], zh:['adj. 直觉的；易懂的'], en:'easy to understand or use without thinking', ctx:'变得符合直觉、自然而然。'},
+  constraint:{g:'约束', ph:'/kənˈstreɪnt/', stars:3, tags:['CET6'], zh:['n. 限制，约束'], en:'something that limits what you can do', ctx:'（所有权规则带来的）约束。'},
+  intensify:{g:'加剧', ph:'/ɪnˈtensɪfaɪ/', stars:3, tags:['CET6'], zh:['v. 加剧，增强'], en:'to become greater or more extreme', ctx:'（洪水）加剧。'},
+  stormwater:{g:'雨水', ph:'/ˈstɔːmwɔːtə/', stars:0, tags:[], zh:['n. 雨水；暴雨径流'], en:'water from heavy rain that flows over the ground', ctx:'城市降雨形成的地表雨水。'},
+  embrace:{g:'采纳', ph:'/ɪmˈbreɪs/', stars:3, tags:['CET4'], zh:['v. 拥抱；欣然接受'], en:'to accept an idea eagerly', ctx:'（规划者）积极采纳（海绵设计）。'},
+  permeable:{g:'透水的', ph:'/ˈpɜːmiəbl/', stars:1, tags:['TOEFL','GRE'], zh:['adj. 可渗透的'], en:'allowing liquids or gases to pass through', ctx:'透水的（路面），雨水可以渗入地下。'},
+  wetland:{g:'湿地', ph:'/ˈwetlænd/', stars:2, tags:['IELTS'], zh:['n. 湿地'], en:'an area of land covered with water much of the time', ctx:'（被修复的）湿地。'},
+  advocate:{g:'支持者', ph:'/ˈædvəkeɪt/', stars:3, tags:['CET6'], zh:['n. 倡导者，支持者','v. 提倡'], en:'a person who publicly supports an idea', ctx:'（海绵设计的）支持者。'},
+  ancillary:{g:'附带的', ph:'/ænˈsɪləri/', stars:1, tags:['GRE'], zh:['adj. 辅助的，附带的'], en:'providing extra help or support', ctx:'附带的（好处）。'},
+  habitat:{g:'栖息地', ph:'/ˈhæbɪtæt/', stars:3, tags:['CET6','IELTS'], zh:['n. 栖息地'], en:'the natural home of an animal or plant', ctx:'野生动物的栖息地。'},
+  skeptic:{g:'怀疑者', ph:'/ˈskeptɪk/', stars:2, tags:['CET6'], zh:['n. 怀疑论者'], en:'a person who doubts that claims are true', ctx:'持怀疑态度的人（与前文 advocates 相对）。'},
+  oversell:{g:'夸大', ph:'/ˌəʊvəˈsel/', stars:1, tags:[], zh:['v. 过分吹嘘'], en:'to describe something as better than it really is', ctx:'（这个概念）被过度宣传、夸大了。'},
+  dent:{g:'削减', ph:'/dent/', stars:2, tags:['IELTS'], zh:['n. 凹痕；削减','v. 使凹陷；削弱'], en:'a reduction in the amount of something', ctx:'make a dent in：对…产生明显影响、使明显减少。'},
+  runoff:{g:'径流', ph:'/ˈrʌnɒf/', stars:1, tags:['TOEFL'], zh:['n. 径流；决胜选举'], en:'rain that flows off the land into streams', ctx:'径流：降雨时地表流走的水。peak runoff 即峰值径流。'},
+  retrofit:{g:'改造', ph:'/ˈretrəʊfɪt/', stars:1, tags:['GRE'], zh:['v. 改造，翻新（加装新设施）'], en:'to add new parts to something built earlier', ctx:'对现有社区进行改造。'},
+  mindset:{g:'观念', ph:'/ˈmaɪndset/', stars:2, tags:['IELTS'], zh:['n. 思维方式，心态'], en:'a set of attitudes or way of thinking', ctx:'观念（上的转变）。'},
+  channel:{g:'引导', ph:'/ˈtʃænl/', stars:4, tags:['CET4'], zh:['n. 频道；渠道；水道','v. 引导，输送'], en:'to direct something into a particular place', ctx:'动词：把（雨水）引入（管道）。'},
+  acknowledge:{g:'公认', ph:'/əkˈnɒlɪdʒ/', stars:3, tags:['CET4'], zh:['v. 承认；致谢'], en:'to accept that something is true', ctx:'universally acknowledged：被普遍承认的，举世公认的。'},
+  rightful:{g:'应得的', ph:'/ˈraɪtfl/', stars:1, tags:['CET6'], zh:['adj. 合法的，正当的'], en:'having a legal or moral right to something', ctx:'理所应得的（财产）。作者在这里带着反讽。'},
+  impatiently:{g:'不耐烦地', ph:'/ɪmˈpeɪʃntli/', stars:3, tags:['CET4'], zh:['adv. 不耐烦地'], en:'in an annoyed way because of waiting', ctx:'不耐烦地（嚷道）。'},
+  objection:{g:'反对', ph:'/əbˈdʒekʃn/', stars:3, tags:['CET4'], zh:['n. 反对；异议'], en:'a statement of disagreement', ctx:'have no objection to：不反对，并不介意。'},
+  let:{g:'出租', ph:'/let/', stars:5, tags:['熟词僻义'], zh:['v. 让，允许','v. （英）出租'], en:'(British) to rent out a building', ctx:'熟词僻义：is let 指（庄园）已经租出去了，不是“让”。'},
+  single:{g:'单身的', ph:'/ˈsɪŋɡl/', stars:5, tags:['熟词僻义'], zh:['adj. 单一的','adj. 单身的'], en:'not married', ctx:'熟词僻义：单身的。'},
+};
+
+const PHRASES = [
+  {k:'go out of scope', zh:'离开作用域', ctx:'变量所在的代码块结束，变量不再有效。', s:2},
+  {k:'garbage collector', zh:'垃圾回收器', ctx:'领域术语：自动回收不再使用内存的运行时组件。', s:5, term:true},
+  {k:'borrow checker', zh:'借用检查器', ctx:'领域术语：Rust 编译器中检查引用合法性的部分。', s:5, term:true},
+  {k:'learning curve', zh:'学习曲线', ctx:'掌握一项技能的难易程度随时间的变化。', s:5},
+  {k:'grapple with', zh:'努力应对；与…搏斗', ctx:'费力地应付（借用检查器）。', s:0},
+  {k:'track down', zh:'追查到，找到', ctx:'（bug）难以定位、追查。', s:1},
+  {k:'so call', zh:'所谓的', ctx:'so-called：所谓的（引出一个新名词）。', s:5, show:'so-called'},
+  {k:'make a dent in', zh:'对…产生明显影响', ctx:'明显削减（峰值径流）。', s:0},
+  {k:'counter that', zh:'反驳说', ctx:'counter 作动词：反驳，后接 that 从句。', s:0},
+  {k:'in possession of', zh:'拥有', ctx:'拥有（一大笔财产）。', s:3},
+  {k:'in want of', zh:'需要；缺少', ctx:'这里的 want 是名词“需要、缺乏”：必定需要一位妻子。', s:0},
+  {k:'one or other', zh:'某一个', ctx:'some one or other of their daughters：她们女儿中的某一个。', s:0},
+  {k:'have no objection to', zh:'不反对', ctx:'我并不反对听一听。', s:4},
+];
+
+const DOCS = [
+  { id:'tech', genre:'技术文档', title:'Understanding Ownership in Rust', source:'自拟示例文本', mins:4,
+    blocks:[
+      {t:'p', x:'Ownership is the feature that makes Rust distinctive among systems languages. Instead of relying on a garbage collector, the compiler enforces a small set of rules at compile time, and a program that violates them simply won\'t compile. The upshot is memory safety without the runtime overhead that usually comes with it.'},
+      {t:'p', x:'Each value has exactly one owner. When the owner goes out of scope, the value is dropped and its memory is reclaimed deterministically. Passing a value to a function, or assigning it to another variable as in `let s2 = s1`, moves it, which means the original binding can no longer be used:'},
+      {t:'code', x:'let s1 = String::from("hello");\nlet s2 = s1;            // ownership moves to s2\nprintln!("{}", s1);     // error: borrow of moved value'},
+      {t:'p', x:'If you only need to read the data, you can borrow it instead. A shared reference grants temporary, read-only access, and the borrow checker verifies that no reference outlives the value it points to. This rule eliminates an entire class of bugs, such as dangling pointers, that are notoriously hard to track down in C and C++.'},
+      {t:'p', x:'The trade-off is a steep learning curve. Newcomers often find themselves grappling with the borrow checker, but most developers report that the constraints become intuitive after a few weeks of practice.'},
+    ],
+    tr:['理解 Rust 中的所有权','所有权是让 Rust 在系统编程语言中独树一帜的特性。','编译器不依赖垃圾回收器，而是在编译期强制执行一小组规则，违反规则的程序根本无法编译。','由此得到的结果是：内存安全，而且没有通常随之而来的运行时开销。','每个值都恰好有一个所有者。','当所有者离开作用域时，值被丢弃，其内存以确定的方式被回收。','把值传给函数，或像 let s2 = s1 这样赋给另一个变量，都会移动它，这意味着原来的绑定不能再使用：','如果只需要读取数据，可以改为借用它。','共享引用提供临时的只读访问，借用检查器会确保任何引用都不会比它指向的值活得更久。','这条规则消除了一整类 bug，比如悬垂指针，这类问题在 C 和 C++ 中出了名地难以排查。','代价是陡峭的学习曲线。','新手常常发现自己在和借用检查器较劲，但大多数开发者表示，练习几周之后，这些约束就变得自然而然了。'],
+    sum:'文章介绍 Rust 的所有权机制：每个值只有一个所有者，离开作用域即被释放；赋值或传参会转移所有权，只读访问则通过借用实现，由借用检查器在编译期保证引用不会悬垂。代价是学习曲线较陡，但多数开发者几周后就能适应。',
+    extraTitle:'术语表', extra:[['ownership','所有权'],['borrow checker','借用检查器'],['garbage collector','垃圾回收器'],['dangling pointer','悬垂指针'],['scope','作用域'],['move','移动（所有权转移）']],
+    hard:{s:'A shared reference grants temporary, read-only access, and the borrow checker verifies that no reference outlives the value it points to.', a:'由 and 连接的两个并列分句。① A shared reference（主语）grants（谓语）temporary, read-only access（宾语）。② the borrow checker verifies + that 引导的宾语从句；从句里 the value 后面跟着省略了 that 的定语从句 it points to（它所指向的）。'},
+    advice:'生词集中在描述“程序运行机制”的词上（deterministically、reclaim、outlive），建议和术语一起记，它们在其他技术文档里出现频率很高。代码块已自动跳过，不计入生词率。',
+    quiz:['What happens to a value when its owner goes out of scope?','Why can\'t s1 be used after `let s2 = s1`?','What kind of bug does the borrow checker prevent?'] },
+  { id:'news', genre:'新闻', title:'Cities Turn to Sponge Design as Floods Intensify', source:'自拟示例文本', mins:3,
+    blocks:[
+      {t:'p', x:'As extreme rainfall becomes more frequent, a growing number of cities are rethinking how they handle stormwater. Rather than channeling every drop into pipes and out to sea, planners are embracing so-called sponge designs that let the ground absorb water where it falls.'},
+      {t:'p', x:'The approach relies on permeable pavements, rooftop gardens and restored wetlands. Advocates argue it is cheaper to maintain than conventional drainage and brings ancillary benefits, from cooler streets to new habitats for wildlife.'},
+      {t:'p', x:'Skeptics counter that the concept has been oversold. In dense urban cores, they note, there is simply not enough open land to make a dent in peak runoff, and retrofitting existing neighborhoods can be slow and costly.'},
+      {t:'p', x:'Still, officials say the shift is less about any single project than about a change in mindset. Infrastructure, as one engineer put it, should work with water rather than against it.'},
+    ],
+    tr:['洪水加剧，城市转向“海绵”设计','随着极端降雨越来越频繁，越来越多的城市正在重新思考如何处理雨水。','规划者不再把每一滴水都引进管道、排入大海，而是开始采用所谓的海绵设计，让地面就地吸收雨水。','这种做法依靠透水路面、屋顶花园和修复后的湿地。','支持者认为，它的维护成本比传统排水系统低，还能带来附带的好处，从更凉爽的街道到野生动物的新栖息地。','怀疑者则反驳说，这个概念被过度吹捧了。','他们指出，在高密度的城市核心区，根本没有足够的空地来明显削减峰值径流，而改造现有社区可能既慢又贵。','尽管如此，官员们表示，这一转变与其说关乎某个具体项目，不如说关乎观念的改变。','正如一位工程师所说，基础设施应该顺应水，而不是与水对抗。'],
+    sum:'越来越多城市采用“海绵”设计应对极端降雨：用透水路面、屋顶花园和湿地让雨水就地渗透。支持者认为维护成本低、附带好处多；怀疑者指出高密度城区空间不足，改造又慢又贵。官员认为关键在于观念转变：顺应水而非对抗水。',
+    extraTitle:'背景知识', extra:[['海绵城市','sponge city，指城市像海绵一样在降雨时吸水、蓄水、渗水，需要时再释放利用。'],['峰值径流','peak runoff，暴雨时地表径流量的最高点，是排水系统设计的关键指标。']],
+    hard:{s:'In dense urban cores, they note, there is simply not enough open land to make a dent in peak runoff, and retrofitting existing neighborhoods can be slow and costly.', a:'they note 是插入语（他们指出）。前半句是 there be 句型 + not enough … to do（没有足够的…来做…）；and 后的分句以动名词短语 retrofitting existing neighborhoods 作主语。'},
+    advice:'新闻类文章常用“观点对立”结构：Advocates argue … / Skeptics counter that …。可以重点积累这类表达观点的动词：argue、counter、note、put it。',
+    quiz:['What does a "sponge" design let the ground do?','Name two benefits that advocates mention.','Why do skeptics think the concept is oversold?'] },
+  { id:'novel', genre:'小说', title:'Chapter 1', book:'Pride and Prejudice · Jane Austen', source:'公有领域', mins:2,
+    chapters:['Chapter 1','Chapter 2','Chapter 3','Chapter 4','Chapter 5'],
+    blocks:[
+      {t:'p', x:'It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.'},
+      {t:'p', x:'However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered the rightful property of some one or other of their daughters.'},
+      {t:'p', x:'“My dear Mr. Bennet,” said his lady to him one day, “have you heard that Netherfield Park is let at last?”'},
+      {t:'p', x:'Mr. Bennet replied that he had not.'},
+      {t:'p', x:'“But it is,” returned she; “for Mrs. Long has just been here, and she told me all about it.”'},
+      {t:'p', x:'Mr. Bennet made no answer.'},
+      {t:'p', x:'“Do you not want to know who has taken it?” cried his wife impatiently.'},
+      {t:'p', x:'“You want to tell me, and I have no objection to hearing it.”'},
+      {t:'p', x:'This was invitation enough.'},
+    ],
+    tr:['第一章','一个有钱的单身男子必定想要娶一位妻子，这是一条举世公认的真理。','这样一个人刚搬到某个地方时，无论周围人对他的感情和想法多么不了解，这条真理早已深深印在附近人家的心里，于是他就被看作是她们某个女儿理所应得的财产。','“亲爱的班纳特先生，”一天，他的太太对他说，“你听说了吗？内瑟菲尔德庄园终于租出去了。”','班纳特先生回答说他没听说。','“可它确实租出去了，”她说，“朗太太刚来过，她把这事原原本本都告诉我了。”','班纳特先生没有作声。','“你难道不想知道是谁租下的吗？”他的太太不耐烦地嚷道。','“你想告诉我，我也不反对听一听。”','这句话已足以让她说下去了。'],
+    sum:'小说以一句著名的反讽格言开篇：有钱的单身汉总得娶个妻子。班纳特太太兴冲冲地告诉丈夫，附近的内瑟菲尔德庄园终于租出去了；班纳特先生却漫不经心，夫妻性格的反差由此展开。',
+    extraTitle:'人物表', extra:[['Mr. Bennet','班纳特先生：冷淡、爱讽刺的父亲'],['Mrs. Bennet','班纳特太太：一心想把女儿嫁出去'],['Mrs. Long','朗太太：邻居，本章的消息来源']],
+    hard:{s:'However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered the rightful property of some one or other of their daughters.', a:'However + 形容词引导让步状语从句：无论（他的感情和想法）多么不为人知。on his first entering = 当他刚搬进来时（动名词作介词宾语）。主句是 so well fixed … that … 结构，表示结果。'},
+    advice:'本章有两个“熟词僻义”：let（出租）和 single（单身的），我已用 AI 标出。古典小说对话多，长句多用让步、倒装，可以配合“长难句”一起读。',
+    quiz:['What news does Mrs. Bennet bring?','How does Mr. Bennet react to the news?','What is ironic about the first sentence?'] },
+];
+
+const MEMORIES = [
+  ['身份','目标：雅思 7 分；估算词汇量约 6,200'],
+  ['兴趣','常读 Rust 技术文档、科技新闻、英国古典小说'],
+  ['观察','经常混淆 affect / effect；虚拟语气掌握较弱'],
+  ['指令','解释时少用语法术语，多举例'],
+];
+
+/* ============ 状态 ============ */
+let cur = DOCS[0];
+let selected = null;       // {kind:'word', lemma, surface, sent} | {kind:'phrase', idx, sent}
+let undoStack = null;
+let mode = 'all';
+let showTr = false;     // 显示译文
+let showGloss = false;  // 行间释义
+const wordbook = new Set(Object.keys(VOCAB).filter(k => VOCAB[k] >= 1 && VOCAB[k] <= 4));
+const threads = {};        // 每篇文档一个助手线程
+let sentences = [];        // 当前文档句子 [{el, text, tr}]
+
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function lemmatize(w) {
+  const l = w.toLowerCase().replace(/’/g, "'");
+  if (LEMMA[l]) return LEMMA[l];
+  if (l in VOCAB || DICT[l]) return l;
+  const c = [];
+  if (l.endsWith('ies')) c.push(l.slice(0,-3)+'y');
+  if (l.endsWith('es')) c.push(l.slice(0,-2));
+  if (l.endsWith('s')) c.push(l.slice(0,-1));
+  if (l.endsWith('ed')) c.push(l.slice(0,-2), l.slice(0,-1));
+  if (l.endsWith('ing')) c.push(l.slice(0,-3), l.slice(0,-3)+'e');
+  for (const x of c) if (x in VOCAB || DICT[x]) return x;
+  return l;
+}
+function statusOf(lemma) {
+  if (lemma in VOCAB) return VOCAB[lemma];
+  if (IGNORE.has(lemma)) return 98;
+  return 5;
+}
+function hash(s) { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
+function encounter(lemma) { const h = hash(lemma); return { docs: 1 + h % 5, times: 1 + h % 5 + (h >>> 3) % 6 }; }
+
+function splitSentences(t) {
+  const out = []; let start = 0; const re = /[.!?]+["”’]?(?=\s|$)/g; let m;
+  while ((m = re.exec(t))) {
+    const end = m.index + m[0].length;
+    const before = t.slice(start, end);
+    if (/\b(Mr|Mrs|Dr|Ms|St)\.$/.test(before)) continue;
+    const next = t.slice(end).trimStart()[0];
+    if (next && /[a-z]/.test(next)) continue;
+    out.push(before.trim()); start = end;
+  }
+  if (t.slice(start).trim()) out.push(t.slice(start).trim());
+  return out;
+}
+
+/* 把一个句子渲染为词元 HTML，并做短语匹配 */
+function renderSentence(text) {
+  const segs = text.split('`');
+  const toks = [];
+  segs.forEach((seg, i) => {
+    if (i % 2) { toks.push({code: seg}); return; }
+    const re = /([A-Za-z]+(?:['’][A-Za-z]+)*)|([^A-Za-z]+)/g; let m;
+    while ((m = re.exec(seg))) toks.push(m[1] ? {w: m[1], l: lemmatize(m[1])} : {sep: m[2]});
+  });
+  // 短语匹配：按 lemma 序列，词之间只允许空白或连字符
+  const words = toks.map((t, i) => t.w ? i : -1).filter(i => i >= 0);
+  const marks = {};
+  PHRASES.forEach((p, pi) => {
+    const seq = p.k.split(' ');
+    for (let a = 0; a + seq.length <= words.length; a++) {
+      let ok = true;
+      for (let b = 0; b < seq.length; b++) {
+        const ti = words[a + b], t = toks[ti];
+        if (t.l !== seq[b] && t.w.toLowerCase() !== seq[b]) { ok = false; break; }
+        if (b > 0) { for (let x = words[a + b - 1] + 1; x < ti; x++) if (!(toks[x].sep && /^[\s-]+$/.test(toks[x].sep))) ok = false; }
+      }
+      if (ok && !(words[a] in marks)) marks[words[a]] = { end: words[a + seq.length - 1], pi };
+    }
+  });
+  let html = '', closeAt = -1;
+  toks.forEach((t, i) => {
+    if (marks[i]) { html += `<span class="ph" data-p="${marks[i].pi}" data-g="${esc(PHRASES[marks[i].pi].zh.split('；')[0])}">`; closeAt = marks[i].end; }
+    if (t.code !== undefined) html += `<code class="inl">${esc(t.code)}</code>`;
+    else if (t.sep !== undefined) html += esc(t.sep);
+    else html += `<span class="w s${statusOf(t.l)}" data-l="${esc(t.l)}"${DICT[t.l] && DICT[t.l].g ? ` data-g="${esc(DICT[t.l].g)}"` : ''} tabindex="-1">${esc(t.w)}</span>`;
+    if (i === closeAt) { html += '</span>'; closeAt = -1; }
+  });
+  return html;
+}
+
+function hiCode(src) {
+  return esc(src)
+    .replace(/(\/\/[^\n]*)/g, '<span class="tk-com">$1</span>')
+    .replace(/(&quot;[^&]*&quot;)/g, '<span class="tk-str">$1</span>')
+    .replace(/\b(let|fn|mut|println!)/g, '<span class="tk-kw">$1</span>');
+}
+
+/* ============ 动效（Motion，加载失败或用户偏好减少动态时自动跳过） ============ */
+const M = window.Motion;
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const EASE = [0.22, 0.8, 0.24, 1];
+function anim(el, kf, opt) {
+  if (!M || REDUCE || !el || (el.length === 0)) return null;
+  try { return M.animate(el, kf, opt); } catch (e) { return null; }
+}
+const stag = (d, o) => (M && M.stagger ? M.stagger(d, o) : 0);
+const SPRING = { type: 'spring', bounce: 0.18, duration: 0.5 };
+const HL = new Set([0, 1, 2, 3, 4]);
+// 荧光笔划过：色带从左向右铺开
+function sweepIn(els) { anim(els, { backgroundSize: ['0% 100%', '100% 100%'] }, { duration: 0.42, ease: EASE, delay: stag(0.05) }); }
+// 荧光笔褪去：色带向右收起后再切换状态
+function sweepOut(els, done) {
+  if (!M || REDUCE || !els.length) { done(); return; }
+  els.forEach(e => e.style.backgroundPosition = 'right');
+  anim(els, { backgroundSize: ['100% 100%', '0% 100%'] }, { duration: 0.32, ease: EASE, delay: stag(0.012) });
+  setTimeout(() => { els.forEach(e => { e.style.backgroundPosition = ''; e.style.backgroundSize = ''; }); done(); }, 320 + els.length * 12);
+}
+function enterCard(root) {
+  const card = root.querySelector('.icard') || root.firstElementChild;
+  anim(card, { opacity: [0, 1], y: [10, 0] }, SPRING);
+  anim(root.querySelectorAll('.icard > *'), { opacity: [0, 1], y: [6, 0] }, { duration: 0.35, ease: EASE, delay: stag(0.035, { startDelay: 0.04 }) });
+}
+function moveTabDot(animate) {
+  const on = document.querySelector('.tab.on'), dot = $('#tabdot'); if (!on || !dot) return;
+  const x = on.offsetLeft, w = on.offsetWidth;
+  if (animate && M && !REDUCE) anim(dot, { x, width: w + 'px' }, { type: 'spring', bounce: 0.22, duration: 0.45 });
+  else { dot.style.transform = `translateX(${x}px)`; dot.style.width = w + 'px'; }
+}
+function tickNumber(el, to) {
+  const from = +el.textContent || 0;
+  if (!M || REDUCE || from === to) { el.textContent = to; return; }
+  try { M.animate(from, to, { duration: 0.5, ease: EASE, onUpdate: v => el.textContent = Math.round(v) }); } catch (e) { el.textContent = to; }
+}
+
+/* ============ 手绘标注（Rough Notation：只用于强调，基础标注仍是 CSS） ============ */
+const RN = window.RoughNotation;
+let roughOn = !!RN;
+let roughPh = [], roughSel = null, roughSelEl = null, selEl = null;
+const tok = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+document.documentElement.classList.toggle('rough', roughOn);
+function rough(el, opt) { if (!RN || !roughOn || !el) return null; try { return RN.annotate(el, Object.assign({ color: tok('--accent'), strokeWidth: 1.3, animate: !REDUCE }, opt)); } catch (e) { return null; } }
+// 跨行的元素圈/框会被拆成每个词一个，改用加粗的手绘下划线
+function isMultiLine(el) { const r = el.getBoundingClientRect(); return r.height > parseFloat(getComputedStyle(el).lineHeight || '30') * 1.4; }
+function shape(el, single) { return isMultiLine(el) ? { type: 'underline', multiline: true, iterations: 2, strokeWidth: 2, padding: 2 } : single; }
+// 短语：手绘下划线，打开文档时依次画出
+function roughPhrases(animate) {
+  roughPh.forEach(a => a.remove()); roughPh = [];
+  if (!roughOn || mode !== 'all') return;
+  [...document.querySelectorAll('#page .ph')].filter(p => !p.closest('h1')).forEach(p => {
+    const a = rough(p, { type: 'underline', padding: 1, iterations: 1, multiline: true, animate: animate && !REDUCE, animationDuration: 450 });
+    if (a) roughPh.push(a);
+  });
+  if (!roughPh.length) return;
+  if (animate && RN.annotationGroup) RN.annotationGroup(roughPh).show(); else roughPh.forEach(a => a.show());
+}
+// 选中：手绘圈注（词）或括号（短语）
+function roughSelect() {
+  const el = selEl && selEl.isConnected ? selEl : document.querySelector('#page .ph.sel, #page .w.sel');
+  if (el === roughSelEl && roughSel) return;
+  if (roughSel) roughSel.remove(); roughSel = null; roughSelEl = el;
+  if (!el || !selected) return;
+  roughSel = el.classList.contains('ph') ? rough(el, Object.assign({ animationDuration: 380 }, shape(el, { type: 'bracket', brackets: ['left', 'right'], padding: [2, 4], strokeWidth: 1.5 })))
+                                         : rough(el, { type: 'circle', padding: [4, 9], strokeWidth: 1.5, animationDuration: 420 });
+  if (roughSel) roughSel.show();
+}
+// 标记为生词/学习中：先用手绘荧光笔涂一遍，再交还给 CSS 色带
+function roughMark(els, s) {
+  if (!roughOn || !RN || REDUCE) { sweepIn(els); return; }
+  const color = tok(s === 0 ? '--hl-new' : '--hl-' + s);
+  const list = els.slice(0, 6).map(el => { el.style.background = 'none'; return { el, a: rough(el, { type: 'highlight', color, iterations: 1, animationDuration: 380, padding: [1, 2] }) }; }).filter(x => x.a);
+  if (!list.length) { sweepIn(els); return; }
+  if (RN.annotationGroup) RN.annotationGroup(list.map(x => x.a)).show(); else list.forEach(x => x.a.show());
+  sweepIn(els.slice(6));
+  setTimeout(() => list.forEach(x => { x.el.style.background = ''; x.a.remove(); }), 420 * list.length + 250);
+}
+// 定位到某处：手绘方框闪现
+function roughFlash(el) {
+  const a = rough(el, Object.assign({ animationDuration: 420 }, shape(el, { type: 'box', padding: 4, strokeWidth: 1.5 })));
+  if (!a) return false; a.show(); setTimeout(() => a.remove(), 2200); return true;
+}
+// 读完回顾：依次圈出本篇还在学习的短语和生词
+function roughReview() {
+  const els = [...document.querySelectorAll('#page p .ph.pl, #page p .w.s0')].slice(0, 12);
+  if (!RN || !roughOn || !els.length) { showToast('本篇没有需要回顾的重点了'); return; }
+  READER.scrollTop = 0;
+  const list = els.map(el => rough(el, Object.assign({ animationDuration: 380 }, shape(el, { type: 'circle', padding: [3, 6], strokeWidth: 1.4 })))).filter(Boolean);
+  setTimeout(() => { RN.annotationGroup(list).show(); setTimeout(() => list.forEach(a => a.remove()), 380 * list.length + 3500); }, 350);
+}
+function roughRefresh() { roughSelEl = null; if (roughSel) { roughSel.remove(); roughSel = null; } roughPhrases(false); roughSelect(); }
+
+/* ============ 渲染文档 ============ */
+function renderDoc() {
+  const d = cur; let si = 0; sentences = [];
+  const S = txt => { const i = si++; sentences.push({ text: txt, tr: d.tr[i] || '' }); return `<span class="sent" data-si="${i}">${renderSentence(txt)}</span>`; };
+  let h = `<div class="eyebrow"><span>${d.genre}</span><span>${esc(d.book || d.source)}</span><span>约 ${d.mins} 分钟</span></div>`;
+  // 译文：按段落合并句子翻译，放在原文段落下方，由"显示译文"开关控制
+  const trOf = (a, b) => d.tr.slice(a, b).join('');
+  h += `<h1>${S(d.title)}</h1><p class="ptr ptr-h">${esc(trOf(0, 1))}</p>`;
+  d.blocks.forEach(b => {
+    if (b.t === 'code') { h += `<pre><code>${hiCode(b.x)}</code></pre>`; return; }
+    const a = si; const body = splitSentences(b.x).map(S).join(' ');
+    h += `<p>${body}</p><p class="ptr">${esc(trOf(a, si))}</p>`;
+  });
+  h += `<div class="endcard" id="endcard"></div>`;
+  $('#page').innerHTML = h;
+  $('#page').className = 'page ' + d.id + (mode !== 'all' ? ' mode-' + mode : '') + (showTr ? ' tr-on' : '') + (showGloss ? ' gloss-on' : '');
+  $('#docTitle').textContent = d.book ? `${d.book.split(' · ')[0]}, ${d.title}` : d.title;
+  applyFont();
+  READER.scrollTop = 0;
+  selected = null;
+  renderRail(); selEl = null; refresh(); renderPanel();
+  // 等入场动画和字体加载结束再画，否则位置会算错
+  const docId = d.id;
+  Promise.all([document.fonts ? document.fonts.ready : null, new Promise(r => setTimeout(r, REDUCE ? 0 : 1000))]).then(() => { if (cur.id === docId) { roughPhrases(true); roughSelEl = null; roughSelect(); } });
+  anim($('#page'), { opacity: [0, 1], y: [16, 0] }, { duration: 0.55, ease: EASE });
+  anim(document.querySelectorAll('#page h1, #page p, #page pre'), { opacity: [0, 1], y: [8, 0] }, { duration: 0.5, ease: EASE, delay: stag(0.05, { startDelay: 0.05 }) });
+}
+
+function docStats() {
+  const ws = [...document.querySelectorAll('#page .w')];
+  const uniq = s => new Set(ws.filter(w => s(statusOf(w.dataset.l))).map(w => w.dataset.l));
+  const nNew = uniq(s => s === 0), nL = uniq(s => s >= 1 && s <= 4), nU = uniq(s => s === 99);
+  const unknownTok = ws.filter(w => { const s = statusOf(w.dataset.l); return s <= 4 || s === 99; }).length;
+  return { ws, nNew, nL, nU, ratio: unknownTok / ws.length };
+}
+function levelOf(r) { return r <= .02 ? ['舒适','ok'] : r <= .05 ? ['学习区','mid'] : ['偏难','hard']; }
+
+function refresh() {
+  document.querySelectorAll('#page .w').forEach(w => {
+    const s = statusOf(w.dataset.l);
+    w.className = `w s${s}` + (selected && selected.kind === 'word' && selected.lemma === w.dataset.l ? ' sel' : '');
+  });
+  document.querySelectorAll('#page .ph').forEach(p => { p.classList.toggle('sel', !!(selected && selected.kind === 'phrase' && +p.dataset.p === selected.idx)); p.classList.toggle('pl', PHRASES[+p.dataset.p].s < 5); });
+  roughSelect();
+  const st = docStats();
+  tickNumber($('#cNew'), st.nNew.size); tickNumber($('#cLearn'), st.nL.size); tickNumber($('#cUnc'), st.nU.size);
+  $('#vocabN').textContent = st.nNew.size + st.nL.size + st.nU.size;
+  const [lv, cls] = levelOf(st.ratio);
+  $('#ratio').innerHTML = `生词率 <b>${(st.ratio * 100).toFixed(1)}%</b> &nbsp;<span class="lvl ${cls}">${lv}</span>`;
+  const left = st.nNew.size, unc = st.nU.size;
+  $('#endcard').innerHTML = `<h3>读完本篇</h3>
+    <p>本篇还有 ${left} 个没处理的生词、${unc} 个待确认的词。把它们标为已知，可以让下一篇文章的自动标注更准。之后在任何文章里都能改回来。</p>
+    <div class="row"><button class="btn pri" id="markRest"${left + unc ? '' : ' disabled'}>剩余 ${left + unc} 个全部标为已知</button><button class="btn" id="review">回顾本篇重点</button><button class="btn" id="toAsst">让 Lexi 出 3 道理解题</button></div>`;
+  $('#markRest').onclick = markRestKnown;
+  $('#toAsst').onclick = () => { switchTab('asst'); runPreset('quiz'); };
+  $('#review').onclick = roughReview;
+  renderDocBadges();
+  if (!$('#pane-vocab').hidden) renderVocab();
+}
+
+/* ============ 左栏 ============ */
+function renderRail() {
+  $('#doclist').innerHTML = DOCS.map(d => `<button class="docitem${d === cur ? ' cur' : ''}" data-id="${d.id}">
+      <span class="dt">${esc(d.book ? d.book.split(' · ')[0] : d.title)}</span>
+      <span class="meta"><span>${d.genre}</span><span data-badge="${d.id}"></span></span></button>`).join('');
+  document.querySelectorAll('.docitem').forEach(b => b.onclick = () => { cur = DOCS.find(d => d.id === b.dataset.id); stopPlay(); renderDoc(); $('#rail').classList.remove('open'); });
+  if (cur.chapters) {
+    $('#tocWrap').hidden = false;
+    $('#toc').innerHTML = cur.chapters.map((c, i) => `<button class="${i ? '' : 'cur'}" ${i ? 'data-pending' : ''}><span>${c}</span><small>${i ? '打开时分析' : '阅读中'}</small></button>`).join('') + `<button disabled><span>… 共 61 章</span></button>`;
+    document.querySelectorAll('#toc [data-pending]').forEach(b => b.onclick = () => showToast('原型只包含第 1 章。正式版会在打开章节时再分句和分析。'));
+  } else {
+    $('#tocWrap').hidden = true;
+  }
+}
+function renderDocBadges() {
+  const pct = { tech: null, news: null, novel: null };
+  document.querySelectorAll('[data-badge]').forEach(el => {
+    const id = el.dataset.badge;
+    if (id === cur.id) { const r = docStats().ratio; const [lv, c] = levelOf(r); el.innerHTML = `<span class="lvl ${c}">${lv}</span>`; }
+    else el.innerHTML = `<span class="lvl ${id === 'news' ? 'hard' : 'mid'}">${id === 'news' ? '偏难' : '学习区'}</span>`;
+  });
+}
+
+/* ============ 侧栏 ============ */
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  moveTabDot(true);
+  if (t !== 'card') anim($('#pane-' + t), { opacity: [0, 1], y: [8, 0] }, { duration: 0.35, ease: EASE });
+  ['card','sum','asst','vocab'].forEach(k => $('#pane-' + k).hidden = k !== t);
+  $('#composer').hidden = t !== 'asst';
+  if (t === 'sum') renderSum();
+  if (t === 'asst') renderAsst();
+  if (t === 'vocab') renderVocab();
+  if (matchMedia('(max-width: 760px)').matches) $('#panel').classList.add('open');
+}
+function renderPanel() {
+  renderCard();
+  const active = document.querySelector('.tab.on').dataset.tab;
+  if (active === 'sum') renderSum();
+  if (active === 'asst') renderAsst();
+  if (active === 'vocab') renderVocab();
+}
+
+// 熟练度六档：名称 + 一句话说明（数据仍存 0–5，界面不再显示数字）
+const STAGES = [
+  ['生词', '完全不认识'],
+  ['见过', '有印象，但想不起意思'],
+  ['眼熟', '结合上下文能猜出大概意思'],
+  ['认得', '读到时能理解，自己还不会用'],
+  ['熟悉', '基本掌握，偶尔还会犹豫'],
+  ['掌握', '已经会了，不再标注'],
+];
+function statusButtons(s) {
+  const desc = s >= 0 && s <= 5 ? `<b>${STAGES[s][0]}</b>：${STAGES[s][1]}` : (s === -2 ? '已忽略，不再标注' : '还没有设定，点上面的格子选择你对它的熟悉程度');
+  return `<div class="pips" role="group" aria-label="熟练度">${STAGES.map(([n, dsc], v) =>
+    `<button class="pip${s === v ? ' on' : ''}${s >= v && s <= 5 ? ' fill' : ''}" data-s="${v}" title="${n}：${dsc}（快捷键 ${v === 5 ? 'K' : v}）"><i></i>${n}</button>`).join('')}</div>
+    <div class="stagedesc">${desc}</div>`;
+}
+
+function renderCard() {
+  const p = $('#pane-card');
+  if (!selected) {
+    const st = docStats(); const [lv, c] = levelOf(st.ratio);
+    p.innerHTML = `<div class="icard">
+      <div class="sec"><h5>词卡</h5><div class="empty">点文中任意单词，这里会出现它的释义、读音和你的学习状态。<br>选中几个连续的词，可以标为短语。按 <span class="kbd">J</span> 跳到下一个生词。</div></div>
+      <div class="sec"><h5>本篇难度</h5>
+        <div class="meter" aria-hidden="true"><i style="width:${Math.min(100, st.ratio * 100 * 8)}%"></i></div>
+        <div class="subrow"><span>生词率 ${(st.ratio * 100).toFixed(1)}% &nbsp;<span class="lvl ${c}">${lv}</span></span><span class="lbl-i">2–5% 最适合学习</span></div></div></div>`;
+    enterCard(p);
+    anim(p.querySelector('.meter i'), { scaleX: [0, 1] }, { duration: 0.8, ease: EASE, delay: 0.15 });
+    return;
+  }
+  const sent = sentences[selected.sent] || { text: '', tr: '' };
+  if (selected.kind === 'phrase') {
+    const ph = PHRASES[selected.idx];
+    p.innerHTML = `<div class="icard">
+      <div class="whead"><div><div class="hw">${esc(ph.show || ph.k)}</div><div class="pron"><span class="tags">${ph.term ? '领域术语' : '短语'}</span><span class="gloss" style="font-size:14px">${esc(ph.zh)}</span></div></div>
+        <button class="say" title="朗读" data-say="${esc(ph.show || ph.k)}">${ICON_SPK}</button></div>
+      <div class="sec"><h5><span class="note">✦ AI</span>语境释义</h5><div class="gloss">${esc(ph.ctx)}</div></div>
+      <div class="divider"></div>
+      ${sentSec(sent, ph.show || ph.k)}
+      <div class="divider"></div>
+      <div class="sec"><h5>熟练度</h5>${statusButtons(ph.s)}</div></div>`;
+    p.querySelectorAll('.pip').forEach(b => b.onclick = () => { const old = ph.s; ph.s = +b.dataset.s; pushUndo(() => { ph.s = old; }); renderCard(); showToast(`短语 “${ph.show || ph.k}” 设为${STATUS_LABEL[ph.s]}`); });
+    bindSent(p);
+    enterCard(p);
+    return;
+  }
+  const L = selected.lemma, d = DICT[L], s = statusOf(L), enc = encounter(L);
+  const inPh = PHRASES.findIndex(ph => ph.k.split(' ').includes(L) && sent.text.toLowerCase().includes((ph.show || ph.k).split(' ')[0]));
+  p.innerHTML = `<div class="icard">
+    <div class="whead"><div>
+        <div class="hw">${esc(L)}</div>
+        <div class="pron">${d ? `<span class="ipa">${d.ph}</span><span class="stars" title="柯林斯星级">${'★'.repeat(d.stars)}<span style="opacity:.3">${'★'.repeat(5 - d.stars)}</span></span>${d.tags.length ? `<span class="tags">${d.tags.join(' · ')}</span>` : ''}` : `<span class="tags">${s === 98 ? '专有名词，已忽略' : '你已认识这个词'}</span>`}</div>
+      </div><button class="say" title="发音" data-say="${esc(L)}">${ICON_SPK}</button></div>
+    ${s === 99 ? `<div class="ask">按你约 6,200 的词汇量，我猜你认识这个词。对吗？<div class="row"><button class="btn" data-set="5">认识</button><button class="btn" data-set="0">不认识，标为生词</button></div></div>` : ''}
+    ${d ? `<div class="sec"><h5><span class="note">✦ AI</span>语境释义</h5><div class="gloss">${esc(d.ctx)}</div></div>
+    <div class="sec"><h5>词典释义 <span style="opacity:.7;font-weight:400">ECDICT</span></h5><ol class="defs">${d.zh.map(z => `<li>${esc(z)}</li>`).join('')}</ol>
+      <details><summary>英英释义</summary><div class="en">${esc(d.en)}</div></details></div>` : ''}
+    ${inPh >= 0 ? `<div class="subrow"><span class="lbl-i">属于短语</span><button class="linkbtn" id="toPh">${esc(PHRASES[inPh].show || PHRASES[inPh].k)} →</button></div>` : ''}
+    <div class="divider"></div>
+    ${sentSec(sent, selected.surface)}
+    <div class="divider"></div>
+    <div class="sec"><h5>熟练度</h5>${statusButtons(s === 98 ? -2 : s === 99 ? -1 : s)}
+      <div class="subrow" style="margin-top:6px"><span class="lbl-i">在 ${enc.docs} 篇文章里遇到过 ${enc.times} 次</span>
+      <span class="row" style="gap:14px"><button class="linkbtn" id="ignBtn">${s === 98 ? '取消忽略' : '忽略'}</button>
+      <button class="linkbtn" id="wbBtn">${wordbook.has(L) ? '✓ 在生词本中' : '加入生词本'}</button></span></div></div></div>`;
+  p.querySelectorAll('.pip').forEach(b => b.onclick = () => setStatus(L, +b.dataset.s));
+  p.querySelectorAll('[data-set]').forEach(b => b.onclick = () => setStatus(L, +b.dataset.set));
+  $('#ignBtn').onclick = () => setStatus(L, s === 98 ? 5 : 98);
+  $('#wbBtn').onclick = () => { wordbook.has(L) ? wordbook.delete(L) : wordbook.add(L); renderCard(); };
+  if ($('#toPh')) $('#toPh').onclick = () => { selected = { kind: 'phrase', idx: inPh, sent: selected.sent }; refresh(); renderCard(); };
+  bindSent(p);
+  enterCard(p);
+}
+const ICON_SPK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6M18.5 6.5a8 8 0 010 11"/></svg>';
+
+function sentSec(sent, hl) {
+  const q = esc(sent.text.replace(/`/g, '')).replace(new RegExp(`\\b(${hl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i'), '<mark>$1</mark>');
+  return `<div class="sec"><h5>所在句子</h5><div class="quote">${q}</div>
+    <div class="tr" id="trBox" hidden>${esc(sent.tr)}</div>
+    <div class="row" style="margin-top:4px"><button class="btn" id="trBtn">翻译</button><button class="btn" id="anBtn">请 Lexi 解析</button><button class="btn" id="sayBtn">朗读这句</button></div></div>`;
+}
+function bindSent(p) {
+  p.querySelectorAll('[data-say]').forEach(b => b.onclick = () => speak(b.dataset.say));
+  const t = $('#trBtn'); if (!t) return;
+  t.onclick = () => { const box = $('#trBox'); box.hidden = !box.hidden; t.textContent = box.hidden ? '翻译' : '收起翻译'; };
+  $('#anBtn').onclick = () => { const s = sentences[selected.sent]; switchTab('asst'); askAbout(s.text); };
+  $('#sayBtn').onclick = () => speak(sentences[selected.sent].text.replace(/`/g, ''), selected.sent);
+}
+
+function setStatus(L, s) {
+  const old = L in VOCAB ? VOCAB[L] : undefined;
+  const prev = statusOf(L);
+  const els = [...document.querySelectorAll(`#page .w[data-l="${CSS.escape(L)}"]`)];
+  const apply = () => {
+    VOCAB[L] = s;
+    if (s >= 1 && s <= 4) wordbook.add(L);
+    pushUndo(() => { if (old === undefined) delete VOCAB[L]; else VOCAB[L] = old; });
+    refresh(); renderCard();
+    if (HL.has(s) && s !== prev) roughMark(els, s);
+    anim(document.querySelectorAll('#pane-card .pip.fill i'), { scaleX: [0.3, 1] }, { duration: 0.35, ease: EASE, delay: stag(0.04) });
+    showToast(`“${L}” 已设为${STATUS_LABEL[s]}，所有文章同步更新`);
+  };
+  if (HL.has(prev) && !HL.has(s)) sweepOut(els, apply); else apply();
+}
+
+function renderSum() {
+  const d = cur, st = docStats(); const [lv, c] = levelOf(st.ratio);
+  const phs = PHRASES.map((p, i) => ({p, i})).filter(({i}) => $('#page .ph[data-p="' + i + '"]'));
+  $('#pane-sum').innerHTML = `<div class="icard">
+    <div class="sec"><h5><span class="note">✦ AI</span>总结</h5><div class="gloss">${esc(d.sum)}</div></div>
+    <div class="sec"><h5>难度</h5><div class="subrow"><span style="color:var(--ink-2)">生词率 ${(st.ratio * 100).toFixed(1)}% &nbsp;<span class="lvl ${c}">${lv}</span></span><span class="lbl-i">约 CEFR ${d.id === 'news' ? 'C1' : 'B2'}</span></div></div>
+    <div class="divider"></div>
+    <div class="sec"><h5>${d.extraTitle}</h5><dl class="kv">${d.extra.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl></div>
+    <div class="divider"></div>
+    <div class="sec"><h5>值得学的短语</h5><div class="plist">${phs.map(({p, i}) => `<button class="pitem" data-pi="${i}"><b>${esc(p.show || p.k)}</b><span>${esc(p.zh)}</span></button>`).join('')}</div></div>
+    <div class="divider"></div>
+    <div class="sec"><h5>长难句</h5><div class="quote">${esc(d.hard.s)}</div><div class="tr">${esc(d.hard.a)}</div></div>
+    <div class="divider"></div>
+    <div class="sec"><h5><span class="note">✦ AI</span>学习建议</h5><div class="gloss" style="font-size:14px">${esc(d.advice)}</div></div></div>
+    <div class="memref">导入时由 DeepSeek 生成并缓存。 <button class="linkbtn" id="regen">重新生成</button></div>`;
+  document.querySelectorAll('#pane-sum .pitem').forEach(b => b.onclick = () => {
+    const el = $(`#page .ph[data-p="${b.dataset.pi}"]`); const si = +el.closest('.sent').dataset.si;
+    selected = { kind: 'phrase', idx: +b.dataset.pi, sent: si }; refresh(); switchTab('card'); renderCard(); flashTo(el);
+  });
+  $('#regen').onclick = () => showToast('原型：会用当前模型重新生成，旧版本会保留');
+}
+
+function renderVocab() {
+  const st = docStats();
+  const group = (title, set, cls) => set.size ? `<div class="sec"><h5>${title} · ${set.size}</h5><div class="vgroup">${[...set].map(l =>
+    `<button class="vrow" data-l="${esc(l)}"><b class="${cls(l)}">${esc(l)}</b><span>${esc(DICT[l] ? DICT[l].zh[0] : '')}</span></button>`).join('')}</div></div>` : '';
+  const body = group('生词', st.nNew, () => 'sw0') + group('学习中', st.nL, () => 'sw1') + group('待确认', st.nU, () => '');
+  $('#pane-vocab').innerHTML = body ? `<div class="icard">${body}<div class="row"><button class="btn" id="allWb">把生词都加入生词本</button></div></div>` : '<div class="empty">这一篇没有生词了。</div>';
+  document.querySelectorAll('#pane-vocab .vrow').forEach(b => b.onclick = () => { const el = $(`#page .w[data-l="${CSS.escape(b.dataset.l)}"]`); selectWord(el); switchTab('card'); flashTo(el); });
+  if ($('#allWb')) $('#allWb').onclick = () => { st.nNew.forEach(l => wordbook.add(l)); showToast(`已加入生词本 ${st.nNew.size} 个词，明天开始复习`); };
+}
+
+/* ============ 助手 ============ */
+function thread() {
+  if (!threads[cur.id]) {
+    const st = docStats(); const [lv] = levelOf(st.ratio);
+    threads[cur.id] = [{ r: 'a', h: `<p>我是 Lexi。你正在读 <b>${esc(cur.book ? cur.book.split(' · ')[0] : cur.title)}</b>，这篇对你的生词率约 ${(st.ratio * 100).toFixed(1)}%，属于${lv}。</p><p>读的时候随时选中句子问我；读完我可以出几道理解题。</p>` }];
+  }
+  return threads[cur.id];
+}
+function renderAsst() {
+  const reading = cur.book ? cur.book.split(' · ')[0] + ', ' + cur.title : cur.title;
+  const sel = selected ? (selected.kind === 'word' ? selected.lemma : (PHRASES[selected.idx].show || PHRASES[selected.idx].k)) : '';
+  $('#pane-asst').innerHTML = `
+    <div class="ahead"><select id="backend" aria-label="助手后端"><option>Lexi · 内置 DeepSeek</option><option>Lexi · 本地 Codex（ACP）</option><option>Lexi · 本地 Claude Code（ACP）</option><option>Lexi · 本地 Gemini CLI（ACP）</option></select>
+      <button class="linkbtn" id="memBtn">记得关于你的 ${MEMORIES.length} 件事</button></div>
+    <div class="memlist" id="memList" hidden>${MEMORIES.map(([a, b]) => `<div><em>${a}</em><span>${esc(b)}</span></div>`).join('')}<div><em></em><button class="linkbtn" style="text-align:left">在设置里管理</button></div></div>
+    <div class="ctxline" title="这些上下文会随问题一起发给助手">正在读 <b>${esc(reading)}</b>${sel ? `，选中了 <b>${esc(sel)}</b>` : ''}</div>
+    <div class="msgs" id="msgs">${thread().map(m => `<div class="msg ${m.r}">${m.h}</div>`).join('')}</div>
+    <div class="suggest"><button data-q="hard">讲讲最难的那句</button><button data-q="quiz">出 3 道理解题</button><button data-q="wb">生词加入生词本</button><button data-q="weak">我最近的薄弱点</button></div>`;
+  $('#memBtn').onclick = () => { $('#memList').hidden = !$('#memList').hidden; };
+  $('#backend').onchange = e => showToast(e.target.selectedIndex ? '原型：本地 harness 通过 ACP 启动，并通过 MCP 使用 LexiRead 的学习工具' : '已切换到内置助手');
+  document.querySelectorAll('.suggest button').forEach(b => b.onclick = () => runPreset(b.dataset.q));
+  PBODY.scrollTop = PBODY.scrollHeight;
+}
+function post(r, h) {
+  thread().push({ r, h }); renderAsst();
+  const last = document.querySelector('#msgs .msg:last-child');
+  anim(last, { opacity: [0, 1], y: [10, 0] }, SPRING);
+  anim(last && last.querySelectorAll('p, li, .tool'), { opacity: [0, 1], y: [4, 0] }, { duration: 0.3, ease: EASE, delay: stag(0.06, { startDelay: 0.08 }) });
+}
+function reply(h, delay = 650) {
+  thread().push({ r: 'a', h: '<span class="typing-dots" aria-label="Lexi 正在思考"><i></i><i></i><i></i></span>' }); renderAsst();
+  setTimeout(() => { thread().pop(); post('a', h); }, delay);
+}
+function runPreset(q) {
+  const d = cur;
+  if (q === 'hard') { post('u', '解释本篇最难的句子'); reply(`<p><i>${esc(d.hard.s)}</i></p><p>${esc(d.hard.a)}</p><p class="memref">按你的偏好，我少用了术语。</p>`); }
+  if (q === 'quiz') { post('u', '出 3 道理解题'); reply(`<p>用英文回答，一两句话就行：</p><ol>${d.quiz.map(x => `<li>${esc(x).replace(/`([^`]+)`/g, '<code>$1</code>')}</li>`).join('')}</ol><p class="memref">这是临时练习，不影响复习排期。</p>`); }
+  if (q === 'wb') {
+    post('u', '把本篇生词加入生词本');
+    const ls = [...docStats().nNew]; const before = ls.map(l => [l, VOCAB[l]]);
+    if (!ls.length) { reply('<p>本篇已经没有未处理的生词了。学习中的词都在生词本里。</p>'); return; }
+    setTimeout(() => {
+      ls.forEach(l => { VOCAB[l] = 1; wordbook.add(l); });
+      pushUndo(() => before.forEach(([l, v]) => VOCAB[l] = v));
+      refresh();
+      post('a', `<div class="tool"><div class="row"><code>add_to_wordbook</code><span>已自动执行</span></div><span>${ls.length} 个词：${ls.map(esc).join('、')}，状态设为“见过”</span><div class="row"><span class="memref">权限模式“默认”：标词类操作自动执行</span><button class="linkbtn" onclick="doUndo()">撤销</button></div></div><p>好了，明天的复习里会出现这些词，例句就用这篇文章里的原句。</p>`);
+    }, 600);
+  }
+  if (q === 'weak') { post('u', '我最近的薄弱点？'); reply(`<div class="tool"><div class="row"><code>search_memory</code><code>get_learning_stats</code></div><span>读取了 2 条记忆、近 7 天的复习记录</span></div><ul><li><b>affect / effect</b> 还会混，上周复习时答错 3 次。</li><li><b>overhead</b> 在你读过的 4 篇技术文档里出现过，还停在“学习 2”，可以试着用它造个句。</li><li>虚拟语气：本周读的小说里有 2 处，需要我挑出来讲讲吗？</li></ul>`, 900); }
+}
+function askAbout(text) {
+  post('u', `解析这句话：<i>${esc(text.replace(/`/g, ''))}</i>`);
+  const isHard = text === cur.hard.s;
+  reply(isHard ? `<p>${esc(cur.hard.a)}</p>` : `<p>这句话的主干比较清楚，可以分两步读：先找主语和谓语，再看修饰成分。</p><p>${esc(sentences.find(s => s.text === text)?.tr || '')}</p><p class="memref">原型中只有每篇的“长难句”有完整解析，其他句子显示翻译。</p>`);
+}
+$('#askSend').onclick = sendAsk;
+$('#askInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAsk(); } });
+function sendAsk() {
+  const v = $('#askInput').value.trim(); if (!v) return; $('#askInput').value = '';
+  post('u', esc(v));
+  reply(`<p>（原型）正式版会把你的问题，连同正在读的《${esc(cur.title)}》${selected ? '、选中的 “' + esc(selected.lemma || PHRASES[selected.idx].k) + '”' : ''}、你的水平和记忆一起发给当前后端。</p>`);
+}
+
+/* ============ 交互 ============ */
+function selectWord(el) {
+  const si = +el.closest('.sent').dataset.si;
+  selected = { kind: 'word', lemma: el.dataset.l, surface: el.textContent, sent: si }; selEl = el;
+  document.querySelectorAll('.sent.focus').forEach(s => s.classList.remove('focus'));
+  refresh(); renderCard();
+}
+$('#page').addEventListener('click', e => {
+  const w = e.target.closest('.w'); if (!w) return;
+  if (window.getSelection().toString().trim().split(/\s+/).length > 1) return;
+  if (e.shiftKey && w.closest('.ph')) {
+    const ph = w.closest('.ph');
+    selected = { kind: 'phrase', idx: +ph.dataset.p, sent: +w.closest('.sent').dataset.si }; selEl = ph; refresh(); renderCard();
+  } else selectWord(w);
+  const t = document.querySelector('.tab.on').dataset.tab;
+  if (t !== 'card' && t !== 'asst') switchTab('card');
+  if (t === 'asst') renderAsst();
+  if (matchMedia('(max-width: 760px)').matches) $('#panel').classList.add('open');
+});
+
+// 选中多个词 → 浮动工具条
+document.addEventListener('mouseup', () => setTimeout(checkSel, 0));
+document.addEventListener('touchend', () => setTimeout(checkSel, 250));
+function checkSel() {
+  const sel = window.getSelection(); const tool = $('#selTool');
+  const txt = sel.toString().trim();
+  if (!txt || txt.split(/\s+/).length < 2 || !$('#page').contains(sel.anchorNode)) { tool.hidden = true; return; }
+  const r = sel.getRangeAt(0).getBoundingClientRect();
+  const wasHidden = tool.hidden; tool.hidden = false;
+  if (wasHidden) anim(tool, { opacity: [0, 1], y: [6, 0], scale: [0.95, 1] }, { duration: 0.25, ease: EASE });
+  tool.style.left = Math.max(8, Math.min(window.innerWidth - tool.offsetWidth - 8, r.left + r.width / 2 - tool.offsetWidth / 2)) + 'px';
+  tool.style.top = Math.max(8, r.top - tool.offsetHeight - 8 + window.scrollY) + 'px';
+  tool.dataset.txt = txt;
+}
+$('#mkPhrase').onclick = () => {
+  const txt = $('#selTool').dataset.txt.replace(/[^A-Za-z'’\s-]/g, '').trim();
+  const k = txt.split(/[\s-]+/).map(lemmatize).join(' ');
+  if (!PHRASES.some(p => p.k === k)) PHRASES.push({ k, show: txt.toLowerCase(), zh: '（AI 生成语境释义中…）', ctx: '原型：正式版会让 AI 根据这句话生成短语的语境释义，并在所有文章中自动识别这个短语。', s: 0 });
+  const anchor = window.getSelection().anchorNode; const sentEl = anchor && anchor.parentElement && anchor.parentElement.closest('.sent');
+  const si = sentEl ? +sentEl.dataset.si : 0;
+  window.getSelection().removeAllRanges(); $('#selTool').hidden = true;
+  const keepScroll = READER.scrollTop; renderDoc(); READER.scrollTop = keepScroll;
+  selected = { kind: 'phrase', idx: PHRASES.findIndex(p => p.k === k), sent: si }; refresh(); switchTab('card'); renderCard();
+  showToast(`已添加短语 “${txt}”`);
+};
+$('#askSel').onclick = () => { const t = $('#selTool').dataset.txt; window.getSelection().removeAllRanges(); $('#selTool').hidden = true; switchTab('asst'); post('u', `这段是什么意思：<i>${esc(t)}</i>`); reply('<p>（原型）正式版会结合上下文解释这段话，并指出其中值得学的搭配。</p>'); };
+
+function markRestKnown() {
+  const st = docStats(); const ls = [...st.nNew, ...st.nU]; const before = ls.map(l => [l, VOCAB[l]]);
+  const els = [...document.querySelectorAll('#page .w.s0, #page .w.s99')];
+  const done = () => {
+    ls.forEach(l => VOCAB[l] = 5);
+    pushUndo(() => before.forEach(([l, v]) => VOCAB[l] = v));
+    refresh(); renderCard();
+    showToast(`已将 ${ls.length} 个词标为已知`);
+  };
+  sweepOut(els, done);
+}
+
+function pushUndo(fn) { undoStack = fn; }
+function doUndo() {
+  if (!undoStack) return;
+  const before = new Map([...document.querySelectorAll('#page .w')].map(w => [w, w.className]));
+  undoStack(); undoStack = null; refresh(); renderPanel(); $('#toast').hidden = true;
+  sweepIn([...before.keys()].filter(w => w.className !== before.get(w) && /\bs[0-4]\b/.test(w.className)));
+}
+let toastT;
+function showToast(t) { $('#toastTxt').textContent = t; const was = $('#toast').hidden; $('#toast').hidden = false; if (was) anim($('#toast'), { opacity: [0, 1], y: [14, 0], scale: [0.96, 1] }, SPRING); $('#toastUndo').hidden = !undoStack; clearTimeout(toastT); toastT = setTimeout(() => $('#toast').hidden = true, 3800); }
+$('#toastUndo').onclick = doUndo;
+
+function flashTo(el) { if (!el) return; el.scrollIntoView({ block: 'center' }); if (roughFlash(el)) return; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+function nextNew() {
+  const ws = [...document.querySelectorAll('#page .w.s0, #page .w.s99')]; if (!ws.length) return;
+  const curEl = selected && selected.kind === 'word' ? [...document.querySelectorAll(`#page .w[data-l="${CSS.escape(selected.lemma)}"]`)].pop() : null;
+  const all = [...document.querySelectorAll('#page .w')]; const pos = curEl ? all.indexOf(curEl) : -1;
+  const nx = ws.find(w => all.indexOf(w) > pos) || ws[0];
+  selectWord(nx); flashTo(nx);
+}
+
+document.addEventListener('keydown', e => {
+  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 'j' || e.key === 'ArrowRight') { nextNew(); e.preventDefault(); return; }
+  if (k === 'p') { togglePlay(); return; }
+  if (k === 't') { toggleTr(); return; }
+  if (k === 'g') { toggleGloss(); return; }
+  if (k === 'escape') { selected = null; $('#settings').hidden = true; $('#panel').classList.remove('open'); refresh(); renderCard(); return; }
+  if (!selected || selected.kind !== 'word') return;
+  if (/^[0-4]$/.test(k)) setStatus(selected.lemma, +k);
+  if (k === 'k') setStatus(selected.lemma, 5);
+  if (k === 'i') setStatus(selected.lemma, 98);
+});
+
+/* ============ 朗读（Web Speech API，不可用时用计时模拟高亮） ============ */
+let playing = false, playIdx = 0, timer = null;
+function voice() { try { const vs = speechSynthesis.getVoices(); return vs.find(v => /en[-_](US|GB)/i.test(v.lang)) || null; } catch (e) { return null; } }
+function speak(text, si) {
+  try {
+    if (!('speechSynthesis' in window)) throw 0;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = +$('#speed').value; const v = voice(); if (v) u.voice = v;
+    if (si !== undefined) { markPlaying(si); u.onend = () => markPlaying(-1); }
+    speechSynthesis.speak(u);
+  } catch (e) { showToast('当前环境不支持系统语音。正式版可用 Kokoro 本地语音'); }
+}
+function markPlaying(i) { document.querySelectorAll('.sent.playing').forEach(s => s.classList.remove('playing')); if (i >= 0) { const el = $(`.sent[data-si="${i}"]`); if (el) { el.classList.add('playing'); el.scrollIntoView({ block: 'center' }); } } }
+function playFrom(i) {
+  if (!playing || i >= sentences.length) { stopPlay(); return; }
+  playIdx = i; markPlaying(i);
+  const text = sentences[i].text.replace(/`/g, '');
+  let usedTTS = false;
+  try {
+    if ('speechSynthesis' in window && voice()) {
+      const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = +$('#speed').value; u.voice = voice();
+      u.onend = () => playFrom(i + 1); speechSynthesis.speak(u); usedTTS = true;
+    }
+  } catch (e) {}
+  if (!usedTTS) timer = setTimeout(() => playFrom(i + 1), Math.max(1200, text.split(' ').length * 330 / +$('#speed').value));
+}
+function togglePlay() {
+  if (playing) { stopPlay(); return; }
+  playing = true; $('#playBtn').classList.add('on');
+  $('#playBtn').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg><span class="hide-s">暂停</span>';
+  playFrom(selected ? selected.sent : playIdx);
+}
+function stopPlay() {
+  playing = false; clearTimeout(timer); try { speechSynthesis.cancel(); } catch (e) {}
+  markPlaying(-1); $('#playBtn').classList.remove('on');
+  $('#playBtn').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg><span class="hide-s">朗读</span>';
+}
+$('#playBtn').onclick = togglePlay;
+function toggleTr() {
+  showTr = !showTr; $('#page').classList.toggle('tr-on', showTr); $('#trTog').classList.toggle('on', showTr); $('#trTog').setAttribute('aria-pressed', showTr); roughRefresh();
+  if (showTr) anim(document.querySelectorAll('#page .ptr'), { opacity: [0, 1], y: [-4, 0] }, { duration: 0.35, ease: EASE, delay: stag(0.03) });
+}
+function toggleGloss() {
+  showGloss = !showGloss; $('#page').classList.toggle('gloss-on', showGloss); $('#glossTog').classList.toggle('on', showGloss); $('#glossTog').setAttribute('aria-pressed', showGloss); roughRefresh();
+}
+$('#trTog').onclick = toggleTr;
+$('#glossTog').onclick = toggleGloss;
+
+/* ============ 设置、进度、杂项 ============ */
+// 正文字体：所有类型默认相同，用户可在阅读设置中更换
+let fontPref = null;
+const FONTS = { serif: 'var(--f-kami)', classic: '"Source Serif 4", "Alibaba PuHuiTi 3.0", Georgia, serif', sans: '"Geist", "Noto Sans SC", system-ui, sans-serif' };
+function applyFont() {
+  const f = fontPref || 'serif';
+  document.documentElement.style.setProperty('--read-font', FONTS[f]);
+  document.querySelectorAll('#fontSeg button').forEach(b => b.classList.toggle('on', b.dataset.f === f));
+  if (typeof rr === 'function') rr();
+}
+$('#setBtn').onclick = e => { e.stopPropagation(); $('#settings').hidden = !$('#settings').hidden; };
+document.addEventListener('click', e => { if (!$('#settings').hidden && !$('#settings').contains(e.target) && e.target !== $('#setBtn')) $('#settings').hidden = true; });
+$('#paperSeg').onclick = e => {
+  const p = e.target.dataset.p; if (!p) return;
+  document.querySelectorAll('#paperSeg button').forEach(b => b.classList.toggle('on', b === e.target));
+  const r = document.documentElement;
+  delete r.dataset.paper;
+  if (p === 'auto') delete r.dataset.theme; else if (p === 'sepia') { r.dataset.theme = 'light'; r.dataset.paper = 'sepia'; } else r.dataset.theme = p;
+  setTimeout(roughRefresh, 50);
+};
+$('#modeSeg').onclick = e => {
+  const m = e.target.dataset.m; if (!m) return; mode = m;
+  document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b === e.target));
+  $('#page').classList.remove('mode-new', 'mode-clean'); if (m !== 'all') $('#page').classList.add('mode-' + m);
+  roughRefresh();
+};
+$('#roughSeg').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  roughOn = b.dataset.r === 'on' && !!RN;
+  document.querySelectorAll('#roughSeg button').forEach(x => x.classList.toggle('on', x === b));
+  document.documentElement.classList.toggle('rough', roughOn);
+  roughRefresh();
+};
+$('#palSeg').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#palSeg button').forEach(x => x.classList.toggle('on', x === b));
+  if (b.dataset.pal === 'indigo') delete document.documentElement.dataset.palette; else document.documentElement.dataset.palette = b.dataset.pal;
+  anim([$('#rail'), $('#panel')], { opacity: [0.6, 1] }, { duration: 0.4, ease: EASE });
+};
+$('#fontSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; fontPref = b.dataset.f; applyFont(); };
+let rrT; function rr() { clearTimeout(rrT); rrT = setTimeout(roughRefresh, 150); }
+$('#fs').oninput = e => { document.documentElement.style.setProperty('--read-size', e.target.value + 'px'); $('#fsv').textContent = e.target.value; rr(); };
+$('#lh').oninput = e => { document.documentElement.style.setProperty('--read-lh', e.target.value); $('#lhv').textContent = e.target.value; rr(); };
+// 主题切换后墨色变了，重绘手绘标注
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTimeout(roughRefresh, 50));
+READER.addEventListener('scroll', () => {
+  const r = READER; const p = r.scrollHeight > r.clientHeight ? r.scrollTop / (r.scrollHeight - r.clientHeight) : 1;
+  $('#progBar').style.width = (p * 100).toFixed(0) + '%'; $('#progTxt').textContent = (p * 100).toFixed(0) + '%';
+  $('#eta').textContent = `还剩约 ${Math.max(0, Math.round(cur.mins * (1 - p)))} 分钟`;
+});
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+$('#sheetClose').onclick = () => $('#panel').classList.remove('open');
+$('#railBtn').onclick = () => $('#rail').classList.toggle('open');
+// 返回首页：本地打开时跳到同目录的 home.html，发布后链接到首页原型
+if (location.protocol === 'file:') { $('#backBtn').href = 'home.html'; $('#backBtn').removeAttribute('target'); }
+
+renderDoc();
+moveTabDot(false);
+addEventListener('resize', () => moveTabDot(false));
+anim(document.querySelectorAll('.docitem, .toc button, .legend > div'), { opacity: [0, 1], x: [-8, 0] }, { duration: 0.45, ease: EASE, delay: stag(0.04, { startDelay: 0.1 }) });
+READER.dispatchEvent(new Event('scroll'));
+</script>

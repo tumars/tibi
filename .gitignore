@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+# 吉祥物出图的中间产物（定稿后再挑选放进 docs/prototypes/img/mascot/）
+docs/design/mascot/out/
+# 依赖与构建产物（M0 起）
+node_modules/
+dist/
+target/

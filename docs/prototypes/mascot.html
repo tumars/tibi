@@ -1,0 +1,64 @@
+<title>Tibi 吉祥物</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Charis+SIL:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono&display=swap">
+<link rel="stylesheet" href="v2.css">
+<style>
+body { overflow: auto; height: auto; }
+.mw { max-width: 980px; margin: 0 auto; padding: 40px 24px 80px; display: flex; flex-direction: column; gap: 36px; }
+.mw header { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.mw header div { flex: 1; min-width: 260px; }
+.mw h1 { margin: 0 0 6px; font-size: 28px; font-weight: 600; letter-spacing: -.02em; }
+.mw p { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.7; }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 24px; align-items: center; border-radius: 20px; box-shadow: inset 0 0 0 1px var(--line); padding: 24px; background: var(--surface); }
+.stage .big { display: grid; place-items: center; min-height: 260px; }
+.stage .ctl { display: flex; flex-direction: column; gap: 8px; }
+.stage .ctl h3 { margin: 0 0 4px; font-size: 13px; color: var(--ink-3); font-weight: 500; }
+.chips2 { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips2 button { height: 30px; padding: 0 12px; border-radius: 999px; font-size: 13px; box-shadow: inset 0 0 0 1px var(--line-2); }
+.chips2 button.on { background: var(--ink); color: var(--surface); box-shadow: none; }
+.states { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.st { border-radius: 16px; background: var(--sunken); padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 6px; }
+.st .f { display: grid; place-items: center; height: 130px; }
+.st b { font-size: 14px; font-weight: 600; } .st b small { font-weight: 400; color: var(--ink-3); font-family: var(--f-mono); font-size: 11px; margin-left: 6px; }
+.st span { font-size: 12.5px; color: var(--ink-2); line-height: 1.6; }
+.sizes { display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+.sizes div { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); }
+h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+@media (max-width: 700px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<main class="mw">
+  <header>
+    <div><h1>Tibi 缇比：藏狐吉祥物</h1><p>Tibi 既是吉祥物，也是你的 AI 学习伙伴——和你对话、帮你导入文章、找文章、讲解、出题的就是它。圆滚滚的身形、大眼睛、暖橙色，参考多邻国 Duo 的可爱感（造型原创）；保留藏狐的方脸、浅色"方下巴"和半垂眼皮的淡定眼神。SVG + CSS 动画，7 种状态，代码切换；点它会开心，睡着时把鼠标移上去会醒一下。系统开启"减少动态效果"时静止。</p></div>
+    <button class="pill" id="themeBtn" title="切换深浅色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button>
+  </header>
+  <section class="stage">
+    <div class="big" id="big"></div>
+    <div class="ctl"><h3>切换状态</h3><div class="chips2" id="chips"></div><h3 style="margin-top:12px">一次性反应</h3><div class="chips2"><button data-p="happy">开心一下</button><button data-p="surprised">吓一跳</button></div></div>
+  </section>
+  <section><h2>状态与用在哪里</h2><div class="states" id="states"></div></section>
+  <section><h2>尺寸</h2><div class="sizes" id="sizes"></div></section>
+</main>
+
+<script src="v2-fox.js"></script>
+<script>
+const USE = {
+  idle: '首页标题上方的默认状态；呼吸、眨眼、尾巴轻摇',
+  listening: '输入框获得焦点、用户正在打字',
+  thinking: 'Tibi 在想问题、找文章、讲解时',
+  reading: '导入、分析文章时；读完一章前',
+  happy: '导入完成、复习完成、达成每日目标',
+  sleeping: '深夜（23:00–5:00）打开应用；长时间无操作',
+  surprised: '出错、需要你确认；从睡眠中被戳醒',
+};
+const big = Fox.mount(document.getElementById('big'), { state: 'idle', size: 240, interactive: true });
+document.getElementById('chips').innerHTML = Fox.STATES.map(s => `<button data-s="${s}"${s === 'idle' ? ' class="on"' : ''}>${Fox.LABEL[s]}</button>`).join('');
+document.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { big.set(b.dataset.s); document.querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', x === b)); });
+document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => big.pulse(b.dataset.p, 1800));
+document.getElementById('states').innerHTML = Fox.STATES.map(s => `<div class="st"><div class="f" id="s-${s}"></div><b>${Fox.LABEL[s]}<small>${s}</small></b><span>${USE[s]}</span></div>`).join('');
+Fox.STATES.forEach(s => Fox.mount(document.getElementById('s-' + s), { state: s, size: 120 }));
+document.getElementById('sizes').innerHTML = [24, 40, 64, 120].map(n => `<div><span id="z-${n}"></span>${n}px</div>`).join('');
+[24, 40, 64, 120].forEach(n => Fox.mount(document.getElementById('z-' + n), { state: 'idle', size: n }));
+document.getElementById('themeBtn').onclick = () => { const r = document.documentElement, dark = matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = (r.dataset.theme || (dark ? 'dark' : 'light')) === 'dark' ? 'light' : 'dark'; };
+</script>

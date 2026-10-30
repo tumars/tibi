@@ -1,0 +1,1129 @@
+<title>Tibi 阅读器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Charis+SIL:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono&display=swap">
+<link rel="stylesheet" href="v2.css">
+<style>
+/* ============ 阅读器 v2 专属样式 ============ */
+:root { --read-font: var(--f-read); --read-size: 20px; --read-lh: 1.75; }
+:root[data-paper="sepia"] { --surface: #f7f1e3; --bg: #ece5d5; --sunken: #efe7d6; }
+/* 侧栏里的文档列表与目录 */
+.docitem { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: 8px 12px; border-radius: 10px; transition: background .15s; }
+.docitem:hover { background: var(--hover); }
+.docitem.cur { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.docitem .dt { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.docitem .meta { display: flex; gap: 8px; font-size: 11.5px; color: var(--ink-3); }
+.lvl { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; white-space: nowrap; }
+.lvl::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.lvl.ok { color: var(--ok); } .lvl.mid { color: var(--mid); } .lvl.hard { color: var(--hard); }
+.toc { display: flex; flex-direction: column; }
+.toc button { display: flex; justify-content: space-between; gap: 8px; padding: 6px 12px; border-radius: 10px; font-size: 13px; color: var(--ink-2); text-align: left; }
+.toc button:hover:not(:disabled) { background: var(--hover); }
+.toc button.cur { color: var(--ink); font-weight: 500; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.toc small { font-size: 11px; color: var(--ink-3); font-weight: 400; }
+.toc button:disabled { color: var(--ink-3); cursor: default; font-size: 12px; }
+.app.collapsed #tocWrap, .app.collapsed #docH { display: none; }
+
+/* 顶栏工具 */
+.top .crumb { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.top .crumb a { color: var(--ink-3); text-decoration: none; } .top .crumb a:hover { color: var(--ink); }
+.top .crumb b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
+.tools { display: flex; align-items: center; gap: 2px; }
+.speed { height: 32px; border: 0; background: transparent; font: inherit; font-size: 12.5px; color: var(--ink-2); padding: 0 4px; cursor: pointer; -webkit-appearance: none; appearance: none; }
+.vsep { width: 1px; height: 18px; background: var(--line-2); margin: 0 6px; }
+.pill .n { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; } .pill.on .n { color: inherit; opacity: .7; }
+
+/* 正文 */
+.reader { min-height: 0; overflow-y: auto; position: relative; }
+.page { display: block; gap: 0; max-width: 680px; margin: 0 auto; padding: 40px 40px 120px; font-family: var(--read-font); font-size: var(--read-size); line-height: var(--read-lh); color: var(--ink); }
+.eyebrow { font-family: var(--f-ui); font-size: 12.5px; color: var(--ink-3); display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.eyebrow span + span::before { content: "·"; margin-right: 8px; }
+.page h1 { font-family: var(--read-font); font-size: 1.9em; line-height: 1.18; font-weight: 700; letter-spacing: -.015em; margin: 0 0 1em; text-wrap: balance; }
+.page p { margin: 0 0 1.05em; }
+.page pre { font-family: var(--f-mono); font-size: 13.5px; line-height: 1.7; background: var(--sunken); border-radius: 14px; padding: 16px 18px; overflow-x: auto; margin: 0 0 1.3em; }
+.page pre::before { content: "代码 · 不参与标注"; display: block; font-family: var(--f-ui); font-size: 11.5px; color: var(--ink-3); margin-bottom: 8px; }
+.page code.inl { font-family: var(--f-mono); font-size: .78em; background: var(--sunken); padding: 2px 6px; border-radius: 6px; }
+.tk-kw { color: var(--accent); } .tk-str { color: var(--ok); } .tk-com { color: var(--ink-3); }
+.page .ptr { display: none; font-family: var(--f-ui); font-size: .74em; line-height: 1.75; color: var(--ink-2); margin: -.5em 0 1.3em; padding: 10px 14px; border-radius: 12px; background: var(--sunken); }
+.page .ptr-h { margin-top: -.6em; }
+.page.tr-on .ptr { display: block; }
+.page.gloss-on { line-height: calc(var(--read-lh) + .3); }
+.page.gloss-on h1 { line-height: 1.2; }
+.page h1 .w::after, .page h1 .ph::after { display: none !important; }
+.page.gloss-on .w, .page.gloss-on .ph { position: relative; }
+.page.gloss-on .w.s0[data-g]::after, .page.gloss-on .w.s1[data-g]::after, .page.gloss-on .w.s2[data-g]::after, .page.gloss-on .w.s3[data-g]::after, .page.gloss-on .w.s4[data-g]::after, .page.gloss-on .ph.pl::after {
+  content: attr(data-g); position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, .15em); font-family: var(--f-ui); font-size: 10.5px; line-height: 1.1; color: var(--accent); white-space: nowrap; pointer-events: none; }
+.page.gloss-on .ph.pl .w::after { display: none; }
+.sent { border-radius: 4px; transition: background .35s, box-shadow .35s; }
+.sent.playing { background: var(--play); box-shadow: 0 0 0 4px var(--play); }
+.w { cursor: pointer; border-radius: 3px; background-repeat: no-repeat; background-size: 100% 100%; transition: box-shadow .2s; }
+.w:hover { box-shadow: inset 0 -1.5px 0 var(--ink-3); }
+.w.s0 { background-image: linear-gradient(to bottom, transparent 34%, var(--hl-new) 34%, var(--hl-new) 90%, transparent 90%); }
+.w.s1 { background-image: linear-gradient(to bottom, transparent 34%, var(--hl-1) 34%, var(--hl-1) 90%, transparent 90%); }
+.w.s2 { background-image: linear-gradient(to bottom, transparent 34%, var(--hl-2) 34%, var(--hl-2) 90%, transparent 90%); }
+.w.s3 { background-image: linear-gradient(to bottom, transparent 34%, var(--hl-3) 34%, var(--hl-3) 90%, transparent 90%); }
+.w.s4 { background-image: linear-gradient(to bottom, transparent 34%, var(--hl-4) 34%, var(--hl-4) 90%, transparent 90%); }
+.w.s99 { text-decoration: underline dotted var(--pencil); text-decoration-thickness: 1.6px; text-underline-offset: 5px; }
+/* 选中：柔和的浅蓝胶囊（向外扩 3px）+ 文字变强调色；不画边框 */
+.w.sel { background-image: none; background-color: var(--accent-wash); box-shadow: 0 0 0 3px var(--accent-wash); border-radius: 5px; color: var(--accent); transition: box-shadow .18s, background-color .18s, color .18s; }
+.w.sel:hover { box-shadow: 0 0 0 3px var(--accent-wash); }
+.ph { text-decoration: underline solid var(--accent); text-decoration-thickness: 1px; text-underline-offset: 6px; text-decoration-skip-ink: none; }
+.ph.sel { background: var(--accent-wash); box-shadow: 0 0 0 3px var(--accent-wash); border-radius: 5px; color: var(--accent); text-decoration-color: transparent; }
+.mode-new .w.s1, .mode-new .w.s2, .mode-new .w.s3, .mode-new .w.s4 { background-image: none; }
+.mode-new .ph, .mode-clean .ph { text-decoration-color: transparent; }
+.mode-clean .w { background-image: none !important; text-decoration: none !important; }
+.mode-clean .w::after, .mode-clean .ph::after { display: none !important; }
+.w.rvp, .ph.rvp { animation: rvp 1.6s ease both; border-radius: 5px; }
+@keyframes rvp { 0% { box-shadow: 0 0 0 0 transparent; background-color: transparent; } 20% { box-shadow: 0 0 0 3px var(--accent-wash); background-color: var(--accent-wash); } 70% { box-shadow: 0 0 0 3px var(--accent-wash); background-color: var(--accent-wash); } 100% { box-shadow: 0 0 0 0 transparent; background-color: transparent; } }
+.flash { animation: flash 1.4s ease; }
+@keyframes flash { 0%,35% { box-shadow: 0 0 0 5px var(--accent-wash), 0 0 0 1.5px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.endcard { font-family: var(--f-ui); margin-top: 56px; padding: 22px; border-radius: 18px; background: var(--sunken); display: flex; flex-direction: column; gap: 12px; }
+.endcard h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.endcard p { margin: 0; color: var(--ink-2); font-size: 13.5px; line-height: 1.75; }
+
+/* 底部进度 */
+.foot { display: flex; align-items: center; gap: 16px; height: 40px; padding: 0 18px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; min-width: 0; }
+.prog { width: 120px; height: 4px; border-radius: 99px; background: var(--line); overflow: hidden; flex: none; }
+.prog i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .2s; }
+.foot b { font-weight: 500; color: var(--ink-2); }
+.foot .counts { display: flex; gap: 14px; align-items: center; cursor: pointer; border-radius: 8px; padding: 4px 8px; margin-left: -8px; transition: background .15s; } .foot .counts:hover { background: var(--hover); color: var(--ink-2); }
+.foot .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.foot .sw.new { background: var(--hl-new); } .foot .sw.learn { background: linear-gradient(90deg, var(--hl-1), var(--hl-3)); } .foot .unc-ex { text-decoration: underline dotted var(--pencil); text-decoration-thickness: 1.6px; text-underline-offset: 3px; }
+.foot .counts .q { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--line-2); display: inline-grid; place-items: center; font-size: 10.5px; color: var(--ink-3); }
+.legend { position: fixed; left: 86px; bottom: 56px; z-index: 40; width: 440px; padding: 14px 16px 12px; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 12px 32px -12px rgba(0,0,0,.18); font-size: 12.5px; display: flex; flex-direction: column; gap: 10px; }
+.legend .lh { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: 13px; color: var(--ink); }
+.legend .lr { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 12px; align-items: center; }
+.legend .ex { font-family: var(--f-read); font-size: 15px; line-height: 1.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.legend .ex .w { cursor: default; } .legend .ex .w.sel { color: var(--accent); }
+.legend .lr b { display: block; font-weight: 500; color: var(--ink); } .legend .lr small { display: block; font-size: 11.5px; color: var(--ink-3); line-height: 1.5; }
+.legend .lf { font-size: 11.5px; color: var(--ink-3); padding-top: 8px; border-top: 1px solid var(--line); }
+.app:not(.collapsed) .legend { left: 270px; }
+.foot .sp { flex: 1; }
+.main { grid-template-rows: auto minmax(0, 1fr) auto; }
+/* 专注模式（F）：顶栏、底栏和左栏淡出，只留正文；鼠标移到上下边缘或按 Esc 时回来 */
+.app.focus .top, .app.focus .foot { opacity: 0; pointer-events: none; transition: opacity .25s; }
+.app.focus .top:hover, .app.focus .foot:hover, .app.focus.peek .top, .app.focus.peek .foot { opacity: 1; pointer-events: auto; }
+.app.focus .side { opacity: 0; transition: opacity .25s; } .app.focus .side:hover { opacity: 1; }
+.top, .foot { transition: opacity .25s; }
+.page { max-width: var(--measure, 680px); }
+.resume { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 6; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 6px 0 14px; border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.resume button { color: inherit; opacity: .7; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; } .resume button:hover { opacity: 1; background: rgba(255,255,255,.12); }
+.resume .go { opacity: 1; width: auto; padding: 0 10px; font-weight: 500; }
+.settings .sw { display: flex; justify-content: space-between; align-items: center; }
+
+/* 词卡浮层：贴着单词出现（AI 就地出现） */
+.wpop { position: fixed; z-index: 30; width: 340px; max-width: calc(100vw - 24px); max-height: min(560px, calc(100vh - 32px)); overflow: auto; border-radius: 18px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 18px 48px rgba(0,0,0,.12); padding: 18px 18px 16px; }
+.wpop .x { position: absolute; top: 10px; right: 10px; }
+.icard { display: flex; flex-direction: column; gap: 16px; }
+.wpop .whead { padding-right: 34px; }
+.wpop .sentsec { display: none; }
+.wpop.more .sentsec { display: flex; }
+.wpop .morebtn { align-self: flex-start; }
+.empty { color: var(--ink-2); font-size: 13.5px; line-height: 1.8; }
+.meter { height: 4px; border-radius: 99px; background: var(--line); overflow: hidden; } .meter i { display: block; height: 100%; background: var(--accent); transform-origin: left; }
+.kbd { font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-3); padding: 1px 5px; border-radius: 5px; box-shadow: inset 0 0 0 1px var(--line-2); }
+
+/* 抽屉内容 */
+.plist, .vgroup { display: flex; flex-direction: column; }
+.pitem, .vrow { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; padding: 9px 10px; border-radius: 10px; text-align: left; }
+.pitem:hover, .vrow:hover { background: var(--hover); }
+.pitem b, .vrow b { font-family: var(--f-read); font-weight: 700; font-size: 15px; }
+.pitem span, .vrow span { font-size: 12.5px; color: var(--ink-3); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+.vrow b.sw0 { background: linear-gradient(to bottom, transparent 34%, var(--hl-new) 34%, var(--hl-new) 90%, transparent 90%); }
+.vrow b.sw1 { background: linear-gradient(to bottom, transparent 34%, var(--hl-1) 34%, var(--hl-1) 90%, transparent 90%); }
+.ahead { margin-bottom: 4px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.ahead select { height: 30px; border: 0; border-radius: 999px; padding: 0 10px; background: var(--sunken); font: inherit; font-size: 12.5px; color: var(--ink-2); }
+.memlist { display: flex; flex-direction: column; gap: 8px; font-size: 13px; padding: 12px 14px; border-radius: 12px; background: var(--sunken); line-height: 1.6; }
+.memlist div { display: grid; grid-template-columns: 40px 1fr; gap: 10px; } .memlist em { font-style: normal; color: var(--ink-3); font-size: 12px; }
+.typing-dots { display: inline-flex; gap: 4px; padding: 6px 0; }
+.typing-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: blink 1.1s infinite; }
+.typing-dots i:nth-child(2) { animation-delay: .15s; } .typing-dots i:nth-child(3) { animation-delay: .3s; }
+
+/* 浮动工具条、设置 */
+.pop { position: absolute; z-index: 30; background: var(--surface); border-radius: 14px; box-shadow: 0 0 0 1px var(--line-2), 0 12px 32px rgba(0,0,0,.1); }
+.seltool { display: flex; gap: 2px; padding: 4px; border-radius: 999px; }
+.seltool button { height: 32px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; white-space: nowrap; }
+.seltool button:hover { background: var(--hover); }
+.settings { position: fixed; top: 58px; right: 24px; width: 312px; padding: 16px; display: flex; flex-direction: column; gap: 14px; font-size: 13px; border-radius: 18px; }
+.settings .grp, .settings label { display: flex; flex-direction: column; gap: 8px; }
+.settings .lab { font-size: 12px; color: var(--ink-3); display: flex; justify-content: space-between; }
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--sunken); gap: 2px; flex-wrap: wrap; }
+.seg button { height: 28px; padding: 0 11px; border-radius: 999px; font-size: 12.5px; color: var(--ink-2); }
+.seg button.on { background: var(--surface); color: var(--ink); font-weight: 500; box-shadow: 0 0 0 1px var(--line); }
+input[type=range] { accent-color: var(--ink); width: 100%; }
+.toast button { color: inherit; text-decoration: underline; margin-left: 10px; font-weight: 500; }
+
+@media (max-width: 1180px) { .top .crumb b { max-width: 180px; } .tools .lbl { display: none; } }
+</style>
+
+<div class="app collapsed" id="app">
+  <aside class="side" id="rail">
+    <div class="brand"><span class="logo"><img class="mark-img" src="img/logo.svg" alt="Tibi"><span class="hide-c">Tibi</span></span><button class="ibtn hide-c cbtn" id="collapseBtn" title="折叠 / 展开侧栏（⌘\）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button></div>
+    <button class="newbtn search" title="搜索文章、单词与设置（⌘K）"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><span class="hide-c">搜索</span><span class="k hide-c">⌘K</span></button>
+    <nav class="nav">
+      <a href="#" data-link="home" title="首页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 11l8-6 8 6v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg><span class="hide-c">首页</span></a>
+      <a href="#" data-link="library" title="书架"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.8-1 3 15.5-3.8 1z"/></svg><span class="hide-c">书架</span><span class="n hide-c">8</span></a>
+      <a href="#" data-link="words" title="生词本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="hide-c">生词本</span><span class="n hide-c" id="navWords">33</span></a>
+      <a href="#" data-link="review" title="复习"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg><span class="hide-c">复习</span><span class="n badge hide-c">18</span></a>
+      <a href="#" data-link="stats" title="统计"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span class="hide-c">统计</span></a>
+      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">3</span></a>
+    </nav>
+    <div class="sideh hide-c" id="docH">书架</div>
+    <div class="hide-c" id="doclist"></div>
+    <div id="tocWrap" class="hide-c"><div class="sideh">目录</div><div class="toc" id="toc"></div></div>
+    <div class="sidefoot">
+      <div class="streak" title="连续 9 天 · 今日 12 / 20 分钟">
+        <svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle id="ringArc" cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="87.96" transform="rotate(-90 18 18)"/></svg>
+        <div class="hide-c"><div class="t">连续 9 天</div><div class="s">今日 12 / 20 分钟</div></div>
+      </div>
+      <div class="user"><span class="av">你</span><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
+    </div>
+  </aside>
+
+  <section class="main">
+    <header class="top">
+      <button class="ibtn" id="menuBtn" title="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+      <span class="crumb"><a href="#" data-link="home" id="backBtn">首页</a><span style="color:var(--ink-3)">/</span><b id="docTitle"></b></span>
+      <span class="sp"></span>
+      <div class="tools">
+        <button class="pill" id="trTog" aria-pressed="false" title="每段下方显示中文译文（T）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h9M8.5 3v2M6 5c0 4 3 7 6 8M11 5c0 4-3 8-7 9M13 21l4-9 4 9M14.5 18h5"/></svg><span class="lbl">译文</span></button>
+        <button class="pill" id="glossTog" aria-pressed="false" title="生词上方显示简短释义（G）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 9h14M5 15h14M9 4l-1 2M15 4l1 2"/></svg><span class="lbl">行间释义</span></button>
+        <span class="vsep"></span>
+        <button class="pill" id="playBtn" title="朗读（P）"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg><span class="lbl">朗读</span></button>
+        <select class="speed" id="speed" aria-label="朗读速度"><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option></select>
+        <button class="pill" id="setBtn" title="阅读设置"><span style="font-family:var(--f-read);font-weight:700;font-size:15px">Aa</span></button>
+        <span class="vsep"></span>
+        <button class="pill" id="sumBtn" title="AI 总结"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg><span class="lbl">总结</span></button>
+        <button class="pill" id="vocabBtn" title="本篇生词"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="lbl">生词</span> <span class="n" id="vocabN"></span></button>
+        <button class="pill" id="lexiBtn"><svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg><span class="lbl">Tibi</span></button>
+      </div>
+    </header>
+    <section class="reader" id="reader"><article class="page" id="page"></article></section>
+    <footer class="foot">
+      <div class="prog"><i id="progBar"></i></div><span id="progTxt">0%</span>
+      <div class="counts" id="counts" role="button" tabindex="0" title="标注说明"><span><i class="sw new"></i>生词 <b id="cNew">0</b></span><span><i class="sw learn"></i>学习中 <b id="cLearn">0</b></span><span><span class="unc-ex">待确认</span> <b id="cUnc">0</b></span><span class="q">?</span></div>
+      <div class="legend" id="legend" hidden>
+        <div class="lh">标注说明<span class="lbl-i">点一个词可以改熟练度</span></div>
+        <div class="lr"><span class="ex"><span class="w s0">upshot</span></span><div><b>生词</b><small>不认识，点开词卡看释义；加入生词本后会进入复习</small></div></div>
+        <div class="lr"><span class="ex"><span class="w s1">verify</span> <span class="w s2">habit</span> <span class="w s3">scope</span> <span class="w s4">rule</span></span><div><b>学习中</b><small>见过 → 眼熟 → 认得 → 熟悉，越熟颜色越淡；到"掌握"就不再标注</small></div></div>
+        <div class="lr"><span class="ex"><span class="w s99">binding</span></span><div><b>待确认</b><small>Tibi 猜你认识它；点一下确认，或标为生词</small></div></div>
+        <div class="lr"><span class="ex"><span class="ph">goes out of scope</span></span><div><b>短语</b><small>你标过或 Tibi 建议学的搭配；选中几个词可以标为短语</small></div></div>
+        <div class="lr"><span class="ex"><span class="w sel">upshot</span></span><div><b>选中</b><small>正在看它的词卡</small></div></div>
+        <div class="lf">没标注的词 = 已知 · 代码和专有名词不参与 · 设置里可改为"仅生词"或"纯净阅读"</div>
+      </div>
+      <span class="sp"></span><span class="ratio-w" id="ratio"></span><span class="eta" id="eta"></span>
+    </footer>
+  </section>
+
+  <aside class="drawer" id="drawer" aria-label="Tibi 面板">
+    <header class="dhead">
+      <span class="ttl" id="dTitle">总结</span>
+      <span class="sp"></span>
+      <button class="btn sm" id="dAct" hidden></button>
+      <button class="ibtn" id="closeDrawer" title="关闭（Esc）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <div class="scroll" id="pbody"><div class="dbody"><div class="pane" id="pane-sum"></div><div class="pane" id="pane-vocab" hidden></div><div class="pane" id="pane-asst" hidden></div></div></div>
+    <div class="dfoot" id="composer" hidden><div class="dcomp"><textarea id="askInput" placeholder="问 Tibi，比如：这句话为什么用 had been？" aria-label="向助手提问"></textarea><button class="send" id="askSend" aria-label="发送"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></div>
+  </aside>
+</div>
+
+<div class="wpop" id="wpop" hidden role="dialog" aria-label="词卡"><button class="ibtn x" id="wpopClose" title="关闭（Esc）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div id="pane-card"></div></div>
+
+<div class="pop seltool" id="selTool" hidden><button id="mkPhrase">标为短语</button><button id="askSel">✦ 问 Tibi</button></div>
+
+<div class="pop settings" id="settings" hidden>
+  <div class="grp"><span class="lab">纸面</span><div class="seg" id="paperSeg"><button data-p="auto" class="on">跟随系统</button><button data-p="light">白</button><button data-p="sepia">护眼</button><button data-p="dark">夜读</button></div></div>
+  <div class="grp"><span class="lab">正文字体</span><div class="seg" id="fontSeg"><button data-f="serif" class="on">Charter</button><button data-f="classic">Source Serif</button><button data-f="sans">Geist</button></div></div>
+  <div class="grp"><span class="lab">标注</span><div class="seg" id="modeSeg"><button data-m="all" class="on">全部</button><button data-m="new">仅生词</button><button data-m="clean">纯净阅读</button></div></div>
+  <div class="grp"><span class="lab">版心</span><div class="seg" id="measureSeg"><button data-w="600">窄</button><button data-w="680" class="on">标准</button><button data-w="780">宽</button></div></div>
+  <div class="sw"><span class="lab" style="flex:1">专注模式 <span class="kbd">F</span></span><button class="switch" role="switch" aria-checked="false" id="focusSw" aria-label="专注模式"></button></div>
+  <label for="fs"><span class="lab">字号 <span id="fsv">20</span></span><input type="range" id="fs" min="16" max="26" value="20"></label>
+  <label for="lh"><span class="lab">行距 <span id="lhv">1.75</span></span><input type="range" id="lh" min="1.5" max="2.1" step="0.02" value="1.75"></label>
+  <div class="lbl-i" style="line-height:2"><span class="kbd">0</span> 生词 <span class="kbd">1</span>–<span class="kbd">4</span> 见过→熟悉 <span class="kbd">K</span> 掌握 <span class="kbd">I</span> 忽略 <span class="kbd">J</span> 下一个生词 <span class="kbd">P</span> 朗读 <span class="kbd">F</span> 专注 <span class="kbd">T</span> 译文 <span class="kbd">G</span> 行间释义</div>
+</div>
+
+<div class="toast" id="toast" hidden><span id="toastTxt"></span><button id="toastUndo">撤销</button></div>
+
+<script src="https://cdn.jsdelivr.net/npm/motion@11.11.17/dist/motion.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/overlayscrollbars/2.10.1/browser/overlayscrollbars.browser.es6.min.js"></script>
+<script>
+/* ============ 滚动条（OverlayScrollbars：滚动时出现，停下后自动隐藏；库加载失败时退回原生细滚动条） ============ */
+const OSG = window.OverlayScrollbarsGlobal;
+function osInit(sel) {
+  const host = document.querySelector(sel);
+  if (!OSG) return host;
+  try {
+    const os = OSG.OverlayScrollbars(host, { overflow: { x: 'hidden' }, scrollbars: { theme: 'os-theme-lexi', autoHide: 'scroll', autoHideDelay: 900, clickScroll: true } });
+    return os.elements().viewport;
+  } catch (e) { return host; }
+}
+const READER = osInit('#reader'), PBODY = osInit('#pbody');
+
+/* ============ 外壳（与 v2-shell.js 行为一致） ============ */
+const URLS = location.protocol === 'file:' ? { home: 'home.html', reader: 'reader.html', words: 'words.html', review: 'review.html', stats: 'stats.html', settings: 'settings.html', tasks: 'tasks.html', mobile: 'mobile.html', library: 'library.html', onboarding: 'onboarding.html' } : { home: 'https://claude.ai/artifact/25jzi4f4fvQg9qbpiQziqd', reader: 'https://claude.ai/artifact/WoQdUMnm2aTwoEaaW2uGiM', words: 'https://claude.ai/artifact/FqP5DF1DAyKoSPj3Ek8AEf', review: 'https://claude.ai/artifact/FTUFPKbBTQ2EV7NmkE8VF4', stats: 'https://claude.ai/artifact/Ry1MR9bvumcJ1cvMZYiH15', settings: 'https://claude.ai/artifact/4os2bCRwuuHXpXp6JYB8pA', tasks: 'https://claude.ai/artifact/FPy1wjttFMjohaYoZ4PWez', mobile: 'https://claude.ai/artifact/9V1ocjyp3cDBiT9aUbkinn', library: 'https://claude.ai/artifact/Cqyenzc3YMxdDTMfKRgrWo', onboarding: 'https://claude.ai/artifact/NbaX6HBbBSW6rmvM9fTPM3' };
+(function(){ if (!(screen.width < 760 || (visualViewport && visualViewport.width < 760))) return; /* 桌面页有 min-width，innerWidth 不可靠 */ const d = document.createElement('div'); d.className = 'phone-hint'; d.innerHTML = `这是桌面版原型（窗口最小 960px）。手机上请看 <a href="${URLS.mobile}">手机版原型</a>`; if (location.protocol !== 'file:') { d.querySelector('a').target = '_blank'; } document.body.appendChild(d); })();
+document.querySelectorAll('[data-link]').forEach(a => { a.href = URLS[a.dataset.link]; if (location.protocol !== 'file:') { a.target = '_blank'; a.rel = 'noopener'; } });
+document.querySelectorAll('[data-todo]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); showToast(`「${a.dataset.todo}」的原型还没做`); }));
+document.getElementById('collapseBtn').onclick = () => { document.getElementById('app').classList.toggle('collapsed'); setTimeout(() => { moveTabDot(false); rr(); }, 380); };
+document.getElementById('menuBtn').onclick = () => document.getElementById('app').classList.toggle('menu');
+addEventListener('keydown', e => { if (!(e.metaKey || e.ctrlKey)) return; if (e.key === '\\') { e.preventDefault(); document.getElementById('collapseBtn').click(); } else if (e.key.toLowerCase() === 'k') { e.preventDefault(); e.stopImmediatePropagation(); document.querySelector('.newbtn.search').click(); } });
+
+/* ============ 示例数据（原型用；正式版来自 ECDICT + 用户词库 + AI 缓存） ============ */
+const STATUS_LABEL = {0:'生词',1:'见过',2:'眼熟',3:'认得',4:'熟悉',5:'掌握',98:'忽略',99:'待确认'};
+
+// 用户词库：lemma → 状态。未出现的词按「词汇量画像」推断为已知（原型简化）
+const VOCAB = {
+  upshot:0, overhead:2, distinctive:3, deterministically:0, reclaim:0, binding:99, verify:4, outlive:0, dangle:0, notoriously:0, steep:99, grapple:0, intuitive:1, constraint:99,
+  intensify:4, stormwater:0, embrace:3, permeable:0, wetland:99, advocate:2, ancillary:0, habitat:2, skeptic:1, oversell:0, dent:0, runoff:0, retrofit:0, mindset:99, channel:99,
+  acknowledge:3, rightful:99, impatiently:2, objection:4
+};
+const IGNORE = new Set(['rust','c','bennet','netherfield','park','long','mr','mrs','s1','s2']);
+const LEMMA = { moves:'move', dropped:'drop', reclaimed:'reclaim', dangling:'dangle', grappling:'grapple', outlives:'outlive', constraints:'constraint', verifies:'verify', intensify:'intensify', embracing:'embrace', wetlands:'wetland', advocates:'advocate', habitats:'habitat', skeptics:'skeptic', oversold:'oversell', retrofitting:'retrofit', channeling:'channel', acknowledged:'acknowledge', points:'point', goes:'go', called:'call', find:'find', taken:'take', made:'make', has:'have', had:'have', is:'be', are:'be', was:'be', been:'be' };
+
+const DICT = {
+  upshot:{g:'结果', ph:'/ˈʌpʃɒt/', stars:1, tags:['GRE'], zh:['n. 最终结果；结局'], en:'the final or eventual outcome of a series of events', ctx:'（这一切带来的）最终结果。这里指：所有权机制最终换来的好处。'},
+  overhead:{g:'开销', ph:'/ˈəʊvəhed/', stars:3, tags:['CET6','IELTS'], zh:['n. 经常性开支；（计算机）开销','adj. 头顶上的'], en:'the extra cost in time or resources needed to do something', ctx:'运行时开销：程序运行时额外消耗的性能与资源。'},
+  distinctive:{g:'独特的', ph:'/dɪˈstɪŋktɪv/', stars:3, tags:['CET6'], zh:['adj. 独特的，与众不同的'], en:'having a quality that makes it different and easy to recognize', ctx:'独特的：让 Rust 在系统语言中与众不同。'},
+  deterministically:{g:'确定性地', ph:'/dɪˌtɜːmɪˈnɪstɪkli/', stars:0, tags:[], zh:['adv. 确定性地'], en:'in a way that is fully determined by known rules', ctx:'以确定、可预知的方式（在离开作用域的那一刻释放内存），对比垃圾回收在不确定的时间回收。'},
+  reclaim:{g:'回收', ph:'/rɪˈkleɪm/', stars:2, tags:['CET6','TOEFL'], zh:['v. 收回；回收；开垦'], en:'to take back something that was lost or used', ctx:'（内存被）回收。'},
+  binding:{g:'绑定', ph:'/ˈbaɪndɪŋ/', stars:2, tags:['CET6'], zh:['n. 捆绑；装订；（编程）绑定','adj. 有约束力的'], en:'(programming) an association between a name and a value', ctx:'变量绑定：变量名 s1 与它所拥有的值之间的关联。'},
+  verify:{g:'验证', ph:'/ˈverɪfaɪ/', stars:3, tags:['CET4','IELTS'], zh:['v. 核实；证明'], en:'to check that something is true or correct', ctx:'（借用检查器）检查并确保。'},
+  outlive:{g:'比…存活久', ph:'/ˌaʊtˈlɪv/', stars:1, tags:['TOEFL'], zh:['v. 比…活得长；比…持久'], en:'to live or last longer than', ctx:'（引用）存活得比它指向的值更久。'},
+  dangle:{g:'悬垂', ph:'/ˈdæŋɡl/', stars:2, tags:['CET6'], zh:['v. 悬挂，摇晃'], en:'to hang or swing loosely', ctx:'dangling pointer：悬垂指针，指向已被释放内存的指针。'},
+  notoriously:{g:'出了名地', ph:'/nəʊˈtɔːriəsli/', stars:2, tags:['CET6','IELTS'], zh:['adv. 众所周知地（多含贬义）'], en:'in a way that is famous for something bad', ctx:'出了名地（难以排查）。'},
+  steep:{g:'陡峭的', ph:'/stiːp/', stars:3, tags:['CET4'], zh:['adj. 陡峭的；（价格）过高的；急剧的'], en:'rising or falling sharply', ctx:'steep learning curve：学习曲线陡峭，即入门难度大。'},
+  grapple:{g:'较劲', ph:'/ˈɡræpl/', stars:2, tags:['CET6','IELTS'], zh:['v. 扭打；努力解决'], en:'to try hard to deal with a difficult problem', ctx:'grapple with：费力地应付（借用检查器），像在和它较劲。'},
+  intuitive:{g:'直观的', ph:'/ɪnˈtjuːɪtɪv/', stars:2, tags:['CET6'], zh:['adj. 直觉的；易懂的'], en:'easy to understand or use without thinking', ctx:'变得符合直觉、自然而然。'},
+  constraint:{g:'约束', ph:'/kənˈstreɪnt/', stars:3, tags:['CET6'], zh:['n. 限制，约束'], en:'something that limits what you can do', ctx:'（所有权规则带来的）约束。'},
+  intensify:{g:'加剧', ph:'/ɪnˈtensɪfaɪ/', stars:3, tags:['CET6'], zh:['v. 加剧，增强'], en:'to become greater or more extreme', ctx:'（洪水）加剧。'},
+  stormwater:{g:'雨水', ph:'/ˈstɔːmwɔːtə/', stars:0, tags:[], zh:['n. 雨水；暴雨径流'], en:'water from heavy rain that flows over the ground', ctx:'城市降雨形成的地表雨水。'},
+  embrace:{g:'采纳', ph:'/ɪmˈbreɪs/', stars:3, tags:['CET4'], zh:['v. 拥抱；欣然接受'], en:'to accept an idea eagerly', ctx:'（规划者）积极采纳（海绵设计）。'},
+  permeable:{g:'透水的', ph:'/ˈpɜːmiəbl/', stars:1, tags:['TOEFL','GRE'], zh:['adj. 可渗透的'], en:'allowing liquids or gases to pass through', ctx:'透水的（路面），雨水可以渗入地下。'},
+  wetland:{g:'湿地', ph:'/ˈwetlænd/', stars:2, tags:['IELTS'], zh:['n. 湿地'], en:'an area of land covered with water much of the time', ctx:'（被修复的）湿地。'},
+  advocate:{g:'支持者', ph:'/ˈædvəkeɪt/', stars:3, tags:['CET6'], zh:['n. 倡导者，支持者','v. 提倡'], en:'a person who publicly supports an idea', ctx:'（海绵设计的）支持者。'},
+  ancillary:{g:'附带的', ph:'/ænˈsɪləri/', stars:1, tags:['GRE'], zh:['adj. 辅助的，附带的'], en:'providing extra help or support', ctx:'附带的（好处）。'},
+  habitat:{g:'栖息地', ph:'/ˈhæbɪtæt/', stars:3, tags:['CET6','IELTS'], zh:['n. 栖息地'], en:'the natural home of an animal or plant', ctx:'野生动物的栖息地。'},
+  skeptic:{g:'怀疑者', ph:'/ˈskeptɪk/', stars:2, tags:['CET6'], zh:['n. 怀疑论者'], en:'a person who doubts that claims are true', ctx:'持怀疑态度的人（与前文 advocates 相对）。'},
+  oversell:{g:'夸大', ph:'/ˌəʊvəˈsel/', stars:1, tags:[], zh:['v. 过分吹嘘'], en:'to describe something as better than it really is', ctx:'（这个概念）被过度宣传、夸大了。'},
+  dent:{g:'削减', ph:'/dent/', stars:2, tags:['IELTS'], zh:['n. 凹痕；削减','v. 使凹陷；削弱'], en:'a reduction in the amount of something', ctx:'make a dent in：对…产生明显影响、使明显减少。'},
+  runoff:{g:'径流', ph:'/ˈrʌnɒf/', stars:1, tags:['TOEFL'], zh:['n. 径流；决胜选举'], en:'rain that flows off the land into streams', ctx:'径流：降雨时地表流走的水。peak runoff 即峰值径流。'},
+  retrofit:{g:'改造', ph:'/ˈretrəʊfɪt/', stars:1, tags:['GRE'], zh:['v. 改造，翻新（加装新设施）'], en:'to add new parts to something built earlier', ctx:'对现有社区进行改造。'},
+  mindset:{g:'观念', ph:'/ˈmaɪndset/', stars:2, tags:['IELTS'], zh:['n. 思维方式，心态'], en:'a set of attitudes or way of thinking', ctx:'观念（上的转变）。'},
+  channel:{g:'引导', ph:'/ˈtʃænl/', stars:4, tags:['CET4'], zh:['n. 频道；渠道；水道','v. 引导，输送'], en:'to direct something into a particular place', ctx:'动词：把（雨水）引入（管道）。'},
+  acknowledge:{g:'公认', ph:'/əkˈnɒlɪdʒ/', stars:3, tags:['CET4'], zh:['v. 承认；致谢'], en:'to accept that something is true', ctx:'universally acknowledged：被普遍承认的，举世公认的。'},
+  rightful:{g:'应得的', ph:'/ˈraɪtfl/', stars:1, tags:['CET6'], zh:['adj. 合法的，正当的'], en:'having a legal or moral right to something', ctx:'理所应得的（财产）。作者在这里带着反讽。'},
+  impatiently:{g:'不耐烦地', ph:'/ɪmˈpeɪʃntli/', stars:3, tags:['CET4'], zh:['adv. 不耐烦地'], en:'in an annoyed way because of waiting', ctx:'不耐烦地（嚷道）。'},
+  objection:{g:'反对', ph:'/əbˈdʒekʃn/', stars:3, tags:['CET4'], zh:['n. 反对；异议'], en:'a statement of disagreement', ctx:'have no objection to：不反对，并不介意。'},
+  let:{g:'出租', ph:'/let/', stars:5, tags:['熟词僻义'], zh:['v. 让，允许','v. （英）出租'], en:'(British) to rent out a building', ctx:'熟词僻义：is let 指（庄园）已经租出去了，不是“让”。'},
+  single:{g:'单身的', ph:'/ˈsɪŋɡl/', stars:5, tags:['熟词僻义'], zh:['adj. 单一的','adj. 单身的'], en:'not married', ctx:'熟词僻义：单身的。'},
+};
+
+const PHRASES = [
+  {k:'go out of scope', zh:'离开作用域', ctx:'变量所在的代码块结束，变量不再有效。', s:2},
+  {k:'garbage collector', zh:'垃圾回收器', ctx:'领域术语：自动回收不再使用内存的运行时组件。', s:5, term:true},
+  {k:'borrow checker', zh:'借用检查器', ctx:'领域术语：Rust 编译器中检查引用合法性的部分。', s:5, term:true},
+  {k:'learning curve', zh:'学习曲线', ctx:'掌握一项技能的难易程度随时间的变化。', s:5},
+  {k:'grapple with', zh:'努力应对；与…搏斗', ctx:'费力地应付（借用检查器）。', s:0},
+  {k:'track down', zh:'追查到，找到', ctx:'（bug）难以定位、追查。', s:1},
+  {k:'so call', zh:'所谓的', ctx:'so-called：所谓的（引出一个新名词）。', s:5, show:'so-called'},
+  {k:'make a dent in', zh:'对…产生明显影响', ctx:'明显削减（峰值径流）。', s:0},
+  {k:'counter that', zh:'反驳说', ctx:'counter 作动词：反驳，后接 that 从句。', s:0},
+  {k:'in possession of', zh:'拥有', ctx:'拥有（一大笔财产）。', s:3},
+  {k:'in want of', zh:'需要；缺少', ctx:'这里的 want 是名词“需要、缺乏”：必定需要一位妻子。', s:0},
+  {k:'one or other', zh:'某一个', ctx:'some one or other of their daughters：她们女儿中的某一个。', s:0},
+  {k:'have no objection to', zh:'不反对', ctx:'我并不反对听一听。', s:4},
+];
+
+const DOCS = [
+  { id:'tech', genre:'技术', title:'Understanding Ownership in Rust', source:'自拟示例文本', mins:4, progress:45,
+    blocks:[
+      {t:'p', x:'Ownership is the feature that makes Rust distinctive among systems languages. Instead of relying on a garbage collector, the compiler enforces a small set of rules at compile time, and a program that violates them simply won\'t compile. The upshot is memory safety without the runtime overhead that usually comes with it.'},
+      {t:'p', x:'Each value has exactly one owner. When the owner goes out of scope, the value is dropped and its memory is reclaimed deterministically. Passing a value to a function, or assigning it to another variable as in `let s2 = s1`, moves it, which means the original binding can no longer be used:'},
+      {t:'code', x:'let s1 = String::from("hello");\nlet s2 = s1;            // ownership moves to s2\nprintln!("{}", s1);     // error: borrow of moved value'},
+      {t:'p', x:'If you only need to read the data, you can borrow it instead. A shared reference grants temporary, read-only access, and the borrow checker verifies that no reference outlives the value it points to. This rule eliminates an entire class of bugs, such as dangling pointers, that are notoriously hard to track down in C and C++.'},
+      {t:'p', x:'The trade-off is a steep learning curve. Newcomers often find themselves grappling with the borrow checker, but most developers report that the constraints become intuitive after a few weeks of practice.'},
+    ],
+    tr:['理解 Rust 中的所有权','所有权是让 Rust 在系统编程语言中独树一帜的特性。','编译器不依赖垃圾回收器，而是在编译期强制执行一小组规则，违反规则的程序根本无法编译。','由此得到的结果是：内存安全，而且没有通常随之而来的运行时开销。','每个值都恰好有一个所有者。','当所有者离开作用域时，值被丢弃，其内存以确定的方式被回收。','把值传给函数，或像 let s2 = s1 这样赋给另一个变量，都会移动它，这意味着原来的绑定不能再使用：','如果只需要读取数据，可以改为借用它。','共享引用提供临时的只读访问，借用检查器会确保任何引用都不会比它指向的值活得更久。','这条规则消除了一整类 bug，比如悬垂指针，这类问题在 C 和 C++ 中出了名地难以排查。','代价是陡峭的学习曲线。','新手常常发现自己在和借用检查器较劲，但大多数开发者表示，练习几周之后，这些约束就变得自然而然了。'],
+    sum:'文章介绍 Rust 的所有权机制：每个值只有一个所有者，离开作用域即被释放；赋值或传参会转移所有权，只读访问则通过借用实现，由借用检查器在编译期保证引用不会悬垂。代价是学习曲线较陡，但多数开发者几周后就能适应。',
+    extraTitle:'术语表', extra:[['ownership','所有权'],['borrow checker','借用检查器'],['garbage collector','垃圾回收器'],['dangling pointer','悬垂指针'],['scope','作用域'],['move','移动（所有权转移）']],
+    hard:{s:'A shared reference grants temporary, read-only access, and the borrow checker verifies that no reference outlives the value it points to.', a:'由 and 连接的两个并列分句。① A shared reference（主语）grants（谓语）temporary, read-only access（宾语）。② the borrow checker verifies + that 引导的宾语从句；从句里 the value 后面跟着省略了 that 的定语从句 it points to（它所指向的）。'},
+    advice:'生词集中在描述“程序运行机制”的词上（deterministically、reclaim、outlive），建议和术语一起记，它们在其他技术文档里出现频率很高。代码块已自动跳过，不计入生词率。',
+    quiz:['What happens to a value when its owner goes out of scope?','Why can\'t s1 be used after `let s2 = s1`?','What kind of bug does the borrow checker prevent?'] },
+  { id:'news', genre:'新闻', title:'Cities Turn to Sponge Design as Floods Intensify', source:'自拟示例文本', mins:3,
+    blocks:[
+      {t:'p', x:'As extreme rainfall becomes more frequent, a growing number of cities are rethinking how they handle stormwater. Rather than channeling every drop into pipes and out to sea, planners are embracing so-called sponge designs that let the ground absorb water where it falls.'},
+      {t:'p', x:'The approach relies on permeable pavements, rooftop gardens and restored wetlands. Advocates argue it is cheaper to maintain than conventional drainage and brings ancillary benefits, from cooler streets to new habitats for wildlife.'},
+      {t:'p', x:'Skeptics counter that the concept has been oversold. In dense urban cores, they note, there is simply not enough open land to make a dent in peak runoff, and retrofitting existing neighborhoods can be slow and costly.'},
+      {t:'p', x:'Still, officials say the shift is less about any single project than about a change in mindset. Infrastructure, as one engineer put it, should work with water rather than against it.'},
+    ],
+    tr:['洪水加剧，城市转向“海绵”设计','随着极端降雨越来越频繁，越来越多的城市正在重新思考如何处理雨水。','规划者不再把每一滴水都引进管道、排入大海，而是开始采用所谓的海绵设计，让地面就地吸收雨水。','这种做法依靠透水路面、屋顶花园和修复后的湿地。','支持者认为，它的维护成本比传统排水系统低，还能带来附带的好处，从更凉爽的街道到野生动物的新栖息地。','怀疑者则反驳说，这个概念被过度吹捧了。','他们指出，在高密度的城市核心区，根本没有足够的空地来明显削减峰值径流，而改造现有社区可能既慢又贵。','尽管如此，官员们表示，这一转变与其说关乎某个具体项目，不如说关乎观念的改变。','正如一位工程师所说，基础设施应该顺应水，而不是与水对抗。'],
+    sum:'越来越多城市采用“海绵”设计应对极端降雨：用透水路面、屋顶花园和湿地让雨水就地渗透。支持者认为维护成本低、附带好处多；怀疑者指出高密度城区空间不足，改造又慢又贵。官员认为关键在于观念转变：顺应水而非对抗水。',
+    extraTitle:'背景知识', extra:[['海绵城市','sponge city，指城市像海绵一样在降雨时吸水、蓄水、渗水，需要时再释放利用。'],['峰值径流','peak runoff，暴雨时地表径流量的最高点，是排水系统设计的关键指标。']],
+    hard:{s:'In dense urban cores, they note, there is simply not enough open land to make a dent in peak runoff, and retrofitting existing neighborhoods can be slow and costly.', a:'they note 是插入语（他们指出）。前半句是 there be 句型 + not enough … to do（没有足够的…来做…）；and 后的分句以动名词短语 retrofitting existing neighborhoods 作主语。'},
+    advice:'新闻类文章常用“观点对立”结构：Advocates argue … / Skeptics counter that …。可以重点积累这类表达观点的动词：argue、counter、note、put it。',
+    quiz:['What does a "sponge" design let the ground do?','Name two benefits that advocates mention.','Why do skeptics think the concept is oversold?'] },
+  { id:'novel', genre:'书 · 文学', title:'Chapter 1', book:'Pride and Prejudice · Jane Austen', source:'公有领域', mins:2, progress:62,
+    chapters:['Chapter 1','Chapter 2','Chapter 3','Chapter 4','Chapter 5'],
+    blocks:[
+      {t:'p', x:'It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.'},
+      {t:'p', x:'However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered the rightful property of some one or other of their daughters.'},
+      {t:'p', x:'“My dear Mr. Bennet,” said his lady to him one day, “have you heard that Netherfield Park is let at last?”'},
+      {t:'p', x:'Mr. Bennet replied that he had not.'},
+      {t:'p', x:'“But it is,” returned she; “for Mrs. Long has just been here, and she told me all about it.”'},
+      {t:'p', x:'Mr. Bennet made no answer.'},
+      {t:'p', x:'“Do you not want to know who has taken it?” cried his wife impatiently.'},
+      {t:'p', x:'“You want to tell me, and I have no objection to hearing it.”'},
+      {t:'p', x:'This was invitation enough.'},
+    ],
+    tr:['第一章','一个有钱的单身男子必定想要娶一位妻子，这是一条举世公认的真理。','这样一个人刚搬到某个地方时，无论周围人对他的感情和想法多么不了解，这条真理早已深深印在附近人家的心里，于是他就被看作是她们某个女儿理所应得的财产。','“亲爱的班纳特先生，”一天，他的太太对他说，“你听说了吗？内瑟菲尔德庄园终于租出去了。”','班纳特先生回答说他没听说。','“可它确实租出去了，”她说，“朗太太刚来过，她把这事原原本本都告诉我了。”','班纳特先生没有作声。','“你难道不想知道是谁租下的吗？”他的太太不耐烦地嚷道。','“你想告诉我，我也不反对听一听。”','这句话已足以让她说下去了。'],
+    sum:'小说以一句著名的反讽格言开篇：有钱的单身汉总得娶个妻子。班纳特太太兴冲冲地告诉丈夫，附近的内瑟菲尔德庄园终于租出去了；班纳特先生却漫不经心，夫妻性格的反差由此展开。',
+    extraTitle:'人物表', extra:[['Mr. Bennet','班纳特先生：冷淡、爱讽刺的父亲'],['Mrs. Bennet','班纳特太太：一心想把女儿嫁出去'],['Mrs. Long','朗太太：邻居，本章的消息来源']],
+    hard:{s:'However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered the rightful property of some one or other of their daughters.', a:'However + 形容词引导让步状语从句：无论（他的感情和想法）多么不为人知。on his first entering = 当他刚搬进来时（动名词作介词宾语）。主句是 so well fixed … that … 结构，表示结果。'},
+    advice:'本章有两个“熟词僻义”：let（出租）和 single（单身的），我已用 AI 标出。古典小说对话多，长句多用让步、倒装，可以配合“长难句”一起读。',
+    quiz:['What news does Mrs. Bennet bring?','How does Mr. Bennet react to the news?','What is ironic about the first sentence?'] },
+];
+
+const MEMORIES = [
+  ['身份','目标：雅思 7 分；估算词汇量约 6,200'],
+  ['兴趣','常读 Rust 技术文档、科技新闻、英国古典小说'],
+  ['观察','经常混淆 affect / effect；虚拟语气掌握较弱'],
+  ['指令','解释时少用语法术语，多举例'],
+];
+
+/* ============ 状态 ============ */
+let cur = DOCS[0];
+let selected = null;       // {kind:'word', lemma, surface, sent} | {kind:'phrase', idx, sent}
+let undoStack = null;
+let mode = 'all';
+let showTr = false;     // 显示译文
+let showGloss = false;  // 行间释义
+const wordbook = new Set(Object.keys(VOCAB).filter(k => VOCAB[k] >= 1 && VOCAB[k] <= 4));
+const threads = {};        // 每篇文档一个助手线程
+let sentences = [];        // 当前文档句子 [{el, text, tr}]
+
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function lemmatize(w) {
+  const l = w.toLowerCase().replace(/’/g, "'");
+  if (LEMMA[l]) return LEMMA[l];
+  if (l in VOCAB || DICT[l]) return l;
+  const c = [];
+  if (l.endsWith('ies')) c.push(l.slice(0,-3)+'y');
+  if (l.endsWith('es')) c.push(l.slice(0,-2));
+  if (l.endsWith('s')) c.push(l.slice(0,-1));
+  if (l.endsWith('ed')) c.push(l.slice(0,-2), l.slice(0,-1));
+  if (l.endsWith('ing')) c.push(l.slice(0,-3), l.slice(0,-3)+'e');
+  for (const x of c) if (x in VOCAB || DICT[x]) return x;
+  return l;
+}
+function statusOf(lemma) {
+  if (lemma in VOCAB) return VOCAB[lemma];
+  if (IGNORE.has(lemma)) return 98;
+  return 5;
+}
+function hash(s) { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
+function encounter(lemma) { const h = hash(lemma); return { docs: 1 + h % 5, times: 1 + h % 5 + (h >>> 3) % 6 }; }
+
+function splitSentences(t) {
+  const out = []; let start = 0; const re = /[.!?]+["”’]?(?=\s|$)/g; let m;
+  while ((m = re.exec(t))) {
+    const end = m.index + m[0].length;
+    const before = t.slice(start, end);
+    if (/\b(Mr|Mrs|Dr|Ms|St)\.$/.test(before)) continue;
+    const next = t.slice(end).trimStart()[0];
+    if (next && /[a-z]/.test(next)) continue;
+    out.push(before.trim()); start = end;
+  }
+  if (t.slice(start).trim()) out.push(t.slice(start).trim());
+  return out;
+}
+
+/* 把一个句子渲染为词元 HTML，并做短语匹配 */
+function renderSentence(text) {
+  const segs = text.split('`');
+  const toks = [];
+  segs.forEach((seg, i) => {
+    if (i % 2) { toks.push({code: seg}); return; }
+    const re = /([A-Za-z]+(?:['’][A-Za-z]+)*)|([^A-Za-z]+)/g; let m;
+    while ((m = re.exec(seg))) toks.push(m[1] ? {w: m[1], l: lemmatize(m[1])} : {sep: m[2]});
+  });
+  // 短语匹配：按 lemma 序列，词之间只允许空白或连字符
+  const words = toks.map((t, i) => t.w ? i : -1).filter(i => i >= 0);
+  const marks = {};
+  PHRASES.forEach((p, pi) => {
+    const seq = p.k.split(' ');
+    for (let a = 0; a + seq.length <= words.length; a++) {
+      let ok = true;
+      for (let b = 0; b < seq.length; b++) {
+        const ti = words[a + b], t = toks[ti];
+        if (t.l !== seq[b] && t.w.toLowerCase() !== seq[b]) { ok = false; break; }
+        if (b > 0) { for (let x = words[a + b - 1] + 1; x < ti; x++) if (!(toks[x].sep && /^[\s-]+$/.test(toks[x].sep))) ok = false; }
+      }
+      if (ok && !(words[a] in marks)) marks[words[a]] = { end: words[a + seq.length - 1], pi };
+    }
+  });
+  let html = '', closeAt = -1;
+  toks.forEach((t, i) => {
+    if (marks[i]) { html += `<span class="ph" data-p="${marks[i].pi}" data-g="${esc(PHRASES[marks[i].pi].zh.split('；')[0])}">`; closeAt = marks[i].end; }
+    if (t.code !== undefined) html += `<code class="inl">${esc(t.code)}</code>`;
+    else if (t.sep !== undefined) html += esc(t.sep);
+    else html += `<span class="w s${statusOf(t.l)}" data-l="${esc(t.l)}"${DICT[t.l] && DICT[t.l].g ? ` data-g="${esc(DICT[t.l].g)}"` : ''} tabindex="-1">${esc(t.w)}</span>`;
+    if (i === closeAt) { html += '</span>'; closeAt = -1; }
+  });
+  return html;
+}
+
+function hiCode(src) {
+  return esc(src)
+    .replace(/(\/\/[^\n]*)/g, '<span class="tk-com">$1</span>')
+    .replace(/(&quot;[^&]*&quot;)/g, '<span class="tk-str">$1</span>')
+    .replace(/\b(let|fn|mut|println!)/g, '<span class="tk-kw">$1</span>');
+}
+
+/* ============ 动效（Motion，加载失败或用户偏好减少动态时自动跳过） ============ */
+const M = window.Motion;
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const EASE = [0.22, 0.8, 0.24, 1];
+function anim(el, kf, opt) {
+  if (!M || REDUCE || !el || (el.length === 0)) return null;
+  try { return M.animate(el, kf, opt); } catch (e) { return null; }
+}
+const stag = (d, o) => (M && M.stagger ? M.stagger(d, o) : 0);
+const SPRING = { type: 'spring', bounce: 0.18, duration: 0.5 };
+const HL = new Set([0, 1, 2, 3, 4]);
+// 荧光笔划过：色带从左向右铺开
+function sweepIn(els) { anim(els, { backgroundSize: ['0% 100%', '100% 100%'] }, { duration: 0.42, ease: EASE, delay: stag(0.05) }); }
+// 荧光笔褪去：色带向右收起后再切换状态
+function sweepOut(els, done) {
+  if (!M || REDUCE || !els.length) { done(); return; }
+  els.forEach(e => e.style.backgroundPosition = 'right');
+  anim(els, { backgroundSize: ['100% 100%', '0% 100%'] }, { duration: 0.32, ease: EASE, delay: stag(0.012) });
+  setTimeout(() => { els.forEach(e => { e.style.backgroundPosition = ''; e.style.backgroundSize = ''; }); done(); }, 320 + els.length * 12);
+}
+function enterCard(root) {
+  const card = root.querySelector('.icard') || root.firstElementChild;
+  anim(card, { opacity: [0, 1], y: [10, 0] }, SPRING);
+  anim(root.querySelectorAll('.icard > *'), { opacity: [0, 1], y: [6, 0] }, { duration: 0.35, ease: EASE, delay: stag(0.035, { startDelay: 0.04 }) });
+}
+function moveThumbG(g, animate) {
+  const b = g && g.querySelector('button.on'), t = g && g.querySelector('.thumb'); if (!b || !t) return;
+  if (animate && M && !REDUCE) anim(t, { x: b.offsetLeft - 3, width: b.offsetWidth + 'px' }, { type: 'spring', bounce: 0.2, duration: 0.4 });
+  else { t.style.transform = `translateX(${b.offsetLeft - 3}px)`; t.style.width = b.offsetWidth + 'px'; }
+}
+function moveTabDot() {}   /* 页签就是顶栏的三个按钮（不再有抽屉内的分段控件） */
+function tickNumber(el, to) {
+  const from = +el.textContent || 0;
+  if (!M || REDUCE || from === to) { el.textContent = to; return; }
+  try { M.animate(from, to, { duration: 0.5, ease: EASE, onUpdate: v => el.textContent = Math.round(v) }); } catch (e) { el.textContent = to; }
+}
+
+/* ============ 强调动效：全部用 CSS（2026-10-30 去掉 Rough Notation 手绘高亮，正文更干净）。下面保留的 rough* 函数都退化为 CSS 路径 ============ */
+const RN = null;
+let roughOn = false;
+let roughPh = [], roughSel = null, roughSelEl = null, selEl = null;
+const tok = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+document.documentElement.classList.toggle('rough', roughOn);
+function rough(el, opt) { if (!RN || !roughOn || !el) return null; try { return RN.annotate(el, Object.assign({ color: tok('--accent'), strokeWidth: 1.3, animate: !REDUCE }, opt)); } catch (e) { return null; } }
+// 跨行的元素圈/框会被拆成每个词一个，改用加粗的手绘下划线
+function isMultiLine(el) { const r = el.getBoundingClientRect(); return r.height > parseFloat(getComputedStyle(el).lineHeight || '30') * 1.4; }
+function shape(el, single) { return isMultiLine(el) ? { type: 'underline', multiline: true, iterations: 2, strokeWidth: 2, padding: 2 } : single; }
+// 短语：手绘下划线，打开文档时依次画出
+function roughPhrases(animate) {
+  roughPh.forEach(a => a.remove()); roughPh = [];
+  if (!roughOn || mode !== 'all') return;
+  [...document.querySelectorAll('#page .ph')].filter(p => !p.closest('h1')).forEach(p => {
+    const a = rough(p, { type: 'underline', padding: 1, iterations: 1, multiline: true, animate: animate && !REDUCE, animationDuration: 450 });
+    if (a) roughPh.push(a);
+  });
+  if (!roughPh.length) return;
+  if (animate && RN.annotationGroup) RN.annotationGroup(roughPh).show(); else roughPh.forEach(a => a.show());
+}
+// 选中：手绘圈注（词）或括号（短语）
+function roughSelect() {
+  const el = selEl && selEl.isConnected ? selEl : document.querySelector('#page .ph.sel, #page .w.sel');
+  if (el === roughSelEl && roughSel) return;
+  if (roughSel) roughSel.remove(); roughSel = null; roughSelEl = el;
+  if (!el || !selected) return;
+  roughSel = el.classList.contains('ph') ? rough(el, Object.assign({ animationDuration: 380 }, shape(el, { type: 'bracket', brackets: ['left', 'right'], padding: [2, 4], strokeWidth: 1.5 })))
+                                         : rough(el, { type: 'circle', padding: [4, 9], strokeWidth: 1.5, animationDuration: 420 });
+  if (roughSel) roughSel.show();
+}
+// 标记为生词/学习中：先用手绘荧光笔涂一遍，再交还给 CSS 色带
+function roughMark(els, s) {
+  if (!roughOn || !RN || REDUCE) { sweepIn(els); return; }
+  const color = tok(s === 0 ? '--hl-new' : '--hl-' + s);
+  const list = els.slice(0, 6).map(el => { el.style.background = 'none'; return { el, a: rough(el, { type: 'highlight', color, iterations: 1, animationDuration: 380, padding: [1, 2] }) }; }).filter(x => x.a);
+  if (!list.length) { sweepIn(els); return; }
+  if (RN.annotationGroup) RN.annotationGroup(list.map(x => x.a)).show(); else list.forEach(x => x.a.show());
+  sweepIn(els.slice(6));
+  setTimeout(() => list.forEach(x => { x.el.style.background = ''; x.a.remove(); }), 420 * list.length + 250);
+}
+// 定位到某处：手绘方框闪现
+function roughFlash(el) {
+  const a = rough(el, Object.assign({ animationDuration: 420 }, shape(el, { type: 'box', padding: 4, strokeWidth: 1.5 })));
+  if (!a) return false; a.show(); setTimeout(() => a.remove(), 2200); return true;
+}
+// 读完回顾：依次用细描边点亮本篇还在学习的短语和生词（CSS 动画）
+function roughReview() {
+  const els = [...document.querySelectorAll('#page p .ph.pl, #page p .w.s0')].slice(0, 12);
+  if (!els.length) { showToast('本篇没有需要回顾的重点了'); return; }
+  READER.scrollTop = 0;
+  els.forEach((el, i) => setTimeout(() => { el.classList.remove('rvp'); void el.offsetWidth; el.classList.add('rvp'); if (i === 0) el.scrollIntoView({ block: 'center', behavior: REDUCE ? 'auto' : 'smooth' }); }, 350 + i * 320));
+  setTimeout(() => els.forEach(el => el.classList.remove('rvp')), 350 + els.length * 320 + 1600);
+}
+function roughRefresh() { roughSelEl = null; if (roughSel) { roughSel.remove(); roughSel = null; } roughPhrases(false); roughSelect(); }
+
+/* ============ 渲染文档 ============ */
+function renderDoc() {
+  const d = cur; let si = 0; sentences = [];
+  const S = txt => { const i = si++; sentences.push({ text: txt, tr: d.tr[i] || '' }); return `<span class="sent" data-si="${i}">${renderSentence(txt)}</span>`; };
+  let h = `<div class="eyebrow"><span>${d.genre}</span><span>${esc(d.book || d.source)}</span><span>约 ${d.mins} 分钟</span></div>`;
+  // 译文：按段落合并句子翻译，放在原文段落下方，由"显示译文"开关控制
+  const trOf = (a, b) => d.tr.slice(a, b).join('');
+  h += `<h1>${S(d.title)}</h1><p class="ptr ptr-h">${esc(trOf(0, 1))}</p>`;
+  d.blocks.forEach(b => {
+    if (b.t === 'code') { h += `<pre><code>${hiCode(b.x)}</code></pre>`; return; }
+    const a = si; const body = splitSentences(b.x).map(S).join(' ');
+    h += `<p>${body}</p><p class="ptr">${esc(trOf(a, si))}</p>`;
+  });
+  h += `<div class="endcard" id="endcard"></div>`;
+  $('#page').innerHTML = h;
+  $('#page').className = 'page ' + d.id + (mode !== 'all' ? ' mode-' + mode : '') + (showTr ? ' tr-on' : '') + (showGloss ? ' gloss-on' : '');
+  $('#docTitle').textContent = d.book ? `${d.book.split(' · ')[0]}, ${d.title}` : d.title;
+  applyFont();
+  READER.scrollTop = 0;
+  selected = null;
+  renderRail(); selEl = null; refresh(); renderPanel();
+  // 等入场动画和字体加载结束再画，否则位置会算错
+  const docId = d.id;
+  Promise.all([document.fonts ? document.fonts.ready : null, new Promise(r => setTimeout(r, REDUCE ? 0 : 1000))]).then(() => { if (cur.id === docId) { roughPhrases(true); roughSelEl = null; roughSelect(); } });
+  anim($('#page'), { opacity: [0, 1], y: [16, 0] }, { duration: 0.55, ease: EASE });
+  anim(document.querySelectorAll('#page h1, #page p, #page pre'), { opacity: [0, 1], y: [8, 0] }, { duration: 0.5, ease: EASE, delay: stag(0.05, { startDelay: 0.05 }) });
+}
+
+function docStats() {
+  const ws = [...document.querySelectorAll('#page .w')];
+  const uniq = s => new Set(ws.filter(w => s(statusOf(w.dataset.l))).map(w => w.dataset.l));
+  const nNew = uniq(s => s === 0), nL = uniq(s => s >= 1 && s <= 4), nU = uniq(s => s === 99);
+  const unknownTok = ws.filter(w => { const s = statusOf(w.dataset.l); return s <= 4 || s === 99; }).length;
+  return { ws, nNew, nL, nU, ratio: unknownTok / ws.length };
+}
+function levelOf(r) { return r <= .02 ? ['舒适','ok'] : r <= .05 ? ['学习区','mid'] : ['偏难','hard']; }
+
+function refresh() {
+  document.querySelectorAll('#page .w').forEach(w => {
+    const s = statusOf(w.dataset.l);
+    w.className = `w s${s}` + (selected && selected.kind === 'word' && selected.lemma === w.dataset.l ? ' sel' : '');
+  });
+  document.querySelectorAll('#page .ph').forEach(p => { p.classList.toggle('sel', !!(selected && selected.kind === 'phrase' && +p.dataset.p === selected.idx)); p.classList.toggle('pl', PHRASES[+p.dataset.p].s < 5); });
+  roughSelect();
+  const st = docStats();
+  tickNumber($('#cNew'), st.nNew.size); tickNumber($('#cLearn'), st.nL.size); tickNumber($('#cUnc'), st.nU.size);
+  $('#vocabN').textContent = st.nNew.size + st.nL.size + st.nU.size;
+  const [lv, cls] = levelOf(st.ratio);
+  $('#ratio').innerHTML = `生词率 <b>${(st.ratio * 100).toFixed(1)}%</b> &nbsp;<span class="lvl ${cls}">${lv}</span>`;
+  const left = st.nNew.size, unc = st.nU.size;
+  $('#endcard').innerHTML = `<h3>读完本篇</h3>
+    <p>本篇还有 ${left} 个没处理的生词、${unc} 个待确认的词。把它们标为已知，可以让下一篇文章的自动标注更准。之后在任何文章里都能改回来。</p>
+    <div class="row"><button class="btn pri" id="markRest"${left + unc ? '' : ' disabled'}>剩余 ${left + unc} 个全部标为已知</button><button class="btn" id="review">回顾本篇重点</button><button class="btn" id="toAsst">让 Tibi 出 3 道理解题</button></div>`;
+  $('#markRest').onclick = markRestKnown;
+  $('#toAsst').onclick = () => { switchTab('asst'); runPreset('quiz'); };
+  $('#review').onclick = roughReview;
+  renderDocBadges();
+  if (!$('#pane-vocab').hidden) renderVocab();
+}
+
+/* ============ 左栏 ============ */
+function renderRail() {
+  $('#doclist').innerHTML = DOCS.map(d => `<button class="docitem${d === cur ? ' cur' : ''}" data-id="${d.id}">
+      <span class="dt">${esc(d.book ? d.book.split(' · ')[0] : d.title)}</span>
+      <span class="meta"><span>${d.genre}</span><span data-badge="${d.id}"></span></span></button>`).join('');
+  document.querySelectorAll('.docitem').forEach(b => b.onclick = () => { cur = DOCS.find(d => d.id === b.dataset.id); stopPlay(); renderDoc(); offerResume(); $('#app').classList.remove('menu'); });
+  if (cur.chapters) {
+    $('#tocWrap').hidden = false;
+    $('#toc').innerHTML = cur.chapters.map((c, i) => `<button class="${i ? '' : 'cur'}" ${i ? 'data-pending' : ''}><span>${c}</span><small>${i ? '打开时分析' : '阅读中'}</small></button>`).join('') + `<button disabled><span>… 共 61 章</span></button>`;
+    document.querySelectorAll('#toc [data-pending]').forEach(b => b.onclick = () => showToast('原型只包含第 1 章。正式版会在打开章节时再分句和分析。'));
+  } else {
+    $('#tocWrap').hidden = true;
+  }
+}
+function renderDocBadges() {
+  const pct = { tech: null, news: null, novel: null };
+  document.querySelectorAll('[data-badge]').forEach(el => {
+    const id = el.dataset.badge;
+    if (id === cur.id) { const r = docStats().ratio; const [lv, c] = levelOf(r); el.innerHTML = `<span class="lvl ${c}">${lv}</span>`; }
+    else el.innerHTML = `<span class="lvl ${id === 'news' ? 'hard' : 'mid'}">${id === 'news' ? '偏难' : '学习区'}</span>`;
+  });
+}
+
+/* ============ 侧栏 ============ */
+const drawerOpen = () => $('#app').classList.contains('drawer-open');
+const TAB_BTN = { sum: 'sumBtn', vocab: 'vocabBtn', asst: 'lexiBtn' };
+let activeTab = 'sum';
+/* 抽屉头部：当前页签的标题 + 一个专属动作；页签切换靠顶栏的三个按钮 */
+const DHEAD = { sum: ['总结', '重新生成', () => showToast('原型：会用当前模型档重新生成总结、短语与长难句')], vocab: ['本篇生词', '剩余全部标为已知', () => markRestKnown()], asst: ['✦ Tibi', '新对话', () => { renderAsst(); showToast('已开始新对话，这篇文章仍作为上下文'); }] };
+function renderDhead() { const [t, a, fn] = DHEAD[activeTab]; $('#dTitle').textContent = t; const b = $('#dAct'); b.hidden = false; b.textContent = a; b.onclick = fn; }
+function markTopBtns(t) { Object.entries(TAB_BTN).forEach(([k, id]) => $('#' + id).classList.toggle('on', drawerOpen() && k === t)); }
+function openDrawer() { if (drawerOpen()) return; $('#app').classList.add('drawer-open'); setTimeout(() => { moveTabDot(false); rr(); placePop(); }, 380); }
+function closeDrawer() { $('#app').classList.remove('drawer-open'); markTopBtns(null); setTimeout(() => { rr(); placePop(); }, 380); }
+function switchTab(t) {
+  if (t === 'card') { openPop(); return; }
+  activeTab = t; renderDhead();
+  ['sum', 'asst', 'vocab'].forEach(k => $('#pane-' + k).hidden = k !== t);
+  $('#composer').hidden = t !== 'asst';
+  if (t === 'sum') renderSum(); if (t === 'asst') renderAsst(); if (t === 'vocab') renderVocab();
+  openDrawer(); moveTabDot(true); markTopBtns(t);
+  anim($('#pane-' + t), { opacity: [0, 1], y: [8, 0] }, { duration: 0.35, ease: EASE });
+}
+function toggleTab(t) { if (drawerOpen() && !$('#pane-' + t).hidden) closeDrawer(); else switchTab(t); }
+// 词卡浮层：贴着选中的词出现，空间不够时翻到上方；窄屏改为底部抽屉
+function placePop() {
+  const p = $('#wpop'); if (p.hidden) return;
+  if (false) { p.style.maxHeight = ''; return; }
+  const el = selEl && selEl.isConnected ? selEl : document.querySelector('#page .w.sel, #page .ph.sel'); if (!el) return;
+  const r = el.getBoundingClientRect(), pw = p.offsetWidth, main = document.querySelector('.main').getBoundingClientRect();
+  const text = $('#page').getBoundingClientRect(), textRight = text.right - 40, top = main.top + 56, bottom = main.bottom - 48;
+  p.style.maxHeight = '';
+  // 宽屏：像页边批注一样放在正文右侧，与单词同高
+  if (main.right - textRight >= pw + 24) {
+    const ph = p.offsetHeight; p.style.left = (textRight + 28) + 'px';
+    p.style.top = Math.min(Math.max(top, r.top - 24), Math.max(top, bottom - ph)) + 'px'; return;
+  }
+  // 其余：放在单词下方或上方，选空间大的一侧，必要时限制高度、内部滚动
+  const below = bottom - r.bottom - 10, above = r.top - top - 10;
+  const useBelow = p.offsetHeight <= below || below >= above;
+  p.style.maxHeight = Math.max(200, useBelow ? below : above) + 'px';
+  const ph = p.offsetHeight;
+  p.style.left = Math.min(Math.max(main.left + 12, r.left + r.width / 2 - pw / 2), main.right - pw - 12) + 'px';
+  p.style.top = (useBelow ? r.bottom + 10 : r.top - ph - 10) + 'px';
+}
+function openPop() { const p = $('#wpop'), was = p.hidden; p.hidden = false; if (was) p.classList.remove('more'); placePop(); if (was) anim(p, { opacity: [0, 1], y: [6, 0], scale: [0.98, 1] }, { type: 'spring', bounce: 0.18, duration: 0.4 }); }
+function closePop() { $('#wpop').hidden = true; }
+function renderPanel() {
+  renderCard();
+  const active = activeTab;
+  if (active === 'sum') renderSum();
+  if (active === 'asst') renderAsst();
+  if (active === 'vocab') renderVocab();
+}
+
+// 熟练度六档：名称 + 一句话说明（数据仍存 0–5，界面不再显示数字）
+const STAGES = [
+  ['生词', '完全不认识'],
+  ['见过', '有印象，但想不起意思'],
+  ['眼熟', '结合上下文能猜出大概意思'],
+  ['认得', '读到时能理解，自己还不会用'],
+  ['熟悉', '基本掌握，偶尔还会犹豫'],
+  ['掌握', '已经会了，不再标注'],
+];
+function statusButtons(s) {
+  const desc = s >= 0 && s <= 5 ? `<b>${STAGES[s][0]}</b>：${STAGES[s][1]}` : (s === -2 ? '已忽略，不再标注' : '还没有设定，点上面的格子选择你对它的熟悉程度');
+  return `<div class="pips" role="group" aria-label="熟练度">${STAGES.map(([n, dsc], v) =>
+    `<button class="pip${s === v ? ' on' : ''}${s >= v && s <= 5 ? ' fill' : ''}" data-s="${v}" title="${n}：${dsc}（快捷键 ${v === 5 ? 'K' : v}）"><i></i>${n}</button>`).join('')}</div>
+    <div class="stagedesc">${desc}</div>`;
+}
+
+function renderCard() {
+  const p = $('#pane-card');
+  if (!selected) {
+    const st = docStats(); const [lv, c] = levelOf(st.ratio);
+    p.innerHTML = `<div class="icard">
+      <div class="sec"><h5>词卡</h5><div class="empty">点文中任意单词，这里会出现它的释义、读音和你的学习状态。<br>选中几个连续的词，可以标为短语。按 <span class="kbd">J</span> 跳到下一个生词。</div></div>
+      <div class="sec"><h5>本篇难度</h5>
+        <div class="meter" aria-hidden="true"><i style="width:${Math.min(100, st.ratio * 100 * 8)}%"></i></div>
+        <div class="subrow"><span>生词率 ${(st.ratio * 100).toFixed(1)}% &nbsp;<span class="lvl ${c}">${lv}</span></span><span class="lbl-i">2–5% 最适合学习</span></div></div></div>`;
+    enterCard(p);
+    anim(p.querySelector('.meter i'), { scaleX: [0, 1] }, { duration: 0.8, ease: EASE, delay: 0.15 });
+    return;
+  }
+  const sent = sentences[selected.sent] || { text: '', tr: '' };
+  if (selected.kind === 'phrase') {
+    const ph = PHRASES[selected.idx];
+    p.innerHTML = `<div class="icard">
+      <div class="whead"><div><div class="hw">${esc(ph.show || ph.k)}</div><div class="pron"><span class="tags">${ph.term ? '领域术语' : '短语'}</span><span class="gloss" style="font-size:14px">${esc(ph.zh)}</span></div></div>
+        <button class="say" title="朗读" data-say="${esc(ph.show || ph.k)}">${ICON_SPK}</button></div>
+      <div class="sec"><h5><span class="note">✦ AI</span>语境释义</h5><div class="gloss">${esc(ph.ctx)}</div></div>
+      <div class="divider"></div>
+      ${sentSec(sent, ph.show || ph.k)}
+      <div class="divider"></div>
+      <div class="sec"><h5>熟练度</h5>${statusButtons(ph.s)}</div></div>`;
+    p.querySelectorAll('.pip').forEach(b => b.onclick = () => { const old = ph.s; ph.s = +b.dataset.s; pushUndo(() => { ph.s = old; }); renderCard(); showToast(`短语 “${ph.show || ph.k}” 设为${STATUS_LABEL[ph.s]}`); });
+    bindSent(p);
+    enterCard(p);
+    return;
+  }
+  const L = selected.lemma, d = DICT[L], s = statusOf(L), enc = encounter(L);
+  const inPh = PHRASES.findIndex(ph => ph.k.split(' ').includes(L) && sent.text.toLowerCase().includes((ph.show || ph.k).split(' ')[0]));
+  p.innerHTML = `<div class="icard">
+    <div class="whead"><div>
+        <div class="hw">${esc(L)}</div>
+        <div class="pron">${d ? `<span class="ipa">${d.ph}</span><span class="stars" title="柯林斯星级">${'★'.repeat(d.stars)}<span style="opacity:.3">${'★'.repeat(5 - d.stars)}</span></span>${d.tags.length ? `<span class="tags">${d.tags.join(' · ')}</span>` : ''}` : `<span class="tags">${s === 98 ? '专有名词，已忽略' : '你已认识这个词'}</span>`}</div>
+      </div><button class="say" title="发音" data-say="${esc(L)}">${ICON_SPK}</button></div>
+    ${s === 99 ? `<div class="ask">按你约 6,200 的词汇量，我猜你认识这个词。对吗？<div class="row"><button class="btn" data-set="5">认识</button><button class="btn" data-set="0">不认识，标为生词</button></div></div>` : ''}
+    ${d ? `<div class="sec"><h5><span class="note">✦ AI</span>语境释义</h5><div class="gloss">${esc(d.ctx)}</div></div>
+    <div class="sec"><h5>词典释义 <span style="opacity:.7;font-weight:400">ECDICT</span></h5><ol class="defs">${d.zh.map(z => `<li>${esc(z)}</li>`).join('')}</ol>
+      <details><summary>英英释义</summary><div class="en">${esc(d.en)}</div></details></div>` : ''}
+    ${inPh >= 0 ? `<div class="subrow"><span class="lbl-i">属于短语</span><button class="linkbtn" id="toPh">${esc(PHRASES[inPh].show || PHRASES[inPh].k)} →</button></div>` : ''}
+    <div class="divider"></div>
+    ${sentSec(sent, selected.surface)}
+    <div class="divider"></div>
+    <div class="sec"><h5>熟练度</h5>${statusButtons(s === 98 ? -2 : s === 99 ? -1 : s)}
+      <div class="subrow" style="margin-top:6px"><span class="lbl-i">在 ${enc.docs} 篇文章里遇到过 ${enc.times} 次</span>
+      <span class="row" style="gap:14px"><button class="linkbtn" id="ignBtn">${s === 98 ? '取消忽略' : '忽略'}</button>
+      <button class="linkbtn" id="wbBtn">${wordbook.has(L) ? '✓ 在生词本中' : '加入生词本'}</button></span></div></div></div>`;
+  p.querySelectorAll('.pip').forEach(b => b.onclick = () => setStatus(L, +b.dataset.s));
+  p.querySelectorAll('[data-set]').forEach(b => b.onclick = () => setStatus(L, +b.dataset.set));
+  $('#ignBtn').onclick = () => setStatus(L, s === 98 ? 5 : 98);
+  $('#wbBtn').onclick = () => { wordbook.has(L) ? wordbook.delete(L) : wordbook.add(L); renderCard(); };
+  if ($('#toPh')) $('#toPh').onclick = () => { selected = { kind: 'phrase', idx: inPh, sent: selected.sent }; refresh(); renderCard(); };
+  bindSent(p);
+  enterCard(p);
+}
+const _renderCard = renderCard;
+renderCard = function () { _renderCard(); if (!selected) closePop(); else placePop(); };
+const ICON_SPK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6M18.5 6.5a8 8 0 010 11"/></svg>';
+
+function sentSec(sent, hl) {
+  const q = esc(sent.text.replace(/`/g, '')).replace(new RegExp(`\\b(${hl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i'), '<mark>$1</mark>');
+  return `<button class="linkbtn morebtn" id="moreBtn">所在句子、翻译与解析 ▾</button><div class="sec sentsec"><h5>所在句子</h5><div class="quote">${q}</div>
+    <div class="tr" id="trBox" hidden>${esc(sent.tr)}</div>
+    <div class="row" style="margin-top:4px"><button class="btn" id="trBtn">翻译</button><button class="btn" id="anBtn">请 Tibi 解析</button><button class="btn" id="sayBtn">朗读这句</button></div></div>`;
+}
+function bindSent(p) {
+  p.querySelectorAll('[data-say]').forEach(b => b.onclick = () => speak(b.dataset.say));
+  if ($('#moreBtn')) $('#moreBtn').onclick = () => { $('#wpop').classList.toggle('more'); $('#moreBtn').textContent = $('#wpop').classList.contains('more') ? '收起 ▴' : '所在句子、翻译与解析 ▾'; placePop(); };
+  const t = $('#trBtn'); if (!t) return;
+  t.onclick = () => { const box = $('#trBox'); box.hidden = !box.hidden; t.textContent = box.hidden ? '翻译' : '收起翻译'; };
+  $('#anBtn').onclick = () => { const s = sentences[selected.sent]; switchTab('asst'); askAbout(s.text); };
+  $('#sayBtn').onclick = () => speak(sentences[selected.sent].text.replace(/`/g, ''), selected.sent);
+}
+
+function setStatus(L, s) {
+  const old = L in VOCAB ? VOCAB[L] : undefined;
+  const prev = statusOf(L);
+  const els = [...document.querySelectorAll(`#page .w[data-l="${CSS.escape(L)}"]`)];
+  const apply = () => {
+    VOCAB[L] = s;
+    if (s >= 1 && s <= 4) wordbook.add(L);
+    pushUndo(() => { if (old === undefined) delete VOCAB[L]; else VOCAB[L] = old; });
+    refresh(); renderCard();
+    if (HL.has(s) && s !== prev) roughMark(els, s);
+    anim(document.querySelectorAll('#pane-card .pip.fill i'), { scaleX: [0.3, 1] }, { duration: 0.35, ease: EASE, delay: stag(0.04) });
+    showToast(`“${L}” 已设为${STATUS_LABEL[s]}，所有文章同步更新`);
+  };
+  if (HL.has(prev) && !HL.has(s)) sweepOut(els, apply); else apply();
+}
+
+function renderSum() {
+  const d = cur, st = docStats(); const [lv, c] = levelOf(st.ratio);
+  const phs = PHRASES.map((p, i) => ({p, i})).filter(({i}) => $('#page .ph[data-p="' + i + '"]'));
+  $('#pane-sum').innerHTML = `<div class="icard">
+    <div class="sec"><h5><span class="note">✦ AI</span>总结</h5><div class="gloss">${esc(d.sum)}</div></div>
+    <div class="sec"><h5>难度</h5><div class="subrow"><span style="color:var(--ink-2)">生词率 ${(st.ratio * 100).toFixed(1)}% &nbsp;<span class="lvl ${c}">${lv}</span></span><span class="lbl-i">约 CEFR ${d.id === 'news' ? 'C1' : 'B2'}</span></div></div>
+    <div class="divider"></div>
+    <div class="sec"><h5>${d.extraTitle}</h5><dl class="kv">${d.extra.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl></div>
+    <div class="divider"></div>
+    <div class="sec"><h5>值得学的短语</h5><div class="plist">${phs.map(({p, i}) => `<button class="pitem" data-pi="${i}"><b>${esc(p.show || p.k)}</b><span>${esc(p.zh)}</span></button>`).join('')}</div></div>
+    <div class="divider"></div>
+    <div class="sec"><h5>长难句</h5><div class="quote">${esc(d.hard.s)}</div><div class="tr">${esc(d.hard.a)}</div></div>
+    <div class="divider"></div>
+    <div class="sec"><h5><span class="note">✦ AI</span>学习建议</h5><div class="gloss" style="font-size:14px">${esc(d.advice)}</div></div></div>
+    <div class="memref">Tibi · 导入文章 · 导入时生成并缓存 · <a class="linkbtn" id="sumProv" href="#">查看过程</a> · <button class="linkbtn" id="regen">重新生成</button></div>`;
+  document.querySelectorAll('#pane-sum .pitem').forEach(b => b.onclick = () => {
+    const el = $(`#page .ph[data-p="${b.dataset.pi}"]`); const si = +el.closest('.sent').dataset.si;
+    selected = { kind: 'phrase', idx: +b.dataset.pi, sent: si }; refresh(); switchTab('card'); renderCard(); flashTo(el);
+  });
+  $('#regen').onclick = () => showToast('原型：会用当前模型重新生成，旧版本会保留');
+  $('#sumProv').href = URLS.tasks + '#t=h1'; if (location.protocol !== 'file:') { $('#sumProv').target = '_blank'; $('#sumProv').rel = 'noopener'; }
+}
+
+function renderVocab() {
+  const st = docStats();
+  const group = (title, set, cls) => set.size ? `<div class="sec"><h5>${title} · ${set.size}</h5><div class="vgroup">${[...set].map(l =>
+    `<button class="vrow" data-l="${esc(l)}"><b class="${cls(l)}">${esc(l)}</b><span>${esc(DICT[l] ? DICT[l].zh[0] : '')}</span></button>`).join('')}</div></div>` : '';
+  const body = group('生词', st.nNew, () => 'sw0') + group('学习中', st.nL, () => 'sw1') + group('待确认', st.nU, () => '');
+  $('#pane-vocab').innerHTML = body ? `<div class="icard">${body}<div class="row"><button class="btn" id="allWb">把生词都加入生词本</button></div></div>` : '<div class="empty">这一篇没有生词了。</div>';
+  document.querySelectorAll('#pane-vocab .vrow').forEach(b => b.onclick = () => { const el = $(`#page .w[data-l="${CSS.escape(b.dataset.l)}"]`); selectWord(el); switchTab('card'); flashTo(el); });
+  if ($('#allWb')) $('#allWb').onclick = () => { st.nNew.forEach(l => wordbook.add(l)); showToast(`已加入生词本 ${st.nNew.size} 个词，明天开始复习`); };
+}
+
+/* ============ 助手 ============ */
+function thread() {
+  if (!threads[cur.id]) {
+    const st = docStats(); const [lv] = levelOf(st.ratio);
+    threads[cur.id] = [{ r: 'a', h: `<p>我是 Tibi。你正在读 <b>${esc(cur.book ? cur.book.split(' · ')[0] : cur.title)}</b>，这篇对你的生词率约 ${(st.ratio * 100).toFixed(1)}%，属于${lv}。</p><p>读的时候随时选中句子问我；读完我可以出几道理解题。</p>` }];
+  }
+  return threads[cur.id];
+}
+function renderAsst() {
+  const reading = cur.book ? cur.book.split(' · ')[0] + ', ' + cur.title : cur.title;
+  const sel = selected ? (selected.kind === 'word' ? selected.lemma : (PHRASES[selected.idx].show || PHRASES[selected.idx].k)) : '';
+  $('#pane-asst').innerHTML = `
+    <div class="ahead"><span class="lbl-i">Tibi 会结合这篇文章、你的水平和记忆来回答</span><button class="linkbtn" id="memBtn">记得关于你的 ${MEMORIES.length} 件事</button></div>
+    <div class="memlist" id="memList" hidden>${MEMORIES.map(([a, b]) => `<div><em>${a}</em><span>${esc(b)}</span></div>`).join('')}<div><em></em><button class="linkbtn" style="text-align:left">在设置里管理</button></div></div>
+    <div class="ctxline" title="这些上下文会随问题一起发给助手">正在读 <b>${esc(reading)}</b>${sel ? `，选中了 <b>${esc(sel)}</b>` : ''}</div>
+    <div class="msgs" id="msgs">${thread().map(m => `<div class="msg ${m.r}">${m.h}</div>`).join('')}</div>
+    <div class="suggest"><button data-q="hard">讲讲最难的那句</button><button data-q="quiz">出 3 道理解题</button><button data-q="wb">生词加入生词本</button><button data-q="weak">我最近的薄弱点</button></div>`;
+  $('#memBtn').onclick = () => { $('#memList').hidden = !$('#memList').hidden; };
+  document.querySelectorAll('.suggest button').forEach(b => b.onclick = () => runPreset(b.dataset.q));
+  PBODY.scrollTop = PBODY.scrollHeight;
+}
+function post(r, h) {
+  thread().push({ r, h }); renderAsst();
+  const last = document.querySelector('#msgs .msg:last-child');
+  anim(last, { opacity: [0, 1], y: [10, 0] }, SPRING);
+  anim(last && last.querySelectorAll('p, li, .tool'), { opacity: [0, 1], y: [4, 0] }, { duration: 0.3, ease: EASE, delay: stag(0.06, { startDelay: 0.08 }) });
+}
+function reply(h, delay = 650) {
+  thread().push({ r: 'a', h: '<span class="typing-dots" aria-label="Tibi 正在思考"><i></i><i></i><i></i></span>' }); renderAsst();
+  setTimeout(() => { thread().pop(); post('a', h); }, delay);
+}
+function runPreset(q) {
+  const d = cur;
+  if (q === 'hard') { post('u', '解释本篇最难的句子'); reply(`<p><i>${esc(d.hard.s)}</i></p><p>${esc(d.hard.a)}</p><p class="memref">按你的偏好，我少用了术语。</p>`); }
+  if (q === 'quiz') { post('u', '出 3 道理解题'); reply(`<p>用英文回答，一两句话就行：</p><ol>${d.quiz.map(x => `<li>${esc(x).replace(/`([^`]+)`/g, '<code>$1</code>')}</li>`).join('')}</ol><p class="memref">这是临时练习，不影响复习排期。</p>`); }
+  if (q === 'wb') {
+    post('u', '把本篇生词加入生词本');
+    const ls = [...docStats().nNew]; const before = ls.map(l => [l, VOCAB[l]]);
+    if (!ls.length) { reply('<p>本篇已经没有未处理的生词了。学习中的词都在生词本里。</p>'); return; }
+    setTimeout(() => {
+      ls.forEach(l => { VOCAB[l] = 1; wordbook.add(l); });
+      pushUndo(() => before.forEach(([l, v]) => VOCAB[l] = v));
+      refresh();
+      post('a', `<div class="tool"><div class="row"><code>add_to_wordbook</code><span>已自动执行</span></div><span>${ls.length} 个词：${ls.map(esc).join('、')}，状态设为“见过”</span><div class="row"><span class="memref">权限模式“默认”：标词类操作自动执行</span><button class="linkbtn" onclick="doUndo()">撤销</button></div></div><p>好了，明天的复习里会出现这些词，例句就用这篇文章里的原句。</p>`);
+    }, 600);
+  }
+  if (q === 'weak') { post('u', '我最近的薄弱点？'); reply(`<div class="tool"><div class="row"><code>search_memory</code><code>get_learning_stats</code></div><span>读取了 2 条记忆、近 7 天的复习记录</span></div><ul><li><b>affect / effect</b> 还会混，上周复习时答错 3 次。</li><li><b>overhead</b> 在你读过的 4 篇技术文档里出现过，还停在“学习 2”，可以试着用它造个句。</li><li>虚拟语气：本周读的小说里有 2 处，需要我挑出来讲讲吗？</li></ul>`, 900); }
+}
+function askAbout(text) {
+  post('u', `解析这句话：<i>${esc(text.replace(/`/g, ''))}</i>`);
+  const isHard = text === cur.hard.s;
+  reply(isHard ? `<p>${esc(cur.hard.a)}</p>` : `<p>这句话的主干比较清楚，可以分两步读：先找主语和谓语，再看修饰成分。</p><p>${esc(sentences.find(s => s.text === text)?.tr || '')}</p><p class="memref">原型中只有每篇的“长难句”有完整解析，其他句子显示翻译。</p>`);
+}
+$('#askSend').onclick = sendAsk;
+$('#askInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAsk(); } });
+function sendAsk() {
+  const v = $('#askInput').value.trim(); if (!v) return; $('#askInput').value = '';
+  post('u', esc(v));
+  reply(`<p>（原型）正式版会把你的问题，连同正在读的《${esc(cur.title)}》${selected ? '、选中的 “' + esc(selected.lemma || PHRASES[selected.idx].k) + '”' : ''}、你的水平和记忆一起发给当前后端。</p>`);
+}
+
+/* ============ 交互 ============ */
+function selectWord(el) {
+  const si = +el.closest('.sent').dataset.si;
+  selected = { kind: 'word', lemma: el.dataset.l, surface: el.textContent, sent: si }; selEl = el;
+  document.querySelectorAll('.sent.focus').forEach(s => s.classList.remove('focus'));
+  refresh(); renderCard(); openPop();
+}
+$('#page').addEventListener('click', e => {
+  const w = e.target.closest('.w'); if (!w) return;
+  if (window.getSelection().toString().trim().split(/\s+/).length > 1) return;
+  if (e.shiftKey && w.closest('.ph')) {
+    const ph = w.closest('.ph');
+    selected = { kind: 'phrase', idx: +ph.dataset.p, sent: +w.closest('.sent').dataset.si }; selEl = ph; refresh(); renderCard();
+  } else selectWord(w);
+  openPop();
+  if (drawerOpen() && !$('#pane-asst').hidden) renderAsst();
+});
+
+// 选中多个词 → 浮动工具条
+document.addEventListener('mouseup', () => setTimeout(checkSel, 0));
+document.addEventListener('touchend', () => setTimeout(checkSel, 250));
+function checkSel() {
+  const sel = window.getSelection(); const tool = $('#selTool');
+  const txt = sel.toString().trim();
+  if (!txt || txt.split(/\s+/).length < 2 || !$('#page').contains(sel.anchorNode)) { tool.hidden = true; return; }
+  const r = sel.getRangeAt(0).getBoundingClientRect();
+  const wasHidden = tool.hidden; tool.hidden = false;
+  if (wasHidden) anim(tool, { opacity: [0, 1], y: [6, 0], scale: [0.95, 1] }, { duration: 0.25, ease: EASE });
+  tool.style.left = Math.max(8, Math.min(window.innerWidth - tool.offsetWidth - 8, r.left + r.width / 2 - tool.offsetWidth / 2)) + 'px';
+  tool.style.top = Math.max(8, r.top - tool.offsetHeight - 8 + window.scrollY) + 'px';
+  tool.dataset.txt = txt;
+}
+$('#mkPhrase').onclick = () => {
+  const txt = $('#selTool').dataset.txt.replace(/[^A-Za-z'’\s-]/g, '').trim();
+  const k = txt.split(/[\s-]+/).map(lemmatize).join(' ');
+  if (!PHRASES.some(p => p.k === k)) PHRASES.push({ k, show: txt.toLowerCase(), zh: '（AI 生成语境释义中…）', ctx: '原型：正式版会让 AI 根据这句话生成短语的语境释义，并在所有文章中自动识别这个短语。', s: 0 });
+  const anchor = window.getSelection().anchorNode; const sentEl = anchor && anchor.parentElement && anchor.parentElement.closest('.sent');
+  const si = sentEl ? +sentEl.dataset.si : 0;
+  window.getSelection().removeAllRanges(); $('#selTool').hidden = true;
+  const keepScroll = READER.scrollTop; renderDoc(); READER.scrollTop = keepScroll;
+  selected = { kind: 'phrase', idx: PHRASES.findIndex(p => p.k === k), sent: si }; refresh(); switchTab('card'); renderCard();
+  showToast(`已添加短语 “${txt}”`);
+};
+$('#askSel').onclick = () => { const t = $('#selTool').dataset.txt; window.getSelection().removeAllRanges(); $('#selTool').hidden = true; switchTab('asst'); post('u', `这段是什么意思：<i>${esc(t)}</i>`); reply('<p>（原型）正式版会结合上下文解释这段话，并指出其中值得学的搭配。</p>'); };
+
+function markRestKnown() {
+  const st = docStats(); const ls = [...st.nNew, ...st.nU]; const before = ls.map(l => [l, VOCAB[l]]);
+  const els = [...document.querySelectorAll('#page .w.s0, #page .w.s99')];
+  const done = () => {
+    ls.forEach(l => VOCAB[l] = 5);
+    pushUndo(() => before.forEach(([l, v]) => VOCAB[l] = v));
+    refresh(); renderCard();
+    showToast(`已将 ${ls.length} 个词标为已知`);
+  };
+  sweepOut(els, done);
+}
+
+function pushUndo(fn) { undoStack = fn; }
+function doUndo() {
+  if (!undoStack) return;
+  const before = new Map([...document.querySelectorAll('#page .w')].map(w => [w, w.className]));
+  undoStack(); undoStack = null; refresh(); renderPanel(); $('#toast').hidden = true;
+  sweepIn([...before.keys()].filter(w => w.className !== before.get(w) && /\bs[0-4]\b/.test(w.className)));
+}
+let toastT;
+function showToast(t) { $('#toastTxt').textContent = t; const was = $('#toast').hidden; $('#toast').hidden = false; if (was) anim($('#toast'), { opacity: [0, 1], y: [14, 0], scale: [0.96, 1] }, SPRING); $('#toastUndo').hidden = !undoStack; clearTimeout(toastT); toastT = setTimeout(() => $('#toast').hidden = true, 3800); }
+$('#toastUndo').onclick = doUndo;
+
+function flashTo(el) { if (!el) return; el.scrollIntoView({ block: 'center' }); if (roughFlash(el)) return; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+function nextNew() {
+  const ws = [...document.querySelectorAll('#page .w.s0, #page .w.s99')]; if (!ws.length) return;
+  const curEl = selected && selected.kind === 'word' ? [...document.querySelectorAll(`#page .w[data-l="${CSS.escape(selected.lemma)}"]`)].pop() : null;
+  const all = [...document.querySelectorAll('#page .w')]; const pos = curEl ? all.indexOf(curEl) : -1;
+  const nx = ws.find(w => all.indexOf(w) > pos) || ws[0];
+  selectWord(nx); flashTo(nx);
+}
+
+document.addEventListener('keydown', e => {
+  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 'j' || e.key === 'ArrowRight') { nextNew(); e.preventDefault(); return; }
+  if (k === 'p') { togglePlay(); return; }
+  if (k === 'f') { setFocus(!$('#app').classList.contains('focus')); return; }
+  if (k === 't') { toggleTr(); return; }
+  if (k === 'g') { toggleGloss(); return; }
+  if (k === 'escape') { if (!$('#wpop').hidden) { selected = null; closePop(); refresh(); return; } if ($('#app').classList.contains('focus')) { setFocus(false); return; } $('#settings').hidden = true; closeDrawer(); return; }
+  if (!selected || selected.kind !== 'word') return;
+  if (/^[0-4]$/.test(k)) setStatus(selected.lemma, +k);
+  if (k === 'k') setStatus(selected.lemma, 5);
+  if (k === 'i') setStatus(selected.lemma, 98);
+});
+
+/* ============ 朗读（Web Speech API，不可用时用计时模拟高亮） ============ */
+let playing = false, playIdx = 0, timer = null;
+function voice() { try { const vs = speechSynthesis.getVoices(); return vs.find(v => /en[-_](US|GB)/i.test(v.lang)) || null; } catch (e) { return null; } }
+function speak(text, si) {
+  try {
+    if (!('speechSynthesis' in window)) throw 0;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = +$('#speed').value; const v = voice(); if (v) u.voice = v;
+    if (si !== undefined) { markPlaying(si); u.onend = () => markPlaying(-1); }
+    speechSynthesis.speak(u);
+  } catch (e) { showToast('当前环境不支持系统语音。正式版可用 Kokoro 本地语音'); }
+}
+function markPlaying(i) { document.querySelectorAll('.sent.playing').forEach(s => s.classList.remove('playing')); if (i >= 0) { const el = $(`.sent[data-si="${i}"]`); if (el) { el.classList.add('playing'); el.scrollIntoView({ block: 'center' }); } } }
+function playFrom(i) {
+  if (!playing || i >= sentences.length) { stopPlay(); return; }
+  playIdx = i; markPlaying(i);
+  const text = sentences[i].text.replace(/`/g, '');
+  let usedTTS = false;
+  try {
+    if ('speechSynthesis' in window && voice()) {
+      const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = +$('#speed').value; u.voice = voice();
+      u.onend = () => playFrom(i + 1); speechSynthesis.speak(u); usedTTS = true;
+    }
+  } catch (e) {}
+  if (!usedTTS) timer = setTimeout(() => playFrom(i + 1), Math.max(1200, text.split(' ').length * 330 / +$('#speed').value));
+}
+function togglePlay() {
+  if (playing) { stopPlay(); return; }
+  playing = true; $('#playBtn').classList.add('on');
+  $('#playBtn').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg><span class="hide-s">暂停</span>';
+  playFrom(selected ? selected.sent : playIdx);
+}
+function stopPlay() {
+  playing = false; clearTimeout(timer); try { speechSynthesis.cancel(); } catch (e) {}
+  markPlaying(-1); $('#playBtn').classList.remove('on');
+  $('#playBtn').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg><span class="hide-s">朗读</span>';
+}
+$('#playBtn').onclick = togglePlay;
+function toggleTr() {
+  showTr = !showTr; $('#page').classList.toggle('tr-on', showTr); $('#trTog').classList.toggle('on', showTr); $('#trTog').setAttribute('aria-pressed', showTr); roughRefresh();
+  if (showTr) anim(document.querySelectorAll('#page .ptr'), { opacity: [0, 1], y: [-4, 0] }, { duration: 0.35, ease: EASE, delay: stag(0.03) });
+}
+function toggleGloss() {
+  showGloss = !showGloss; $('#page').classList.toggle('gloss-on', showGloss); $('#glossTog').classList.toggle('on', showGloss); $('#glossTog').setAttribute('aria-pressed', showGloss); roughRefresh();
+}
+$('#trTog').onclick = toggleTr;
+$('#glossTog').onclick = toggleGloss;
+
+/* ============ 设置、进度、杂项 ============ */
+// 正文字体：所有类型默认相同，用户可在阅读设置中更换
+let fontPref = null;
+const FONTS = { serif: 'var(--f-read)', classic: '"Source Serif 4", "Alibaba PuHuiTi 3.0", Georgia, serif', sans: '"Geist", "Noto Sans SC", system-ui, sans-serif' };
+function applyFont() {
+  const f = fontPref || 'serif';
+  document.documentElement.style.setProperty('--read-font', FONTS[f]);
+  document.querySelectorAll('#fontSeg button').forEach(b => b.classList.toggle('on', b.dataset.f === f));
+  if (typeof rr === 'function') rr();
+}
+$('#setBtn').onclick = e => { e.stopPropagation(); $('#settings').hidden = !$('#settings').hidden; };
+document.addEventListener('click', e => { if (!$('#settings').hidden && !$('#settings').contains(e.target) && e.target !== $('#setBtn')) $('#settings').hidden = true; });
+$('#paperSeg').onclick = e => {
+  const p = e.target.dataset.p; if (!p) return;
+  document.querySelectorAll('#paperSeg button').forEach(b => b.classList.toggle('on', b === e.target));
+  const r = document.documentElement;
+  delete r.dataset.paper;
+  if (p === 'auto') delete r.dataset.theme; else if (p === 'sepia') { r.dataset.theme = 'light'; r.dataset.paper = 'sepia'; } else r.dataset.theme = p;
+  setTimeout(roughRefresh, 50);
+};
+$('#modeSeg').onclick = e => {
+  const m = e.target.dataset.m; if (!m) return; mode = m;
+  document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b === e.target));
+  $('#page').classList.remove('mode-new', 'mode-clean'); if (m !== 'all') $('#page').classList.add('mode-' + m);
+  roughRefresh();
+};
+$('#fontSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; fontPref = b.dataset.f; applyFont(); };
+let rrT; function rr() { clearTimeout(rrT); rrT = setTimeout(roughRefresh, 150); }
+$('#fs').oninput = e => { document.documentElement.style.setProperty('--read-size', e.target.value + 'px'); $('#fsv').textContent = e.target.value; rr(); };
+$('#measureSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; $('#measureSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); document.documentElement.style.setProperty('--measure', b.dataset.w + 'px'); try { localStorage.setItem('tibi-measure', b.dataset.w); } catch (e) {} rr(); placePop(); };
+try { const mw = localStorage.getItem('tibi-measure'); if (mw) { document.documentElement.style.setProperty('--measure', mw + 'px'); $('#measureSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.w === mw)); } } catch (e) {}
+/* 专注模式：只留正文；鼠标靠近上下边缘时短暂露出工具栏 */
+function setFocus(on) { $('#app').classList.toggle('focus', on); $('#focusSw').setAttribute('aria-checked', on); if (on) { $('#settings').hidden = true; showToast('专注模式：鼠标移到上下边缘或按 Esc 退出'); } }
+$('#focusSw').onclick = () => setFocus(!$('#app').classList.contains('focus'));
+let peekT; addEventListener('mousemove', e => { if (!$('#app').classList.contains('focus')) return; const near = e.clientY < 60 || e.clientY > innerHeight - 56; $('#app').classList.toggle('peek', near); });
+/* 上次读到的位置：打开有进度的文章时，底部给一个"继续"胶囊 */
+function offerResume() { const old = $('#resumePill'); if (old) old.remove(); const p = cur.progress || 0; if (!p || p >= 100) return;
+  const el = document.createElement('div'); el.className = 'resume'; el.id = 'resumePill'; el.innerHTML = `上次读到 ${p}%<button class="go" id="resumeGo">继续</button><button id="resumeX" title="从头开始"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+  $('#reader').appendChild(el); anim(el, { opacity: [0, 1], y: [8, 0] }, { duration: 0.3, ease: EASE });
+  $('#resumeGo').onclick = () => { READER.scrollTo({ top: (READER.scrollHeight - READER.clientHeight) * p / 100, behavior: REDUCE ? 'auto' : 'smooth' }); el.remove(); };
+  $('#resumeX').onclick = () => el.remove();
+  setTimeout(() => { if (el.isConnected) anim(el, { opacity: [1, 0] }, { duration: 0.4 }); setTimeout(() => el.remove(), 450); }, 8000); }
+$('#lh').oninput = e => { document.documentElement.style.setProperty('--read-lh', e.target.value); $('#lhv').textContent = e.target.value; rr(); };
+// 主题切换后墨色变了，重绘手绘标注
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTimeout(roughRefresh, 50));
+READER.addEventListener('scroll', () => {
+  placePop();
+  const r = READER; const p = r.scrollHeight > r.clientHeight ? r.scrollTop / (r.scrollHeight - r.clientHeight) : 1;
+  $('#progBar').style.width = (p * 100).toFixed(0) + '%'; $('#progTxt').textContent = (p * 100).toFixed(0) + '%';
+  $('#eta').textContent = `还剩约 ${Math.max(0, Math.round(cur.mins * (1 - p)))} 分钟`;
+});
+$('#sumBtn').onclick = () => toggleTab('sum'); $('#vocabBtn').onclick = () => toggleTab('vocab'); $('#lexiBtn').onclick = () => toggleTab('asst');
+$('#closeDrawer').onclick = closeDrawer;
+$('#wpopClose').onclick = () => { selected = null; closePop(); refresh(); };
+document.addEventListener('mousedown', e => {
+  if ($('#wpop').hidden) return;
+  if ($('#wpop').contains(e.target) || e.target.closest('#page .w') || e.target.closest('#selTool') || e.target.closest('#toast') || e.target.closest('.tools')) return;
+  selected = null; closePop(); refresh();
+});
+addEventListener('resize', placePop);
+
+renderDoc(); offerResume();
+renderDhead();
+document.getElementById('ringArc').setAttribute('stroke-dashoffset', 87.96 * 0.4);
+anim(document.querySelectorAll('.docitem, .toc button'), { opacity: [0, 1], x: [-8, 0] }, { duration: 0.45, ease: EASE, delay: stag(0.04, { startDelay: 0.1 }) });
+READER.dispatchEvent(new Event('scroll'));
+
+/* 标注说明：点底栏的统计打开 */
+(function () {
+  const lg = document.getElementById('legend'), c = document.getElementById('counts');
+  const open = v => { lg.hidden = !v; if (v) anim(lg, { opacity: [0, 1], y: [6, 0] }, { duration: 0.22, ease: EASE }); };
+  c.onclick = () => open(lg.hidden); c.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(lg.hidden); } };
+  document.addEventListener('click', e => { if (!lg.hidden && !lg.contains(e.target) && !c.contains(e.target)) open(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !lg.hidden) open(false); });
+})();
+</script>
+<script src="v2-search.js"></script>

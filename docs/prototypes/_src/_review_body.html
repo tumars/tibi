@@ -1,0 +1,712 @@
+<style>
+/* 复习页专属样式 */
+.rv { max-width: 720px; margin: 0 auto; padding: 22px 32px 0; display: flex; flex-direction: column; gap: 18px; min-height: 100%; }
+/* 复审：动作区固定在底部（显示答案 / 评分永远在同一个位置），卡片只负责题目与答案 */
+.rvfoot { position: sticky; bottom: 0; margin-top: auto; padding: 18px 0 20px; background: linear-gradient(to bottom, transparent, var(--surface) 30%); display: flex; flex-direction: column; gap: 10px; }
+.rvfoot .keys { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-3); flex-wrap: wrap; }
+.rvfoot .keys .kbd { margin: 0 2px; }
+.rvfoot .actions { gap: 8px; }
+.rvfoot .reveal { height: 50px; border-radius: 16px; }
+.rvfoot .linkbtn { align-self: center; }
+.rvbar { display: flex; align-items: center; gap: 14px; font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.segs { flex: 1; display: flex; gap: 3px; height: 6px; }
+.segs i { flex: 1; border-radius: 99px; background: var(--line); transition: background .3s; }
+.segs i.cur { background: var(--ink-3); }
+.segs i.r1 { background: var(--hard); } .segs i.r2 { background: var(--mid); } .segs i.r3 { background: var(--ink); } .segs i.r4 { background: var(--accent); }
+.card { position: relative; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line), 0 1px 2px rgba(0,0,0,.03); padding: 24px 30px 26px; display: flex; flex-direction: column; gap: 20px; background: var(--surface); }
+.chead { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-3); flex-wrap: wrap; }
+.ctype { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--sunken); color: var(--ink-2); font-weight: 500; }
+.chead .sp { flex: 1; }
+.chead .ibtn { width: 28px; height: 28px; }
+.prompt { font-size: 13.5px; color: var(--ink-2); }
+.sentence { font-family: var(--f-read); font-size: 23px; line-height: 1.65; color: var(--ink); }
+.sentence .tw { border-radius: 3px; padding: 0 1px; }
+.tw.s0 { background: linear-gradient(to bottom, transparent 34%, var(--hl-new) 34%, var(--hl-new) 90%, transparent 90%); }
+.tw.s1 { background: linear-gradient(to bottom, transparent 34%, var(--hl-1) 34%, var(--hl-1) 90%, transparent 90%); }
+.tw.s2 { background: linear-gradient(to bottom, transparent 34%, var(--hl-2) 34%, var(--hl-2) 90%, transparent 90%); }
+.blank { display: inline-block; min-width: 4.5em; border: 0; border-bottom: 2px solid var(--ink-3); background: transparent; font: inherit; color: var(--accent); text-align: center; padding: 0 4px; outline: none; border-radius: 0; transition: border-color .2s; }
+.blank:focus { border-bottom-color: var(--accent); }
+.blank.ok { border-bottom-color: var(--ok); color: var(--ok); } .blank.bad { border-bottom-color: var(--hard); color: var(--hard); text-decoration: line-through; }
+.fix { color: var(--ok); font-weight: 700; margin-left: 6px; }
+.hint { font-size: 13px; color: var(--ink-3); }
+.hint b { color: var(--ink-2); font-weight: 500; }
+.bigzh { font-size: 24px; font-weight: 600; letter-spacing: -.01em; }
+.spellrow { display: flex; gap: 10px; align-items: center; }
+.spellin { flex: 1; height: 52px; border: 0; border-radius: 16px; background: var(--sunken); padding: 0 18px; font-family: var(--f-read); font-size: 22px; color: var(--ink); outline: none; }
+.spellin:focus { box-shadow: inset 0 0 0 1.5px var(--accent); background: var(--surface); }
+.spellin.ok { box-shadow: inset 0 0 0 1.5px var(--ok); } .spellin.bad { box-shadow: inset 0 0 0 1.5px var(--hard); }
+.play { width: 64px; height: 64px; border-radius: 50%; background: var(--ink); color: var(--surface); display: grid; place-items: center; flex: none; transition: transform .15s; }
+.play:hover { transform: scale(1.05); }
+.play.small { width: 44px; height: 44px; background: var(--sunken); color: var(--ink); }
+.listen { display: flex; align-items: center; gap: 16px; }
+.wave { display: flex; gap: 3px; align-items: center; height: 28px; }
+.wave i { width: 3px; border-radius: 3px; background: var(--line-2); height: 30%; }
+.wave.on i { background: var(--accent); animation: wv .9s ease-in-out infinite; }
+.wave.on i:nth-child(2n) { animation-delay: .15s; } .wave.on i:nth-child(3n) { animation-delay: .3s; }
+@keyframes wv { 0%, 100% { height: 25%; } 50% { height: 100%; } }
+.produce { width: 100%; min-height: 96px; border: 0; border-radius: 16px; background: var(--sunken); padding: 14px 16px; font-family: var(--f-read); font-size: 17px; line-height: 1.6; color: var(--ink); resize: vertical; outline: none; }
+.produce:focus { box-shadow: inset 0 0 0 1.5px var(--accent); background: var(--surface); }
+.answer { display: flex; flex-direction: column; gap: 12px; padding-top: 18px; border-top: 1px dashed var(--line-2); }
+.answer .hwrow { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.answer .hw { font-size: 26px; }
+.answer .ipa { font-family: var(--f-read); font-style: italic; color: var(--ink-2); }
+.answer .ctxzh { font-size: 13.5px; color: var(--ink-2); line-height: 1.7; }
+.answer .src { font-size: 12px; color: var(--ink-3); }
+.verdict { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+.verdict.ok { color: var(--ok); } .verdict.bad { color: var(--hard); } .verdict.mid { color: var(--mid); }
+.actions { display: flex; flex-direction: column; gap: 10px; }
+.reveal { height: 52px; border-radius: 16px; background: var(--ink); color: var(--surface); font-size: 14.5px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 10px; }
+.reveal:hover { opacity: .9; }
+.reveal .kbd { color: inherit; opacity: .6; box-shadow: inset 0 0 0 1px currentColor; }
+.rates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.rate { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 11px 6px 10px; border-radius: 16px; background: var(--sunken); transition: background .15s, box-shadow .15s, transform .15s; }
+.rate:hover { transform: translateY(-1px); }
+.rate b { font-size: 14px; font-weight: 600; }
+.rate span { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.rate[data-r="1"] b { color: var(--hard); } .rate[data-r="2"] b { color: var(--mid); } .rate[data-r="4"] b { color: var(--accent); }
+.rate.sug { box-shadow: inset 0 0 0 1.5px var(--ink); background: var(--surface); }
+.rate .k { font-family: var(--f-mono); font-size: 10px; color: var(--ink-3); }
+.stagechg { position: absolute; top: 22px; right: 26px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2); }
+/* 完成页 */
+.done { display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center; padding-top: 8px; }
+.done .ill { width: 160px; height: 160px; margin-bottom: -10px; }
+.done h1 { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
+.done .sub { color: var(--ink-2); font-size: 14px; margin-top: -10px; }
+.kpis3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+.kpis3 div { padding: 16px; border-radius: 16px; background: var(--sunken); display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.kpis3 b { font-size: 26px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.kpis3 span { font-size: 12px; color: var(--ink-3); }
+.dbar { width: 100%; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.dbar .bar { display: flex; gap: 3px; height: 10px; }
+.dbar .bar i { border-radius: 4px; }
+.dbar .lab { display: flex; gap: 16px; font-size: 12.5px; color: var(--ink-2); flex-wrap: wrap; }
+.dbar .lab i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; }
+.chg { width: 100%; text-align: left; display: flex; flex-direction: column; }
+.chg h5 { margin: 0 0 6px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.chg div { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.chg div:last-child { border-bottom: 0; }
+.chg b { font-family: var(--f-read); font-weight: 700; font-size: 15.5px; }
+.chg .arrow { display: inline-flex; align-items: center; gap: 6px; }
+.done .row { justify-content: center; }
+.qlist a { display: flex; align-items: center; gap: 8px; }
+.qlist .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line-2); flex: none; }
+.qlist .dot.r1 { background: var(--hard); } .qlist .dot.r2 { background: var(--mid); } .qlist .dot.r3 { background: var(--ink); } .qlist .dot.r4 { background: var(--accent); }
+.qlist a.cur { color: var(--ink); font-weight: 500; }
+/* 2026-10-30 复习改版（G1–G8，参考词光 Word Atlas） */
+.rvbar .linkbtn { white-space: nowrap; }
+.top .crumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rvseg { flex: none; display: inline-flex; padding: 2px; border-radius: 8px; background: var(--sunken); gap: 2px; }
+.rvseg button { white-space: nowrap; height: 26px; padding: 0 12px; border-radius: 6px; font-size: 12.5px; color: var(--ink-2); }
+.rvseg button.on { background: var(--surface); color: var(--ink); font-weight: 500; box-shadow: 0 0 0 1px var(--line); }
+.rvseg.wrap { flex-wrap: wrap; }
+.segs i.ri { background: var(--line-2); } .segs i.ro { background: color-mix(in srgb, var(--ok) 55%, transparent); } .segs i.rx { background: color-mix(in srgb, var(--hard) 45%, transparent); }
+.segs i.rt { flex: .6; }
+.rtag { color: var(--mid); font-weight: 500; }
+.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.opt { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 14px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--line-2); text-align: left; font-size: 14px; transition: background .15s, box-shadow .15s, opacity .2s; }
+.opt:hover:not([disabled]) { background: var(--hover); }
+.opt .kbd { flex: none; }
+.opt.ok { box-shadow: inset 0 0 0 1.5px var(--ok); background: color-mix(in srgb, var(--ok) 8%, transparent); }
+.opt.bad { box-shadow: inset 0 0 0 1.5px var(--hard); background: color-mix(in srgb, var(--hard) 7%, transparent); }
+.opt.dim { opacity: .45; }
+.opt .from { margin-left: auto; font-size: 11.5px; color: var(--ink-3); text-align: right; }
+.footrow { display: flex; justify-content: center; gap: 20px; }
+.footnote { text-align: center; font-size: 12.5px; color: var(--ink-3); padding: 6px 0; }
+.gline { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); flex-wrap: wrap; }
+.gtag { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 6px; background: var(--sunken); color: var(--ink-2); }
+.gtag.r1 { color: var(--hard); } .gtag.r2 { color: var(--mid); } .gtag.r3 { color: var(--ink); } .gtag.r4 { color: var(--accent); }
+.gline .linkbtn { margin-left: auto; }
+.introbody { display: flex; flex-direction: column; gap: 12px; }
+.ihw { display: flex; align-items: baseline; gap: 12px; font-family: var(--f-read); font-size: 34px; font-weight: 700; letter-spacing: -.01em; }
+.ihw .ipa { font-size: 15px; font-weight: 400; font-style: italic; color: var(--ink-2); }
+.introcard { box-shadow: inset 0 0 0 1px var(--line), inset 3px 0 0 var(--hl-new); }
+.resume { flex-direction: row; align-items: center; gap: 18px; }
+.resume h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+.resume p { margin: 0; color: var(--ink-2); font-size: 13.5px; line-height: 1.6; }
+.rfox { width: 72px; height: 72px; flex: none; }
+.nextup { width: 100%; display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 12px; background: var(--accent-wash); text-align: left; }
+.nextup div { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.nextup b { font-size: 14px; color: var(--accent); font-weight: 600; } .nextup span { font-size: 12.5px; color: var(--ink-2); }
+.chg div.miss b { color: var(--hard); }
+.qtag { font-size: 10.5px; color: var(--ink-3); margin-left: 6px; padding: 0 5px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line-2); }
+.story { margin: 10px 0; padding: 14px 16px; border-radius: 10px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-family: var(--f-read); font-size: 15px; line-height: 1.7; }
+.story h4 { margin: 0 0 6px; font-size: 17px; }
+.story p { margin: 0 0 10px; }
+.smeta { font-family: var(--f-ui); font-size: 11.5px; color: var(--ink-3); }
+.phead h2 { margin: 0 0 4px; font-size: 20px; font-weight: 600; letter-spacing: -.01em; } .phead p { margin: 0; color: var(--ink-2); font-size: 13.5px; }
+.pmodes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pmode { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); text-align: left; transition: box-shadow .15s, background .15s; }
+.pmode:hover { background: var(--hover); }
+.pmode.on { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.pmode .pic { font-size: 18px; color: var(--accent); } .pmode b { font-size: 14px; } .pmode small { font-size: 12px; color: var(--ink-3); }
+.prow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ptarget { font-family: var(--f-mono); font-size: 17px; line-height: 1.8; color: var(--ink-3); word-break: break-word; }
+.ptarget .ok { color: var(--ink); } .ptarget .bad { color: var(--hard); background: color-mix(in srgb, var(--hard) 12%, transparent); border-radius: 2px; } .ptarget .cur { box-shadow: inset 0 -2px 0 var(--accent); }
+.pdiff .miss { color: var(--hard); text-decoration: underline wavy; text-underline-offset: 4px; }
+.opts.two { grid-template-columns: 1fr 1fr; }
+</style>
+
+<div class="app" id="app">
+%SIDE%
+  <section class="main">
+    <header class="top">
+      <button class="ibtn" id="menuBtn" title="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+      <span class="crumb"><b>复习</b> · 今日 18 张 = 到期 14 + 新词 4（原型演示其中 10 个词）</span>
+      <span class="sp"></span>
+      <div class="rvseg" id="rvseg" role="group" aria-label="复习或练习"><button class="on" data-m="review">复习</button><button data-m="practice">练习</button></div>
+      <button class="pill" id="themeBtn" title="切换深浅色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button>
+      <button class="pill" id="lexiBtn" title="问 Tibi（L）"><svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg><span>Tibi</span></button>
+    </header>
+    <div class="scroll" id="scroll"><main class="rv" id="rv"></main></div>
+  </section>
+
+  <aside class="drawer" id="drawer" aria-label="Tibi">
+    <header class="dhead"><span class="ttl"><svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg><span>Tibi</span><span id="dSub"></span></span><span class="sp"></span><button class="ibtn" id="closeDrawer" title="关闭（Esc）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <div class="scroll" id="dscroll"><div class="dbody" id="dbody"></div></div>
+    <div class="dfoot"><div class="dcomp"><textarea id="dinput" placeholder="问 Tibi，比如：为什么这里用 affect 而不是 effect？" aria-label="向 Tibi 提问"></textarea><button class="send" id="dsend" aria-label="发送"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></div>
+  </aside>
+</div>
+
+%SCRIPTS%
+<script src="v2-fox.js"></script>
+<script>
+/* ============ FSRS-5（默认参数）：原型用简化实现计算下次间隔；正式版使用 ts-fsrs ============ */
+const W = [0.40255, 1.18385, 3.173, 15.69105, 7.1949, 0.5345, 1.4604, 0.0046, 1.54575, 0.1192, 1.01925, 1.9395, 0.11, 0.29605, 2.2698, 0.2315, 2.9898, 0.51655, 0.6621];
+const DECAY = -0.5, FACTOR = 19 / 81, RETAIN = 0.9;
+const clampD = d => Math.min(10, Math.max(1, d));
+const R = (t, s) => Math.pow(1 + FACTOR * t / s, DECAY);
+const D0 = g => clampD(W[4] - Math.exp(W[5] * (g - 1)) + 1);
+function schedule(c, g) { // c: {S, D, t(距上次天数), isNew}；g: 1 忘了 2 模糊 3 记得 4 轻松
+  if (c.isNew) { const S = W[g - 1]; return { S, D: D0(g), days: g === 1 ? 0 : Math.max(1, Math.round(S)) }; }
+  const r = R(c.t, c.S);
+  let D = clampD(W[7] * D0(4) + (1 - W[7]) * (c.D - W[6] * (g - 3)));
+  let S;
+  if (g === 1) S = Math.min(c.S, W[11] * Math.pow(c.D, -W[12]) * (Math.pow(c.S + 1, W[13]) - 1) * Math.exp(W[14] * (1 - r)));
+  else S = c.S * (Math.exp(W[8]) * (11 - c.D) * Math.pow(c.S, -W[9]) * (Math.exp(W[10] * (1 - r)) - 1) * (g === 2 ? W[15] : 1) * (g === 4 ? W[16] : 1) + 1);
+  return { S, D, days: g === 1 ? 0 : Math.max(1, Math.round(S * (Math.pow(RETAIN, 1 / DECAY) - 1) / FACTOR)) };
+}
+const ivTxt = (days, g) => g === 1 ? '10 分钟后' : days < 30 ? `${days} 天` : days < 365 ? `${(days / 30).toFixed(days < 60 ? 1 : 0)} 个月` : `${(days / 365).toFixed(1)} 年`;
+
+/* ============ 题型与评分规则（2026-10-30 参考词光 Word Atlas，决策 G1–G7） ============
+   G1 只有"识别"自评；选义、填空、听写、拼写答完由系统按"对错 + 用时 + 提示 + 拼写距离"给分，可改。
+   G2 生词 / 见过 → 识别或选义（四选一，干扰项来自同一篇文章、生词本、易混词）。
+   G3 每个词只有第一次作答算数；答错的词 3 张后换一种题型"再见一面"，最多两次，不计分。
+   G4 没在文章里见过的新词（手动添加、词表导入）先"初见"，再打乱顺序回忆；读文章时标的词直接进题。
+   G5 提示由用户要：一次露一个字母，用了提示最多"模糊"。 */
+const STAGES = ['生词', '见过', '眼熟', '认得', '熟悉', '掌握'];
+const TYPE = { recognize: '识别', choice: '选义', cloze: '填空', listen: '听写', spell: '拼写', produce: '造句', intro: '初见' };
+const TYPE_ICON = { recognize: '◎', choice: '◇', cloze: '▁', listen: '♪', spell: 'Aa', produce: '✎', intro: '○' };
+const RATE_LAB = ['忘了', '模糊', '记得', '轻松'];
+const SELF_RATED = new Set(['recognize']);
+const SLOW = { choice: 9000, cloze: 15000, listen: 15000, spell: 20000 };
+const BASE = [
+  { w: 'affect', ipa: '/əˈfekt/', zh: 'v. 影响', s: 1, type: 'choice', S: 1.8, D: 7.4, t: 2, src: 'The Quiet Return of Night Trains in Europe', sent: 'Delays {affect} fewer than one in ten journeys.', tr: '延误影响的行程不到十分之一。', note: '易与名词 effect（效果）混淆：affect 是动词，effect 多作名词。', hint: '影响',
+    opts: [{ t: 'v. 影响', ok: 1 }, { t: 'n. 效果；作用', from: '易混词 effect' }, { t: 'v. 负担得起', from: '同一篇文章里的生词 afford' }, { t: 'v. 分配；拨给', from: '生词本里同词性的 allocate' }] },
+  { w: 'overhead', ipa: '/ˈəʊvəhed/', zh: 'n. 开销', s: 2, type: 'cloze', S: 4.2, D: 5.6, t: 4, src: 'Understanding Ownership in Rust', sent: 'The upshot is memory safety without the runtime {overhead} that usually comes with it.', tr: '由此得到的结果是：内存安全，而且没有通常随之而来的运行时开销。', hint: '运行时开销' },
+  { w: 'habitat', ipa: '/ˈhæbɪtæt/', zh: 'n. 栖息地', s: 2, type: 'cloze', S: 3.6, D: 5.9, t: 3, ans: ['habitats', 'habitat'], src: 'Cities Turn to Sponge Design as Floods Intensify', sent: '…brings ancillary benefits, from cooler streets to new {habitats} for wildlife.', tr: '……带来附带的好处，从更凉爽的街道到野生动物的新栖息地。', hint: '栖息地（复数）' },
+  { w: 'acknowledge', ipa: '/əkˈnɒlɪdʒ/', zh: 'v. 承认', s: 3, type: 'listen', S: 11, D: 4.8, t: 11, ans: ['acknowledged'], src: 'Pride and Prejudice', sent: 'It is a truth universally {acknowledged}, that a single man in possession of a good fortune, must be in want of a wife.', tr: '一个有钱的单身男子必定想要娶一位妻子，这是一条举世公认的真理。', hint: '公认的' },
+  { w: 'verify', ipa: '/ˈverɪfaɪ/', zh: 'v. 核实，验证', s: 4, type: 'spell', S: 26, D: 4.1, t: 24, src: 'Understanding Ownership in Rust', sent: '…the borrow checker {verifies} that no reference outlives the value it points to.', tr: '……借用检查器会确保任何引用都不会比它指向的值活得更久。', hint: '核实' },
+  { w: 'objection', ipa: '/əbˈdʒekʃn/', zh: 'n. 反对；异议', s: 4, type: 'produce', S: 32, D: 3.9, t: 30, src: 'Pride and Prejudice', sent: '“You want to tell me, and I have no {objection} to hearing it.”', tr: '“你想告诉我，我也不反对听一听。”', task: '用 <b>have no objection to (doing) sth</b> 造一个句子' },
+  { w: 'notoriously', ipa: '/nəʊˈtɔːriəsli/', zh: 'adv. 出了名地（多含贬义）', s: 0, type: 'recognize', isNew: true, src: 'Understanding Ownership in Rust', sent: '…dangling pointers, that are {notoriously} hard to track down in C and C++.', tr: '……悬垂指针，这类问题在 C 和 C++ 中出了名地难以排查。', hint: '出了名地' },
+  { w: 'grapple with', ipa: '', zh: '努力应对；与…较劲', s: 0, type: 'choice', isNew: true, phrase: true, src: 'Understanding Ownership in Rust', sent: 'Newcomers often find themselves {grappling with} the borrow checker…', tr: '新手常常发现自己在和借用检查器较劲……', hint: '较劲',
+    opts: [{ t: '努力应对；与…较劲', ok: 1 }, { t: '抓住（机会）', from: '形近短语 grab at' }, { t: '逐渐习惯', from: '生词本里的短语 get used to' }, { t: '回避；绕开', from: '同一篇文章里的短语 steer clear of' }] },
+  { w: 'meticulous', ipa: '/məˈtɪkjələs/', zh: 'adj. 一丝不苟的；极仔细的', s: 0, type: 'intro', isNew: true, added: '你在生词本里手动添加的', src: '词典例句（还没在你的文章里遇到过）', sent: 'She keeps {meticulous} records of every experiment.', tr: '她把每次实验都记录得一丝不苟。', hint: '一丝不苟的' },
+  { w: 'ubiquitous', ipa: '/juːˈbɪkwɪtəs/', zh: 'adj. 无处不在的', s: 0, type: 'intro', isNew: true, added: '来自导入的词表《雅思核心词》', src: '词典例句（还没在你的文章里遇到过）', sent: 'Smartphones have become {ubiquitous} in daily life.', tr: '智能手机在日常生活中已无处不在。', hint: '无处不在的' },
+];
+const RECALL = [   // 初见之后，打乱顺序回忆（G4）
+  { w: 'ubiquitous', type: 'choice', opts: [{ t: 'adj. 无处不在的', ok: 1 }, { t: 'adj. 模棱两可的', from: '形近词 ambiguous' }, { t: 'adj. 一丝不苟的', from: '同组新词 meticulous' }, { t: 'adj. 必不可少的', from: '生词本里同词性的 indispensable' }] },
+  { w: 'meticulous', type: 'choice', opts: [{ t: 'adj. 一丝不苟的；极仔细的', ok: 1 }, { t: 'adj. 无处不在的', from: '同组新词 ubiquitous' }, { t: 'adj. 吝啬的', from: '生词本里同词性的 stingy' }, { t: 'adj. 胆怯的', from: '生词本里同词性的 timid' }] },
+];
+function freshQueue() {
+  const q = BASE.map(c => Object.assign({}, c));
+  RECALL.forEach(r => q.push(Object.assign({}, BASE.find(b => b.w === r.w), r)));
+  return q;
+}
+const KEY = 'tibi-review-session';
+let Q = freshQueue(), idx = 0, phase = 'ask', typed = '', choice = -1, hints = 0, pend = null, showRates = false;
+let results = [], t0 = Date.now(), cardT0 = Date.now(), history = [], mode = 'review', drill = null;
+const MAIN = osInit($('#scroll')), DSCROLL = osInit($('#dscroll'));
+
+/* ============ 工具 ============ */
+const hl = (c, inner) => `<span class="tw s${Math.min(c.s || 0, 2)}">${inner}</span>`;
+function sentHTML(c, how) {
+  return esc(c.sent).replace(/\{([^}]+)\}/, (_, w) => {
+    if (how === 'show') return hl(c, w);
+    if (how === 'blank') return `<input class="blank" id="blank" autocomplete="off" spellcheck="false" aria-label="填空" style="width:${Math.max(4.5, w.length * 0.62)}em">`;
+    if (how === 'result') return typed && isRight(c, typed) ? `<span class="tw s0" style="color:var(--ok)">${esc(w)}</span>` : `<span class="blank bad" style="display:inline">${esc(typed || '　')}</span><span class="fix">${esc(w)}</span>`;
+    return '<span style="border-bottom:2px solid var(--ink-3);padding:0 2.2em"></span>';
+  });
+}
+const answers = c => (c.ans || [c.w]).map(a => a.toLowerCase());
+const isRight = (c, v) => answers(c).includes(v.trim().toLowerCase());
+const near = (c, v) => { const a = answers(c)[0], b = v.trim().toLowerCase(); if (!b || Math.abs(a.length - b.length) > 1) return false; let d = 0; for (let i = 0; i < Math.max(a.length, b.length); i++) if (a[i] !== b[i]) d++; return d <= 2; };
+const orderOpts = c => (c.opts || []).map((o, i) => Object.assign({ i }, o)).sort((a, b) => hash(c.w + a.t) - hash(c.w + b.t));
+function optsFor(c) {   // 重练时没有现成干扰项：取生词本里同词性的其他词
+  if (c.opts) return c.opts;
+  const pos = c.zh.split(' ')[0], others = BASE.filter(b => b.w !== c.w);
+  const pick = others.filter(b => b.zh.split(' ')[0] === pos).concat(others.filter(b => b.zh.split(' ')[0] !== pos)).slice(0, 3);
+  return [{ t: c.zh, ok: 1 }].concat(pick.map(b => ({ t: b.zh, from: '生词本里的 ' + b.w })));
+}
+function retryOf(c) {   // G3：换一种题型再见一面，不计分
+  const type = c.type === 'choice' || c.type === 'recognize' || c.type === 'produce' ? 'cloze' : 'choice';
+  return Object.assign({}, c, { type, retry: (c.retry || 0) + 1, res: undefined, opts: type === 'choice' ? optsFor(c) : c.opts });
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify({ Q, idx, results, t0, at: Date.now() })); } catch (e) {} }
+function clearSave() { try { localStorage.removeItem(KEY); } catch (e) {} }
+function snapshot() { history.push(JSON.stringify({ Q, idx, results })); }
+
+/* ============ 侧栏队列与进度 ============ */
+function renderQueue() {
+  $('#sideH').textContent = mode === 'practice' ? '练习' : '今天要复习';
+  $('#recent').classList.add('qlist');
+  if (mode === 'practice') { $('#recent').innerHTML = '<div class="lbl-i" style="padding:4px 12px">练习不影响复习排期</div>'; return; }
+  const seen = [];
+  Q.forEach(c => { if (!seen.includes(c.w)) seen.push(c.w); });
+  const cur = Q[idx] && phase !== 'done' ? Q[idx].w : '';
+  $('#recent').innerHTML = seen.map(w => { const r = results.find(x => x.w === w); const intro = BASE.find(b => b.w === w).type === 'intro'; return `<a href="#" class="${w === cur ? 'cur' : ''}"><span class="dot ${r ? 'r' + r.g : ''}"></span>${esc(w)}${intro ? '<span class="qtag">新</span>' : ''}</a>`; }).join('');
+  document.querySelectorAll('#recent a').forEach(a => a.onclick = e => e.preventDefault());
+}
+function segs() { return `<div class="segs">${Q.map((c, i) => `<i class="${c.res === 'i' ? 'ri' : c.res === 'o' ? 'ro' : c.res === 'x' ? 'rx' : c.res ? 'r' + c.res : i === idx ? 'cur' : ''}${c.retry ? ' rt' : ''}"></i>`).join('')}</div>`; }
+function rateRow(c, sel) {
+  return `<div class="rates" role="group" aria-label="评分">${[1, 2, 3, 4].map(g => { const s = schedule(c, g); return `<button class="rate${sel === g ? ' sug' : ''}" data-r="${g}"><b>${RATE_LAB[g - 1]}</b><span>${ivTxt(s.days, g)}</span><span class="k">${g}</span></button>`; }).join('')}</div>`;
+}
+function answerBlock(c, extra = '') {
+  return `<div class="answer" id="ans">${extra}
+    <div class="hwrow"><span class="hw">${esc(c.w)}</span>${c.ipa ? `<span class="ipa">${c.ipa}</span>` : '<span class="tags">短语</span>'}<button class="say" id="sayW" title="发音"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6M18.5 6.5a8 8 0 010 11"/></svg></button></div>
+    <div class="gloss">${esc(c.zh)}</div>
+    ${!['recognize', 'cloze', 'listen', 'choice'].includes(c.type) ? `<div class="quote">${sentHTML(c, 'show')}</div>` : ''}
+    <div class="ctxzh">${esc(c.tr)}</div>
+    ${c.note ? `<div class="hint">✦ ${esc(c.note)}</div>` : ''}
+    <div class="src">${c.added ? esc(c.src) : `出自《${esc(c.src)}》 · <a href="#" data-link="reader" style="color:inherit">回到原文 →</a>`}</div>
+  </div>`;
+}
+const SAY_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6M18.5 6.5a8 8 0 010 11"/></svg>';
+function gradeLine(c) {
+  if (c.retry || drill) return `<div class="gline"><span class="gtag">不计分</span><span>${pend.ok ? '这次记住了' : c.retry >= 2 || drill ? '先放一放，FSRS 会让它更早回来' : '还没记住，过几张再见一面'}</span></div>`;
+  const g = pend.g, s = schedule(c, g);
+  return `<div class="gline"><span class="gtag r${g}">${RATE_LAB[g - 1]}</span><span>${pend.reason} · ${g === 1 ? '3 张后换个题型再见一面' : ivTxt(s.days, g) + '后再见'}</span><button class="linkbtn" id="chgRate">${showRates ? '收起' : '改评分'}</button></div>`;
+}
+
+/* ============ 渲染：复习 ============ */
+function render(dir) {
+  if (mode === 'practice') { renderPractice(dir); return; }
+  const c = Q[idx];
+  if (!c) { finish(); return; }
+  if (phase === 'ask' && dir !== 'reveal') cardT0 = Date.now();
+  const n = Q.length;
+  let body = '', foot = '';
+  const meta = c.type === 'intro' ? `<span>新词 · ${esc(c.added)}</span>`
+    : c.retry || drill ? `<span class="rtag">${drill ? '错词再练' : '再见一面'} · 不计分</span>`
+    : `<span>熟练度：${STAGES[c.s]}</span><span>${c.isNew ? '第一次复习' : `上次复习 ${c.t} 天前`}</span>`;
+  const head = `<div class="chead"><span class="ctype">${TYPE_ICON[c.type]} ${TYPE[c.type]}</span>${meta}<span class="sp"></span><button class="ibtn" id="askBtn" title="问 Tibi（L）"><svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg></button></div>`;
+  const hintBtn = c.w.length > 2 ? `<button class="linkbtn" id="hintBtn"${hints >= c.w.length - 1 ? ' disabled' : ''}>提示一个字母${hints ? `（已用 ${hints}）` : ''}</button>` : '';
+  if (c.type === 'intro') {
+    body = `<div class="introbody"><div class="ihw">${esc(c.w)}<span class="ipa">${c.ipa}</span><button class="say" id="sayW" title="发音（P）">${SAY_ICON}</button></div><div class="gloss" style="font-size:16px">${esc(c.zh)}</div>
+      <div class="sentence" style="font-size:20px">${sentHTML(c, 'show')}</div><div class="ctxzh">${esc(c.tr)}</div><div class="src">${esc(c.src)}</div></div>`;
+    foot = `<button class="reveal" id="nextBtn">认识了 <span class="kbd">Enter</span></button>`;
+  } else if (c.type === 'recognize') {
+    body = `<div class="prompt">这个${c.phrase ? '短语' : '词'}在句子里是什么意思？先在心里回答，再看答案。</div><div class="sentence">${sentHTML(c, 'show')}</div>`;
+    if (phase === 'ask') foot = `<button class="reveal" id="revealBtn">显示答案 <span class="kbd">空格</span></button>`;
+  } else if (c.type === 'choice') {
+    const os = orderOpts({ w: c.w, opts: c.opts || optsFor(c) });
+    body = `<div class="prompt">它在这句话里是什么意思？</div><div class="sentence">${sentHTML(c, 'show')}</div>
+      <div class="opts">${os.map((o, k) => { const cls = phase === 'ask' ? '' : o.ok ? ' ok' : k === choice ? ' bad' : ' dim'; return `<button class="opt${cls}" data-k="${k}" ${phase === 'ask' ? '' : 'disabled'}><span class="kbd">${k + 1}</span><span>${esc(o.t)}</span>${phase !== 'ask' && k === choice && !o.ok && o.from ? `<span class="from">${esc(o.from)}</span>` : ''}</button>`; }).join('')}</div>`;
+    if (phase === 'ask') foot = `<div class="footnote">按 <span class="kbd">1</span>–<span class="kbd">4</span> 选择 · 想不起来就选最像的，答错没关系</div>`;
+  } else if (c.type === 'cloze') {
+    body = `<div class="prompt">根据上下文填空</div><div class="sentence">${phase === 'ask' ? sentHTML(c, 'blank') : sentHTML(c, 'result')}</div><div class="hint">提示：<b>${esc(c.hint || c.zh)}</b></div>`;
+    if (phase === 'ask') foot = `<button class="reveal" id="checkBtn">检查 <span class="kbd">Enter</span></button><div class="footrow">${hintBtn}<button class="linkbtn" id="giveup">不会，直接看答案</button></div>`;
+  } else if (c.type === 'listen') {
+    body = `<div class="prompt">听句子，写出空缺处的词</div><div class="listen"><button class="play" id="playS" title="播放（P）"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg></button><button class="play small" id="playSlow" title="慢速播放">0.7×</button><div class="wave" id="wave">${'<i></i>'.repeat(14)}</div></div>
+      <div class="sentence" style="font-size:19px">${phase === 'ask' ? sentHTML(c, 'blank') : sentHTML(c, 'result')}</div>`;
+    if (phase === 'ask') foot = `<button class="reveal" id="checkBtn">检查 <span class="kbd">Enter</span></button><div class="footrow">${hintBtn}<button class="linkbtn" id="giveup">听不出来，看答案</button></div>`;
+  } else if (c.type === 'spell') {
+    body = `<div class="prompt">看释义、听发音，拼出这个词</div><div class="listen"><div class="bigzh">${esc(c.zh)}</div><span class="sp" style="flex:1"></span><button class="play small" id="playW" title="发音（P）"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6"/></svg></button></div>
+      <div class="spellrow"><input class="spellin${phase === 'ask' ? '' : isRight(c, typed) ? ' ok' : ' bad'}" id="spellIn" value="${esc(phase === 'ask' ? '' : typed)}" ${phase === 'ask' ? '' : 'disabled'} placeholder="${'·'.repeat(c.w.length)}（${c.w.length} 个字母）" autocomplete="off" spellcheck="false" aria-label="拼写"></div>`;
+    if (phase === 'ask') foot = `<button class="reveal" id="checkBtn">检查 <span class="kbd">Enter</span></button><div class="footrow">${hintBtn}<button class="linkbtn" id="giveup">想不起来，看答案</button></div>`;
+  } else if (c.type === 'produce') {
+    body = `<div class="prompt">${c.task}，Tibi 会帮你批改</div><div class="quote" style="color:var(--ink-2)">原文：${sentHTML(c, 'show')}</div>
+      <textarea class="produce" id="prodIn" placeholder="例如：I have no objection to working late tonight." ${phase === 'ask' ? '' : 'disabled'}>${esc(phase === 'ask' ? '' : typed)}</textarea>`;
+    if (phase === 'ask') foot = `<button class="reveal" id="checkBtn">✦ 交给 Tibi 批改 <span class="kbd">⌘ Enter</span></button><div class="footrow"><button class="linkbtn" id="giveup">跳过造句，看答案</button></div>`;
+  }
+  if (phase === 'shown') {
+    let verdict = '';
+    if (['cloze', 'listen', 'spell'].includes(c.type)) verdict = !typed ? '<span class="verdict bad">没有作答</span>' : isRight(c, typed) ? '<span class="verdict ok">✓ 正确</span>' : near(c, typed) ? '<span class="verdict mid">差一点，注意拼写</span>' : '<span class="verdict bad">✕ 不对</span>';
+    if (c.type === 'choice') verdict = pend.ok ? '<span class="verdict ok">✓ 选对了</span>' : '<span class="verdict bad">没关系，记住它</span>';
+    if (c.type === 'produce') verdict = c.fb || '';
+    body += answerBlock(c, verdict);
+    if (SELF_RATED.has(c.type) && !c.retry && !drill) foot = rateRow(c, 3);
+    else foot = gradeLine(c) + (showRates && !c.retry && !drill ? rateRow(c, pend.g) : '') + `<button class="reveal" id="contBtn">继续 <span class="kbd">Enter</span></button>`;
+  }
+  const left = n - idx, mins = Math.max(1, Math.round(left * 0.4));
+  const keys = c.type === 'intro' ? '<span class="kbd">Enter</span> 认识了'
+    : phase === 'ask' ? (c.type === 'recognize' ? '<span class="kbd">空格</span> 显示答案' : c.type === 'choice' ? '<span class="kbd">1</span>–<span class="kbd">4</span> 选择' : '<span class="kbd">Enter</span> 检查')
+    : SELF_RATED.has(c.type) && !c.retry && !drill ? '<span class="kbd">1</span>–<span class="kbd">4</span> 评分' : '<span class="kbd">Enter</span> 继续 · <span class="kbd">1</span>–<span class="kbd">4</span> 改评分';
+  $('#rv').innerHTML = `<div class="rvbar">${segs()}<span>${idx + 1} / ${n} · 还剩约 ${mins} 分钟</span>${drill ? '' : '<button class="linkbtn" id="pauseBtn" title="进度会保存，下次接着做">稍后继续</button>'}</div>
+    <section class="card${c.type === 'intro' ? ' introcard' : ''}" id="card">${head}${body}</section>
+    <div class="rvfoot"><div class="actions">${foot}</div><div class="keys"><span>${keys} <span class="kbd">Z</span> 撤销 <span class="kbd">L</span> 问 Tibi <span class="kbd">P</span> 发音</span><span>${history.length ? '<button class="linkbtn" id="undoBtn">撤销上一张</button>' : ''}</span></div></div>`;
+  bind(c);
+  renderQueue();
+  if (dir === 'next') anim($('#card'), { opacity: [0, 1], x: [24, 0] }, { type: 'spring', bounce: 0.15, duration: 0.45 });
+  if (dir === 'back') anim($('#card'), { opacity: [0, 1], x: [-24, 0] }, { type: 'spring', bounce: 0.15, duration: 0.45 });
+  if (dir === 'reveal') { anim($('#ans'), { opacity: [0, 1], y: [8, 0] }, { duration: 0.35, ease: EASE }); anim(document.querySelectorAll('.rvfoot .rate, .gline'), { opacity: [0, 1], y: [6, 0] }, { duration: 0.3, ease: EASE, delay: stag(0.04) }); }
+  const f = $('#blank') || $('#spellIn') || $('#prodIn'); if (f && phase === 'ask') { if (hints) f.value = answers(c)[0].slice(0, hints); setTimeout(() => { f.focus(); f.setSelectionRange && f.setSelectionRange(f.value.length, f.value.length); }, 60); }
+  if (c.type === 'listen' && phase === 'ask' && dir === 'next') setTimeout(() => speak(c.sent.replace(/[{}]/g, ''), 0.95), 400);
+  if (c.type === 'intro' && dir === 'next') setTimeout(() => speak(c.w, 0.9), 300);
+  if ($('#contBtn')) setTimeout(() => $('#contBtn') && $('#contBtn').focus({ preventScroll: true }), 50);
+}
+function bind(c) {
+  document.querySelectorAll('[data-link]').forEach(a => { a.href = URLS[a.dataset.link]; ext(a); });
+  const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  on('#revealBtn', reveal); on('#checkBtn', check); on('#nextBtn', nextIntro); on('#contBtn', () => commit(pend.g));
+  on('#giveup', () => { typed = ''; judge(false, false); });
+  on('#hintBtn', hint);
+  on('#chgRate', () => { showRates = !showRates; render(); });
+  on('#playS', () => speak(c.sent.replace(/[{}]/g, ''), 0.95)); on('#playSlow', () => speak(c.sent.replace(/[{}]/g, ''), 0.7));
+  on('#playW', () => speak(c.w, 0.9)); on('#sayW', () => speak(c.w, 0.9));
+  on('#askBtn', () => openLexi()); on('#undoBtn', undo);
+  on('#pauseBtn', () => { save(); toast('进度已保存，下次打开复习页会从这一张接着做'); if (LOCAL) setTimeout(() => { location.href = URLS.home; }, 900); });
+  document.querySelectorAll('.opt').forEach(b => b.onclick = () => pick(+b.dataset.k));
+  document.querySelectorAll('.rvfoot .rate').forEach(b => b.onclick = () => (SELF_RATED.has(c.type) ? rate(+b.dataset.r) : commit(+b.dataset.r)));
+}
+function speak(text, rate) {
+  const wave = $('#wave'); if (wave) wave.classList.add('on');
+  const stop = () => wave && wave.classList.remove('on');
+  try {
+    if (!('speechSynthesis' in window)) throw 0;
+    speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = rate || 1; u.onend = stop; u.onerror = stop; speechSynthesis.speak(u);
+    setTimeout(stop, Math.max(1500, text.split(' ').length * 420 / (rate || 1)));
+  } catch (e) { stop(); toast('当前环境不支持系统语音。正式版可用 Kokoro 本地语音'); }
+}
+
+/* ============ 作答、判分与推进 ============ */
+function reveal() { if (phase !== 'ask') return; phase = 'shown'; pend = { g: 3 }; render('reveal'); }
+function hint() {
+  const c = Q[idx], f = $('#blank') || $('#spellIn'); if (!f) return;
+  hints = Math.min(c.w.length - 1, hints + 1); const a = answers(c)[0];
+  f.value = a.slice(0, hints); f.focus();
+  const b = $('#hintBtn'); if (b) { b.textContent = `提示一个字母（已用 ${hints}）`; b.disabled = hints >= c.w.length - 1; }
+}
+function grade(c, ok, nearMiss, ms) {   // G1：系统评分
+  if (!ok && !nearMiss) return [1, c.type === 'choice' ? '选错了' : typed ? '答错' : '没有作答'];
+  if (nearMiss) return [2, '拼写差一点'];
+  if (hints) return [2, `用了 ${hints} 次提示`];
+  const sec = Math.round(ms / 1000);
+  if (ms > (SLOW[c.type] || 15000)) return [2, `答对，用了 ${sec} 秒`];
+  if (c.type === 'spell' && ms < 6000) return [4, `又快又对，${sec} 秒`];
+  return [3, `答对，用时 ${Math.max(1, sec)} 秒`];
+}
+function judge(ok, nearMiss) {
+  const c = Q[idx], ms = Date.now() - cardT0, [g, reason] = grade(c, ok, nearMiss, ms);
+  pend = { ok, g, reason }; phase = 'shown'; showRates = false; render('reveal');
+  if (ok) anim(document.querySelector('#card .tw, #spellIn, .opt.ok'), { scale: [1, 1.06, 1] }, { duration: 0.4, ease: EASE });
+  else anim($('#card'), { x: [0, -6, 6, -4, 4, 0] }, { duration: 0.35 });
+}
+function pick(k) {
+  if (phase !== 'ask') return; const c = Q[idx]; const os = orderOpts({ w: c.w, opts: c.opts || optsFor(c) }); if (!os[k]) return;
+  choice = k; judge(!!os[k].ok, false);
+}
+function check() {
+  const c = Q[idx];
+  if (c.type === 'produce') { produce(c); return; }
+  typed = ($('#blank') || $('#spellIn')).value;
+  judge(isRight(c, typed), !isRight(c, typed) && near(c, typed));
+}
+function produce(c) {
+  typed = $('#prodIn').value.trim();
+  if (!typed) { $('#prodIn').focus(); toast('先写一个句子'); return; }
+  $('#checkBtn').innerHTML = '<span class="typing" aria-label="Tibi 正在批改"><i></i><i></i><i></i></span>'; $('#checkBtn').disabled = true;
+  setTimeout(() => {
+    const has = /no objection to/i.test(typed), ger = /no objection to\s+\w+ing\b/i.test(typed), base = /no objection to\s+(work|go|stay|help|wait|come|do|make|take|see|hear|read|meet)\b/i.test(typed);
+    const ok = has && !base;
+    c.fb = `<div class="tool"><div class="row"><code>grade_sentence</code><span>${base ? '有一处语法问题' : ok ? '用法正确' : '没有用到目标短语'}</span></div></div>
+      <div class="gloss">${base ? `这里的 <b>to</b> 是介词，后面要接名词或动名词：<i style="font-family:var(--f-read)">${esc(typed.replace(/no objection to\s+(\w+)/i, (m, v) => 'no objection to ' + v + 'ing'))}</i>` : ok ? `写得不错！${ger ? '介词 to 后面接了动名词，用法正确。' : '也可以接动名词，例如 <i style="font-family:var(--f-read)">have no objection to waiting</i>。'}` : '句子里没有用到 <b>have no objection to</b>，再试一次，或者看下面的例句。'}</div>`;
+    pend = { ok, g: base ? 2 : ok ? 3 : 1, reason: base ? 'Tibi：用法有一处问题' : ok ? 'Tibi：用法正确' : 'Tibi：没有用到目标短语' };
+    phase = 'shown'; showRates = false; render('reveal');
+  }, 1100);
+}
+function advance() {
+  idx++; phase = 'ask'; typed = ''; choice = -1; hints = 0; pend = null; showRates = false;
+  if (!drill) save();
+  render('next');
+}
+function nextIntro() { if (Q[idx].type !== 'intro') return; snapshot(); Q[idx].res = 'i'; advance(); }
+function rate(g) { if (phase !== 'shown') return; pend = Object.assign(pend || {}, { g }); commit(g); }
+function commit(g) {
+  if (phase !== 'shown') return;
+  const c = Q[idx]; phase = 'leaving';
+  snapshot();
+  if (c.retry || drill) {   // G3：重练不计分
+    c.res = pend.ok ? 'o' : 'x';
+    if (!pend.ok && !drill && c.retry < 2) Q.splice(Math.min(Q.length, idx + 4), 0, retryOf(c));
+    out(); return;
+  }
+  const s = schedule(c, g), before = c.s;
+  let after = g === 1 ? Math.max(1, c.s - 1) : g === 2 ? Math.max(1, c.s) : Math.min(s.S > 60 ? 5 : 4, c.s + (g === 4 && c.s < 3 ? 2 : 1));
+  if (c.isNew) after = Math.max(after, 1);
+  c.res = g;
+  results.push({ w: c.w, g, from: before, to: after, days: s.days, auto: !SELF_RATED.has(c.type), changed: pend && pend.g !== g });
+  if (g === 1) Q.splice(Math.min(Q.length, idx + 4), 0, retryOf(Object.assign({}, c, { s: after })));
+  const badge = document.createElement('span'); badge.className = 'stagechg';
+  badge.innerHTML = before === after ? `熟练度保持「${STAGES[after]}」` : `${STAGES[before]} → <b>${STAGES[after]}</b>`;
+  $('#card').appendChild(badge); anim(badge, { opacity: [0, 1], scale: [0.9, 1] }, { type: 'spring', bounce: 0.3, duration: 0.4 });
+  out();
+}
+function out() {
+  setTimeout(() => {
+    anim($('#card'), { opacity: [1, 0], x: [0, -24] }, { duration: 0.18, ease: EASE });
+    setTimeout(advance, REDUCE ? 0 : 150);
+  }, REDUCE ? 0 : 380);
+}
+function undo() {
+  const h = history.pop(); if (!h) return;
+  const st = JSON.parse(h); Q = st.Q; idx = st.idx; results = st.results;
+  Q[idx].res = undefined; phase = 'ask'; typed = ''; choice = -1; hints = 0; pend = null; showRates = false;
+  if (!drill) save(); render('back'); toast('已撤销上一张');
+}
+
+/* ============ 可续（G6） ============ */
+function renderResume(sv) {
+  const left = sv.Q.length - sv.idx, words = new Set(sv.Q.slice(sv.idx).map(c => c.w)).size;
+  const when = Math.max(1, Math.round((Date.now() - sv.at) / 60000));
+  $('#rv').innerHTML = `<div class="rvbar"><div class="segs">${sv.Q.map((c, i) => `<i class="${c.res === 'i' ? 'ri' : c.res === 'o' ? 'ro' : c.res === 'x' ? 'rx' : c.res ? 'r' + c.res : i === sv.idx ? 'cur' : ''}"></i>`).join('')}</div><span>已做 ${sv.idx} / ${sv.Q.length}</span></div>
+    <section class="card resume"><div class="rfox" id="rfox"></div><div><h3>上次复习到一半</h3><p>${when < 60 ? when + ' 分钟' : Math.round(when / 60) + ' 小时'}前停在第 ${sv.idx + 1} 张，还剩 ${left} 张（${words} 个词，约 ${Math.max(1, Math.round(left * 0.4))} 分钟）。已经做过的评分都保存了。</p></div></section>
+    <div class="rvfoot"><div class="actions"><button class="reveal" id="resumeBtn">接着复习 <span class="kbd">Enter</span></button><div class="footrow"><button class="linkbtn" id="restartBtn">从头开始</button></div></div></div>`;
+  if (window.Fox) Fox.mount($('#rfox'), { state: 'idle', size: 72 });
+  $('#resumeBtn').onclick = () => { Q = sv.Q; idx = sv.idx; results = sv.results || []; t0 = sv.t0 || Date.now(); phase = 'ask'; render('next'); };
+  $('#restartBtn').onclick = () => { clearSave(); Q = freshQueue(); idx = 0; results = []; t0 = Date.now(); render('next'); };
+  renderQueue();
+}
+
+/* ============ 完成页（G7） ============ */
+function finish() {
+  if (drill) { drillDone(); return; }
+  phase = 'done'; clearSave(); renderQueue();
+  const n = results.length, secs = Math.round((Date.now() - t0) / 1000), ok = results.filter(r => r.g >= 2).length;
+  const dist = [1, 2, 3, 4].map(g => results.filter(r => r.g === g).length), col = ['var(--hard)', 'var(--mid)', 'var(--ink)', 'var(--accent)'];
+  const retries = w => Q.filter(c => c.w === w && c.retry).length;
+  const wrong = results.filter(r => r.g === 1);
+  $('#rv').innerHTML = `<div class="rvbar">${segs()}<span>完成</span></div>
+    <section class="done"><div class="ill" id="ill"></div><h1>今天的复习完成了</h1><div class="sub">连续学习第 10 天。答错的词已经在本轮换着题型补练过，FSRS 也会让它们更早回来。</div>
+    <div class="kpis3"><div><b>${n}</b><span>个词</span></div><div><b>${n ? Math.round(ok / n * 100) : 0}%</b><span>首次就答对</span></div><div><b>${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}</b><span>用时</span></div></div>
+    <div class="dbar"><div class="bar">${dist.map((d, i) => d ? `<i style="flex:${d};background:${col[i]}" title="${RATE_LAB[i]} ${d}"></i>` : '').join('')}</div><div class="lab">${dist.map((d, i) => `<span><i style="background:${col[i]}"></i>${RATE_LAB[i]} ${d}</span>`).join('')}<span class="lbl-i">评分只看第一次作答${results.some(r => r.auto) ? '；选择、填空、听写、拼写由系统评分' : ''}</span></div></div>
+    <div class="chg"><h5>每个词</h5>${results.map(u => `<div class="${u.g === 1 ? 'miss' : ''}"><b>${esc(u.w)}</b><span class="arrow"><span class="stage s${u.from}">${STAGES[u.from]}</span>${u.from === u.to ? '' : `→<span class="stage s${u.to}">${STAGES[u.to]}</span>`}</span><span class="lbl-i">${u.g === 1 ? `忘了 · 已补练 ${retries(u.w)} 次 · ` : ''}${u.days ? `${ivTxt(u.days, 3)}后再见` : '10 分钟后'}</span></div>`).join('')}</div>
+    <div class="nextup"><div><b>✦ 趁热读一篇</b><span>Tibi 找一篇用到今天这 ${n} 个词的短文；找不到就写一篇，其他词都在你的词汇量以内。</span></div><button class="btn pri" id="storyBtn">读一篇用到这些词的短文</button></div>
+    <div class="row">${wrong.length ? `<button class="btn" id="drillBtn">再练 ${wrong.length} 个错词（不计分）</button>` : ''}<a class="btn" data-link="words" href="#">查看生词本</a><button class="linkbtn" id="again">重新演示</button></div></section>`;
+  document.querySelectorAll('[data-link]').forEach(a => { a.href = URLS[a.dataset.link]; ext(a); });
+  $('#again').onclick = () => { clearSave(); location.hash = ''; location.reload(); };
+  $('#storyBtn').onclick = story;
+  if ($('#drillBtn')) $('#drillBtn').onclick = () => startDrill(wrong.map(r => r.w));
+  drawIll();
+  anim(document.querySelectorAll('.done > *'), { opacity: [0, 1], y: [12, 0] }, { duration: 0.5, ease: EASE, delay: stag(0.07) });
+  const st = document.querySelector('.streak .t'); if (st) st.textContent = '连续 10 天';
+  const ring = $('#ringArc'); if (ring) { ring.setAttribute('stroke-dashoffset', 0); anim(ring, { strokeDashoffset: [87.96 * 0.4, 0] }, { duration: 0.9, ease: EASE, delay: 0.3 }); }
+}
+function drawIll() { const el = $('#ill'); if (!el || el.firstChild) return; Fox.mount(el, { state: 'happy', size: 160, interactive: true }); }
+let doneState = null;
+function startDrill(words) {   // 再练错词：调用 review.quiz，不改排期
+  doneState = { Q, idx, results };
+  drill = true; Q = words.map(w => retryOf(Object.assign({}, BASE.find(b => b.w === w), { type: BASE.find(b => b.w === w).type === 'choice' ? 'choice' : 'cloze' }))); idx = 0; phase = 'ask'; history = [];
+  render('next');
+}
+function drillDone() {
+  const ok = Q.filter(c => c.res === 'o').length;
+  $('#rv').innerHTML = `<div class="rvbar">${segs()}<span>错词再练</span></div><section class="card resume"><div class="rfox" id="rfox"></div><div><h3>错词再练完成：答对 ${ok} / ${Q.length}</h3><p>这一轮不计分，也不改动复习排期；它们按 FSRS 安排的时间再回来。</p></div></section>
+    <div class="rvfoot"><div class="actions"><button class="reveal" id="backDone">回到完成页 <span class="kbd">Enter</span></button></div></div>`;
+  if (window.Fox) Fox.mount($('#rfox'), { state: ok === Q.length ? 'happy' : 'idle', size: 72 });
+  $('#backDone').onclick = () => { drill = null; Q = doneState.Q; idx = doneState.idx; results = doneState.results; finish(); };
+}
+function story() {   // G7：用今天的词读一篇（选文技能先找，找不到就写）
+  const words = results.map(r => r.w);
+  $('#dSub').textContent = '· 用今天的词读一篇';
+  $('#dbody').innerHTML = `<div class="ctxline">今天复习的 ${words.length} 个词：${words.map(esc).join('、')}</div><div class="msgs" id="msgs"></div>`;
+  $('#app').classList.add('drawer-open');
+  const m = $('#msgs');
+  m.innerHTML = `<div class="msg a"><div class="tool"><div class="row"><code>search_feeds</code><span>找同时用到这些词的文章</span></div></div><span class="typing"><i></i><i></i><i></i></span></div>`;
+  setTimeout(() => {
+    const TXT = `Mira had always been a meticulous engineer. When the city museum asked her to verify its new climate system, she had no objection to working nights. Sensors were ubiquitous now, in the walls, under the floors, even inside the glass cases, and every one of them added a little overhead to the network.\n\nThe trouble was the tropical gallery. Its plants were notoriously hard to keep alive, and the frogs living there needed a stable habitat. For weeks Mira found herself grappling with readings that made no sense: whenever the doors opened, the humidity dropped, and the drop seemed to affect the whole wing.\n\nOn the last night she finally saw it. An old ventilation shaft was still open. She closed it, watched the numbers settle, and smiled. The director later acknowledged that nobody else had noticed it in ten years.`;
+    const re = /\b(meticulous|verify|objection|ubiquitous|overhead|notoriously|habitat|grappling with|affect|acknowledged)\b/g;
+    const paras = TXT.split('\n\n').map(p => `<p>${esc(p).replace(re, '<span class="tw s1">$1</span>')}</p>`).join('');
+    m.innerHTML = `<div class="msg a"><div class="tool"><div class="row"><code>search_feeds</code><span>找到 1 篇，只用到其中 2 个词</span></div></div><p>你订阅的来源里没有同时用到这些词的文章，我写了一篇短的：${words.length} 个词全用上了，其他词都在你的词汇量以内（生词率约 2%）。</p>
+      <div class="story"><h4>The Night Shift at the Museum</h4>${paras}<div class="smeta">Tibi 写的 · 约 160 词 · 生词率约 2% · 放进书架时会标为"生成内容"</div></div>
+      <div class="row" style="justify-content:flex-start"><button class="btn pri sm" id="toShelf">放进书架，开始读</button><button class="btn sm" id="another">换一篇</button></div></div>`;
+    anim(m.lastElementChild, { opacity: [0, 1], y: [8, 0] }, SPRING);
+    $('#toShelf').onclick = () => toast('原型：短文已放进书架（类型：一般 · 标签：Tibi 写的），在阅读器里打开', () => {}, '打开');
+    $('#another').onclick = () => toast('原型：Tibi 会换一个题材重写，仍然用到这些词');
+  }, 1400);
+}
+
+/* ============ 练习（G8：不计分，成绩单独记录） ============ */
+const PSRC = ['最近复习', '错词', '难词', '《Understanding Ownership in Rust》'];
+const PMODES = { dict: ['听写原句', '听你读过的句子，写下整句', '♪'], type: ['跟打原句', '照着原句打字，练手感', '⌨'], conf: ['易混词辨析', '在句子里选对的那个', '⇄'] };
+const DICT = ['Delays affect fewer than one in ten journeys.', 'Newcomers often find themselves grappling with the borrow checker.', 'The upshot is memory safety without the runtime overhead.', 'The borrow checker verifies that no reference outlives its value.', 'Cities are turning to sponge design as floods intensify.'];
+const CONF = [
+  { s: 'Delays {} fewer than one in ten journeys.', a: 'affect', b: 'effect', why: '这里需要谓语动词。affect 是动词"影响"；effect 多作名词"效果"。' },
+  { s: 'The new policy had little {} on prices.', a: 'effect', b: 'affect', why: 'have an effect on 是固定搭配，这里要名词。' },
+  { s: 'The {} reason for the delay was the weather.', a: 'principal', b: 'principle', why: 'principal 作形容词是"主要的"；principle 是名词"原则"。' },
+  { s: 'The wine is a perfect {} to the meal.', a: 'complement', b: 'compliment', why: 'complement 是"相配之物、补充"；compliment 是"称赞"。' },
+  { s: 'Be careful not to {} your keys again.', a: 'lose', b: 'loose', why: 'lose 是动词"丢失"；loose 是形容词"松的"。' },
+];
+let pm = 'dict', psrc = 0, prun = null;
+const words = s => s.toLowerCase().replace(/[^a-z' ]/g, ' ').split(/\s+/).filter(Boolean);
+function lcsMatch(t, u) {   // 目标句的每个词是否被写出来（按最长公共子序列对齐）
+  const L = Array.from({ length: t.length + 1 }, () => new Array(u.length + 1).fill(0));
+  for (let i = t.length - 1; i >= 0; i--) for (let j = u.length - 1; j >= 0; j--) L[i][j] = t[i] === u[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const hit = new Array(t.length).fill(false); let i = 0, j = 0;
+  while (i < t.length && j < u.length) { if (t[i] === u[j]) { hit[i] = true; i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) i++; else j++; }
+  return hit;
+}
+function renderPractice(dir) {
+  renderQueue();
+  if (!prun) {
+    $('#rv').innerHTML = `<div class="phead"><h2>练习</h2><p>用你读过的句子练听写、手感和易混词。成绩单独记录，不会改动复习排期。</p></div>
+      <div class="pmodes">${Object.entries(PMODES).map(([k, v]) => `<button class="pmode${k === pm ? ' on' : ''}" data-m="${k}"><span class="pic">${v[2]}</span><b>${v[0]}</b><small>${v[1]}</small></button>`).join('')}</div>
+      <div class="prow"><span class="lbl-i">${pm === 'conf' ? '词来自' : '句子来自'}</span><div class="rvseg wrap">${PSRC.map((s, i) => `<button class="${i === psrc ? 'on' : ''}" data-s="${i}">${esc(s)}</button>`).join('')}</div></div>
+      <div class="kpis3"><div><b>92%</b><span>听写准确率（最近 5 轮）</span></div><div><b>38</b><span>跟打最快 WPM</span></div><div><b>4</b><span>完成轮次</span></div></div>
+      <div class="rvfoot"><div class="actions"><button class="reveal" id="pStart">开始一轮 · 5 ${pm === 'conf' ? '题' : '句'} <span class="kbd">Enter</span></button></div></div>`;
+    document.querySelectorAll('.pmode').forEach(b => b.onclick = () => { pm = b.dataset.m; renderPractice(); });
+    document.querySelectorAll('.prow button').forEach(b => b.onclick = () => { psrc = +b.dataset.s; renderPractice(); });
+    $('#pStart').onclick = startPractice;
+    if (dir === 'enter') anim(document.querySelectorAll('#rv > *'), { opacity: [0, 1], y: [8, 0] }, { duration: 0.35, ease: EASE, delay: stag(0.05) });
+    return;
+  }
+  const r = prun, it = r.items[r.i];
+  if (!it) { practiceDone(); return; }
+  let body = '', foot = '';
+  const head = `<div class="chead"><span class="ctype">${PMODES[r.m][2]} ${PMODES[r.m][0]}</span><span>不计分</span><span class="sp"></span><span>${r.i + 1} / ${r.items.length}</span></div>`;
+  if (r.m === 'dict') {
+    body = `<div class="prompt">听句子，写下整句（标点和大小写不算错）</div><div class="listen"><button class="play" id="playS"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg></button><button class="play small" id="playSlow">0.7×</button><div class="wave" id="wave">${'<i></i>'.repeat(14)}</div></div>`;
+    if (!r.shown) { body += `<textarea class="produce" id="pIn" placeholder="听到什么写什么，按 Enter 检查"></textarea>`; foot = `<button class="reveal" id="pCheck">检查 <span class="kbd">Enter</span></button><div class="footrow"><button class="linkbtn" id="pGive">听不出来，看原句</button></div>`; }
+    else { const t = it.split(' '), hit = lcsMatch(words(it), words(r.val)); let k = 0;
+      body += `<div class="sentence pdiff">${t.map(w => { const ok = words(w).length ? hit[k++] : true; return ok ? esc(w) : `<span class="miss">${esc(w)}</span>`; }).join(' ')}</div><div class="hint">你写的：${esc(r.val || '（空）')}</div>`;
+      foot = `<div class="gline"><span class="gtag">${r.acc}%</span><span>写对了 ${r.acc}% 的词${r.acc === 100 ? '，一个不差' : '；红色是漏掉或写错的'}</span></div><button class="reveal" id="pNext">继续 <span class="kbd">Enter</span></button>`; }
+  } else if (r.m === 'type') {
+    body = `<div class="prompt">照着打一遍（大小写和标点也要一致）</div><div class="ptarget" id="ptarget">${[...it].map(ch => `<span>${esc(ch)}</span>`).join('')}</div><input class="spellin" id="pIn" autocomplete="off" spellcheck="false" aria-label="跟打" style="font-size:18px">`;
+    foot = `<div class="footnote">打完自动进入下一句 · 已完成 ${r.i} 句${r.cps ? ` · 当前 ${Math.round(r.cps * 12)} WPM` : ''}</div>`;
+  } else {
+    const [x, y] = hash(it.s) % 2 ? [it.a, it.b] : [it.b, it.a];
+    body = `<div class="prompt">选出放在空里正确的那个词</div><div class="sentence">${esc(it.s).replace('{}', r.shown ? `<span class="tw s0">${it.a}</span>` : '<span style="border-bottom:2px solid var(--ink-3);padding:0 2.2em"></span>')}</div>
+      <div class="opts two">${[x, y].map((o, k) => `<button class="opt${r.shown ? (o === it.a ? ' ok' : o === r.val ? ' bad' : ' dim') : ''}" data-o="${o}" ${r.shown ? 'disabled' : ''}><span class="kbd">${k + 1}</span><span style="font-family:var(--f-read);font-size:16px">${o}</span></button>`).join('')}</div>`;
+    if (r.shown) { body += `<div class="answer"><div class="gloss">${esc(it.why)}</div></div>`; foot = `<button class="reveal" id="pNext">继续 <span class="kbd">Enter</span></button>`; }
+    else foot = '<div class="footnote">按 <span class="kbd">1</span> 或 <span class="kbd">2</span> 选择</div>';
+  }
+  $('#rv').innerHTML = `<div class="rvbar"><div class="segs">${r.items.map((_, i) => `<i class="${i < r.i ? (r.score[i] >= 80 ? 'ro' : 'rx') : i === r.i ? 'cur' : ''}"></i>`).join('')}</div><span>练习 · 不计分</span><button class="linkbtn" id="pQuit">结束练习</button></div>
+    <section class="card" id="card">${head}${body}</section><div class="rvfoot"><div class="actions">${foot}</div></div>`;
+  const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  on('#playS', () => speak(it, 0.95)); on('#playSlow', () => speak(it, 0.7));
+  on('#pQuit', () => { prun = null; renderPractice('enter'); });
+  on('#pCheck', pCheck); on('#pGive', () => { $('#pIn').value = ''; pCheck(); }); on('#pNext', pNext);
+  document.querySelectorAll('.opts.two .opt').forEach(b => b.onclick = () => pConf(b.dataset.o));
+  const inp = $('#pIn');
+  if (inp && !r.shown) setTimeout(() => inp.focus(), 60);
+  if (r.m === 'dict' && !r.shown && dir === 'next') setTimeout(() => speak(it, 0.95), 400);
+  if (r.m === 'type' && inp) inp.oninput = () => {
+    if (!r.start) r.start = Date.now();
+    const v = inp.value; let bad = 0;
+    document.querySelectorAll('#ptarget span').forEach((s, k) => { s.className = k >= v.length ? (k === v.length ? 'cur' : '') : v[k] === it[k] ? 'ok' : (bad++, 'bad'); });
+    if (v === it) { const ms = Date.now() - r.start; r.cps = it.length / (ms / 1000); r.score[r.i] = 100; r.chars += it.length; r.ms += ms; r.i++; r.start = 0; setTimeout(() => renderPractice('next'), 250); }
+  };
+  if (dir === 'next') anim($('#card'), { opacity: [0, 1], x: [24, 0] }, { type: 'spring', bounce: 0.15, duration: 0.45 });
+}
+function startPractice() {
+  const items = pm === 'conf' ? CONF.slice() : DICT.slice();
+  prun = { m: pm, items, i: 0, shown: false, val: '', acc: 0, score: [], t0: Date.now(), chars: 0, ms: 0 };
+  renderPractice('next');
+}
+function pCheck() {
+  const r = prun, it = r.items[r.i]; r.val = ($('#pIn') || {}).value || '';
+  const hit = lcsMatch(words(it), words(r.val)); r.acc = Math.round(hit.filter(Boolean).length / hit.length * 100);
+  r.score[r.i] = r.acc; r.shown = true; renderPractice();
+}
+function pConf(o) { const r = prun; if (r.shown) return; r.val = o; r.shown = true; r.score[r.i] = o === r.items[r.i].a ? 100 : 0; renderPractice(); }
+function pNext() { const r = prun; r.i++; r.shown = false; r.val = ''; renderPractice('next'); }
+function practiceDone() {
+  const r = prun, acc = Math.round(r.score.reduce((a, b) => a + b, 0) / r.score.length), secs = Math.round((Date.now() - r.t0) / 1000);
+  const wpm = r.ms ? Math.round(r.chars / 5 / (r.ms / 60000)) : 0;
+  $('#rv').innerHTML = `<div class="rvbar"><div class="segs">${r.items.map((_, i) => `<i class="${r.score[i] >= 80 ? 'ro' : 'rx'}"></i>`).join('')}</div><span>练习完成</span></div>
+    <section class="card resume"><div class="rfox" id="rfox"></div><div><h3>${PMODES[r.m][0]} · ${r.m === 'type' ? wpm + ' WPM' : '准确率 ' + acc + '%'}</h3><p>用时 ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}。练习成绩单独记录在统计里，不会改动这些词的复习排期。</p></div></section>
+    <div class="rvfoot"><div class="actions"><button class="reveal" id="pAgain">再来一轮 <span class="kbd">Enter</span></button><div class="footrow"><button class="linkbtn" id="pBack">回到练习</button></div></div></div>`;
+  if (window.Fox) Fox.mount($('#rfox'), { state: acc >= 80 ? 'happy' : 'idle', size: 72 });
+  $('#pAgain').onclick = startPractice; $('#pBack').onclick = () => { prun = null; renderPractice('enter'); };
+  prun.done = true;
+}
+function setMode(m) {
+  mode = m; document.querySelectorAll('#rvseg button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  $('.crumb').innerHTML = m === 'practice' ? '<b>复习</b> · 练习不计分' : '<b>复习</b> · 今日 18 张 = 到期 14 + 新词 4（原型演示其中 10 个词）';
+  if (m === 'practice') renderPractice('enter'); else render('next');
+}
+document.querySelectorAll('#rvseg button').forEach(b => b.onclick = () => setMode(b.dataset.m));
+
+/* ============ Tibi ============ */
+const LEXI = {
+  affect: [['为什么不是 effect？', '<p><b>affect</b> 是动词："影响"。<b>effect</b> 通常是名词："效果、影响"。</p><p>记忆法：<b>A</b>ffect 是 <b>A</b>ction（动作），<b>E</b>ffect 是 <b>E</b>nd result（结果）。</p><p>原句 <i style="font-family:var(--f-read)">Delays affect fewer than one in ten journeys</i> 里需要谓语动词，所以用 affect。</p>'], ['再给我两个例句', '<ul><li style="font-family:var(--f-read)">Lack of sleep can <b>affect</b> your memory.</li><li style="font-family:var(--f-read)">The new rules will not <b>affect</b> existing users.</li></ul>']],
+  overhead: [['为什么是这个意思？', '<p>overhead 原指"头顶上的"，引申为企业的"日常开支"。在技术语境里指<b>为了完成某事额外付出的代价</b>（时间、内存、性能）。<i style="font-family:var(--f-read)">runtime overhead</i> 就是"运行时开销"。</p>']],
+};
+function openLexi() {
+  const c = Q[idx] || Q[0], qs = LEXI[c.w] || [['为什么是这个意思？', `<p>（原型）正式版会结合你遇到 <b>${esc(c.w)}</b> 的原句，解释它在这里的用法，并对比常见近义词。</p>`], ['再给我两个例句', '<p>（原型）正式版会生成两个难度合适的新例句，尽量用到你正在学的其他词。</p>']];
+  $('#dSub').textContent = '· ' + c.w;
+  $('#dbody').innerHTML = `<div class="ctxline">正在复习 <b>${esc(c.w)}</b> · ${TYPE[c.type]}${phase === 'ask' && c.type !== 'intro' ? ' · 还没作答，我只给提示、不说答案' : ''}</div><div class="msgs" id="msgs"></div><div class="suggest" id="sugg">${qs.map((q, i) => `<button data-i="${i}">${q[0]}</button>`).join('')}</div>`;
+  document.querySelectorAll('#sugg button').forEach(b => b.onclick = () => ask(qs[+b.dataset.i][0], phase === 'ask' && c.type !== 'intro' ? '<p>先别急着看答案 🙂 提示一下：注意句子里它前后的词，它在这里充当什么成分？想好后再作答，答完再来问我细节。</p>' : qs[+b.dataset.i][1]));
+  $('#app').classList.add('drawer-open');
+}
+function ask(q, a) {
+  const m = $('#msgs'); m.insertAdjacentHTML('beforeend', `<div class="msg u">${esc(q)}</div><div class="msg a"><span class="typing"><i></i><i></i><i></i></span></div>`);
+  DSCROLL.scrollTop = DSCROLL.scrollHeight;
+  setTimeout(() => { const last = m.lastElementChild; last.innerHTML = a; anim(last, { opacity: [0, 1], y: [8, 0] }, SPRING); DSCROLL.scrollTop = DSCROLL.scrollHeight; }, 700);
+}
+$('#lexiBtn').onclick = () => $('#app').classList.contains('drawer-open') ? $('#app').classList.remove('drawer-open') : openLexi();
+$('#closeDrawer').onclick = () => $('#app').classList.remove('drawer-open');
+$('#dsend').onclick = () => { const v = $('#dinput').value.trim(); if (!v) return; $('#dinput').value = ''; if (!$('#msgs')) openLexi(); ask(v, '<p>（原型）正式版会结合这张卡片、你的复习记录和记忆来回答。</p>'); };
+$('#dinput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#dsend').click(); } });
+
+/* ============ 键盘 ============ */
+addEventListener('keydown', e => {
+  if (e.isComposing || e.metaKey && e.key !== 'Enter' || e.ctrlKey && e.key !== 'Enter' || e.altKey) return;
+  const inField = /INPUT|TEXTAREA/.test(e.target.tagName);
+  if (e.key === 'Escape') { $('#app').classList.remove('drawer-open'); return; }
+  if (e.target.id === 'dinput') return;
+  if (mode === 'practice') {
+    const r = prun;
+    if (!r) { if (e.key === 'Enter' && !inField) { e.preventDefault(); startPractice(); } return; }
+    if (r.done) { if (e.key === 'Enter') { e.preventDefault(); startPractice(); } return; }
+    if (e.key === 'Enter' && e.target.id === 'pIn' && r.m === 'dict' && !e.shiftKey) { e.preventDefault(); pCheck(); return; }
+    if (inField) return;
+    if (e.key === 'Enter' && r.shown) { e.preventDefault(); pNext(); return; }
+    if (r.m === 'conf' && !r.shown && /^[12]$/.test(e.key)) { const b = document.querySelectorAll('.opts.two .opt')[+e.key - 1]; b && pConf(b.dataset.o); return; }
+    if (e.key.toLowerCase() === 'p') { const b = $('#playS'); b && b.click(); }
+    return;
+  }
+  if ($('#resumeBtn') && e.key === 'Enter') { e.preventDefault(); $('#resumeBtn').click(); return; }
+  if ($('#backDone') && e.key === 'Enter') { e.preventDefault(); $('#backDone').click(); return; }
+  const c = Q[idx]; if (!c || phase === 'done' || phase === 'leaving') return;
+  if (e.key === 'Enter' && phase === 'ask' && (e.target.id === 'blank' || e.target.id === 'spellIn')) { e.preventDefault(); check(); return; }
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && e.target.id === 'prodIn') { e.preventDefault(); check(); return; }
+  if (inField) return;
+  if (c.type === 'intro' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); nextIntro(); return; }
+  if (e.key === ' ' && phase === 'ask' && c.type === 'recognize') { e.preventDefault(); reveal(); return; }
+  if (/^[1-4]$/.test(e.key) && phase === 'ask' && c.type === 'choice') { pick(+e.key - 1); return; }
+  if (/^[1-4]$/.test(e.key) && phase === 'shown') { if (SELF_RATED.has(c.type) && !c.retry && !drill) rate(+e.key); else if (!c.retry && !drill) commit(+e.key); return; }
+  if ((e.key === 'Enter' || e.key === ' ') && phase === 'shown') { e.preventDefault(); if (SELF_RATED.has(c.type) && !c.retry && !drill) rate(3); else commit(pend.g); return; }
+  if (e.key.toLowerCase() === 'z') { undo(); return; }
+  if (e.key.toLowerCase() === 'l') { openLexi(); return; }
+  if (e.key.toLowerCase() === 'p') { const b = $('#playS') || $('#playW') || $('#sayW'); b && b.click(); }
+});
+
+/* ============ 启动 ============ */
+initShell({}); demoToggle();
+if (IS_EMPTY) {
+  /* 空状态：今天没有要复习的卡片 */
+  $('.crumb').innerHTML = '<b>复习</b> · 今天没有到期的卡片';
+  $('#sideH').textContent = '今天要复习'; $('#recent').innerHTML = '<div class="lbl-i" style="padding:4px 12px">没有到期的词</div>';
+  emptyState($('#rv'), { state: 'happy', title: '今天的复习都做完了', desc: '明天有 6 张到期，后天 9 张。现在最好的安排是读点新东西——新文章里的生词会自动进入复习。', cls: 'card-like',
+    extra: '<div class="lbl-i" style="margin-top:6px">想多练一点也可以，不会打乱复习排期</div>',
+    actions: [{ t: '读一篇新文章', pri: true, link: 'home' }, { t: '提前复习明天的 6 张', onclick: () => { location.hash = ''; location.reload(); } }, { t: '去练习（听写、易混词）', onclick: () => setMode('practice') }] });
+  const ring = $('#ringArc'); if (ring) ring.setAttribute('stroke-dashoffset', 0);
+  const bd = document.querySelector('.nav .n.badge'); if (bd) bd.hidden = true;
+} else {
+  let sv = null; try { sv = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  if (location.hash === '#practice') setMode('practice');
+  else if (sv && sv.Q && sv.idx > 0 && sv.idx < sv.Q.length) renderResume(sv);
+  else render('next');
+  anim($('.rvbar'), { opacity: [0, 1] }, { duration: 0.4 });
+}
+</script>

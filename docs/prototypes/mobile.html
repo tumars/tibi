@@ -1,0 +1,358 @@
+<title>Tibi 手机版</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Charis+SIL:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* 手机端独立壳（D8）：只复用 v2 的 token 与少量组件，不复用桌面布局 */
+@font-face { font-family: "Alibaba PuHuiTi 3.0"; src: local("Alibaba PuHuiTi 3.0 55 Regular"), url("fonts/AlibabaPuHuiTi-3-55-Regular.subset.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Alibaba PuHuiTi 3.0"; src: local("Alibaba PuHuiTi 3.0 65 Medium"), url("fonts/AlibabaPuHuiTi-3-65-Medium.subset.woff2") format("woff2"); font-weight: 500 700; font-display: swap; }
+:root { --bg: #f6f6f5; --surface: #fff; --sunken: #f2f2f1; --hover: rgba(0,0,0,.04); --line: rgba(0,0,0,.07); --line-2: rgba(0,0,0,.12); --ink: #18181b; --ink-2: #55555c; --ink-3: #9d9da6; --accent: #3b5bfd; --accent-wash: rgba(59,91,253,.08); --warm: #f5a043; --warm-wash: rgba(245,160,67,.14); --ok: #2f9e5f; --mid: #c98a1b; --hard: #c2452d; --hl-new: #cfe0ff; --hl-1: #f5dd9a; --hl-2: #f8e8b8; --hl-3: #fbf1d4; --hl-4: #e9e9e7; --f-ui: Geist, "Alibaba PuHuiTi 3.0", "Noto Sans SC", system-ui, sans-serif; --f-read: Charter, "Charis SIL", Georgia, serif; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0b0b0c; --surface: #141416; --sunken: #1b1b1e; --hover: rgba(255,255,255,.05); --line: rgba(255,255,255,.08); --line-2: rgba(255,255,255,.14); --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #6b6b74; --accent: #6f86ff; --accent-wash: rgba(111,134,255,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16); --hl-new: #2a3f6e; --hl-1: #6b5a1e; --hl-2: #5a4d22; --hl-3: #4a4330; --hl-4: #2a2a2d; } }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-ui); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+[hidden] { display: none !important; }
+/* 在桌面浏览器里看时放在一个手机框里；真机上铺满 */
+.phone { position: relative; max-width: 430px; margin: 0 auto; height: 100vh; height: 100dvh; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
+@media (min-width: 520px) { body { background: #e9e9e7; padding: 24px 0; } .phone { height: min(860px, 92vh); border-radius: 36px; box-shadow: 0 0 0 8px #1a1a1c, 0 24px 60px -20px rgba(0,0,0,.5); } .note { display: block; } }
+.screen { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 0 92px; }
+.screen::-webkit-scrollbar { display: none; }
+/* 顶部 */
+.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 16px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.top h1 { margin: 0; font-size: 17px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top .ib { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--ink-2); }
+.top .ib svg { width: 20px; height: 20px; }
+.logo { width: 28px; height: 28px; border-radius: 8px; }
+/* 底部标签栏 */
+.tabs { position: absolute; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(4, 1fr); height: 78px; padding: 6px 8px calc(10px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 -1px 0 var(--line); }
+.tabs button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: var(--ink-3); border-radius: 12px; position: relative; }
+.tabs button svg { width: 24px; height: 24px; }
+.tabs button.on { color: var(--ink); }
+.tabs button .n { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; display: grid; place-items: center; }
+/* 通用 */
+.pad { padding: 0 16px; }
+.sec { margin-top: 22px; } .sec h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; display: flex; align-items: center; } .sec h2 a { margin-left: auto; font-size: 12.5px; font-weight: 400; color: var(--ink-3); text-decoration: none; }
+.card { background: var(--surface); border-radius: 16px; box-shadow: inset 0 0 0 1px var(--line); }
+.btn { height: 44px; padding: 0 18px; border-radius: 999px; font-size: 15px; font-weight: 500; box-shadow: inset 0 0 0 1px var(--line-2); display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--surface); }
+.btn.pri { background: var(--ink); color: var(--surface); box-shadow: none; }
+.btn.full { width: 100%; }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px; margin: 10px -16px 0; scrollbar-width: none; } .chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; height: 36px; padding: 0 14px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.chip svg { width: 15px; height: 15px; }
+.stage { font-size: 11.5px; padding: 2px 9px; border-radius: 999px; color: var(--ink-2); }
+.stage.s0 { background: var(--hl-new); } .stage.s1 { background: var(--hl-1); } .stage.s2 { background: var(--hl-2); } .stage.s3 { background: var(--hl-3); } .stage.s4 { background: var(--hl-4); } .stage.s5 { background: var(--ink); color: var(--surface); }
+.lv { font-size: 12px; display: inline-flex; align-items: center; gap: 5px; } .lv::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.lv.ok { color: var(--ok); } .lv.mid { color: var(--mid); } .lv.hard { color: var(--hard); }
+.lbl { font-size: 12px; color: var(--ink-3); }
+/* 首页 */
+.hero { display: flex; align-items: center; gap: 12px; padding: 8px 16px 0; }
+.hero .fx { width: 76px; height: 76px; flex: none; }
+.hero h1 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
+.hero p { margin: 4px 0 0; font-size: 13px; color: var(--ink-3); }
+.ask { margin: 14px 16px 0; display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 8px 0 16px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); }
+.ask input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font: inherit; font-size: 15px; color: var(--ink); }
+.ask .send { width: 36px; height: 36px; border-radius: 50%; background: var(--ink); color: var(--surface); display: grid; place-items: center; }
+.ask .send svg { width: 16px; height: 16px; }
+.today { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.today .t { background: var(--sunken); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.today .t .k { font-size: 11.5px; color: var(--ink-2); } .today .t .v { font-size: 20px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; } .today .t .v small { font-size: 11px; font-weight: 400; color: var(--ink-3); margin-left: 2px; }
+.today .t .bar { height: 4px; border-radius: 99px; background: var(--line); margin-top: 6px; overflow: hidden; } .today .t .bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.doc { display: flex; gap: 12px; padding: 12px 14px; align-items: center; }
+.doc + .doc { box-shadow: 0 -1px 0 var(--line); }
+.doc .ic { width: 40px; height: 40px; border-radius: 11px; flex: none; display: grid; place-items: center; font-family: var(--f-read); font-weight: 700; font-size: 15px; color: var(--ink-2); }
+.doc .ic.tech { background: #e8f0ff; } .doc .ic.news { background: #ffeedd; } .doc .ic.novel { background: #e6f3e8; }
+.doc .b { flex: 1; min-width: 0; } .doc .b .t { font-family: var(--f-read); font-weight: 700; font-size: 15.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc .b .m { font-size: 12px; color: var(--ink-3); margin-top: 2px; display: flex; gap: 8px; align-items: center; }
+.doc .b .bar { height: 3px; border-radius: 99px; background: var(--line); margin-top: 7px; overflow: hidden; } .doc .b .bar i { display: block; height: 100%; background: var(--accent); }
+.doc .chev { color: var(--ink-3); }
+/* 阅读器 */
+.rd { padding: 4px 20px 40px; }
+.rd .meta { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.rd .meta .lg { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 99px; background: var(--sunken); color: var(--ink-2); font-size: 11.5px; }
+.rd .meta .lg i { width: 9px; height: 9px; border-radius: 2px; }
+.lgs .row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: center; padding: 11px 0; border-top: 1px solid var(--line); font-size: 13.5px; line-height: 1.5; }
+.lgs .row:first-of-type { border-top: 0; }
+.lgs .row .ex { font-family: var(--f-read); font-size: 16px; }
+.lgs .row .ex .w { padding: 0 2px; }
+.lgs .row span:last-child { color: var(--ink-2); }
+.lgs h2 { margin: 2px 0 6px; font-size: 16px; font-weight: 600; }
+.lgs p { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-3); line-height: 1.55; }
+.rd h1 { font-family: var(--f-read); font-size: 26px; line-height: 1.2; margin: 0 0 18px; letter-spacing: -.01em; }
+.rd p { font-family: var(--f-read); font-size: 19px; line-height: 1.75; margin: 0 0 18px; }
+.rd .tr { font-family: var(--f-ui); font-size: 14px; color: var(--ink-2); line-height: 1.7; margin: -10px 0 18px; }
+.w { border-radius: 3px; padding: 0 1px; position: relative; }
+.w.s0 { background: linear-gradient(transparent 55%, var(--hl-new) 55%, var(--hl-new) 92%, transparent 92%); }
+.w.s1 { background: linear-gradient(transparent 55%, var(--hl-1) 55%, var(--hl-1) 92%, transparent 92%); } .w.s2 { background: linear-gradient(transparent 55%, var(--hl-2) 55%, var(--hl-2) 92%, transparent 92%); } .w.s3 { background: linear-gradient(transparent 55%, var(--hl-3) 55%, var(--hl-3) 92%, transparent 92%); }
+.w.s99 { text-decoration: underline dotted var(--ink-3); text-underline-offset: 4px; }
+.w.sel { background-image: none; background-color: var(--accent-wash); box-shadow: 0 0 0 3px var(--accent-wash); color: var(--accent); border-radius: 5px; }
+.gl .w.s0::before, .gl .w.s1::before, .gl .w.s2::before { content: attr(data-g); position: absolute; left: 0; top: -0.95em; font: 500 10.5px/1 var(--f-ui); color: var(--ink-3); white-space: nowrap; }
+.gl .rd p { line-height: 2.15; }
+.rdbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; gap: 4px; padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 -1px 0 var(--line); }
+.rdbar button { flex: 1; height: 44px; border-radius: 12px; font-size: 11.5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--ink-2); }
+.rdbar button svg { width: 20px; height: 20px; } .rdbar button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.rdbar .tibi { color: var(--accent); }
+.prog { height: 3px; background: var(--line); } .prog i { display: block; height: 100%; width: 38%; background: var(--accent); }
+/* 底部抽屉（词卡 / Tibi） */
+.scrim { position: absolute; inset: 0; z-index: 30; background: rgba(0,0,0,.28); opacity: 0; pointer-events: none; transition: opacity .25s; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 31; background: var(--surface); border-radius: 22px 22px 0 0; padding: 8px 18px calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateY(104%); transition: transform .32s cubic-bezier(.22,.8,.24,1); max-height: 82%; display: flex; flex-direction: column; }
+.sheet.on { transform: none; }
+.sheet .grab { width: 36px; height: 4px; border-radius: 2px; background: var(--line-2); margin: 0 auto 12px; }
+.sheet .sc { overflow-y: auto; }
+.wc .h { display: flex; align-items: baseline; gap: 10px; } .wc .h b { font-family: var(--f-read); font-size: 28px; } .wc .h .ipa { font-family: var(--f-read); font-style: italic; color: var(--ink-3); }
+.wc .say { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--line-2); display: grid; place-items: center; } .wc .say svg { width: 18px; height: 18px; }
+.wc .ai { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--accent-wash); font-size: 14.5px; line-height: 1.6; }
+.wc .ai .tag { font-size: 11px; color: var(--accent); font-weight: 500; display: block; margin-bottom: 3px; }
+.wc .dict { margin-top: 10px; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
+.wc .stages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 16px; }
+.wc .stages button { height: 48px; border-radius: 10px; font-size: 12px; color: var(--ink-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.wc .stages button i { display: block; width: 100%; height: 6px; border-radius: 99px; background: var(--line); }
+.wc .stages button.on { background: var(--sunken); color: var(--ink); font-weight: 500; }
+.wc .stages button.fill i { background: var(--hl-1); } .wc .stages button[data-s="0"].fill i { background: var(--hl-new); } .wc .stages button[data-s="5"].fill i { background: var(--ink); }
+.wc .row { display: flex; gap: 8px; margin-top: 14px; } .wc .row .btn { flex: 1; height: 42px; font-size: 14px; }
+/* Tibi 浮动按钮与对话 */
+.fab { position: absolute; right: 16px; bottom: 94px; z-index: 19; width: 52px; height: 52px; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 10px 24px -10px rgba(0,0,0,.35); display: grid; place-items: center; padding: 8px; }
+.chat .msgs { display: flex; flex-direction: column; gap: 10px; font-size: 14.5px; line-height: 1.6; min-height: 160px; }
+.chat .u { align-self: flex-end; background: var(--sunken); padding: 8px 12px; border-radius: 16px 16px 4px 16px; max-width: 85%; }
+.chat .a { max-width: 92%; }
+.chat .sug { display: flex; gap: 8px; overflow-x: auto; margin: 10px -18px 0; padding: 0 18px; scrollbar-width: none; }
+.chat .in { display: flex; gap: 8px; margin-top: 12px; } .chat .in input { flex: 1; height: 44px; border-radius: 999px; border: 0; background: var(--sunken); padding: 0 16px; font: inherit; font-size: 15px; color: var(--ink); outline: none; }
+/* 复习 */
+.rv { padding: 10px 16px 0; }
+.segs { display: flex; gap: 3px; height: 5px; margin-bottom: 14px; } .segs i { flex: 1; border-radius: 99px; background: var(--line); } .segs i.cur { background: var(--ink-3); } .segs i.r1 { background: var(--hard); } .segs i.r2 { background: var(--mid); } .segs i.r3 { background: var(--ink); } .segs i.r4 { background: var(--accent); }
+.rcard { padding: 18px 18px 16px; }
+.rcard .k { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); margin-bottom: 14px; }
+.rcard .q { font-size: 13.5px; color: var(--ink-2); margin-bottom: 8px; }
+.rcard .sent { font-family: var(--f-read); font-size: 21px; line-height: 1.55; } .rcard .sent mark { background: linear-gradient(transparent 55%, var(--hl-1) 55%, var(--hl-1) 92%, transparent 92%); color: inherit; font-weight: 700; padding: 0 2px; }
+.rcard .ans { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line-2); }
+.rcard .ans b { font-family: var(--f-read); font-size: 24px; } .rcard .ans .ipa { font-family: var(--f-read); font-style: italic; color: var(--ink-3); margin-left: 8px; }
+.rcard .ans p { margin: 6px 0 0; font-size: 14.5px; line-height: 1.6; } .rcard .ans .zh { color: var(--ink-2); }
+.rate { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; }
+.rate button { height: 60px; border-radius: 14px; background: var(--sunken); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 14px; font-weight: 500; }
+.rate button small { font-size: 11px; font-weight: 400; color: var(--ink-3); }
+.rate .r1 { color: var(--hard); } .rate .r2 { color: var(--mid); } .rate .r4 { color: var(--accent); }
+.rate button.sug { box-shadow: inset 0 0 0 1.5px var(--ink); background: var(--surface); }
+.done { text-align: center; padding: 24px 0 0; } .done .fx { width: 150px; height: 150px; margin: 0 auto; } .done h3 { margin: 6px 0 4px; font-size: 20px; } .done p { margin: 0; color: var(--ink-2); font-size: 14px; }
+.done .k3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; } .done .k3 div { background: var(--sunken); border-radius: 14px; padding: 12px; } .done .k3 b { display: block; font-size: 22px; } .done .k3 span { font-size: 11.5px; color: var(--ink-3); }
+/* 我 */
+.me .head { display: flex; align-items: center; gap: 14px; padding: 6px 16px 0; }
+.me .ring { width: 64px; height: 64px; flex: none; }
+.me .head b { font-size: 18px; display: block; } .me .head span { font-size: 13px; color: var(--ink-3); }
+.me .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.me .kv div { background: var(--sunken); border-radius: 14px; padding: 12px 14px; } .me .kv b { font-size: 22px; letter-spacing: -.02em; } .me .kv small { font-size: 11px; color: var(--ink-3); margin-left: 3px; } .me .kv span { display: block; font-size: 12px; color: var(--ink-2); }
+.week { display: flex; gap: 4px; align-items: flex-end; height: 44px; margin-top: 8px; } .week i { flex: 1; border-radius: 4px 4px 2px 2px; background: var(--line-2); } .week i.ok { background: var(--accent); }
+.menu a { display: flex; align-items: center; gap: 12px; padding: 14px 14px; text-decoration: none; color: var(--ink); font-size: 15px; }
+.menu a + a { box-shadow: 0 -1px 0 var(--line); } .menu a svg { width: 20px; height: 20px; color: var(--ink-2); } .menu a .r { margin-left: auto; font-size: 13px; color: var(--ink-3); display: flex; align-items: center; gap: 4px; }
+.toast { position: absolute; left: 50%; bottom: 104px; transform: translateX(-50%); z-index: 40; background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+.note { display: none; position: fixed; left: 0; right: 0; bottom: 6px; z-index: 50; text-align: center; font-size: 11.5px; color: #6b6b74; pointer-events: none; }
+</style>
+
+<div class="phone" id="phone">
+  <!-- 首页 -->
+  <section class="screen" id="s-home">
+    <header class="top"><img class="logo" src="img/logo.svg" alt=""><h1>Tibi</h1><button class="ib" id="themeBtn" title="深浅色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button></header>
+    <div class="hero"><div class="fx" id="fox"></div><div><h1 id="greet">今天想读点什么？</h1><p>粘贴网址、分享到 Tibi，或者直接问</p></div></div>
+    <div class="ask"><input id="askIn" placeholder="粘贴网址，或问 Tibi…"><button class="send" id="askGo" aria-label="发送"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+    <div class="chips">
+      <button class="chip" data-go="review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg>复习 18 个到期的词</button>
+      <button class="chip" data-q="推荐一篇 10 分钟的新闻"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>推荐一篇 10 分钟的新闻</button>
+      <button class="chip" data-q="用这周的生词写个小故事"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>用生词写个小故事</button>
+    </div>
+    <div class="pad sec"><h2>今天</h2><div class="today">
+      <div class="t"><span class="k">待复习</span><span class="v">18<small>张</small></span><span class="lbl">约 6 分钟</span></div>
+      <div class="t"><span class="k">今日阅读</span><span class="v">12<small>/ 20 分</small></span><div class="bar"><i style="width:60%"></i></div></div>
+      <div class="t"><span class="k">已知词</span><span class="v">6,214</span><span class="lbl">本周 +38</span></div>
+    </div></div>
+    <div class="pad sec"><h2>继续阅读</h2><div class="card" id="cont"></div></div>
+    <div class="pad sec"><h2>书架<a href="#" id="allDocs">全部 7 篇</a></h2><div class="card" id="shelf"></div></div>
+  </section>
+
+  <!-- 阅读器 -->
+  <section class="screen" id="s-read" hidden>
+    <header class="top"><button class="ib" id="back" aria-label="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><h1>Understanding Ownership in Rust</h1><button class="ib" id="aa" title="字号"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 18L9 6l5 12M6 14h6M15 18l3-7 3 7M16.2 16h3.6"/></svg></button></header>
+    <div class="prog"><i></i></div>
+    <article class="rd" id="rd"></article>
+  </section>
+
+  <!-- 复习 -->
+  <section class="screen" id="s-review" hidden>
+    <header class="top"><h1>复习 <span class="lbl" id="rvN"></span></h1><button class="ib" id="rvUndo" title="撤销"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg></button></header>
+    <div class="rv" id="rv"></div>
+  </section>
+
+  <!-- 我 -->
+  <section class="screen me" id="s-me" hidden>
+    <header class="top"><h1>我</h1><button class="ib" data-say="原型：打开设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button></header>
+    <div class="head"><svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="35" transform="rotate(-90 18 18)"/></svg><div><b>连续 9 天</b><span>今日 12 / 20 分钟 · 再读 8 分钟就达标</span></div></div>
+    <div class="pad sec"><div class="kv"><div><b>6,214</b><small>词</small><span>已知词 · 本周 +38</span></div><div><b>33</b><small>个</small><span>生词本 · 今天到期 14</span></div></div></div>
+    <div class="pad sec"><h2>本周阅读<a href="#" data-say="原型：打开统计页">统计</a></h2><div class="card" style="padding:12px 14px"><div class="week"><i class="ok" style="height:70%"></i><i class="ok" style="height:55%"></i><i style="height:30%"></i><i class="ok" style="height:90%"></i><i class="ok" style="height:60%"></i><i style="height:20%"></i><i class="ok" style="height:40%"></i></div><div class="lbl" style="margin-top:6px">蓝色 = 达到 20 分钟目标 · 本周 5 天</div></div></div>
+    <div class="pad sec"><div class="card menu">
+      <a href="#" data-say="原型：生词本列表"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg>生词本<span class="r">33 ›</span></a>
+      <a href="#" data-say="原型：Tibi 记忆（可编辑、删除）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 4a4 4 0 00-4 4c0 1 .3 1.8.8 2.5A4 4 0 007 18h2V4zM15 4a4 4 0 014 4c0 1-.3 1.8-.8 2.5A4 4 0 0117 18h-2V4z"/></svg>Tibi 记忆<span class="r">6 条 ›</span></a>
+      <a href="#" data-say="原型：任务（手机上只看进度与确认）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg>任务<span class="r">2 个等你确认 ›</span></a>
+      <a href="#" data-say="原型：与桌面端同步（局域网 / iCloud 文件夹）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 12a8 8 0 0114-5M20 12a8 8 0 01-14 5M18 3v4h-4M6 21v-4h4"/></svg>同步<span class="r">刚刚 ›</span></a>
+    </div></div>
+  </section>
+
+  <nav class="tabs" id="tabs">
+    <button class="on" data-t="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-6 8 6v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>首页</button>
+    <button data-t="read"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6c3-1 6-1 8 1 2-2 5-2 8-1v12c-3-1-6-1-8 1-2-2-5-2-8-1z"/><path d="M12 7v12"/></svg>阅读</button>
+    <button data-t="review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg>复习<span class="n">18</span></button>
+    <button data-t="me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-3.5 4-5 7-5s6 1.5 7 5"/></svg>我</button>
+  </nav>
+  <div class="rdbar" id="rdbar" hidden>
+    <button id="trTog" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h8M8 5v2c0 4-2 7-5 8M6 9c1 3 3 5 6 6M13 19l4-10 4 10M14.5 15h5"/></svg>译文</button>
+    <button id="glTog" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h10M4 14h16M4 20h12M15 5h5"/></svg>行间释义</button>
+    <button id="playTog"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg>朗读</button>
+    <button id="markDone" data-say="剩余 7 个生词已标为已知（可撤销）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>读完了</button>
+    <button class="tibi" id="rdTibi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>Tibi</button>
+  </div>
+  <button class="fab" id="fab" aria-label="问 Tibi"></button>
+
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet wc" id="wsheet"><div class="grab"></div><div class="sc" id="wbody"></div></div>
+  <div class="sheet lgs" id="lsheet"><div class="grab"></div><div class="sc">
+    <h2>标注说明</h2>
+    <div class="row"><span class="ex"><span class="w s0">upshot</span></span><span>生词：Tibi 猜你不认识，点开看释义</span></div>
+    <div class="row"><span class="ex"><span class="w s1">overhead</span></span><span>学习中：你标过的词，颜色越浅越接近掌握（见过 → 熟悉）</span></div>
+    <div class="row"><span class="ex"><span class="w s99">binding</span></span><span>待确认：可能不认识，点一下告诉 Tibi 认不认识</span></div>
+    <div class="row"><span class="ex"><span class="w sel">borrow</span></span><span>选中：正在看它的词卡</span></div>
+    <div class="row"><span class="ex">enforces</span><span>没有标注：已知词，或已忽略的专有名词、代码</span></div>
+    <p>掌握了的词不再标注。可以在"我 → 设置"里把着色改成"只显示生词"或"纯净阅读"。</p>
+  </div></div>
+  <div class="sheet chat" id="csheet"><div class="grab"></div><div class="sc"><div class="msgs" id="msgs"></div><div class="sug" id="sug"></div></div><div class="in"><input id="cin" placeholder="问 Tibi…"><button class="btn pri" id="csend" style="height:44px;padding:0 16px">发送</button></div></div>
+  <div class="toast" id="toast" hidden></div>
+</div>
+<div class="note">手机版原型 · 桌面版见 home.html</div>
+
+<script src="https://cdn.jsdelivr.net/npm/motion@11.11.17/dist/motion.js"></script>
+<script src="v2-fox.js"></script>
+<script src="v2-agents.js"></script>
+<script>
+const $ = s => document.querySelector(s), esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const M = window.Motion, REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const anim = (el, kf, o) => { if (!M || REDUCE || !el) return; try { M.animate(el, kf, o); } catch (e) {} };
+let tt; function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(tt); tt = setTimeout(() => el.hidden = true, 2200); }
+document.querySelectorAll('[data-say]').forEach(b => b.addEventListener('click', e => { e.preventDefault(); toast(b.dataset.say); }));
+$('#themeBtn').onclick = () => { const r = document.documentElement, dark = matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = (r.dataset.theme || (dark ? 'dark' : 'light')) === 'dark' ? 'light' : 'dark'; };
+
+/* ---------- 吉祥物 ---------- */
+const h = new Date().getHours(); $('#greet').textContent = (h < 5 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好') + '，想读点什么？';
+const fox = Fox.mount($('#fox'), { state: h >= 23 || h < 5 ? 'sleeping' : 'idle', size: 76, interactive: true });
+$('#fab').innerHTML = FOX_FACE;
+
+/* ---------- 标签页 ---------- */
+let tab = 'home';
+function show(t) {
+  tab = t; ['home', 'read', 'review', 'me'].forEach(k => $('#s-' + k).hidden = k !== t);
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  $('#rdbar').hidden = t !== 'read'; $('#tabs').hidden = t === 'read'; $('#fab').hidden = t === 'read' || t === 'review';
+  anim($('#s-' + t), { opacity: [0, 1], y: [6, 0] }, { duration: 0.25 });
+}
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => show(b.dataset.t));
+$('#back').onclick = () => show('home');
+document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
+
+/* ---------- 首页：输入 / 书架 ---------- */
+const DOCS = [
+  { g: 'tech', t: 'Understanding Ownership in Rust', p: 45, mins: 4, ratio: 7.2, lv: ['偏难', 'hard'], open: true },
+  { g: 'novel', t: 'Pride and Prejudice', p: 8, mins: 2, ratio: 2.6, lv: ['学习区', 'mid'] },
+  { g: 'news', t: 'Cities Turn to Sponge Design as Floods Intensify', p: 0, mins: 3, ratio: 9.8, lv: ['偏难', 'hard'] },
+  { g: 'tech', t: 'A Gentle Introduction to Async Rust', p: 0, mins: 9, ratio: 3.1, lv: ['学习区', 'mid'] },
+  { g: 'novel', t: 'A Scandal in Bohemia', p: 12, mins: 38, ratio: 4.4, lv: ['学习区', 'mid'] },
+];
+const GEN = { tech: '技术', news: '新闻', novel: '书 · 文学' }, INI = { tech: '{ }', news: 'N', novel: 'Aa' };
+const docRow = d => `<button class="doc" data-open="${d.open ? 1 : 0}" style="width:100%;text-align:left"><span class="ic ${d.g}">${INI[d.g]}</span><span class="b"><span class="t">${esc(d.t)}</span><span class="m"><span>${GEN[d.g]}</span><span class="lv ${d.lv[1]}">${d.lv[0]} · 生词率 ${d.ratio}%</span></span>${d.p ? `<span class="bar"><i style="width:${d.p}%"></i></span>` : `<span class="m">约 ${d.mins} 分钟</span>`}</span><span class="chev">›</span></button>`;
+$('#cont').innerHTML = DOCS.filter(d => d.p > 0).slice(0, 2).map(docRow).join('');
+$('#shelf').innerHTML = DOCS.map(docRow).join('');
+document.querySelectorAll('.doc').forEach(b => b.onclick = () => +b.dataset.open ? show('read') : toast('原型里只有第一篇可以打开'));
+$('#allDocs').onclick = e => { e.preventDefault(); toast('原型：书架全部文章（按类型筛选）'); };
+$('#askGo').onclick = () => { const v = $('#askIn').value.trim(); if (!v) return; $('#askIn').value = ''; if (/^https?:\/\//i.test(v)) { fox.set('reading'); toast('Tibi 正在导入…完成后会出现在书架'); setTimeout(() => { fox.pulse('happy', 1800); toast('导入好了：' + v.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]); }, 2200); } else openChat(v); };
+$('#askIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('#askGo').click(); });
+$('#askIn').addEventListener('focus', () => fox.set('listening')); $('#askIn').addEventListener('blur', () => fox.set('idle'));
+document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => openChat(b.dataset.q));
+
+/* ---------- 阅读器 ---------- */
+const TERMS = { distinctive: [3, '独特的'], upshot: [0, '最终结果'], overhead: [2, '开销'], reclaimed: [0, '回收'], deterministically: [0, '确定性地'], binding: [99, '绑定'], enforces: [99, '强制执行'], verifies: [3, '验证'], outlives: [0, '比…存在更久'], notoriously: [0, '出了名地'] };
+const DICT = { distinctive: ['/dɪˈstɪŋktɪv/', 'adj. 独特的，与众不同的', '这里指所有权是 Rust 区别于其他系统语言的标志性特征。'], upshot: ['/ˈʌpʃɒt/', 'n. 最终结果', '"The upshot is…" 是口语里常见的总结句式：说了一堆之后，结论是…'], overhead: ['/ˈəʊvəhed/', 'n. 开销', '技术语境里指为了完成某事额外付出的时间或资源，这里指垃圾回收带来的运行时代价。'], reclaimed: ['/rɪˈkleɪm/', 'v. 回收；收回', '内存被"收回"给系统。'], deterministically: ['/dɪˌtɜːmɪˈnɪstɪkli/', 'adv. 确定性地', '每次运行都在同一时刻发生，不像垃圾回收那样时机不定。'], verifies: ['/ˈverɪfaɪ/', 'v. 核实，验证', '借用检查器"验证"引用不会比它指向的值活得更久。'], outlives: ['/ˌaʊtˈlɪv/', 'v. 比…存在更久', '引用的生命期不能超过被引用的值。'], notoriously: ['/nəʊˈtɔːriəsli/', 'adv. 出了名地（贬义）', '悬垂指针在 C/C++ 里是"出了名"难查的问题。'], binding: ['/ˈbaɪndɪŋ/', 'n. 绑定', '变量名和值之间的绑定关系。'], enforces: ['/ɪnˈfɔːs/', 'v. 强制执行', '编译器"强制执行"一组规则。'] };
+const PARAS = [
+  ['Ownership is the feature that makes Rust distinctive among systems languages. Instead of relying on a garbage collector, the compiler enforces a small set of rules at compile time, and a program that violates them simply won\'t compile. The upshot is memory safety without the runtime overhead that usually comes with it.', '所有权是 Rust 区别于其他系统语言的特性。它不依赖垃圾回收器，而是由编译器在编译期强制执行一小组规则，违反规则的程序根本无法通过编译。结果是：既有内存安全，又没有通常随之而来的运行时开销。'],
+  ['Each value has exactly one owner. When the owner goes out of scope, the value is dropped and its memory is reclaimed deterministically. Passing a value to a function moves it, which means the original binding can no longer be used.', '每个值恰好有一个所有者。所有者离开作用域时，值被丢弃，内存被确定性地回收。把值传给函数会移动它，原来的绑定就不能再用了。'],
+  ['If you only need to read the data, you can borrow it instead. The borrow checker verifies that no reference outlives the value it points to, which rules out dangling pointers that are notoriously hard to track down in C and C++.', '如果只需要读数据，可以借用它。借用检查器会验证没有任何引用比它指向的值活得更久，从而排除了在 C 和 C++ 中出了名难查的悬垂指针。'],
+];
+const STAGE = ['生词', '见过', '眼熟', '认得', '熟悉', '掌握'];
+function renderRd() {
+  const cnt = s => Object.values(TERMS).filter(t => s(t[0])).length;
+  $('#rd').innerHTML = `<div class="meta"><span>技术 · 约 4 分钟 · 生词率 7.2% · 偏难</span><button class="lg" id="lgBtn" aria-label="标注说明"><i style="background:var(--hl-new)"></i>生词 ${cnt(x => x === 0)}<i style="background:var(--hl-1)"></i>学习中 ${cnt(x => x >= 1 && x <= 4)}<i style="background:none;box-shadow:inset 0 0 0 1.5px var(--ink-3)"></i>待确认 ${cnt(x => x === 99)}</button></div><h1>Understanding Ownership in Rust</h1>` + PARAS.map(([en, zh]) => `<p>${en.replace(/[A-Za-z']+/g, w => { const k = w.toLowerCase(), t = TERMS[k]; return t ? `<span class="w s${t[0]}" data-w="${k}" data-g="${t[1]}">${w}</span>` : w; })}</p><div class="tr" hidden>${zh}</div>`).join('');
+  document.querySelectorAll('#rd .w').forEach(w => w.onclick = () => openWord(w));
+  $('#lgBtn').onclick = () => openSheet('#lsheet');
+}
+renderRd();
+$('#trTog').onclick = () => { const on = $('#trTog').getAttribute('aria-pressed') !== 'true'; $('#trTog').setAttribute('aria-pressed', on); document.querySelectorAll('.tr').forEach(t => t.hidden = !on); };
+$('#glTog').onclick = () => { const on = $('#glTog').getAttribute('aria-pressed') !== 'true'; $('#glTog').setAttribute('aria-pressed', on); $('#s-read').classList.toggle('gl', on); };
+$('#playTog').onclick = () => toast('原型：逐句朗读并高亮（系统语音 / Kokoro）');
+$('#aa').onclick = () => toast('原型：字号 / 行距 / 字体');
+$('#rdTibi').onclick = () => openChat('', '正在读《Understanding Ownership in Rust》');
+let selW = null;
+function openWord(el) {
+  if (selW) selW.classList.remove('sel'); selW = el; el.classList.add('sel');
+  const k = el.dataset.w, [s] = TERMS[k], d = DICT[k] || ['', '', ''];
+  $('#wbody').innerHTML = `<div class="h"><b>${esc(k)}</b><span class="ipa">${d[0]}</span><button class="say" data-say="播放发音"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6"/></svg></button></div>
+    ${s === 99 ? '<div class="lbl" style="margin-top:4px">Tibi 猜你认识它，点一下熟练度确认</div>' : ''}
+    <div class="ai"><span class="tag">✦ 在这句里</span>${esc(d[2])}</div><div class="dict">${esc(d[1])}</div>
+    <div class="stages">${STAGE.map((n, i) => `<button data-s="${i}" class="${s === i ? 'on' : ''}${s !== 99 && s >= i ? ' fill' : ''}"><i></i>${n}</button>`).join('')}</div>
+    <div class="row"><button class="btn" data-say="已忽略：以后不再标注">忽略</button><button class="btn pri" data-say="已加入生词本，会进入复习">加入生词本</button><button class="btn" id="askW">问 Tibi</button></div>`;
+  $('#wbody').querySelectorAll('[data-say]').forEach(b => b.onclick = () => toast(b.dataset.say));
+  $('#wbody').querySelectorAll('[data-s]').forEach(b => b.onclick = () => { TERMS[k][0] = +b.dataset.s; renderRd(); closeSheets(); toast(`${k}：${STAGE[+b.dataset.s]}`); });
+  $('#askW').onclick = () => { closeSheets(); setTimeout(() => openChat(`${k} 在这里为什么是这个意思？`), 200); };
+  openSheet('#wsheet');
+}
+function openSheet(sel) { $('#scrim').classList.add('on'); $(sel).classList.add('on'); }
+function closeSheets() { $('#scrim').classList.remove('on'); document.querySelectorAll('.sheet').forEach(s => s.classList.remove('on')); if (selW) { selW.classList.remove('sel'); selW = null; } }
+$('#scrim').onclick = closeSheets;
+
+/* ---------- Tibi 对话（底部抽屉） ---------- */
+function openChat(q, ctx) {
+  const m = $('#msgs');
+  if (!m.children.length) m.innerHTML = `<div class="a">我是 Tibi。${ctx ? ctx + '，' : ''}有什么想问的？</div>`;
+  $('#sug').innerHTML = ['讲讲最难的那句', '出 3 道理解题', '我最近的薄弱点'].map(s => `<button class="chip" data-s="${s}">${s}</button>`).join('');
+  $('#sug').querySelectorAll('[data-s]').forEach(b => b.onclick = () => send(b.dataset.s));
+  openSheet('#csheet'); fox.set('thinking');
+  if (q) send(q);
+}
+function send(q) {
+  const m = $('#msgs'); m.insertAdjacentHTML('beforeend', `<div class="u">${esc(q)}</div>`);
+  const a = document.createElement('div'); a.className = 'a'; a.textContent = '…'; m.appendChild(a); m.parentElement.scrollTop = 9999;
+  setTimeout(() => { a.innerHTML = /推荐|找/.test(q) ? '按你的水平挑了一篇：<b>A Gentle Introduction to Async Rust</b>，生词率 3.1%，约 9 分钟，复现 6 个你正在学的词。<br><span class="lbl">Tibi · 找文章 · 查看过程</span>' : /故事/.test(q) ? '用了你这周的 6 个生词写了一段，长按可以保存到书架。<br><span class="lbl">Tibi · 查看过程</span>' : '（原型）正式版会结合这篇文章、你的水平和记忆来回答。<br><span class="lbl">Tibi · 讲解 · 查看过程</span>'; m.parentElement.scrollTop = 9999; fox.pulse('happy', 1500); }, 900);
+}
+$('#fab').onclick = () => openChat('');
+$('#csend').onclick = () => { const v = $('#cin').value.trim(); if (!v) return; $('#cin').value = ''; send(v); };
+$('#cin').addEventListener('keydown', e => { if (e.key === 'Enter') $('#csend').click(); });
+
+/* ---------- 复习 ---------- */
+const Q = [
+  { w: 'affect', ipa: '/əˈfekt/', zh: 'v. 影响', s: 1, sent: 'Delays affect fewer than one in ten journeys.', tr: '延误影响的行程不到十分之一。', note: '易与名词 effect（效果）混淆。' },
+  { w: 'notoriously', ipa: '/nəʊˈtɔːriəsli/', zh: 'adv. 出了名地（贬义）', s: 0, sent: '…dangling pointers that are notoriously hard to track down in C and C++.', tr: '…在 C 和 C++ 中出了名难查的悬垂指针。' },
+  { w: 'overhead', ipa: '/ˈəʊvəhed/', zh: 'n. 开销', s: 2, sent: 'The upshot is memory safety without the runtime overhead.', tr: '结果是内存安全且没有运行时开销。' },
+  { w: 'habitat', ipa: '/ˈhæbɪtæt/', zh: 'n. 栖息地', s: 2, sent: '…from cooler streets to new habitats for wildlife.', tr: '…从更凉爽的街道到野生动物的新栖息地。' },
+];
+let qi = 0, shown = false, res = [];
+const IV = ['10 分钟后', '3 天', '5 天', '12 天'];
+function renderRv() {
+  $('#rvN').textContent = `${Math.min(qi + 1, Q.length)} / ${Q.length}`;
+  const segs = `<div class="segs">${Q.map((_, i) => `<i class="${res[i] ? 'r' + res[i] : i === qi ? 'cur' : ''}"></i>`).join('')}</div>`;
+  if (qi >= Q.length) {
+    $('#rv').innerHTML = segs + `<div class="done"><div class="fx" id="dfx"></div><h3>今天的复习完成了</h3><p>连续学习第 10 天。忘了的词已经补练过。</p><div class="k3"><div><b>${Q.length}</b><span>复习了</span></div><div><b>${Math.round(res.filter(r => r >= 3).length / Q.length * 100)}%</b><span>记得或轻松</span></div><div><b>1:12</b><span>用时</span></div></div><button class="btn pri full" data-go="home">读一篇新文章</button></div>`;
+    Fox.mount($('#dfx'), { state: 'happy', size: 150, interactive: true }); $('#rv [data-go]').onclick = () => show('home'); return;
+  }
+  const c = Q[qi];
+  $('#rv').innerHTML = segs + `<div class="card rcard"><div class="k"><span>识别</span><span>·</span><span>熟练度 <span class="stage s${c.s}">${STAGE[c.s]}</span></span></div>
+    <div class="q">这个词在句子里是什么意思？</div><div class="sent">${esc(c.sent).replace(new RegExp('\\\\b' + c.w + 's?\\\\b', 'i'), m => `<mark>${m}</mark>`)}</div>
+    ${shown ? `<div class="ans"><b>${c.w}</b><span class="ipa">${c.ipa}</span><p>${esc(c.zh)}</p><p class="zh">${esc(c.tr)}</p>${c.note ? `<p class="zh">✦ ${esc(c.note)}</p>` : ''}</div>` : ''}</div>
+    ${shown ? `<div class="rate">${['忘了', '模糊', '记得', '轻松'].map((n, i) => `<button class="r${i + 1}${i === 2 ? ' sug' : ''}" data-r="${i + 1}">${n}<small>${IV[i]}</small></button>`).join('')}</div>` : `<button class="btn pri full" id="showA" style="margin-top:16px;height:52px">显示答案</button>`}`;
+  if (!shown) $('#showA').onclick = () => { shown = true; renderRv(); };
+  $('#rv').querySelectorAll('[data-r]').forEach(b => b.onclick = () => { res[qi] = +b.dataset.r; qi++; shown = false; renderRv(); anim($('#rv .rcard'), { x: [40, 0], opacity: [0, 1] }, { duration: 0.3 }); });
+}
+$('#rvUndo').onclick = () => { if (qi > 0) { qi--; res[qi] = 0; shown = false; renderRv(); toast('已撤销上一张'); } };
+renderRv();
+</script>

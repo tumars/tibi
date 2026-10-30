@@ -1,0 +1,585 @@
+<title>Tibi 生词本</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Charis+SIL:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono&display=swap">
+<link rel="stylesheet" href="v2.css">
+<style>
+/* 生词本专属样式（复审：智能视图、可选列、原句行、词族、难词、键盘） */
+.wb { max-width: 1080px; margin: 0 auto; padding: 24px 36px 110px; display: flex; flex-direction: column; gap: 18px; }
+.wbh { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.wbh h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+.wbh .sum { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.wbh .sp { flex: 1; }
+.wbh .acts { display: flex; gap: 8px; position: relative; }
+.menu { position: absolute; right: 0; top: 40px; z-index: 20; min-width: 240px; padding: 6px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 12px 32px rgba(0,0,0,.1); display: flex; flex-direction: column; }
+.menu button, .menu label { text-align: left; padding: 9px 10px; border-radius: 10px; font-size: 13px; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.menu button small { color: var(--ink-3); font-size: 11.5px; } .menu button:hover, .menu label:hover { background: var(--hover); }
+.menu label { flex-direction: row; align-items: center; gap: 10px; }
+.menu label input { accent-color: var(--accent); }
+.menu .hd { font-size: 11.5px; color: var(--ink-3); padding: 6px 10px 2px; }
+.addpop { position: absolute; right: 0; top: 40px; z-index: 20; width: 340px; padding: 14px; border-radius: 16px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 12px 32px rgba(0,0,0,.1); display: flex; flex-direction: column; gap: 10px; }
+.addpop textarea { width: 100%; min-height: 72px; border: 0; border-radius: 12px; background: var(--sunken); padding: 10px 12px; font: inherit; font-size: 13.5px; resize: vertical; outline: 0; }
+.addpop textarea:focus { box-shadow: inset 0 0 0 1.5px var(--accent); background: var(--surface); }
+.addpop .r { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--ink-3); } .addpop .r .sp { flex: 1; }
+.dist { display: flex; flex-direction: column; gap: 10px; }
+.distbar { display: flex; gap: 3px; height: 10px; }
+.distbar button { height: 100%; border-radius: 4px; min-width: 6px; transition: opacity .2s, transform .2s; }
+.distbar button:hover { transform: scaleY(1.35); }
+.distbar.filtering button:not(.on) { opacity: .3; }
+.distlab { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.distlab button { display: inline-flex; align-items: center; gap: 6px; }
+.distlab i { width: 9px; height: 9px; border-radius: 3px; } .distlab b { font-weight: 500; color: var(--ink); }
+.c0 { background: var(--hl-new); } .c1 { background: var(--hl-1); } .c2 { background: var(--hl-2); } .c3 { background: var(--hl-3); } .c4 { background: color-mix(in srgb, var(--hl-4), var(--ink-3) 25%); } .c5 { background: var(--ink); }
+.frow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.field { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 999px; background: var(--sunken); color: var(--ink-3); width: 240px; }
+.field input { border: 0; outline: none; background: transparent; font: inherit; font-size: 13px; color: var(--ink); flex: 1; min-width: 0; }
+.field:focus-within { box-shadow: inset 0 0 0 1.5px var(--accent); background: var(--surface); }
+.sel { height: 34px; border: 0; border-radius: 999px; padding: 0 28px 0 12px; background: var(--sunken); font: inherit; font-size: 12.5px; color: var(--ink-2); cursor: pointer; max-width: 210px; text-overflow: ellipsis; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; background-size: 13px; }
+.frow .sp { flex: 1; }
+.tgl { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line); }
+.tgl svg { width: 14px; height: 14px; } .tgl:hover { background: var(--hover); color: var(--ink); } .tgl.on { background: var(--ink); color: var(--surface); box-shadow: none; }
+.tagbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: -6px; }
+.tagbar .lbl { font-size: 12px; color: var(--ink-3); margin-right: 2px; }
+.tagbar .clear { font-size: 12px; color: var(--ink-3); background: none; text-decoration: underline; text-underline-offset: 3px; margin-left: 4px; }
+.viewtip { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--accent-wash); font-size: 13px; color: var(--ink-2); }
+.viewtip b { color: var(--ink); font-weight: 500; } .viewtip .sp { flex: 1; } .viewtip .btn.sm { height: 28px; }
+.wl { display: flex; flex-direction: column; }
+.wh, .wr { display: grid; gap: 14px; align-items: center; padding: 0 12px; }
+.wh { font-size: 11.5px; color: var(--ink-3); padding-bottom: 8px; position: sticky; top: 0; background: var(--surface); z-index: 2; }
+.wh span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wr { min-height: 50px; border-radius: 12px; cursor: pointer; transition: background .12s; position: relative; outline: none; }
+.wr + .wr::before { content: ""; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: var(--line); }
+.wr:hover::before, .wr:hover + .wr::before, .wr.cur::before, .wr.cur + .wr::before, .wr.kb::before, .wr.kb + .wr::before { opacity: 0; }
+.wr:hover { background: var(--hover); }
+.wr.cur { background: var(--accent-wash); }
+.wr.kb { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.wr .w { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.wr .w b { font-family: var(--f-read); font-size: 16px; font-weight: 700; }
+.wr .w .ipa { font-family: var(--f-read); font-style: italic; font-size: 12px; color: var(--ink-3); margin-left: 7px; }
+.wr .w .ph { font-size: 11px; color: var(--accent); margin-left: 6px; }
+.wr .w .forms { font-size: 11px; color: var(--ink-3); margin-left: 6px; }
+.wr .zh { font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.wr .zh .cx { display: block; font-family: var(--f-read); font-size: 12.5px; color: var(--ink-3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wr .zh .cx mark { background: none; color: var(--ink-2); font-weight: 700; }
+.wl.ctx-on .wr { min-height: 60px; }
+.wr .c, .wr .enc, .wr .due { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wr .due.dlate { color: var(--hard); } .wr .due.dtoday { color: var(--ink); font-weight: 500; }
+.wr .stage { justify-self: start; }
+.wr .stars { color: var(--warm); letter-spacing: -1px; font-size: 11px; }
+.wr .exam { display: flex; gap: 3px; } .wr .exam i { font-style: normal; font-size: 10px; padding: 1px 5px; border-radius: 4px; background: var(--sunken); color: var(--ink-3); }
+.wr .tags .tagc { height: 18px; font-size: 10.5px; }
+.wr .ret { display: flex; align-items: center; gap: 6px; } .wr .ret i { width: 36px; height: 4px; border-radius: 99px; background: var(--line); overflow: hidden; display: block; } .wr .ret i b { display: block; height: 100%; background: var(--accent); }
+.wr .ra { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; gap: 2px; opacity: 0; background: var(--surface); box-shadow: 0 0 0 1px var(--line); border-radius: 10px; padding: 2px; }
+.wr:hover .ra, .wr.menu-open .ra { opacity: 1; }
+.wr .ra button { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--ink-3); }
+.wr .ra button:hover { background: var(--hover); color: var(--ink); } .wr .ra svg { width: 14px; height: 14px; }
+.wr .leech { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--hard); margin-left: 6px; }
+.ck { width: 17px; height: 17px; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--line-2); display: grid; place-items: center; color: var(--surface); font-size: 10px; flex: none; transition: background .15s; }
+.ck.on { background: var(--ink); box-shadow: none; }
+.wr .ckc .ck { opacity: 0; } .wr:hover .ckc .ck, .wr.kb .ckc .ck, .wr .ckc .ck.on, body.bulk-on .wr .ckc .ck { opacity: 1; }
+.nores { padding: 48px 14px; color: var(--ink-3); font-size: 13.5px; text-align: center; }
+.bulk { position: sticky; bottom: 20px; margin-top: 18px; align-self: center; display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 18px; border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 13px; z-index: 5; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+.bulk span { margin-right: 8px; }
+.bulk select { border: 0; border-radius: 999px; height: 32px; padding: 0 10px; font: inherit; font-size: 12.5px; background: color-mix(in srgb, var(--surface), transparent 86%); color: var(--surface); }
+.bulk select option { color: #222; }
+.bulk button { height: 32px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; color: var(--surface); opacity: .88; }
+.bulk button:hover { opacity: 1; background: color-mix(in srgb, var(--surface), transparent 88%); }
+body.bulk-on .toast { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+/* 行菜单 */
+.rmenu { position: fixed; z-index: 60; min-width: 200px; padding: 6px; border-radius: 12px; background: var(--surface); box-shadow: 0 0 0 1px var(--line), 0 12px 32px rgba(0,0,0,.12); display: none; }
+.rmenu.on { display: block; }
+.rmenu button { display: flex; align-items: center; gap: 9px; width: 100%; height: 32px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: var(--ink); text-align: left; }
+.rmenu button svg { width: 14px; height: 14px; color: var(--ink-3); }
+.rmenu button:hover { background: var(--hover); } .rmenu .sep { height: 1px; background: var(--line); margin: 5px 4px; }
+.rmenu button .k { margin-left: auto; font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-3); }
+/* 左栏视图 */
+.views a { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 10px; text-decoration: none; font-size: 13px; color: var(--ink-2); }
+.views a:hover { background: var(--hover); color: var(--ink); }
+.views a.cur { background: var(--surface); color: var(--ink); font-weight: 500; box-shadow: inset 0 0 0 1px var(--line); }
+.views a .n { margin-left: auto; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.views a .n.hot { color: var(--hard); font-weight: 500; }
+.views a svg { width: 14px; height: 14px; color: var(--ink-3); flex: none; }
+.views .vh { font-size: 11.5px; color: var(--ink-3); padding: 12px 12px 4px; }
+/* 详情 */
+.ctx { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 14px; background: var(--sunken); position: relative; }
+.ctx.best { box-shadow: inset 0 0 0 1.5px var(--accent); background: var(--accent-wash); }
+.ctx .best-tag { position: absolute; right: 12px; top: -9px; font-size: 10.5px; padding: 2px 8px; border-radius: 99px; background: var(--accent); color: #fff; }
+.ctxs { display: flex; flex-direction: column; gap: 10px; }
+.ctx .from { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--ink-3); }
+.ctx .from a { color: var(--ink-2); text-decoration: none; } .ctx .from a:hover { color: var(--accent); }
+.ctx .why { font-size: 11.5px; color: var(--ink-3); }
+.formrow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.formrow .f { font-family: var(--f-read); font-size: 14px; padding: 2px 9px; border-radius: 8px; background: var(--sunken); }
+.formrow .f.main { background: var(--ink); color: var(--surface); }
+.tl { display: flex; flex-direction: column; position: relative; padding-left: 16px; }
+.tl::before { content: ""; position: absolute; left: 4px; top: 8px; bottom: 8px; width: 1px; background: var(--line-2); }
+.tl div { position: relative; display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--ink-2); padding: 4px 0; }
+.tl div::before { content: ""; position: absolute; left: -15px; top: 9px; width: 7px; height: 7px; border-radius: 50%; background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+.tl div.now::before { background: var(--accent); box-shadow: none; }
+.tl span:last-child { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.revs { display: flex; gap: 6px; flex-wrap: wrap; }
+.rev { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; color: var(--ink-3); }
+.rev i { font-style: normal; font-size: 11.5px; padding: 3px 9px; border-radius: 999px; background: var(--sunken); color: var(--ink-2); }
+.rev i.r1 { box-shadow: inset 0 0 0 1px var(--hard); color: var(--hard); background: transparent; }
+.rev i.r4 { background: var(--ink); color: var(--surface); }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.kpis div { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: var(--sunken); }
+.kpis b { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.kpis span { font-size: 11.5px; color: var(--ink-3); }
+.leechbox { padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--hard), transparent 92%); display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.leechbox b { color: var(--hard); font-weight: 600; } .leechbox .row { gap: 6px; flex-wrap: wrap; }
+.dmeta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--ink-3); }
+.dmeta .stars { color: var(--warm); }
+</style>
+
+<div class="app" id="app">
+  <aside class="side" id="side">
+    <div class="brand"><span class="logo"><img class="mark-img" src="img/logo.svg" alt="Tibi"><span class="hide-c">Tibi</span></span><button class="ibtn hide-c cbtn" id="collapseBtn" title="折叠 / 展开侧栏（⌘\）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button></div>
+    <button class="newbtn search" title="搜索文章、单词与设置（⌘K）"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><span class="hide-c">搜索</span><span class="k hide-c">⌘K</span></button>
+    <nav class="nav">
+      <a href="#" data-link="home" title="首页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 11l8-6 8 6v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg><span class="hide-c">首页</span></a>
+      <a href="#" data-link="library" title="书架"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.8-1 3 15.5-3.8 1z"/></svg><span class="hide-c">书架</span><span class="n hide-c">8</span></a>
+      <a href="#" class="cur" title="生词本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="hide-c">生词本</span><span class="n hide-c" id="navWords">33</span></a>
+      <a href="#" data-link="review" title="复习"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg><span class="hide-c">复习</span><span class="n badge hide-c">18</span></a>
+      <a href="#" data-link="stats" title="统计"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span class="hide-c">统计</span></a>
+      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">3</span></a>
+    </nav>
+    <div class="sideh hide-c" id="sideH">最近</div>
+    <div class="recent hide-c" id="recent"></div>
+    <div class="sidefoot">
+      <div class="streak" title="连续 9 天 · 今日 12 / 20 分钟">
+        <svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle id="ringArc" cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="87.96" transform="rotate(-90 18 18)"/></svg>
+        <div class="hide-c"><div class="t">连续 9 天</div><div class="s">今日 12 / 20 分钟</div></div>
+      </div>
+      <div class="user"><span class="av">你</span><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
+    </div>
+  </aside>
+
+  <section class="main">
+    <header class="top">
+      <button class="ibtn" id="menuBtn" title="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+      <span class="crumb"><b>生词本</b></span>
+      <span class="sp"></span>
+      <button class="pill" id="themeBtn" title="切换深浅色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button>
+      <button class="pill" id="lexiBtn"><svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg><span>Tibi</span></button>
+    </header>
+    <div class="scroll" id="scroll">
+      <main class="wb">
+        <section class="wbh">
+          <h1 id="vtitle">全部</h1><span class="sum" id="summary"></span><span class="sp"></span>
+          <div class="acts">
+            <button class="btn" id="addBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>添加</button>
+            <button class="btn" id="ioBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>导入 / 导出</button>
+            <a class="btn pri" id="reviewBtn" data-link="review" href="#">开始复习</a>
+            <div class="addpop" id="addPop" hidden>
+              <div style="font-size:13px;font-weight:500">添加到生词本</div>
+              <textarea id="addIn" placeholder="一个词，或粘贴一列（每行一个，也可以 词,释义）&#10;例如：&#10;ubiquitous&#10;tenet, n. 信条"></textarea>
+              <div class="r"><span>没有原句的词先用词典例句做复习卡，读到时再换成你的原句</span></div>
+              <div class="r"><span class="sp"></span><button class="btn sm" id="addCancel">取消</button><button class="btn sm pri" id="addOk">加入</button></div>
+            </div>
+            <div class="menu" id="ioMenu" hidden>
+              <div class="hd">导入</div>
+              <button data-x="imp-csv">CSV / 纯文本<small>每行一个词，可带释义；会自动查词典补音标和释义</small></button>
+              <button data-x="imp-anki">Anki 卡组（.apkg）<small>保留复习记录，熟练度按间隔换算</small></button>
+              <button data-x="imp-known">已知词表<small>把一份你已经会的词直接标为"掌握"，不进复习</small></button>
+              <div class="hd">导出</div>
+              <button data-x="csv">CSV 表格<small>单词、释义、熟练度、原句，可用 Excel 打开</small></button>
+              <button data-x="anki">Anki 卡组（.apkg）<small>正面是原句挖空，背面是释义与发音</small></button>
+              <button data-x="txt">纯文本单词表<small>每行一个词</small></button>
+            </div>
+          </div>
+        </section>
+        <section class="dist" aria-label="熟练度分布"><div class="distbar" id="distbar"></div><div class="distlab" id="distlab"></div></section>
+        <section class="viewtip" id="viewtip" hidden></section>
+        <section class="frow">
+          <label class="field" for="q"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><input id="q" placeholder="搜索单词、释义或原句（/）" autocomplete="off"></label>
+          <div class="modes" id="kindSeg"><i class="thumb"></i><button data-k="all" class="on">全部</button><button data-k="word">单词</button><button data-k="phrase">短语</button></div>
+          <select class="sel" id="srcSel" aria-label="来源文章"></select>
+          <span class="sp"></span>
+          <button class="tgl" id="ctxTgl" title="在每行下面显示一句原句"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>原句</button>
+          <div style="position:relative"><button class="tgl" id="colBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14M15 5v14"/></svg>列</button><div class="menu" id="colMenu" hidden></div></div>
+          <select class="sel" id="sortSel" aria-label="排序"><option value="due">按下次复习</option><option value="added">按最近加入</option><option value="enc">按遇见次数</option><option value="alpha">按字母</option><option value="stage">按熟练度</option><option value="freq">按词频</option></select>
+        </section>
+        <section class="tagbar" id="tagbar" aria-label="按标签筛选"></section>
+        <section class="wl" id="wl" aria-label="生词列表">
+          <div class="wh" id="wh"></div>
+          <div id="rows"></div>
+          <div class="bulk" id="bulk" hidden>
+            <span id="bulkN"></span>
+            <select id="bulkStage" aria-label="批量设置熟练度"><option value="">设为熟练度…</option><option value="0">生词</option><option value="1">见过</option><option value="2">眼熟</option><option value="3">认得</option><option value="4">熟悉</option><option value="5">掌握</option></select>
+            <button id="bulkTag">加标签</button><button id="bulkIgnore">忽略</button><button id="bulkExport">导出所选</button><button id="bulkRemove">移出生词本</button><button id="bulkClear">取消</button>
+          </div>
+        </section>
+      </main>
+    </div>
+  </section>
+
+  <aside class="drawer" id="drawer" aria-label="词条详情">
+    <header class="dhead">
+      <div class="dtabs" id="dtabs"><i class="thumb"></i><button class="on" data-tab="detail">详情</button><button data-tab="asst">✦ Tibi</button></div>
+      <span class="sp"></span>
+      <button class="ibtn" id="prevW" title="上一个（K）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <button class="ibtn" id="nextW" title="下一个（J）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      <button class="ibtn" id="closeDrawer" title="关闭（Esc）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <div class="scroll" id="dscroll"><div class="dbody"><div id="pane-detail"></div><div id="pane-asst" hidden></div></div></div>
+    <div class="dfoot" id="dfoot" hidden><div class="dcomp"><textarea id="askInput" placeholder="问 Tibi…" aria-label="向助手提问"></textarea><button class="send" id="askSend" aria-label="发送"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></div>
+  </aside>
+</div>
+<div class="rmenu" id="rmenu" role="menu"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/motion@11.11.17/dist/motion.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/overlayscrollbars/2.10.1/browser/overlayscrollbars.browser.es6.min.js"></script>
+<script src="v2-shell.js"></script>
+<script>
+/* ---------- 示例数据 ---------- */
+const STAGES = [['生词','完全不认识'],['见过','有印象，但想不起意思'],['眼熟','结合上下文能猜出大概意思'],['认得','读到时能理解，自己还不会用'],['熟悉','基本掌握，偶尔还会犹豫'],['掌握','已经会了，不再标注']];
+const DOCS = {
+  tech: { t: 'Understanding Ownership in Rust', g: '技术', open: true, tags: ['Rust', '内存管理'] }, news: { t: 'Cities Turn to Sponge Design as Floods Intensify', g: '新闻', open: true, tags: ['城市', '气候'] },
+  novel: { t: 'Pride and Prejudice', g: '书 · 文学', open: true, tags: ['经典小说'] }, async: { t: 'A Gentle Introduction to Async Rust', g: '技术', tags: ['Rust', '异步'] },
+  holmes: { t: 'A Scandal in Bohemia', g: '文学', tags: ['福尔摩斯', '经典小说'] }, trains: { t: 'The Quiet Return of Night Trains in Europe', g: '新闻', tags: ['旅行'] },
+  dict: { t: '词典例句', g: '词典', tags: [] },
+};
+/* 字段：词, 类型, 音标, 释义, 熟练度, 遇见, 加入(天前), 下次复习(天), 原句[[来源, 句子]], 英英, {forms 词形, star 词频星级 1–5, exam 考试标签, lapses 忘记次数, seen 上次遇见(天前)} */
+const RAW = [
+  ['overhead','word','/ˈəʊvəhed/','n. 开销；经常性开支',2,6,12,0,[['tech','The upshot is memory safety without the runtime overhead that usually comes with it.'],['async','Async tasks avoid the overhead of spawning a thread for every connection.']],'the extra cost in time or resources needed to do something',{star:3,exam:['toefl'],seen:2}],
+  ['upshot','word','/ˈʌpʃɒt/','n. 最终结果',0,2,2,0,[['tech','The upshot is memory safety without the runtime overhead that usually comes with it.']],'the final or eventual outcome',{star:2,exam:['gre'],seen:2}],
+  ['distinctive','word','/dɪˈstɪŋktɪv/','adj. 独特的，与众不同的',3,5,20,3,[['tech','Ownership is the feature that makes Rust distinctive among systems languages.'],['trains','The distinctive hum of a sleeper carriage is back on several routes.']],'having a quality that makes it easy to recognize',{star:4,exam:['cet6','ielts'],seen:9}],
+  ['deterministically','word','/dɪˌtɜːmɪˈnɪstɪkli/','adv. 确定性地',0,2,2,0,[['tech','When the owner goes out of scope, the value is dropped and its memory is reclaimed deterministically.']],'in a way fully determined by known rules',{forms:['deterministic'],star:1,exam:[],seen:2}],
+  ['reclaim','word','/rɪˈkleɪm/','v. 回收；收回',0,3,2,0,[['tech','…the value is dropped and its memory is reclaimed deterministically.']],'to take back something that was lost or used',{forms:['reclaimed'],star:3,exam:['cet6'],seen:2}],
+  ['verify','word','/ˈverɪfaɪ/','v. 核实，验证',4,9,40,9,[['tech','…the borrow checker verifies that no reference outlives the value it points to.']],'to check that something is true',{forms:['verifies','verified','verification'],star:4,exam:['cet4','ielts'],seen:5}],
+  ['outlive','word','/ˌaʊtˈlɪv/','v. 比…存在更久',0,1,2,1,[['tech','…the borrow checker verifies that no reference outlives the value it points to.']],'to live or last longer than',{forms:['outlives'],star:2,exam:[],seen:2}],
+  ['notoriously','word','/nəʊˈtɔːriəsli/','adv. 出了名地（贬义）',0,4,15,-1,[['tech','…dangling pointers, that are notoriously hard to track down in C and C++.'],['holmes','The King was notoriously indiscreet in his youth.']],'in a way that is famous for something bad',{forms:['notorious'],star:3,exam:['toefl','gre'],lapses:2,seen:3}],
+  ['intuitive','word','/ɪnˈtjuːɪtɪv/','adj. 直观的；易懂的',1,4,18,0,[['tech','…the constraints become intuitive after a few weeks of practice.']],'easy to understand without thinking',{star:3,exam:['cet6'],lapses:3,seen:12}],
+  ['constraint','word','/kənˈstreɪnt/','n. 限制，约束',3,7,30,5,[['tech','…the constraints become intuitive after a few weeks of practice.']],'something that limits what you can do',{forms:['constraints'],star:4,exam:['cet6','toefl'],seen:12}],
+  ['concurrency','word','/kənˈkʌrənsi/','n. 并发',1,3,6,1,[['async','Concurrency is about dealing with many things at once, not doing them at once.']],'the ability to make progress on several tasks at the same time',{star:1,exam:[],seen:3}],
+  ['intensify','word','/ɪnˈtensɪfaɪ/','v. 加剧',4,6,35,12,[['news','Cities Turn to Sponge Design as Floods Intensify']],'to become greater or more extreme',{star:3,exam:['cet6','ielts'],seen:1}],
+  ['permeable','word','/ˈpɜːmiəbl/','adj. 可渗透的',0,1,4,0,[['news','The approach relies on permeable pavements, rooftop gardens and restored wetlands.']],'allowing liquids to pass through',{star:1,exam:['gre'],seen:1}],
+  ['advocate','word','/ˈædvəkeɪt/','n. 支持者；v. 提倡',2,5,16,2,[['news','Advocates argue it is cheaper to maintain than conventional drainage…']],'a person who publicly supports an idea',{forms:['advocates'],star:4,exam:['cet6','toefl','ielts'],seen:1}],
+  ['ancillary','word','/ænˈsɪləri/','adj. 附带的，辅助的',0,1,4,1,[['news','…brings ancillary benefits, from cooler streets to new habitats for wildlife.']],'providing extra help or support',{star:1,exam:['gre'],seen:1}],
+  ['habitat','word','/ˈhæbɪtæt/','n. 栖息地',2,3,8,0,[['news','…from cooler streets to new habitats for wildlife.']],'the natural home of an animal or plant',{forms:['habitats'],star:3,exam:['cet4','ielts'],seen:1}],
+  ['skeptic','word','/ˈskeptɪk/','n. 怀疑论者',1,2,4,2,[['news','Skeptics counter that the concept has been oversold.']],'a person who doubts claims',{forms:['skeptics','skeptical'],star:2,exam:['toefl'],seen:1}],
+  ['oversell','word','/ˌəʊvəˈsel/','v. 过分吹嘘',0,1,4,1,[['news','Skeptics counter that the concept has been oversold.']],'to describe something as better than it is',{forms:['oversold'],star:1,exam:[],seen:1}],
+  ['runoff','word','/ˈrʌnɒf/','n. 径流',0,1,4,2,[['news','…not enough open land to make a dent in peak runoff…']],'rain that flows off the land',{star:1,exam:[],seen:1}],
+  ['retrofit','word','/ˈretrəʊfɪt/','v. 改造，翻新',0,2,4,0,[['news','…retrofitting existing neighborhoods can be slow and costly.'],['trains','Operators are retrofitting old carriages with private cabins.']],'to add new parts to something built earlier',{forms:['retrofitting'],star:1,exam:[],seen:1}],
+  ['embrace','word','/ɪmˈbreɪs/','v. 欣然接受；拥抱',3,8,26,4,[['news','…planners are embracing so-called sponge designs…']],'to accept an idea eagerly',{forms:['embracing','embraced'],star:4,exam:['cet4','ielts'],seen:1}],
+  ['acknowledge','word','/əkˈnɒlɪdʒ/','v. 承认',3,7,22,0,[['novel','It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.']],'to accept that something is true',{forms:['acknowledged'],star:5,exam:['cet4','ielts','toefl'],seen:4}],
+  ['impatiently','word','/ɪmˈpeɪʃntli/','adv. 不耐烦地',2,4,9,1,[['novel','“Do you not want to know who has taken it?” cried his wife impatiently.']],'in an annoyed way because of waiting',{forms:['impatient'],star:3,exam:['cet4'],seen:4}],
+  ['objection','word','/əbˈdʒekʃn/','n. 反对；异议',4,9,45,14,[['novel','“You want to tell me, and I have no objection to hearing it.”']],'a statement of disagreement',{star:4,exam:['cet4'],seen:4}],
+  ['ascertain','word','/ˌæsəˈteɪn/','v. 查明，弄清',0,2,3,0,[['holmes','I was anxious to ascertain what my friend had been doing.']],'to find out something for certain',{star:2,exam:['gre'],seen:3}],
+  ['affect','word','/əˈfekt/','v. 影响（易与 effect 混淆）',1,11,60,-2,[['trains','Delays affect fewer than one in ten journeys.']],'to have an influence on',{forms:['affects','affected'],star:5,exam:['cet4'],lapses:4,seen:9}],
+  ['grapple with','phrase','','努力应对；与…较劲',0,1,2,0,[['tech','Newcomers often find themselves grappling with the borrow checker…']],'to try hard to deal with a difficult problem',{forms:['grappling with'],star:2,exam:[],seen:2}],
+  ['track down','phrase','','追查到，找到',1,3,10,1,[['tech','…notoriously hard to track down in C and C++.'],['holmes','We must track down the photograph before the wedding.']],'to find someone or something after a search',{star:3,exam:[],seen:3}],
+  ['make a dent in','phrase','','对…产生明显影响',0,1,4,0,[['news','…not enough open land to make a dent in peak runoff…']],'to reduce something by a noticeable amount',{star:2,exam:[],seen:1}],
+  ['in want of','phrase','','需要；缺少',0,1,1,1,[['novel','…must be in want of a wife.']],'needing or lacking something',{star:2,exam:[],seen:4}],
+  ['in possession of','phrase','','拥有',3,4,21,6,[['novel','…a single man in possession of a good fortune…']],'having or owning something',{star:3,exam:[],seen:4}],
+  ['go out of scope','phrase','','离开作用域',2,3,12,2,[['tech','When the owner goes out of scope, the value is dropped…']],'(programming) to stop being accessible at the end of a block',{forms:['goes out of scope'],star:1,exam:[],seen:2}],
+  ['counter that','phrase','','反驳说',0,1,4,3,[['news','Skeptics counter that the concept has been oversold.']],'to reply in disagreement',{star:2,exam:[],seen:1}],
+  /* 已掌握、已忽略：默认不混在列表里，有自己的视图 */
+  ['wetland','word','/ˈwetlənd/','n. 湿地',5,4,50,999,[['news','…rooftop gardens and restored wetlands.']],'land that is covered with water',{forms:['wetlands'],star:3,exam:['ielts'],seen:1}],
+  ['fortune','word','/ˈfɔːtʃuːn/','n. 财富；运气',5,6,55,999,[['novel','…a single man in possession of a good fortune…']],'a large amount of money',{star:5,exam:['cet4'],seen:4}],
+  ['journey','word','/ˈdʒɜːni/','n. 旅程',5,3,48,999,[['trains','Delays affect fewer than one in ten journeys.']],'an act of travelling from one place to another',{forms:['journeys'],star:5,exam:['zk'],seen:9}],
+  ['Rust','word','','专有名词 · 编程语言',98,40,60,999,[['tech','Ownership is the feature that makes Rust distinctive among systems languages.']],'',{star:0,exam:[],seen:2}],
+  ['borrow checker','phrase','','专有名词 · Rust 的借用检查器',98,6,60,999,[['tech','…the borrow checker verifies that no reference outlives the value it points to.']],'',{star:0,exam:[],seen:2}],
+];
+const EXAM = { zk: '中考', gk: '高考', cet4: '四级', cet6: '六级', ky: '考研', toefl: '托福', ielts: '雅思', gre: 'GRE' };
+let WORDS = RAW.map(([w, kind, ipa, zh, s, enc, added, due, ctx, en, x], i) => ({ id: i, w, kind, ipa, zh, s, enc, added, due, ctx, en, forms: x.forms || [], star: x.star || 0, exam: x.exam || [], lapses: x.lapses || 0, seen: x.seen ?? added, tags: [...new Set(ctx.flatMap(c => DOCS[c[0]].tags))], docs: [...new Set(ctx.map(c => c[0]))] }));
+/* 用户已知词：原句里其它词都认识 → 这句最适合做复习卡（i+1） */
+const KNOWN_HARD = new Set(WORDS.filter(w => w.s < 3).map(w => w.w.split(' ')[0].toLowerCase()));
+function ctxScore(x, sent) { const words = sent.toLowerCase().match(/[a-z']+/g) || []; const self = x.w.split(' ')[0].toLowerCase(); const others = words.filter(w => !w.startsWith(self) && KNOWN_HARD.has(w)).length; return { others, len: words.length, ok: others === 0 && words.length <= 24 }; }
+function bestCtx(x) { return x.ctx.map((c, i) => ({ i, ...ctxScore(x, c[1]) })).sort((a, b) => a.others - b.others || Math.abs(a.len - 14) - Math.abs(b.len - 14))[0]; }
+
+/* ---------- 视图、筛选、列 ---------- */
+const VIEWS = [
+  ['all', '全部', x => x.s < 5 && x.s !== 98, 'M4 6h16M4 12h16M4 18h16'],
+  ['due', '今天到期', x => x.s < 5 && x.due <= 0, 'M12 7v5l3 2M20 12a8 8 0 11-16 0 8 8 0 0116 0z'],
+  ['late', '逾期', x => x.s < 5 && x.due < 0, 'M12 8v5M12 16h.01M4.5 19h15L12 5z', true],
+  ['new', '本周新增', x => x.s < 5 && x.added <= 7, 'M12 5v14M5 12h14'],
+  ['leech', '难词', x => x.s < 5 && x.lapses >= 3, 'M12 4l2 5 5 .7-3.7 3.5.9 5.3L12 16l-4.2 2.5.9-5.3L5 9.7 10 9z'],
+  ['stuck', '遇见多但没进步', x => x.s < 5 && x.enc >= 4 && x.s <= 1, 'M4 17l5-5 4 4 7-7M16 9h4v4'],
+  ['stale', '很久没遇见', x => x.s < 5 && x.seen >= 8, 'M12 6v6l4 2M5 12a7 7 0 1014 0 7 7 0 00-14 0z'],
+  ['unsure', '待确认', x => x.s === 99, 'M9 9a3 3 0 115 2.2c-.9.6-2 1.2-2 2.8M12 17h.01'],
+  ['ignored', '已忽略', x => x.s === 98, 'M3 3l18 18M10 6a7 7 0 018 8M6.5 8.5A7 7 0 0012 19c1.5 0 2.9-.5 4-1.3'],
+  ['mastered', '已掌握', x => x.s === 5, 'M5 12l5 5 9-10'],
+];
+const VIEW_TIP = { leech: ['这些词反复忘记（3 次以上）。', '继续按原排期只会一直回流，换个办法：让 Tibi 讲讲、换一种题型，或者先暂停。'], stuck: ['遇见了很多次，熟练度还停在前两档。', '可能是在原句里"看懂了"但没真正记住，建议今天先复习它们。'], stale: ['超过一周没在文章里遇见。', '让 Tibi 找几篇包含它们的文章，比单独背更有效。'], ignored: ['你让 Tibi 不再标注的词（专有名词、代码等）。', '恢复后会重新按熟练度处理。'], mastered: ['已经会了，不再标注、不进复习。', '统计里的"已知词"包含它们。'], unsure: ['Tibi 猜你可能不认识、但还没确认的词。', '读到时点一下就能确认。'] };
+const COLS = [
+  ['w', '单词 / 短语', 'minmax(170px, 1.3fr)', true, true], ['zh', '释义', 'minmax(0, 1.6fr)', true, true], ['stage', '熟练度', '72px', true], ['star', '词频', '58px', false], ['exam', '考试', '96px', false],
+  ['tags', '标签', '120px', false], ['enc', '遇见', '88px', true], ['ret', '记忆保持率', '92px', false], ['due', '下次复习', '82px', true],
+];
+let view = 'all', fStage = null, fKind = 'all', fSrc = 'all', fQ = '', sortBy = 'due', selId = null, kbId = null, showCtx = false; const fTags = new Set();   // 标签多选 = 同时满足，与书架页一致
+let cols = new Set(['w', 'zh', 'stage', 'enc', 'due']);
+try { const c = JSON.parse(localStorage.getItem('tibi-words-cols') || 'null'); if (c) cols = new Set(c); showCtx = localStorage.getItem('tibi-words-ctx') === '1'; } catch (e) {}
+const checked = new Set();
+const dueTxt = d => d < 0 ? `逾期 ${-d} 天` : d === 0 ? '今天' : d === 1 ? '明天' : `${d} 天后`;
+const fmtAgo = d => d === 0 ? '今天' : d === 1 ? '昨天' : `${d} 天前`;
+const retention = x => x.s === 5 ? 98 : Math.max(35, [62, 74, 83, 89, 94][x.s] - Math.max(0, -x.due) * 3 - x.lapses * 4);
+const MAIN = osInit($('#scroll')), DSCROLL = osInit($('#dscroll'));
+
+function viewFn() { return VIEWS.find(v => v[0] === view)[2]; }
+function filtered() {
+  const q = fQ.toLowerCase(), vf = viewFn();
+  const order = { due: (a, b) => a.due - b.due || a.s - b.s, added: (a, b) => a.added - b.added, enc: (a, b) => b.enc - a.enc, alpha: (a, b) => a.w.localeCompare(b.w), stage: (a, b) => a.s - b.s || a.due - b.due, freq: (a, b) => b.star - a.star || a.w.localeCompare(b.w) }[sortBy];
+  return WORDS.filter(x => vf(x) && (fStage === null || x.s === fStage) && (fKind === 'all' || x.kind === fKind) && (fSrc === 'all' || x.docs.includes(fSrc)) && [...fTags].every(t => x.tags.includes(t))
+    && (!q || x.w.toLowerCase().includes(q) || x.forms.some(f => f.includes(q)) || x.zh.includes(fQ) || x.ctx.some(c => c[1].toLowerCase().includes(q)))).sort(order);
+}
+function renderViews() {
+  $('#sideH').textContent = '';
+  $('#recent').className = 'recent hide-c views';
+  const cnt = v => WORDS.filter(v[2]).length;
+  const item = v => { const n = cnt(v); return `<a href="#" data-view="${v[0]}" class="${view === v[0] ? 'cur' : ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${v[3]}"/></svg>${v[1]}<span class="n${v[4] && n ? ' hot' : ''}">${n}</span></a>`; };
+  $('#recent').innerHTML = `<div class="vh">视图</div>${VIEWS.slice(0, 4).map(item).join('')}<div class="vh">值得看看</div>${VIEWS.slice(4, 8).map(item).join('')}<div class="vh">不在复习里</div>${VIEWS.slice(8).map(item).join('')}`;
+  $('#recent').querySelectorAll('[data-view]').forEach(a => a.onclick = e => { e.preventDefault(); setView(a.dataset.view); });
+}
+function setView(v) { view = v; fStage = null; checked.clear(); kbId = null; render(true); MAIN.scrollTop = 0; }
+function renderTop() {
+  const live = WORDS.filter(x => x.s < 5 && x.s !== 98), counts = STAGES.map((_, i) => WORDS.filter(x => x.s === i).length), dueToday = live.filter(x => x.due <= 0).length;
+  const V = VIEWS.find(v => v[0] === view); $('#vtitle').textContent = V[1]; document.title = `Tibi 生词本 · ${V[1]}`;
+  $('#summary').textContent = `${filtered().length} 个 · 单词 ${live.filter(x => x.kind === 'word').length}、短语 ${live.filter(x => x.kind === 'phrase').length} 在学 · 本周新增 ${live.filter(x => x.added <= 7).length} · 今天要复习 ${dueToday}`;
+  $('#reviewBtn').textContent = `开始复习 · ${dueToday}`; $('#navWords').textContent = live.length;
+  $('#distbar').className = 'distbar' + (fStage !== null ? ' filtering' : '');
+  $('#distbar').innerHTML = counts.map((c, i) => c ? `<button class="c${i}${fStage === i ? ' on' : ''}" data-s="${i}" style="flex:${c}" title="${STAGES[i][0]}：${c} 个（${STAGES[i][1]}）" aria-label="${STAGES[i][0]} ${c} 个"></button>` : '').join('');
+  $('#distlab').innerHTML = counts.map((c, i) => `<button data-s="${i}" title="${STAGES[i][1]}" style="${fStage !== null && fStage !== i ? 'opacity:.4' : ''}"><i class="c${i}"></i>${STAGES[i][0]} <b>${c}</b></button>`).join('') + (fStage !== null ? `<button data-s="clear" style="color:var(--accent)">清除筛选</button>` : '');
+  document.querySelectorAll('#distbar button, #distlab button').forEach(b => b.onclick = () => { const s = b.dataset.s === 'clear' ? null : +b.dataset.s; if (s === 5) { setView('mastered'); return; } if (view === 'mastered' || view === 'ignored') view = 'all'; fStage = s === fStage ? null : s; render(true); });
+  const tip = VIEW_TIP[view], vt = $('#viewtip'); vt.hidden = !tip;
+  if (tip) { vt.innerHTML = `<b>${tip[0]}</b><span>${tip[1]}</span><span class="sp"></span>${view === 'stale' ? '<button class="btn sm" id="vtAct">让 Tibi 找文章</button>' : view === 'stuck' || view === 'leech' ? '<button class="btn sm" id="vtAct">先复习这些</button>' : ''}`; const b = $('#vtAct'); if (b) b.onclick = () => toast(view === 'stale' ? '原型：Tibi 用「找文章」按这些词检索' : `原型：开始一轮只含这 ${filtered().length} 个词的复习，不影响排期`); }
+}
+const OPTIONAL = ['tags', 'exam', 'star', 'ret', 'enc'];
+function visCols() { const w = $('#wl').clientWidth || 1000; let drop = w < 640 ? 5 : w < 900 ? 4 : 0; return COLS.filter(c => cols.has(c[0])).filter(c => { if (drop && OPTIONAL.includes(c[0]) && OPTIONAL.indexOf(c[0]) < drop) return false; return true; }); }   // 抽屉打开、列表变窄时自动收起次要列，用户的勾选不变
+function gridCols() { return ['28px', ...visCols().map(c => c[2]), '0px'].join(' '); }
+function renderHead() {
+  $('#wh').style.gridTemplateColumns = gridCols();
+  $('#wh').innerHTML = `<span><button class="ck" id="ckAll" aria-label="全选"></button></span>` + visCols().map(c => `<span>${c[1]}</span>`).join('') + '<span></span>';
+  $('#ckAll').onclick = () => { const list = filtered(), all = list.every(x => checked.has(x.id)); list.forEach(x => all ? checked.delete(x.id) : checked.add(x.id)); render(false); };
+}
+function cell(x, c) {
+  switch (c) {
+    case 'w': return `<span class="w"><b>${esc(x.w)}</b>${x.ipa ? `<span class="ipa">${x.ipa}</span>` : x.kind === 'phrase' ? '<span class="ph">短语</span>' : ''}${x.forms.length ? `<span class="forms" title="${esc(x.forms.join(' · '))}">+${x.forms.length} 种词形</span>` : ''}${x.lapses >= 3 ? '<span class="leech" title="反复忘记">难</span>' : ''}</span>`;
+    case 'zh': { const b = showCtx && x.ctx.length ? bestCtx(x) : null; const cx = b ? x.ctx[b.i][1] : ''; return `<span class="zh">${esc(x.zh) || '<i style="color:var(--ink-3)">不标注</i>'}${cx ? `<span class="cx">${esc(cx).replace(new RegExp(`\\b(${x.w.split(' ')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\w*)`, 'i'), '<mark>$1</mark>')}</span>` : ''}</span>`; }
+    case 'stage': return x.s === 98 ? '<span class="stage" style="background:var(--sunken)">已忽略</span>' : x.s === 99 ? '<span class="stage" style="box-shadow:inset 0 0 0 1px var(--line-2)">待确认</span>' : `<span class="stage s${x.s}">${STAGES[x.s][0]}</span>`;
+    case 'star': return `<span class="c stars" title="柯林斯 ${x.star} 星">${x.star ? '★'.repeat(x.star) + '<span style="color:var(--line-2)">' + '★'.repeat(5 - x.star) + '</span>' : '—'}</span>`;
+    case 'exam': return `<span class="exam">${x.exam.slice(0, 3).map(e => `<i>${EXAM[e]}</i>`).join('') || '<span class="c">—</span>'}</span>`;
+    case 'tags': return `<span class="tags">${x.tags.slice(0, 2).map(t => `<span class="tagc">${esc(t)}</span>`).join('')}</span>`;
+    case 'enc': return `<span class="enc">${x.enc} 次 · ${x.docs.length} 篇</span>`;
+    case 'ret': return x.s >= 5 ? '<span class="c">—</span>' : `<span class="ret c"><i><b style="width:${retention(x)}%"></b></i>${retention(x)}%</span>`;
+    case 'due': return `<span class="due ${x.due < 0 ? 'dlate' : x.due === 0 ? 'dtoday' : ''}">${x.s >= 5 ? '—' : dueTxt(x.due)}</span>`;
+  }
+}
+const IC = { say: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6"/></svg>', ask: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>', more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>' };
+function renderRows(animate) {
+  const list = filtered(); $('#wl').classList.toggle('ctx-on', showCtx);
+  $('#rows').innerHTML = list.length ? list.map(x => `<div class="wr${x.id === selId ? ' cur' : ''}${x.id === kbId ? ' kb' : ''}" data-id="${x.id}" tabindex="0" style="grid-template-columns:${gridCols()}">
+      <span class="ckc"><button class="ck${checked.has(x.id) ? ' on' : ''}" data-ck="${x.id}" aria-label="选择 ${esc(x.w)}">${checked.has(x.id) ? '✓' : ''}</button></span>
+      ${visCols().map(c => cell(x, c[0])).join('')}<span></span>
+      <span class="ra">${x.kind === 'word' && x.s !== 98 ? `<button data-ra="say" title="发音">${IC.say}</button>` : ''}<button data-ra="ask" title="问 Tibi">${IC.ask}</button><button data-ra="more" title="更多">${IC.more}</button></span></div>`).join('')
+    : `<div class="nores">${view === 'all' ? '没有符合条件的词，换个筛选条件试试。' : '这个视图现在是空的。'}</div>`;
+  document.querySelectorAll('.wr').forEach(r => { r.onclick = e => { if (e.target.closest('.ck, .ra')) return; select(+r.dataset.id); }; r.onkeydown = e => { if (e.key === 'Enter') select(+r.dataset.id); }; });
+  document.querySelectorAll('[data-ck]').forEach(c => c.onclick = () => { const id = +c.dataset.ck; checked.has(id) ? checked.delete(id) : checked.add(id); renderRows(false); renderBulk(); });
+  document.querySelectorAll('[data-ra]').forEach(b => b.onclick = e => { e.stopPropagation(); const id = +b.closest('.wr').dataset.id, x = WORDS.find(w => w.id === id); if (b.dataset.ra === 'say') speakW(x.w); else if (b.dataset.ra === 'ask') { selId = id; switchTab('asst'); openDrawer(); } else openRowMenu(b, x); });
+  const all = list.length && list.every(x => checked.has(x.id)); const ca = $('#ckAll'); if (ca) { ca.className = 'ck' + (all ? ' on' : ''); ca.textContent = all ? '✓' : ''; }
+  if (animate) anim(document.querySelectorAll('.wr'), { opacity: [0, 1], y: [6, 0] }, { duration: 0.3, ease: EASE, delay: stag(0.012) });
+}
+function renderBulk() { const n = checked.size; $('#bulk').hidden = !n; $('#bulkN').textContent = `已选 ${n} 个`; document.body.classList.toggle('bulk-on', !!n); }
+function render(animate) { renderViews(); renderTop(); renderTagSel(); renderHead(); renderRows(animate); renderBulk(); }
+function speakW(w) { try { const u = new SpeechSynthesisUtterance(w); u.lang = 'en-US'; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) { toast('当前环境不支持系统语音'); } }
+
+/* 列选择 */
+function renderColMenu() {
+  $('#colMenu').innerHTML = '<div class="hd">显示哪些列</div>' + COLS.map(c => `<label><input type="checkbox" data-col="${c[0]}" ${cols.has(c[0]) ? 'checked' : ''} ${c[3] && c[4] ? 'disabled' : ''}>${c[1]}</label>`).join('');
+  $('#colMenu').querySelectorAll('input').forEach(i => i.onchange = () => { i.checked ? cols.add(i.dataset.col) : cols.delete(i.dataset.col); try { localStorage.setItem('tibi-words-cols', JSON.stringify([...cols])); } catch (e) {} renderHead(); renderRows(false); });
+}
+$('#colBtn').onclick = e => { e.stopPropagation(); const m = $('#colMenu'); m.hidden = !m.hidden; if (!m.hidden) { renderColMenu(); anim(m, { opacity: [0, 1], y: [-4, 0] }, { duration: 0.2, ease: EASE }); } };
+$('#ctxTgl').onclick = () => { showCtx = !showCtx; $('#ctxTgl').classList.toggle('on', showCtx); try { localStorage.setItem('tibi-words-ctx', showCtx ? '1' : '0'); } catch (e) {} renderRows(false); };
+$('#ctxTgl').classList.toggle('on', showCtx);
+
+/* 行菜单 */
+let menuRow = null;
+function openRowMenu(btn, x) {
+  const m = $('#rmenu'); menuRow = btn.closest('.wr'); menuRow.classList.add('menu-open');
+  const leech = x.lapses >= 3;
+  m.innerHTML = `${leech ? `<button data-a="explain">${IC.ask} 让 Tibi 讲讲为什么老忘</button><button data-a="retype">换一种题型（改为填空）</button><button data-a="pause">暂停复习 2 周</button><div class="sep"></div>` : ''}
+    <button data-a="open">打开详情<span class="k">↵</span></button>
+    <button data-a="tag">加标签…</button>
+    ${x.s === 98 ? '<button data-a="restore">恢复标注</button>' : x.s === 5 ? '<button data-a="relearn">重新学（设为"熟悉"）</button>' : '<button data-a="master">标为掌握<span class="k">5</span></button><button data-a="ignore">忽略（不再标注）<span class="k">I</span></button>'}
+    <div class="sep"></div><button data-a="remove" style="color:var(--hard)">移出生词本</button>`;
+  const r = btn.getBoundingClientRect(); m.classList.add('on');
+  m.style.left = Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 12) + 'px'; m.style.top = Math.min(r.bottom + 6, innerHeight - m.offsetHeight - 12) + 'px';
+  m.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { closeRowMenu(); rowAction(b.dataset.a, x); });
+}
+function closeRowMenu() { $('#rmenu').classList.remove('on'); if (menuRow) menuRow.classList.remove('menu-open'); menuRow = null; }
+addEventListener('click', e => { if (!e.target.closest('#rmenu') && !e.target.closest('[data-ra="more"]')) closeRowMenu(); if (!e.target.closest('#colMenu, #colBtn')) $('#colMenu').hidden = true; });
+addEventListener('scroll', closeRowMenu, true);
+function rowAction(a, x) {
+  if (a === 'open') select(x.id);
+  else if (a === 'explain') { selId = x.id; switchTab('asst'); openDrawer(); preset('why'); }
+  else if (a === 'retype') toast(`「${x.w}」下次复习改为语境填空（原本按熟练度是识别题）`);
+  else if (a === 'pause') { const before = x.due; x.due = 14; render(false); toast(`「${x.w}」暂停复习，2 周后再出现`, () => { x.due = before; render(false); }); }
+  else if (a === 'tag') addTag([x.id]);
+  else if (a === 'master') setStage([x.id], 5);
+  else if (a === 'relearn') setStage([x.id], 4);
+  else if (a === 'ignore') ignoreIds([x.id]);
+  else if (a === 'restore') setStage([x.id], 1);
+  else if (a === 'remove') removeIds([x.id]);
+}
+
+/* ---------- 右侧抽屉：详情 / Tibi ---------- */
+function openDrawer() { const was = $('#app').classList.contains('drawer-open'); $('#app').classList.add('drawer-open'); setTimeout(() => { moveThumb($('#dtabs')); moveThumb($('#kindSeg')); if (!was) { renderHead(); renderRows(false); } }, 380); }
+function closeDrawer() { $('#app').classList.remove('drawer-open'); selId = null; renderRows(false); setTimeout(() => { moveThumb($('#kindSeg')); renderHead(); renderRows(false); }, 380); }
+$('#closeDrawer').onclick = closeDrawer;
+function ladder(s) { return `<div class="pips" role="group" aria-label="熟练度">${STAGES.map(([n, d], v) => `<button class="pip${s === v ? ' on' : ''}${s >= v ? ' fill' : ''}" data-s="${v}" title="${n}：${d}（按 ${v}）"><i></i>${n}</button>`).join('')}</div><div class="stagedesc">${s < 6 ? `<b>${STAGES[s][0]}</b>：${STAGES[s][1]}` : ''}</div>`; }
+function history(x) { const st = [[`加入生词本 · 生词`, x.added]]; for (let i = 1; i <= Math.min(x.s, 5); i++) st.push([`升为「${STAGES[i][0]}」`, Math.max(0, Math.round(x.added - x.added * i / (x.s + 1)))]); if (x.w === 'intuitive') st.push(['退回「见过」（复习时忘记）', 2]); return st; }
+function renderDetail() {
+  const x = WORDS.find(w => w.id === selId), p = $('#pane-detail'); if (!x) { p.innerHTML = '<div class="lbl-i">从列表里选一个词。</div>'; return; }
+  const reps = Math.min(6, Math.min(x.s, 4) + Math.floor(x.enc / 3)), R = ['忘了', '模糊', '记得', '轻松'];
+  const revs = Array.from({ length: reps }, (_, i) => ({ r: x.lapses && i >= reps - x.lapses ? 1 : i === 0 ? 2 : (i + x.s) % 4 === 0 ? 4 : 3, d: Math.max(1, x.added - Math.round((i + 1) * x.added / (reps + 1))) }));
+  const best = x.ctx.length ? bestCtx(x) : null;
+  p.innerHTML = `<div style="display:flex;flex-direction:column;gap:22px">
+    <div class="whead"><div><div class="hw">${esc(x.w)}</div><div class="pron">${x.ipa ? `<span class="ipa">${x.ipa}</span>` : x.kind === 'phrase' ? '<span class="tags">短语</span>' : ''}<span>遇见 ${x.enc} 次 · ${x.docs.length} 篇 · 加入于${fmtAgo(x.added)}</span></div>
+      <div class="dmeta">${x.star ? `<span class="stars" title="柯林斯星级">${'★'.repeat(x.star)}</span>` : ''}${x.exam.map(e => `<span class="tagc sys">${EXAM[e]}</span>`).join('')}${x.tags.map(t => `<span class="tagc">${esc(t)}</span>`).join('')}</div></div>
+      ${x.kind === 'word' ? '<button class="say" title="发音" id="sayBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6M18.5 6.5a8 8 0 010 11"/></svg></button>' : ''}</div>
+    ${x.lapses >= 3 ? `<div class="leechbox"><div><b>难词</b> · 复习时忘了 ${x.lapses} 次，照常排期只会一直回流</div><div class="row"><button class="btn sm" data-la="explain">✦ 让 Tibi 讲讲</button><button class="btn sm" data-la="retype">换一种题型</button><button class="btn sm" data-la="pause">暂停 2 周</button></div></div>` : ''}
+    ${x.s < 6 ? `<div class="sec"><h5>熟练度</h5>${ladder(x.s)}</div>` : `<div class="sec"><h5>状态</h5><div class="stagedesc">${x.s === 98 ? '<b>已忽略</b>：不再标注，也不进复习' : '<b>待确认</b>'}</div></div>`}
+    ${x.forms.length ? `<div class="sec"><h5>词族 <span class="lbl-i">同一条记录，遇见次数和复习合并计算</span></h5><div class="formrow"><span class="f main">${esc(x.w)}</span>${x.forms.map(f => `<span class="f">${esc(f)}</span>`).join('')}</div></div>` : ''}
+    ${x.zh ? `<div class="sec"><h5>释义</h5><div class="gloss">${esc(x.zh)}</div>${x.en ? `<details><summary>英英释义</summary><div class="en">${esc(x.en)}</div></details>` : ''}</div>` : ''}
+    <div class="sec"><h5>遇到过的原句 · ${x.ctx.length}</h5><div class="ctxs">${x.ctx.map(([d, s], i) => {
+      const q = esc(s).replace(new RegExp(`\\b(${x.w.split(' ')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\w*)`, 'i'), '<mark>$1</mark>'); const sc = ctxScore(x, s), isBest = best && best.i === i;
+      return `<div class="ctx${isBest ? ' best' : ''}">${isBest ? '<span class="best-tag">复习卡用这句</span>' : ''}<div class="from"><span>${DOCS[d].g}</span>${DOCS[d].open ? `<a href="${URLS.reader}" ${LOCAL ? '' : 'target="_blank" rel="noopener"'}>${esc(DOCS[d].t)} →</a>` : `<span>${esc(DOCS[d].t)}</span>`}</div><div class="quote">${q}</div><div class="why">${sc.others === 0 ? '句子里其它词你都认识' : `还有 ${sc.others} 个生词，先不用它做卡`}</div></div>`; }).join('')}</div>
+      <div class="memref">优先用"只有这一个生词"的句子做复习卡；有多句时会轮换，避免只记住某一句。</div><div class="row"><button class="btn sm" id="moreCtx">✦ 让 Tibi 找包含它的新文章</button></div></div>
+    ${x.s < 5 ? `<div class="sec"><h5>复习</h5><div class="kpis"><div><b>${dueTxt(x.due)}</b><span>下次复习</span></div><div><b>${retention(x)}%</b><span>记忆保持率</span></div><div><b>${reps}</b><span>复习次数${x.lapses ? ` · 忘了 ${x.lapses}` : ''}</span></div></div>
+      ${reps ? `<div class="revs">${revs.reverse().map(v => `<span class="rev"><i class="r${v.r}">${R[v.r - 1]}</i>${fmtAgo(v.d)}</span>`).join('')}</div>` : '<div class="lbl-i">还没有复习过</div>'}</div>` : ''}
+    ${x.s < 6 ? `<div class="sec"><h5>熟练度变化</h5><div class="tl">${history(x).reverse().map(([t, d], i) => `<div class="${i === 0 ? 'now' : ''}"><span>${t}</span><span>${fmtAgo(d)}</span></div>`).join('')}</div></div>` : ''}
+    <div class="row" style="flex-wrap:wrap"><button class="btn sm" id="askLexi">✦ 和近义词有什么区别</button>${x.s === 98 ? '<button class="btn sm" id="restoreOne">恢复标注</button>' : x.s < 5 ? '<button class="btn sm" id="ignoreOne">忽略</button>' : ''}<button class="btn sm" id="rmOne">移出生词本</button></div></div>`;
+  p.querySelectorAll('.pip').forEach(b => b.onclick = () => setStage([x.id], +b.dataset.s));
+  p.querySelectorAll('[data-la]').forEach(b => b.onclick = () => rowAction(b.dataset.la, x));
+  const sb = $('#sayBtn'); if (sb) sb.onclick = () => speakW(x.w);
+  $('#askLexi').onclick = () => { switchTab('asst'); preset('syn'); };
+  $('#moreCtx').onclick = () => toast(`原型：Tibi 用「找文章」按"${x.w}"检索，优先选只有这一个生词的句子`);
+  $('#rmOne').onclick = () => removeIds([x.id]);
+  const ig = $('#ignoreOne'); if (ig) ig.onclick = () => ignoreIds([x.id]);
+  const rs = $('#restoreOne'); if (rs) rs.onclick = () => setStage([x.id], 1);
+}
+function select(id) {
+  selId = id; kbId = id; document.querySelectorAll('.wr').forEach(r => { r.classList.toggle('cur', +r.dataset.id === id); r.classList.toggle('kb', +r.dataset.id === id); });
+  const wasOpen = $('#app').classList.contains('drawer-open'); switchTab('detail'); openDrawer();
+  anim($('#pane-detail').firstElementChild, { opacity: [0, 1], y: [wasOpen ? 6 : 12, 0] }, SPRING);
+}
+function switchTab(t) {
+  document.querySelectorAll('#dtabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); moveThumb($('#dtabs'), true);
+  $('#pane-detail').hidden = t !== 'detail'; $('#pane-asst').hidden = t !== 'asst'; $('#dfoot').hidden = t !== 'asst';
+  if (t === 'asst') renderAsst(); else renderDetail();
+}
+document.querySelectorAll('#dtabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+$('#lexiBtn').onclick = () => { switchTab('asst'); openDrawer(); };
+function step(d) { const list = filtered(); if (!list.length) return; const i = list.findIndex(x => x.id === (kbId ?? selId)); const n = list[Math.max(0, Math.min(list.length - 1, i < 0 ? 0 : i + d))]; kbId = n.id; if (selId !== null) select(n.id); else document.querySelectorAll('.wr').forEach(r => r.classList.toggle('kb', +r.dataset.id === n.id)); const row = document.querySelector(`.wr[data-id="${n.id}"]`); row && row.scrollIntoView({ block: 'nearest' }); }
+$('#prevW').onclick = () => step(-1); $('#nextW').onclick = () => step(1);
+
+/* ---------- 修改 ---------- */
+function setStage(ids, s) {
+  const before = ids.map(id => [id, WORDS.find(w => w.id === id).s, WORDS.find(w => w.id === id).due]);
+  ids.forEach(id => { const x = WORDS.find(w => w.id === id); x.s = s; if (s === 5) x.due = 999; else if (x.due > 30) x.due = 3; });
+  render(false); if (!$('#pane-detail').hidden && selId !== null) renderDetail();
+  anim(document.querySelectorAll(ids.map(id => `.wr[data-id="${id}"] .stage`).join(',')), { scale: [0.7, 1.12, 1] }, { duration: 0.4, ease: EASE });
+  const nm = s === 98 ? '已忽略' : STAGES[s][0];
+  toast(ids.length > 1 ? `${ids.length} 个词已设为「${nm}」` : `「${WORDS.find(w => w.id === ids[0]).w}」已设为「${nm}」${s === 5 ? '，不再复习' : ''}`, () => { before.forEach(([id, v, d]) => { const x = WORDS.find(w => w.id === id); x.s = v; x.due = d; }); render(false); if (selId !== null) renderDetail(); });
+}
+function ignoreIds(ids) { setStage(ids, 98); }
+function removeIds(ids) {
+  const removed = WORDS.filter(w => ids.includes(w.id)), rows = ids.map(id => $(`.wr[data-id="${id}"]`)).filter(Boolean);
+  const done = () => { WORDS = WORDS.filter(w => !ids.includes(w.id)); ids.forEach(id => checked.delete(id)); if (ids.includes(selId)) closeDrawer(); render(false); toast(`已移出 ${ids.length} 个词`, () => { WORDS = WORDS.concat(removed); render(false); }); };
+  if (M && !REDUCE && rows.length) { anim(rows, { opacity: [1, 0], x: [0, 24] }, { duration: 0.25, ease: EASE, delay: stag(0.03) }); setTimeout(done, 260 + rows.length * 30); } else done();
+}
+function addTag(ids) { const v = prompt('标签（会出现在书架和生词本的筛选里）'); if (!v || !v.trim()) return; ids.forEach(id => { const x = WORDS.find(w => w.id === id); if (!x.tags.includes(v.trim())) x.tags.push(v.trim()); }); render(false); if (selId !== null) renderDetail(); toast(`已给 ${ids.length} 个词加上「${v.trim()}」`); }
+$('#bulkStage').onchange = e => { if (e.target.value === '') return; setStage([...checked], +e.target.value); e.target.value = ''; };
+$('#bulkRemove').onclick = () => removeIds([...checked]);
+$('#bulkIgnore').onclick = () => ignoreIds([...checked]);
+$('#bulkTag').onclick = () => addTag([...checked]);
+$('#bulkClear').onclick = () => { checked.clear(); render(false); };
+$('#bulkExport').onclick = () => toast(`原型：正式版会把所选 ${checked.size} 个词保存为 CSV 文件`);
+
+/* ---------- 添加、导入 / 导出 ---------- */
+$('#addBtn').onclick = e => { e.stopPropagation(); const p = $('#addPop'); p.hidden = !p.hidden; if (!p.hidden) { anim(p, { opacity: [0, 1], y: [-4, 0] }, { duration: 0.2, ease: EASE }); setTimeout(() => $('#addIn').focus(), 50); } };
+$('#addCancel').onclick = () => { $('#addPop').hidden = true; };
+$('#addOk').onclick = () => {
+  const lines = $('#addIn').value.split('\n').map(l => l.trim()).filter(Boolean); if (!lines.length) return;
+  const ids = []; lines.forEach(l => { const [w, zh] = l.split(/[,，]/).map(s => s.trim()); const x = { id: WORDS.length, w, kind: w.includes(' ') ? 'phrase' : 'word', ipa: '', zh: zh || '（查词典中…）', s: 0, enc: 0, added: 0, due: 0, ctx: [['dict', `Example sentence for “${w}” from the dictionary.`]], en: '', forms: [], star: 0, exam: [], lapses: 0, seen: 0, tags: [], docs: ['dict'] }; WORDS.push(x); ids.push(x.id); });
+  $('#addIn').value = ''; $('#addPop').hidden = true; view = 'all'; fQ = ''; $('#q').value = ''; render(true);
+  toast(`已加入 ${ids.length} 个词，先用词典例句做复习卡`, () => { WORDS = WORDS.filter(w => !ids.includes(w.id)); render(false); });
+};
+$('#addIn').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) $('#addOk').click(); if (e.key === 'Escape') $('#addPop').hidden = true; });
+$('#ioBtn').onclick = e => { e.stopPropagation(); const m = $('#ioMenu'); m.hidden = !m.hidden; if (!m.hidden) anim(m, { opacity: [0, 1], y: [-4, 0] }, { duration: 0.2, ease: EASE }); };
+document.addEventListener('click', e => { if (!$('#ioMenu').contains(e.target)) $('#ioMenu').hidden = true; if (!$('#addPop').contains(e.target) && !$('#addBtn').contains(e.target)) $('#addPop').hidden = true; });
+document.querySelectorAll('#ioMenu button').forEach(b => b.onclick = () => { $('#ioMenu').hidden = true; toast({ 'imp-csv': '原型：正式版会打开文件选择，逐行查词典补全后加入', 'imp-anki': '原型：正式版会读取 .apkg，按复习间隔换算熟练度', 'imp-known': '原型：正式版会把词表直接标为"掌握"，计入已知词、不进复习', csv: `原型：正式版会保存 tibi-words.csv（${WORDS.length} 行）`, anki: `原型：正式版会生成 Anki 卡组，${WORDS.length} 张卡，例句来自你读过的文章`, txt: '原型：正式版会保存纯文本单词表' }[b.dataset.x]); });
+
+/* ---------- 筛选、排序 ---------- */
+$('#srcSel').innerHTML = `<option value="all">全部来源</option>` + Object.entries(DOCS).map(([k, d]) => `<option value="${k}">${esc(d.t)}</option>`).join('');
+$('#srcSel').onchange = e => { fSrc = e.target.value; render(true); };
+function renderTagSel() {
+  const m = new Map(); WORDS.filter(viewFn()).forEach(w => w.tags.forEach(t => m.set(t, (m.get(t) || 0) + 1))); fTags.forEach(t => { if (!m.has(t)) m.set(t, 0); });
+  const tb = $('#tagbar'); tb.hidden = !m.size;
+  tb.innerHTML = `<span class="lbl">标签</span>` + [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'zh')).map(([t, n]) => `<button class="tagf${fTags.has(t) ? ' on' : ''}" data-tag="${esc(t)}">${esc(t)}<span class="n">${n}</span></button>`).join('') + (fTags.size ? '<button class="clear" id="clearTags">清除</button>' : '');
+  tb.querySelectorAll('[data-tag]').forEach(b => b.onclick = () => { const t = b.dataset.tag; fTags.has(t) ? fTags.delete(t) : fTags.add(t); render(true); });
+  const c = $('#clearTags'); if (c) c.onclick = () => { fTags.clear(); render(true); };
+}
+$('#sortSel').onchange = e => { sortBy = e.target.value; render(true); };
+$('#q').addEventListener('input', e => { fQ = e.target.value.trim(); renderRows(false); renderTop(); });
+document.querySelectorAll('#kindSeg button').forEach(b => b.onclick = () => { fKind = b.dataset.k; document.querySelectorAll('#kindSeg button').forEach(x => x.classList.toggle('on', x === b)); moveThumb($('#kindSeg'), true); render(true); });
+
+/* ---------- Tibi ---------- */
+const thread = [{ r: 'a', h: '<p>我可以帮你整理生词本：辨析近义词、用你的生词出题，或者找出一直没进步的词。</p>' }];
+function renderAsst() {
+  const x = WORDS.find(w => w.id === selId);
+  $('#pane-asst').innerHTML = `<div class="msgs"><div class="ctxline">正在看 <b>生词本 · ${VIEWS.find(v => v[0] === view)[1]}</b>${x ? ` · 选中 <b>${esc(x.w)}</b>` : ''}</div>${thread.map(m => `<div class="msg ${m.r}">${m.h}</div>`).join('')}
+    <div class="suggest"><button data-q="syn">和近义词有什么区别？</button><button data-q="quiz">用这几个词出题</button><button data-q="stuck">哪些词一直没进步？</button>${x && x.lapses >= 3 ? '<button data-q="why">为什么我老忘这个词？</button>' : ''}</div></div>`;
+  document.querySelectorAll('#pane-asst .suggest button').forEach(b => b.onclick = () => preset(b.dataset.q));
+  DSCROLL.scrollTop = DSCROLL.scrollHeight;
+}
+function say(u, a) {
+  thread.push({ r: 'u', h: esc(u) }, { r: 'a', h: '<span class="typing" aria-label="Tibi 正在思考"><i></i><i></i><i></i></span>' }); renderAsst();
+  setTimeout(() => { thread.pop(); thread.push({ r: 'a', h: a }); renderAsst(); anim(document.querySelector('#pane-asst .msg:last-of-type'), { opacity: [0, 1], y: [10, 0] }, SPRING); }, 700);
+}
+function preset(q) {
+  const x = WORDS.find(w => w.id === selId) || WORDS[0];
+  if (q === 'syn') say(`${x.w} 和近义词有什么区别？`, x.w === 'overhead'
+    ? '<p><b>overhead</b> 强调"做一件事时额外付出的代价"，常见于技术语境：<i>runtime overhead</i>。</p><ul><li><b>cost</b>：泛指成本，不一定是"额外"的。</li><li><b>expense</b>：偏指花钱的开支。</li><li><b>burden</b>：带"负担"的感情色彩。</li></ul><p>记住 <i>the overhead of doing sth</i> 这个搭配就够用了。</p>'
+    : `<p>（原型）正式版会结合你遇到 <b>${esc(x.w)}</b> 的 ${x.ctx.length} 个原句，对比 2–3 个近义词的语义和常见搭配。</p>`);
+  if (q === 'why') say(`为什么我老忘 ${x.w}？`, x.w === 'affect' ? '<div class="tool"><div class="row"><code>get_review_stats</code><span>4 次忘记都发生在"识别题"上</span></div></div><p>你每次看到 <b>affect</b> 都能猜出"影响"，但一到自己用就和 <b>effect</b> 混。问题不在"认不认识"，在"分不分得清"。</p><p>建议：下次改成<b>填空题</b>，并把 effect 一起放进同一张卡里对比。要我现在就改吗？</p>' : `<p>（原型）正式版会分析 <b>${esc(x.w)}</b> 的 ${x.lapses} 次忘记发生在哪种题型、相隔多久，给出针对性的办法。</p>`);
+  if (q === 'quiz') { const pick = filtered().filter(w => w.kind === 'word' && w.s <= 2).slice(0, 3); say('用这几个词出题', `<div class="tool"><div class="row"><code>create_quiz</code><span>临时练习，不影响复习排期</span></div><span>${pick.map(w => w.w).join('、')}</span></div><ol>${pick.map(w => `<li>${esc(w.ctx[0][1].replace(new RegExp(w.w.split(' ')[0] + '\\w*', 'i'), '_____'))}</li>`).join('')}</ol><p>在空格处填入合适的词，回答后我来批改。</p>`); }
+  if (q === 'stuck') say('哪些词一直没进步？', '<div class="tool"><div class="row"><code>list_terms</code><code>get_review_stats</code></div><span>按"遇见次数多但熟练度低"筛选</span></div><ul><li><b>affect</b>：遇见 11 次仍是"见过"，复习忘了 4 次，常和 effect 混淆。</li><li><b>notoriously</b>：遇见 4 次，复习已逾期 1 天。</li><li><b>intuitive</b>：从"认得"退回"见过"。</li></ul><p>左栏的"遇见多但没进步"视图里能看到全部，建议今天先复习这三个。</p>');
+}
+$('#askSend').onclick = () => { const v = $('#askInput').value.trim(); if (!v) return; $('#askInput').value = ''; say(v, '<p>（原型）正式版会结合你的生词本、复习记录和记忆来回答。</p>'); };
+$('#askInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#askSend').click(); } });
+
+/* ---------- 键盘：与阅读器一致 ---------- */
+addEventListener('keydown', e => {
+  if (e.isComposing || e.metaKey || e.ctrlKey || e.altKey) return;
+  const inField = /INPUT|TEXTAREA|SELECT/.test(e.target.tagName);
+  if (e.key === 'Escape') { if (inField) { e.target.blur(); return; } if ($('#rmenu').classList.contains('on')) { closeRowMenu(); return; } closeDrawer(); return; }
+  if (inField) return;
+  const k = e.key.toLowerCase(), cur = WORDS.find(w => w.id === (kbId ?? selId));
+  if (k === '/') { e.preventDefault(); $('#q').focus(); return; }
+  if (k === 'j' || e.key === 'ArrowDown') { e.preventDefault(); step(1); return; }
+  if (k === 'k' || e.key === 'ArrowUp') { e.preventDefault(); step(-1); return; }
+  if (!cur) return;
+  if (e.key === ' ') { e.preventDefault(); checked.has(cur.id) ? checked.delete(cur.id) : checked.add(cur.id); renderRows(false); renderBulk(); return; }
+  if (e.key === 'Enter') { select(cur.id); return; }
+  if (/^[0-5]$/.test(e.key) && cur.s < 6) { setStage([cur.id], +e.key); return; }
+  if (k === 'i' && cur.s < 6) { ignoreIds([cur.id]); return; }
+  if (k === 'p' && cur.kind === 'word') { speakW(cur.w); return; }
+  if (k === 't') { addTag([cur.id]); return; }
+});
+
+/* ---------- 启动 ---------- */
+initShell({ onLayout: () => moveThumb($('#kindSeg')) });
+if (/^#v=/.test(location.hash)) view = location.hash.slice(3);
+if (/^#tag=/.test(location.hash)) fTags.add(decodeURIComponent(location.hash.slice(5)));   // 书架页标签 → 生词本
+render(false); moveThumb($('#kindSeg')); moveThumb($('#dtabs'));
+addEventListener('resize', () => { moveThumb($('#kindSeg')); moveThumb($('#dtabs')); renderHead(); renderRows(false); });
+anim(document.querySelectorAll('.wb > section:not(.wl)'), { opacity: [0, 1], y: [10, 0] }, { duration: 0.45, ease: EASE, delay: stag(0.05) });
+anim(document.querySelectorAll('.wr'), { opacity: [0, 1], y: [6, 0] }, { duration: 0.35, ease: EASE, delay: stag(0.012, { startDelay: 0.12 }) });
+anim(document.querySelectorAll('#distbar button'), { scaleX: [0, 1] }, { duration: 0.6, ease: EASE, delay: stag(0.05, { startDelay: 0.1 }) });
+
+/* 从搜索面板跳转：#w=单词 */
+function selectFromHash() { const m = location.hash.match(/^#w=(.+)$/); if (!m) return; const w = decodeURIComponent(m[1]), x = WORDS.find(y => y.w === w); if (!x) return; if (!viewFn()(x)) { view = x.s === 5 ? 'mastered' : x.s === 98 ? 'ignored' : 'all'; fStage = null; render(false); } const row = document.querySelector(`.wr[data-id="${x.id}"]`); if (!row) { toast('当前筛选下看不到 “' + w + '”'); return; } select(x.id); row.scrollIntoView({ block: 'center', behavior: REDUCE ? 'auto' : 'smooth' }); }
+addEventListener('hashchange', selectFromHash); setTimeout(selectFromHash, 300);
+</script>
+<script src="v2-search.js"></script>

@@ -1,0 +1,334 @@
+<title>Tibi 统计</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Charis+SIL:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono&display=swap">
+<link rel="stylesheet" href="v2.css">
+<style>
+/* 统计页专属样式 */
+.st { max-width: 1040px; margin: 0 auto; padding: 28px 40px 80px; display: flex; flex-direction: column; gap: 28px; }
+.sthead { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sthead h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+.sthead .sum { font-size: 12.5px; color: var(--ink-3); margin-left: 12px; }
+.sthead .l { display: flex; align-items: baseline; }
+.kp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kp .tile { border-radius: 16px; background: var(--sunken); padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; position: relative; cursor: pointer; text-align: left; transition: box-shadow .15s; }
+.kp .tile:hover { box-shadow: inset 0 0 0 1.5px var(--line-2); }
+.kp .tile .spark { position: absolute; right: 14px; top: 14px; width: 64px; height: 26px; opacity: .9; }
+.kp .k { font-size: 12.5px; color: var(--ink-2); }
+.kp .v { font-size: 28px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.kp .v small { font-size: 13px; font-weight: 400; color: var(--ink-3); margin-left: 3px; }
+.kp .d { font-size: 12px; color: var(--ink-3); } .kp .d b { color: var(--ok); font-weight: 500; }
+.panel { border-radius: 18px; box-shadow: inset 0 0 0 1px var(--line); padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ph { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ph h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.ph .sub { font-size: 12.5px; color: var(--ink-3); }
+.two { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.legend i.line { height: 2px; border-radius: 1px; vertical-align: 3px; width: 14px; }
+.legend i.dash { height: 0; border-top: 1.5px dashed var(--ink-3); background: none; width: 14px; vertical-align: 3px; border-radius: 0; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.tbl th { color: var(--ink-3); font-weight: 500; }
+.tblwrap { max-height: 240px; overflow: auto; }
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); gap: 3px; }
+.heat i { aspect-ratio: 1; border-radius: 3px; background: var(--sunken); }
+.heatwrap { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; }
+.heatwrap .days { display: grid; grid-template-rows: repeat(7, 1fr); gap: 3px; font-size: 10.5px; color: var(--ink-3); height: 100%; }
+.heatwrap .days span { display: flex; align-items: center; }
+.months { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-3); margin: 0 0 4px 22px; }
+.hbar { display: flex; flex-direction: column; gap: 12px; }
+.hbar .r { display: grid; grid-template-columns: 64px minmax(0, 1fr) 70px; gap: 10px; align-items: center; font-size: 12.5px; }
+.hbar .r .tr { height: 12px; border-radius: 4px; background: var(--sunken); overflow: hidden; }
+.hbar .r .tr i { display: block; height: 100%; border-radius: 4px; background: var(--accent); transform-origin: left; }
+.hbar .r b { font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+.hbar .r span { color: var(--ink-2); }
+.dist { display: flex; flex-direction: column; gap: 10px; }
+.distbar { display: flex; gap: 3px; height: 14px; }
+.distbar i { border-radius: 4px; min-width: 6px; }
+.distlab { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.distlab i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; }
+.distlab b { font-weight: 500; color: var(--ink); }
+.c0 { background: var(--hl-new); } .c1 { background: var(--hl-1); } .c2 { background: var(--hl-2); } .c3 { background: var(--hl-3); } .c4 { background: color-mix(in srgb, var(--hl-4), var(--ink-3) 25%); } .c5 { background: var(--ink); }
+.insight { border-radius: 18px; background: var(--accent-wash); padding: 16px 20px; display: flex; gap: 14px; align-items: flex-start; }
+.insight .spark { width: 20px; height: 20px; flex: none; margin-top: 2px; }
+.insight p { margin: 0; font-size: 14px; line-height: 1.75; }
+.insight .acts { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+.perf { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 18px; align-items: start; }
+.perf .side { display: flex; flex-direction: column; gap: 10px; }
+.perf .side div { padding: 10px 12px; border-radius: 12px; background: var(--sunken); display: flex; flex-direction: column; gap: 2px; }
+.perf .side b { font-size: 20px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.perf .side span { font-size: 11.5px; color: var(--ink-3); }
+.perf .side a { color: var(--ink-2); text-decoration: none; font-size: 12px; } .perf .side a:hover { color: var(--accent); }
+@media (max-width: 1180px) { .two { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="app" id="app">
+  <aside class="side" id="side">
+    <div class="brand"><span class="logo"><img class="mark-img" src="img/logo.svg" alt="Tibi"><span class="hide-c">Tibi</span></span><button class="ibtn hide-c cbtn" id="collapseBtn" title="折叠 / 展开侧栏（⌘\）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button></div>
+    <button class="newbtn search" title="搜索文章、单词与设置（⌘K）"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><span class="hide-c">搜索</span><span class="k hide-c">⌘K</span></button>
+    <nav class="nav">
+      <a href="#" data-link="home" title="首页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 11l8-6 8 6v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg><span class="hide-c">首页</span></a>
+      <a href="#" data-link="library" title="书架"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.8-1 3 15.5-3.8 1z"/></svg><span class="hide-c">书架</span><span class="n hide-c">8</span></a>
+      <a href="#" data-link="words" title="生词本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="hide-c">生词本</span><span class="n hide-c" id="navWords">33</span></a>
+      <a href="#" data-link="review" title="复习"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg><span class="hide-c">复习</span><span class="n badge hide-c">18</span></a>
+      <a href="#" class="cur" title="统计"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span class="hide-c">统计</span></a>
+      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">3</span></a>
+    </nav>
+    <div class="sideh hide-c" id="sideH">最近</div>
+    <div class="recent hide-c" id="recent"></div>
+    <div class="sidefoot">
+      <div class="streak" title="连续 9 天 · 今日 12 / 20 分钟">
+        <svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle id="ringArc" cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="87.96" transform="rotate(-90 18 18)"/></svg>
+        <div class="hide-c"><div class="t">连续 9 天</div><div class="s">今日 12 / 20 分钟</div></div>
+      </div>
+      <div class="user"><span class="av">你</span><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
+    </div>
+  </aside>
+  <section class="main">
+    <header class="top">
+      <button class="ibtn" id="menuBtn" title="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+      <span class="crumb"><b>统计</b></span>
+      <span class="sp"></span>
+      <button class="pill" id="themeBtn" title="切换深浅色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button>
+    </header>
+    <div class="scroll" id="scroll">
+      <main class="st">
+        <section class="sthead"><div class="l"><h1>统计</h1><span class="sum">截至今天 · 示例数据</span></div><div class="modes" id="range"><i class="thumb"></i><button data-d="30">30 天</button><button data-d="90" class="on">90 天</button><button data-d="180">半年</button></div></section>
+
+        <section class="kp" id="kp"></section>
+
+        <section class="insight"><svg class="spark" viewBox="0 0 24 24" fill="var(--accent)"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>
+          <div><p id="insight"></p><div class="acts"><a class="btn sm" data-link="review" href="#">复习 18 个到期的词</a><a class="btn sm" data-link="home" href="#">找一篇学习区的新闻</a><a class="btn sm" id="leechLink" href="#">看看 2 个难词</a></div>
+            <div class="prov-line" style="margin-top:10px"><span class="av-ag tibi" id="insAv" aria-hidden="true"></span><span>Tibi · 学习洞察</span> · <a href="#" id="insProv" title="DeepSeek 深入 · 昨天 21:03 · ¥0.009">查看过程</a> · <button id="insRe">重新生成</button></div></div></section>
+
+        <section class="panel" id="growthPanel">
+          <div class="ph"><h2>已知词数</h2><span class="sub" id="growSub"></span><button class="linkbtn" id="tblBtn">以表格查看</button></div>
+          <div class="chart" id="growth" role="img"></div>
+          <div class="tblwrap" id="growTbl" hidden></div>
+        </section>
+
+        <section class="two">
+          <div class="panel" id="dailyPanel">
+            <div class="ph"><h2>每日阅读</h2><span class="sub">最近 30 天 · 分钟</span></div>
+            <div class="legend"><span><i style="background:var(--accent)"></i>达成每日目标</span><span><i style="background:var(--line-2)"></i>未达成</span><span><i class="dash"></i>目标 20 分钟</span></div>
+            <div class="chart" id="daily" role="img"></div>
+          </div>
+          <div class="panel">
+            <div class="ph"><h2>接下来要复习</h2><span class="sub" id="fcSub">未来 14 天 · 张</span></div>
+            <div class="chart" id="forecast" role="img"></div>
+            <div class="lbl-i">FSRS · 目标记忆保持率 90% · 实际 91.4%</div>
+          </div>
+        </section>
+
+        <section class="panel" id="perfPanel">
+          <div class="ph"><h2>复习表现</h2><span class="sub">最近 12 周 · 每周评分占比与记得率</span><div class="legend"><span><i style="background:var(--hard)"></i>忘了</span><span><i style="background:var(--mid)"></i>模糊</span><span><i style="background:var(--ink)"></i>记得</span><span><i style="background:var(--accent)"></i>轻松</span><span><i class="line" style="background:var(--ok)"></i>记得率</span></div></div>
+          <div class="perf"><div class="chart" id="perf" role="img"></div><div class="side" id="perfSide"></div></div>
+        </section>
+
+        <section class="panel" id="heatPanel">
+          <div class="ph"><h2>学习日历</h2><span class="sub">最近 26 周 · 每天学习分钟数</span><div class="legend"><span>少</span><span><i style="background:var(--sunken)"></i><i style="background:color-mix(in srgb,var(--accent) 25%,var(--sunken))"></i><i style="background:color-mix(in srgb,var(--accent) 50%,var(--sunken))"></i><i style="background:color-mix(in srgb,var(--accent) 75%,var(--sunken))"></i><i style="background:var(--accent)"></i></span><span>多</span></div></div>
+          <div class="months" id="months"></div>
+          <div class="heatwrap"><div class="days"><span></span><span>一</span><span></span><span>三</span><span></span><span>五</span><span></span></div><div class="chart"><div class="heat" id="heat"></div></div></div>
+        </section>
+
+        <section class="two">
+          <div class="panel">
+            <div class="ph"><h2>生词本熟练度</h2><a class="sub" data-link="words" href="#" style="text-decoration:none">共 33 个 →</a></div>
+            <div class="dist"><div class="distbar" id="distbar"></div><div class="distlab" id="distlab"></div></div>
+            <div class="lbl-i">"掌握"表示已经不再标注；生词本里只保留你主动加入的词。</div>
+          </div>
+          <div class="panel">
+            <div class="ph"><h2>按类型阅读量</h2><span class="sub" id="genreSub"></span></div>
+            <div class="hbar" id="genre"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/motion@11.11.17/dist/motion.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/overlayscrollbars/2.10.1/browser/overlayscrollbars.browser.es6.min.js"></script>
+<script src="v2-shell.js"></script>
+<script src="v2-fox.js"></script>
+<script src="v2-agents.js"></script>
+<script>
+/* ---------- 示例数据（种子随机，结果固定） ---------- */
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const N = 182, today = new Date(); today.setHours(0, 0, 0, 0);
+const dayOf = i => { const d = new Date(today); d.setDate(d.getDate() - (N - 1 - i)); return d; };
+const fmt = d => `${d.getMonth() + 1}/${d.getDate()}`;
+const minutes = Array.from({ length: N }, (_, i) => { const d = dayOf(i), wk = d.getDay() === 0 || d.getDay() === 6; const base = i < 40 ? 10 : i < 120 ? 16 : 21; const skip = rnd() < (i > N - 10 ? 0 : 0.12); return skip ? 0 : Math.max(3, Math.round(base + (wk ? 8 : 0) + (rnd() - 0.4) * 14)); });
+minutes[N - 1] = 12;
+const known = []; { let k = 5340; for (let i = 0; i < N; i++) { k += minutes[i] ? Math.round(minutes[i] * (0.12 + rnd() * 0.12)) : 0; known.push(k); } const off = 6214 - known[N - 1]; for (let i = 0; i < N; i++) known[i] += off; }
+const words = minutes.map(m => Math.round(m * 155 * (0.8 + rnd() * 0.4)));
+const forecast = [18, 9, 14, 6, 11, 7, 3, 12, 8, 5, 9, 4, 6, 10];
+let range = 90;
+
+/* ---------- 工具 ---------- */
+const nice = (lo, hi, n = 4) => { const span = hi - lo, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0))), step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= step0); const a = Math.floor(lo / step) * step, b = Math.ceil(hi / step) * step; const t = []; for (let v = a; v <= b + 1e-9; v += step) t.push(Math.round(v)); return t; };
+function tip(box) { let t = box.querySelector('.tip'); if (!t) { t = document.createElement('div'); t.className = 'tip'; t.hidden = true; box.appendChild(t); } return t; }
+const kfmt = v => v.toLocaleString();
+const spark = (arr, color = 'var(--accent)') => { const W = 64, H = 26, lo = Math.min(...arr), hi = Math.max(...arr) || 1; const x = i => i * W / (arr.length - 1), y = v => 2 + (1 - (v - lo) / (hi - lo || 1)) * (H - 4); return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${arr.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${W}" cy="${y(arr[arr.length - 1])}" r="2" fill="${color}"/></svg>`; };
+const weekly = (arr, n = 12) => Array.from({ length: n }, (_, k) => arr.slice(N - 7 * (n - k), N - 7 * (n - k - 1)).reduce((a, b) => a + b, 0));
+
+/* ---------- 指标 ---------- */
+function drawKpis() {
+  const s = N - range, mins = minutes.slice(s), days = mins.filter(m => m).length, gain = known[N - 1] - known[s];
+  const prevS = Math.max(0, s - range), prevGain = known[s] - known[prevS];
+  const totalWords = words.slice(s).reduce((a, b) => a + b, 0);
+  $('#kp').innerHTML = [
+    ['已知词', kfmt(known[N - 1]), '词', `${range} 天 <b>+${gain}</b>${prevGain ? `（上一周期 +${prevGain}）` : ''}`],
+    ['阅读', Math.round(mins.reduce((a, b) => a + b, 0) / 60 * 10) / 10, '小时', `共 ${kfmt(totalWords)} 词 · ${Math.round(totalWords / 1000 / range * 7 * 10) / 10}k 词 / 周`],
+    ['学习天数', days, `/ ${range} 天`, `连续 9 天 · 最长 23 天`],
+    ['复习', range === 30 ? 312 : range === 90 ? 941 : 1760, '次', '记得或轻松 <b>86%</b>'],
+  ].map(([k, v, u, d], i) => { const sp = [spark(weekly(known.map((x, j) => j ? x - known[j - 1] : 0))), spark(weekly(minutes)), spark(weekly(minutes.map(m => m ? 1 : 0)), 'var(--ink-3)'), spark([84, 85, 83, 86, 88, 85, 87, 86, 85, 88, 87, 86], 'var(--ok)')][i]; return `<button class="tile" data-go="${['growthPanel', 'dailyPanel', 'heatPanel', 'perfPanel'][i]}"><span class="k">${k}</span><span class="v">${v}<small>${u}</small></span><span class="d">${d}</span>${sp}</button>`; }).join('');
+  document.querySelectorAll('.tile[data-go]').forEach(t => t.onclick = () => { const el = document.getElementById(t.dataset.go); if (el) MAIN.scrollTo({ top: el.offsetTop - 12, behavior: REDUCE ? 'auto' : 'smooth' }); });
+  $('#insight').innerHTML = `最近 ${range} 天多认识了 <b>${gain}</b> 个词，学习天数 ${days} 天。技术类读得最多，生词率从 9% 降到了 7%；新闻类读得少，而且生词率仍在 8% 以上。建议这周每天读一篇 5 分钟左右的新闻，把它拉进学习区（2–5%）。`;
+  $('#growSub').textContent = `${fmt(dayOf(s))} – 今天 · +${gain}`;
+}
+
+/* ---------- 已知词数（词汇量）：面积折线 + 十字线 ---------- */
+function drawGrowth() {
+  const box = $('#growth'), W = box.clientWidth, H = 220, L = 46, R = 12, T = 12, B = 26;
+  const s = N - range, data = known.slice(s), lo = Math.min(...data), hi = Math.max(...data);
+  const ticks = nice(lo, hi), y0 = ticks[0], y1 = ticks[ticks.length - 1];
+  const x = i => L + i * (W - L - R) / (data.length - 1), y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
+  const pts = data.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const xt = [0, Math.round((data.length - 1) / 3), Math.round((data.length - 1) * 2 / 3), data.length - 1];
+  box.setAttribute('aria-label', `已知词数从 ${kfmt(data[0])} 增长到 ${kfmt(data[data.length - 1])}`);
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}">
+    ${ticks.map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text class="axis" x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${kfmt(t)}</text>`).join('')}
+    ${xt.map(i => `<text class="axis" x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === data.length - 1 ? 'end' : 'middle'}">${i === data.length - 1 ? '今天' : fmt(dayOf(s + i))}</text>`).join('')}
+    <path d="M${x(0)},${y(y0)} L${pts.split(' ').join(' L')} L${x(data.length - 1)},${y(y0)} Z" fill="var(--accent)" fill-opacity=".1"/>
+    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <line id="gx" y1="${T}" y2="${H - B}" stroke="var(--ink-3)" stroke-dasharray="3 3" opacity="0"/>
+    <circle id="gd" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" cx="${x(data.length - 1)}" cy="${y(data[data.length - 1])}"/>
+    <rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" id="ghit"/>
+  </svg>`;
+  const t = tip(box), svg = box.querySelector('svg');
+  svg.querySelector('#ghit').onpointermove = e => {
+    const r = svg.getBoundingClientRect(); const i = Math.max(0, Math.min(data.length - 1, Math.round((e.clientX - r.left - L) / ((W - L - R) / (data.length - 1)))));
+    svg.querySelector('#gx').setAttribute('x1', x(i)); svg.querySelector('#gx').setAttribute('x2', x(i)); svg.querySelector('#gx').setAttribute('opacity', '1');
+    svg.querySelector('#gd').setAttribute('cx', x(i)); svg.querySelector('#gd').setAttribute('cy', y(data[i]));
+    const d = i ? data[i] - data[i - 1] : 0;
+    t.hidden = false; t.style.left = x(i) + 'px'; t.style.top = y(data[i]) + 'px'; t.innerHTML = `${fmt(dayOf(s + i))} · <b>${kfmt(data[i])}</b> 词${d ? ` · +${d}` : ''}`;
+  };
+  svg.querySelector('#ghit').onpointerleave = () => { t.hidden = true; svg.querySelector('#gx').setAttribute('opacity', '0'); svg.querySelector('#gd').setAttribute('cx', x(data.length - 1)); svg.querySelector('#gd').setAttribute('cy', y(data[data.length - 1])); };
+  $('#growTbl').innerHTML = `<table class="tbl"><thead><tr><th>日期</th><th>已知词</th><th>当天新增</th><th>阅读分钟</th></tr></thead><tbody>${data.map((v, i) => [fmt(dayOf(s + i)), kfmt(v), i ? v - data[i - 1] : '—', minutes[s + i]]).reverse().map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+/* ---------- 每日阅读：柱状图 + 目标线 ---------- */
+function drawDaily() {
+  const box = $('#daily'), W = box.clientWidth, H = 180, L = 30, R = 6, T = 10, B = 24, data = minutes.slice(N - 30), goal = 20;
+  const ticks = nice(0, Math.max(...data, goal)), y1 = ticks[ticks.length - 1];
+  const bw = (W - L - R) / data.length, y = v => T + (1 - v / y1) * (H - T - B);
+  box.setAttribute('aria-label', `最近 30 天每日阅读分钟数，${data.filter(v => v >= goal).length} 天达成目标`);
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}">
+    ${ticks.map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text class="axis" x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t}</text>`).join('')}
+    ${data.map((v, i) => { const h = Math.max(v ? 2 : 0, y(0) - y(v)), x = L + i * bw + 1, w = Math.max(2, bw - 2), r = Math.min(4, w / 2); return v ? `<path d="M${x},${y(0)} v${-(h - r)} q0,${-r} ${r},${-r} h${w - 2 * r} q${r},0 ${r},${r} v${h - r} z" fill="${v >= goal ? 'var(--accent)' : 'var(--line-2)'}" data-i="${i}"/>` : ''; }).join('')}
+    <line x1="${L}" x2="${W - R}" y1="${y(goal)}" y2="${y(goal)}" stroke="var(--ink-3)" stroke-dasharray="4 3"/>
+    ${[0, 14, 29].map(i => `<text class="axis" x="${L + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle">${i === 29 ? '今天' : fmt(dayOf(N - 30 + i))}</text>`).join('')}
+    ${data.map((v, i) => `<rect x="${L + i * bw}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent" data-h="${i}"/>`).join('')}
+  </svg>`;
+  const t = tip(box);
+  box.querySelectorAll('[data-h]').forEach(r => { r.onpointerenter = () => { const i = +r.dataset.h, v = data[i]; t.hidden = false; t.style.left = (L + i * bw + bw / 2) + 'px'; t.style.top = y(v) + 'px'; t.innerHTML = `${fmt(dayOf(N - 30 + i))} · <b>${v}</b> 分钟${v >= goal ? ' · 达成' : v ? '' : ' · 没有学习'}`; box.querySelectorAll('path[data-i]').forEach(p => p.style.opacity = +p.dataset.i === i ? 1 : .55); }; });
+  box.onpointerleave = () => { t.hidden = true; box.querySelectorAll('path[data-i]').forEach(p => p.style.opacity = 1); };
+}
+
+/* ---------- 复习预测 ---------- */
+function drawForecast() {
+  const box = $('#forecast'), W = box.clientWidth, H = 180, L = 26, R = 6, T = 10, B = 24, data = forecast;
+  const ticks = nice(0, Math.max(...data), 3), y1 = ticks[ticks.length - 1], bw = (W - L - R) / data.length, y = v => T + (1 - v / y1) * (H - T - B);
+  const wk = ['日', '一', '二', '三', '四', '五', '六'];
+  box.setAttribute('aria-label', `未来 14 天每天要复习的卡片数，今天 ${data[0]} 张`); $('#fcSub').textContent = `未来 14 天 · 张 · 下周共 ${data.slice(0, 7).reduce((a, b) => a + b, 0)}`;
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}">
+    ${ticks.map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text class="axis" x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t}</text>`).join('')}
+    ${data.map((v, i) => { const h = y(0) - y(v), x = L + i * bw + 2, w = bw - 4, r = Math.min(4, w / 2); return `<path d="M${x},${y(0)} v${-(h - r)} q0,${-r} ${r},${-r} h${w - 2 * r} q${r},0 ${r},${r} v${h - r} z" fill="${i ? 'var(--ink-2)' : 'var(--accent)'}" data-i="${i}"/>${i === 0 ? `<text class="axis" x="${x + w / 2}" y="${y(v) - 6}" text-anchor="middle" style="fill:var(--ink)">${v}</text>` : ''}`; }).join('')}
+    ${data.map((v, i) => { const d = new Date(today); d.setDate(d.getDate() + i); return i % 2 === 0 ? `<text class="axis" x="${L + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle">${i ? wk[d.getDay()] : '今天'}</text>` : ''; }).join('')}
+    ${data.map((v, i) => `<rect x="${L + i * bw}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent" data-h="${i}"/>`).join('')}
+  </svg>`;
+  const t = tip(box);
+  box.querySelectorAll('[data-h]').forEach(r => r.onpointerenter = () => { const i = +r.dataset.h, d = new Date(today); d.setDate(d.getDate() + i); t.hidden = false; t.style.left = (L + i * bw + bw / 2) + 'px'; t.style.top = y(data[i]) + 'px'; t.innerHTML = `${i ? fmt(d) + ' 周' + wk[d.getDay()] : '今天'} · <b>${data[i]}</b> 张`; });
+  box.onpointerleave = () => t.hidden = true;
+}
+
+/* ---------- 复习表现：每周四档评分堆叠 + 记得率折线（借鉴 Anki 的 True Retention） ---------- */
+const PERF = [[9, 11, 52, 14], [8, 10, 58, 16], [11, 12, 55, 12], [7, 9, 60, 18], [6, 10, 62, 20], [9, 8, 61, 19], [7, 9, 64, 21], [8, 8, 63, 22], [9, 10, 61, 20], [6, 8, 66, 24], [7, 9, 65, 23], [8, 7, 60, 21]];
+function drawPerf() {
+  const box = $('#perf'), W = box.clientWidth, H = 180, L = 30, R = 34, T = 10, B = 24, data = PERF, bw = (W - L - R) / data.length, cols = ['var(--hard)', 'var(--mid)', 'var(--ink)', 'var(--accent)'], lab = ['忘了', '模糊', '记得', '轻松'];
+  const y = p => T + (1 - p) * (H - T - B), ret = data.map(w => (w[2] + w[3]) / w.reduce((a, b) => a + b, 0));
+  box.setAttribute('aria-label', `最近 12 周每周评分占比，本周记得率 ${Math.round(ret[ret.length - 1] * 100)}%`);
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}">
+    ${[0, .5, 1].map(p => `<line x1="${L}" x2="${W - R}" y1="${y(p)}" y2="${y(p)}" stroke="var(--line)"/><text class="axis" x="${L - 6}" y="${y(p) + 4}" text-anchor="end">${p * 100}%</text>`).join('')}
+    ${data.map((w, i) => { const tot = w.reduce((a, b) => a + b, 0); let acc = 0; return w.map((v, k) => { const h = v / tot * (H - T - B), yy = y(acc / tot) - h; acc += v; return `<rect x="${L + i * bw + 3}" y="${yy}" width="${bw - 6}" height="${h}" fill="${cols[k]}" opacity=".85" rx="2" data-i="${i}"/>`; }).join(''); }).join('')}
+    <polyline points="${ret.map((r, i) => `${L + i * bw + bw / 2},${y(r)}`).join(' ')}" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linejoin="round"/>
+    ${ret.map((r, i) => `<circle cx="${L + i * bw + bw / 2}" cy="${y(r)}" r="3" fill="var(--surface)" stroke="var(--ok)" stroke-width="2"/>`).join('')}
+    <text class="axis" x="${W - R + 6}" y="${y(ret[ret.length - 1]) + 4}" style="fill:var(--ok)">${Math.round(ret[ret.length - 1] * 100)}%</text>
+    ${data.map((_, i) => i % 3 === 0 || i === data.length - 1 ? `<text class="axis" x="${L + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle">${i === data.length - 1 ? '本周' : `${data.length - i} 周前`}</text>` : '').join('')}
+    ${data.map((_, i) => `<rect x="${L + i * bw}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent" data-h="${i}"/>`).join('')}
+  </svg>`;
+  const t = tip(box);
+  box.querySelectorAll('[data-h]').forEach(r => r.onpointerenter = () => { const i = +r.dataset.h, w = data[i], tot = w.reduce((a, b) => a + b, 0); t.hidden = false; t.style.left = (L + i * bw + bw / 2) + 'px'; t.style.top = T + 'px'; t.innerHTML = `${i === data.length - 1 ? '本周' : `${data.length - i} 周前`} · ${tot} 次 · 记得率 <b>${Math.round(ret[i] * 100)}%</b><br>${w.map((v, k) => `${lab[k]} ${v}`).join(' · ')}`; box.querySelectorAll('rect[data-i]').forEach(p => p.style.opacity = +p.dataset.i === i ? 1 : .5); });
+  box.onpointerleave = () => { t.hidden = true; box.querySelectorAll('rect[data-i]').forEach(p => p.style.opacity = .85); };
+  const all = data.flat().reduce((a, b) => a + b, 0), lapses = data.reduce((a, w) => a + w[0], 0);
+  $('#perfSide').innerHTML = `<div><b>${Math.round(data.reduce((a, w) => a + w[2] + w[3], 0) / all * 100)}%</b><span>12 周记得率 · 目标 90%</span></div><div><b>${lapses}</b><span>忘了的次数</span></div><div><b>2</b><span>难词（忘了 3 次以上）</span><a href="${URLS.words}#v=leech" data-ext>去处理 →</a></div>`;
+  $('#perfSide').querySelectorAll('[data-ext]').forEach(ext);
+}
+
+/* ---------- 学习日历：单色顺序色阶 ---------- */
+function drawHeat() {
+  const start = N - 7 * 26; const first = dayOf(start); const pad = (first.getDay() + 6) % 7;
+  const lvl = m => !m ? 0 : m < 10 ? 1 : m < 20 ? 2 : m < 30 ? 3 : 4;
+  const col = ['var(--sunken)', 'color-mix(in srgb,var(--accent) 25%,var(--sunken))', 'color-mix(in srgb,var(--accent) 50%,var(--sunken))', 'color-mix(in srgb,var(--accent) 75%,var(--sunken))', 'var(--accent)'];
+  const cells = []; for (let p = 0; p < pad; p++) cells.push('<i style="visibility:hidden"></i>');
+  for (let i = start; i < N; i++) cells.push(`<i style="background:${col[lvl(minutes[i])]}" data-i="${i}"></i>`);
+  $('#heat').style.gridTemplateColumns = `repeat(${Math.ceil(cells.length / 7)}, 1fr)`;
+  $('#heat').innerHTML = cells.join('');
+  const ms = []; let last = -1; for (let i = start; i < N; i += 7) { const m = dayOf(i).getMonth(); if (m !== last) { ms.push(`${m + 1} 月`); last = m; } }
+  $('#months').innerHTML = ms.map(m => `<span>${m}</span>`).join('');
+  const box = $('#heat').parentElement, t = tip(box);
+  $('#heat').querySelectorAll('[data-i]').forEach(c => c.onpointerenter = () => { const i = +c.dataset.i, br = box.getBoundingClientRect(), cr = c.getBoundingClientRect(); t.hidden = false; t.style.left = (cr.left - br.left + cr.width / 2) + 'px'; t.style.top = (cr.top - br.top) + 'px'; t.innerHTML = `${fmt(dayOf(i))} · ${minutes[i] ? `<b>${minutes[i]}</b> 分钟 · ${kfmt(words[i])} 词` : '没有学习'}`; });
+  $('#heat').onpointerleave = () => t.hidden = true;
+}
+
+/* ---------- 熟练度分布、类型 ---------- */
+function drawDist() {
+  const S = ['生词', '见过', '眼熟', '认得', '熟悉', '掌握'], c = [15, 5, 5, 5, 3, 0];
+  $('#distbar').innerHTML = c.map((n, i) => `<i class="c${i}" style="flex:${n}" title="${S[i]} ${n}"></i>`).join('');
+  $('#distlab').innerHTML = c.map((n, i) => `<span><i class="c${i}"></i>${S[i]} <b>${n}</b></span>`).join('');
+}
+function drawGenre() {
+  const g = [['技术', 0.52], ['文学', 0.29], ['新闻', 0.19]], tot = words.slice(N - range).reduce((a, b) => a + b, 0);
+  $('#genreSub').textContent = `${range} 天 · 共 ${kfmt(tot)} 词`;
+  $('#genre').innerHTML = g.map(([n, p]) => `<div class="r"><span>${n}</span><div class="tr"><i style="width:${p * 100 / g[0][1]}%"></i></div><b>${kfmt(Math.round(tot * p))}</b></div>`).join('') +
+    `<div class="lbl-i">平均生词率：技术 7.0% · 文学 4.1% · 新闻 8.6%</div>`;
+}
+function drawAll(animate) {
+  drawKpis(); drawGrowth(); drawDaily(); drawForecast(); drawPerf(); drawHeat(); drawDist(); drawGenre();
+  if (animate) {
+    anim(document.querySelectorAll('.st > section'), { opacity: [0, 1], y: [10, 0] }, { duration: 0.45, ease: EASE, delay: stag(0.05) });
+    const pl = $('#growth polyline'); if (pl && M && !REDUCE) { const L = pl.getTotalLength(); pl.style.strokeDasharray = L; anim(pl, { strokeDashoffset: [L, 0] }, { duration: 1, ease: EASE, delay: 0.2 }); }
+    document.querySelectorAll('#daily path, #forecast path').forEach(p => { p.style.transformBox = 'fill-box'; p.style.transformOrigin = 'bottom'; });
+    anim(document.querySelectorAll('#daily path, #forecast path'), { transform: ['scaleY(0)', 'scaleY(1)'] }, { duration: 0.5, ease: EASE, delay: stag(0.012, { startDelay: 0.25 }) });
+    anim(document.querySelectorAll('#genre .tr i'), { scaleX: [0, 1] }, { duration: 0.7, ease: EASE, delay: stag(0.08, { startDelay: 0.3 }) });
+    document.querySelectorAll('#perf rect[data-i]').forEach(p => { p.style.transformBox = 'fill-box'; p.style.transformOrigin = 'bottom'; });
+    anim(document.querySelectorAll('#perf rect[data-i]'), { transform: ['scaleY(0)', 'scaleY(1)'] }, { duration: 0.5, ease: EASE, delay: stag(0.01, { startDelay: 0.3 }) });
+  }
+}
+document.querySelectorAll('#range button').forEach(b => b.onclick = () => { range = +b.dataset.d; document.querySelectorAll('#range button').forEach(x => x.classList.toggle('on', x === b)); moveThumb($('#range'), true); drawKpis(); drawGrowth(); drawGenre(); });
+$('#tblBtn').onclick = () => { const t = $('#growTbl'); t.hidden = !t.hidden; $('#tblBtn').textContent = t.hidden ? '以表格查看' : '收起表格'; };
+$('#insAv').innerHTML = FOX_FACE; $('#insProv').href = URLS.tasks + '#t=h3'; ext($('#insProv')); $('#leechLink').href = URLS.words + '#v=leech'; ext($('#leechLink'));
+$('#insRe').onclick = () => { const p = $('#insight'); p.style.opacity = .4; setTimeout(() => { p.style.opacity = 1; toast('洞察已重新生成（原型）'); }, 900); };
+initShell({ onLayout: () => { if (!IS_EMPTY) drawAll(); } });
+const MAIN = osInit($('#scroll')); demoToggle();
+if (IS_EMPTY) {
+  /* 空状态：还没有学习数据 */
+  const m = document.querySelector('.st'); m.innerHTML = '';
+  emptyState(m, { state: 'idle', title: '还没有可以统计的东西', desc: '读完第一篇文章、复习过第一张卡片之后，这里会出现已知词曲线、每日阅读、复习表现和学习日历。', cls: 'card-like', actions: [{ t: '去首页读一篇', pri: true, link: 'home' }, { t: '看看示例数据', onclick: () => { location.hash = ''; location.reload(); } }] });
+} else { drawAll(true); moveThumb($('#range')); }
+let rT; addEventListener('resize', () => { if (IS_EMPTY) return; clearTimeout(rT); rT = setTimeout(() => { drawAll(); moveThumb($('#range')); }, 80); });
+shellHooks.theme.push(() => { if (!IS_EMPTY) drawAll(); });
+</script>
+<script src="v2-search.js"></script>

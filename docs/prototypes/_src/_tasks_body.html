@@ -1,0 +1,326 @@
+<style>
+/* 任务中心专属样式 */
+.tk { max-width: 920px; margin: 0 auto; padding: 24px 32px 80px; display: flex; flex-direction: column; gap: 30px; }
+.tkh { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.tkh p { margin: 0; font-size: 13px; color: var(--ink-2); flex: 1; min-width: 240px; line-height: 1.6; }
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--sunken); gap: 2px; flex-wrap: wrap; }
+.seg button { height: 28px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.seg button.on { background: var(--surface); color: var(--ink); font-weight: 500; box-shadow: 0 0 0 1px var(--line); }
+.seg button .n { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; } .seg button .n.hot { color: var(--accent); }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.kpi { border-radius: 14px; background: var(--sunken); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.kpi .k { font-size: 12px; color: var(--ink-2); } .kpi .v { font-size: 22px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.kpi .v small { font-size: 12px; font-weight: 400; color: var(--ink-3); margin-left: 3px; }
+.kpi .bar2 { margin-top: 4px; }
+.tsec { display: flex; flex-direction: column; gap: 8px; }
+.tsec > h2 { margin: 0 0 2px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.tsec > h2 .n { font-size: 12px; font-weight: 400; color: var(--ink-3); }
+.tsec > .desc { font-size: 12.5px; color: var(--ink-3); margin-top: -4px; }
+.list { border-radius: 16px; box-shadow: inset 0 0 0 1px var(--line); }
+.trow { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 16px; cursor: pointer; border-radius: 16px; position: relative; }
+.trow + .trow::before { content: ""; position: absolute; left: 16px; right: 16px; top: 0; height: 1px; background: var(--line); }
+.trow:hover, .trow.cur { background: var(--hover); } .trow:hover::before, .trow:hover + .trow::before, .trow.cur::before, .trow.cur + .trow::before { opacity: 0; }
+.trow.cur { background: var(--accent-wash); }
+.trow .t { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trow .t .doc { font-family: var(--f-read); font-weight: 400; }
+.trow .s { font-size: 12px; color: var(--ink-3); margin-top: 2px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.trow .s .run { color: var(--accent); } .trow .s .err { color: var(--hard); } .trow .s .warn { color: var(--mid); }
+.trow .bar2 { margin-top: 8px; height: 4px; max-width: 320px; }
+.trow .acts { display: flex; gap: 6px; align-items: center; }
+.trow .acts .ibtn { width: 30px; height: 30px; }
+.st { width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; flex: none; }
+.st.ok { background: var(--ink); color: var(--surface); } .st.err { background: var(--hard); color: #fff; } .st.cancel { box-shadow: inset 0 0 0 1.5px var(--line-2); color: var(--ink-3); }
+.sched .when { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.none { padding: 16px; font-size: 13px; color: var(--ink-3); }
+.appr-list { display: flex; flex-direction: column; gap: 8px; }
+.approve .edit { width: 100%; min-height: 54px; border: 0; border-radius: 10px; background: var(--sunken); padding: 8px 10px; font: inherit; font-size: 13px; color: var(--ink); resize: vertical; outline: none; }
+.approve label.chk { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-3); margin-left: auto; }
+.approve label.chk input { accent-color: var(--ink); }
+/* 详情抽屉 */
+.dbody { display: flex; flex-direction: column; gap: 18px; }
+.meta { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 6px 12px; font-size: 12.5px; }
+.meta dt { color: var(--ink-3); } .meta dd { margin: 0; color: var(--ink); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.blk h3 { margin: 0 0 8px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.tree { display: flex; flex-direction: column; gap: 2px; }
+.tree .kids { margin-left: 19px; padding-left: 10px; box-shadow: inset 1.5px 0 0 var(--line); display: flex; flex-direction: column; gap: 2px; }
+.step.wait .ic { box-shadow: inset 0 0 0 1.5px var(--line-2); }
+.step.err .ic { background: var(--hard); color: #fff; box-shadow: none; }
+.step.appr { background: color-mix(in srgb, var(--mid), transparent 88%); } .step.appr .ic { box-shadow: inset 0 0 0 1.5px var(--mid); }
+.step .sub { display: inline-flex; align-items: center; gap: 6px; } .step .sub small { color: var(--ink-3); font-size: 11.5px; }
+.step .sub .av-ag { width: 18px; height: 18px; border-radius: 5px; } .step .sub .av-ag svg { width: 11px; height: 11px; }
+.tx { display: flex; flex-direction: column; gap: 8px; }
+.tx .u { align-self: flex-end; max-width: 85%; background: var(--sunken); padding: 8px 12px; border-radius: 14px 14px 4px 14px; font-size: 13px; word-break: break-all; }
+.tx .a { font-size: 13px; line-height: 1.65; color: var(--ink); }
+.tcall { border-radius: 12px; background: var(--sunken); padding: 9px 12px; font-family: var(--f-mono); font-size: 11.5px; line-height: 1.6; color: var(--ink-2); }
+.tcall .n { color: var(--accent); } .tcall .r { color: var(--ink-3); } .tcall .r::before { content: "→ "; }
+.tcall .tm { float: right; color: var(--ink-3); }
+.dacts { display: flex; gap: 8px; flex-wrap: wrap; }
+.approve .impact { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); padding: 8px 10px; border-radius: 10px; background: var(--sunken); margin-top: 8px; }
+.approve .impact code { font-family: var(--f-mono); font-size: 11px; color: var(--accent); }
+.approve .impact .k { margin-left: auto; font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-3); }
+.approve.kb { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.trow.kb { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.trow .s .stepn { color: var(--ink-3); }
+.dayh { font-size: 11.5px; color: var(--ink-3); padding: 10px 16px 4px; }
+.dayh + .trow::before { display: none; }
+</style>
+
+<div class="app" id="app">
+%SIDE%
+  <section class="main">
+    <header class="top">
+      <button class="ibtn" id="menuBtn" title="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+      <span class="crumb"><b>任务</b></span>
+      <span class="sp"></span>
+      <button class="pill" id="themeBtn" title="切换深浅色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button>
+    </header>
+    <div class="scroll" id="scroll">
+      <main class="tk">
+        <section class="tkh">
+          <p>Tibi 在做的事。关掉应用后，运行中的任务会在下次打开时从断点继续。</p>
+          <div class="seg" id="filter"></div>
+        </section>
+        <section class="kpis" id="kpis"></section>
+        <section class="tsec" id="secAppr"><h2>等你确认 <span class="n" id="nAppr"></span></h2><div class="desc">Tibi 要改动你的数据时，会按"设置 → Tibi"里的权限先问你</div><div class="appr-list" id="appr"></div></section>
+        <section class="tsec" id="secRun"><h2>运行中 <span class="n" id="nRun"></span></h2><div class="list" id="run"></div></section>
+        <section class="tsec" id="secSched"><h2>例行任务 <span class="n" id="nSched"></span></h2><div class="desc">Tibi 按时自动做的事；在"设置 → Tibi 的技能"里可以改时间</div><div class="list" id="sched"></div></section>
+        <section class="tsec" id="secHist"><h2>最近 <span class="n" id="nHist"></span></h2><div class="list" id="hist"></div></section>
+      </main>
+    </div>
+  </section>
+
+  <aside class="drawer" id="drawer" aria-label="任务详情">
+    <header class="dhead"><span class="ttl" id="dTitle"></span><span class="sp"></span><button class="ibtn" id="closeDrawer" title="关闭（Esc）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <div class="scroll" id="dscroll"><div class="dbody" id="dbody"></div></div>
+  </aside>
+</div>
+
+%SCRIPTS%
+<script src="v2-fox.js"></script>
+<script src="v2-agents.js"></script>
+<script>
+const MAIN = osInit($('#scroll')), DSCROLL = osInit($('#dscroll'));
+const OK = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>';
+const X = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>';
+const BANG = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 6v8M12 18h.01"/></svg>';
+const PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/></svg>';
+const PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
+const STOP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+/* ---------- 示例数据 ---------- */
+const st = (t, s, tm = '', kids, agent) => ({ t, s, tm, kids, agent });
+let TASKS = [
+  { id: 't1', state: 'run', agent: 'importer', title: '导入', doc: 'Pin, and Why It Exists', trigger: '你在首页粘贴了网址', model: 'fast', start: '刚刚', dur: 0, tokens: 3120, cost: 0.004,
+    steps: [st('获取内容', 'ok', '0.8s'), st('提取正文与结构', 'ok', '1.1s'), st('分句、词形还原', 'run'), st('对照你的词库标注', 'wait'),
+      st('AI 分析（3 个子任务并行）', 'wait', '', [st('中文总结', 'wait'), st('值得学的短语', 'wait'), st('长难句', 'wait')]), st('保存到书架', 'wait')],
+    tx: [['u', 'https://without.boats/blog/pin/'], ['c', 'fetch_url', '{ url: "https://without.boats/blog/pin/" }', '200 OK · 18.2 KB', '0.8s'], ['c', 'extract_article', '{ html: "…" }', '标题 "Pin, and Why It Exists" · 1,906 词 · 87 句', '1.1s']] },
+  { id: 't2', state: 'run', agent: 'tibi', title: '找两篇周末读的小说章节', trigger: '你在对话里问 Tibi', model: 'fast', start: '1 分钟前', dur: 38, tokens: 5840, cost: 0.006,
+    steps: [st('理解你的要求', 'ok', '1.4s'), st('找文章', 'run', '', [st('读取词汇画像与兴趣', 'ok', '0.3s'), st('扫描订阅源与公有领域书库', 'run'), st('按生词率排序', 'wait')], 'scout'), st('整理推荐理由并回复你', 'wait')],
+    tx: [['u', '周末想读点小说，帮我找两篇难度合适的章节'], ['a', '好的，我去找，优先选你在读的英国古典小说。'], ['c', 'delegate', '{ agent: "scout", task: "两篇小说章节，生词率 2–5%，约 15 分钟" }', '技能「找文章」运行中', ''], ['c', 'scout → search_feeds', '{ genre: "novel", source: "gutenberg" }', '候选 64 篇', '2.3s']] },
+  { id: 't3', state: 'appr', agent: 'archivist', title: '整理今天的记忆', trigger: '例行任务 · 每晚 23:00（你手动提前运行了）', model: 'fast', start: '3 分钟前', dur: 12, tokens: 2210, cost: 0.002,
+    steps: [st('读取今天的学习事件（14 条）', 'ok', '0.2s'), st('对照已有记忆去重', 'ok', '2.1s'), st('写入新观察', 'appr'), st('标记过时的记忆', 'wait')],
+    appr: { tool: 'remember', title: 'Tibi 想记住一条新观察', body: '经常混淆 <b>affect / effect</b>：今天复习时第 3 次选错，阅读时也查了 2 次。', edit: '经常混淆 affect / effect（复习第 3 次选错，阅读时查了 2 次）', src: '来自：复习记录、阅读记录 · 今天' },
+    tx: [['c', 'list_learning_events', '{ since: "today" }', '14 条事件', '0.2s'], ['c', 'search_memory', '{ query: "affect effect" }', '1 条相似：经常混淆 affect / effect（10/26）', '0.1s'], ['a', '这条和 10/26 的观察是同一件事，但又出现了一次，所以更新它并提高置信度。'], ['c', 'remember', '{ type: "semantic", content: "经常混淆 affect / effect…", supersedes: 18 }', '等你确认', '']] },
+  { id: 't4', state: 'appr', agent: 'importer', title: '从终端导入 3 篇博客', trigger: 'Codex 通过 MCP 调用', model: 'fast', start: '6 分钟前', dur: 41, tokens: 9600, cost: 0.011,
+    steps: [st('获取 3 篇内容', 'ok', '2.6s'), st('分析与标注', 'ok', '14.8s'), st('保存到书架', 'appr')],
+    appr: { tool: 'save_document', title: 'Tibi 想把 3 篇文章保存到书架', body: 'Codex 在终端里请求导入：<br>· Async Rust: Futures Explained<br>· The Tokio Runtime, Visually<br>· Cancellation in Async Rust', src: '来自：外部 AI 工具（MCP） · Codex' },
+    tx: [['c', 'mcp ← codex', 'import_document × 3', '已接收', ''], ['c', 'fetch_url × 3', '{ … }', '3 × 200 OK', '2.6s'], ['c', 'save_document', '{ docs: 3 }', '等你确认', '']] },
+  { id: 'h1', state: 'done', agent: 'importer', title: '导入', doc: 'Cities Turn to Sponge Design as Floods Intensify', trigger: '你在首页粘贴了网址', model: 'fast', start: '今天 10:42', dur: 21, tokens: 7420, cost: 0.008,
+    steps: [st('获取内容', 'ok', '0.9s'), st('提取正文与结构', 'ok', '1.2s'), st('分句、词形还原', 'ok', '0.4s'), st('对照你的词库标注', 'ok', '0.3s'), st('AI 分析（3 个子任务并行）', 'ok', '16.8s', [st('中文总结', 'ok', '9.1s'), st('值得学的短语', 'ok', '6.3s'), st('长难句', 'ok', '16.8s')]), st('保存到书架', 'ok', '0.1s')],
+    tx: [['u', 'https://example.com/sponge-cities'], ['c', 'fetch_url', '{ url: "…/sponge-cities" }', '200 OK · 22.4 KB', '0.9s'], ['c', 'annotate_terms', '{ document: 7 }', '生词 46 · 待确认 9 · 生词率 9.8%', '0.3s'], ['a', '生词率 9.8%，偏难。总结里会先解释 sponge city 的概念，再列出 6 个短语。'], ['c', 'save_document', '{ id: 7 }', '已保存', '0.1s']] },
+  { id: 'h2', state: 'err', agent: 'scout', title: '推荐 3 篇科技新闻', trigger: '首页建议', model: 'fast', start: '今天 09:15', dur: 30, tokens: 1840, cost: 0.002, err: '抓取 theverge.com 超时（30 秒），其他 2 个来源正常',
+    steps: [st('读取词汇画像与兴趣', 'ok', '0.3s'), st('扫描订阅源', 'err', '30s'), st('按生词率排序', 'wait')],
+    tx: [['c', 'search_feeds', '{ genre: "news", topic: "tech" }', '3 个来源', '0.4s'], ['c', 'fetch_url', '{ url: "https://www.theverge.com/rss" }', '超时（30s）', '30s']] },
+  { id: 'h3', state: 'done', agent: 'insight', title: '写统计页的洞察', trigger: '你打开了统计页', model: 'deep', start: '昨天 21:03', dur: 14, tokens: 4120, cost: 0.009,
+    steps: [st('读取最近 90 天的数据', 'ok', '0.2s'), st('找出变化与原因', 'ok', '11.6s'), st('写观察和建议', 'ok', '2.1s')],
+    tx: [['c', 'get_stats_series', '{ days: 90 }', '90 天 × 6 项指标', '0.2s'], ['a', '技术文档生词率从 9% 降到 7%，新闻读得少且生词率仍在 8% 以上……']] },
+  { id: 'h4', state: 'done', agent: 'coach', title: '批改造句：objection', trigger: '复习页', model: 'fast', start: '昨天 20:41', dur: 3, tokens: 860, cost: 0.001,
+    steps: [st('检查用法与语法', 'ok', '2.4s'), st('给出改写建议', 'ok', '0.6s')],
+    tx: [['u', 'I have no objection to work late tonight.'], ['c', 'grade_answer', '{ term: "objection" }', '用法正确 · 1 处语法：to working', '2.4s']] },
+  { id: 'h5', state: 'cancel', agent: 'tutor', title: '讲解长难句', trigger: '阅读器选中句子', model: 'fast', start: '昨天 20:12', dur: 2, tokens: 300, cost: 0.0003,
+    steps: [st('分析句子结构', 'wait')], tx: [['u', 'When the owner goes out of scope, the value is dropped…'], ['a', '（你在回答前取消了）']] },
+];
+let SCHED = AGENTS.filter(a => a.schedule).map(a => ({ agent: a.id, label: a.schedule.label, on: a.schedule.on, next: { scout: '明天 08:00', insight: '下周一 09:00', archivist: '今晚 23:00' }[a.id] }));
+let view = 'all', selId = null;
+const BUDGET = 20, SPENT = AGENTS.reduce((s, a) => s + a.cost, 0);
+const fmtCost = c => c < 0.01 ? '<¥0.01' : '¥' + c.toFixed(2);
+const fmtDur = s => s < 60 ? s + ' 秒' : Math.floor(s / 60) + ' 分 ' + (s % 60) + ' 秒';
+const flat = steps => steps.flatMap(s => [s, ...(s.kids ? flat(s.kids) : [])]);
+const curStep = t => flat(t.steps).find(s => s.s === 'run' || s.s === 'appr' || s.s === 'err');
+const progress = t => { const all = t.steps; return Math.round(all.filter(s => s.s === 'ok').length / all.length * 100); };
+
+/* ---------- 渲染 ---------- */
+function renderFilter() {
+  const n = { run: TASKS.filter(t => t.state === 'run').length, appr: TASKS.filter(t => t.state === 'appr').length, sched: SCHED.length, hist: TASKS.filter(t => ['done', 'err', 'cancel'].includes(t.state)).length };
+  $('#filter').innerHTML = [['all', '全部'], ['appr', '等你确认', n.appr, 1], ['run', '运行中', n.run, 1], ['sched', '例行任务', n.sched], ['hist', '历史', n.hist]].map(([k, l, c, hot]) => `<button data-v="${k}"${k === view ? ' class="on"' : ''}>${l}${c !== undefined ? `<span class="n${hot && c ? ' hot' : ''}">${c}</span>` : ''}</button>`).join('');
+  $('#filter').querySelectorAll('button').forEach(b => b.onclick = () => { view = b.dataset.v; renderAll(); });
+  $('#nAppr').textContent = n.appr; $('#nRun').textContent = n.run; $('#nSched').textContent = n.sched; $('#nHist').textContent = n.hist;
+  const badge = document.getElementById('navTasks'); if (badge) { badge.textContent = n.run + n.appr; badge.hidden = !(n.run + n.appr); }
+  const show = { secAppr: ['all', 'appr'], secRun: ['all', 'run'], secSched: ['all', 'sched'], secHist: ['all', 'hist'] };
+  Object.entries(show).forEach(([id, v]) => $('#' + id).hidden = !v.includes(view) || (view === 'all' && id === 'secAppr' && !n.appr));
+}
+function renderKpis() {
+  const done = TASKS.filter(t => t.state === 'done').length;
+  $('#kpis').innerHTML = `
+    <div class="kpi"><span class="k">运行中</span><span class="v">${TASKS.filter(t => t.state === 'run').length}<small>个</small></span></div>
+    <div class="kpi"><span class="k">本周完成</span><span class="v">${done + 37}<small>个 · 失败 1</small></span></div>
+    <div class="kpi"><span class="k">本月花费</span><span class="v">¥${SPENT.toFixed(2)}<small>/ 预算 ¥${BUDGET}</small></span><div class="bar2"><i style="width:${Math.min(100, SPENT / BUDGET * 100)}%"></i></div></div>
+    <div class="kpi"><span class="k">花得最多的技能</span><span class="v" style="font-size:16px;display:flex;align-items:center;gap:8px;margin-top:4px">导入文章<small>¥${agentById('importer').cost.toFixed(2)}</small></span></div>`;
+}
+function titleHtml(t) { return `${esc(t.title)}${t.doc ? ` <span class="doc">《${esc(t.doc)}》</span>` : ''}`; }
+function renderAppr() {
+  const list = TASKS.filter(t => t.state === 'appr');
+  $('#appr').innerHTML = list.length ? list.map(t => `<div class="approve" data-id="${t.id}">
+      <div class="h">${agentAv('tibi')}<span>${esc(t.appr.title)}</span><span class="k">等你确认</span></div>
+      <div class="b">${t.appr.body}</div>
+      <div class="impact"><span>将执行</span><code>${esc(t.appr.tool)}</code><span>· ${t.appr.tool === 'remember' ? '写入 1 条记忆' : '新增 3 篇到书架'} · 可撤销</span><span class="k">A 允许 · R 拒绝</span></div>
+      <div class="prov-line">${esc(t.appr.src)} · 技能：${skillOf(t.agent)} · <button data-open="${t.id}">查看过程</button></div>
+      <div class="acts"><button class="btn sm pri" data-ok="${t.id}">允许</button><button class="btn sm" data-no="${t.id}">拒绝</button>${t.appr.edit ? `<button class="btn sm" data-ed="${t.id}">修改后允许</button>` : ''}<label class="chk"><input type="checkbox" data-always="${t.id}">以后这类都自动允许</label></div>
+    </div>`).join('') : '<div class="none">没有需要你确认的事。</div>';
+  $('#appr').querySelectorAll('[data-ok]').forEach(b => b.onclick = () => decide(b.dataset.ok, true));
+  $('#appr').querySelectorAll('[data-no]').forEach(b => b.onclick = () => decide(b.dataset.no, false));
+  $('#appr').querySelectorAll('[data-open]').forEach(b => b.onclick = () => openTask(b.dataset.open));
+  $('#appr').querySelectorAll('[data-ed]').forEach(b => b.onclick = () => {
+    const card = b.closest('.approve'), t = TASKS.find(x => x.id === b.dataset.ed); if (card.querySelector('.edit')) return;
+    const ta = document.createElement('textarea'); ta.className = 'edit'; ta.value = t.appr.edit; card.querySelector('.b').after(ta); ta.focus();
+    b.textContent = '保存并允许'; b.onclick = () => { t.appr.body = esc(ta.value); decide(t.id, true, '已按你的修改记住'); };
+  });
+}
+function decide(id, ok, msg) {
+  const t = TASKS.find(x => x.id === id), always = $(`[data-always="${id}"]`)?.checked, card = $(`.approve[data-id="${id}"]`);
+  const s = flat(t.steps).find(x => x.s === 'appr'); s.s = ok ? 'ok' : 'err'; s.tm = ok ? '确认' : '已拒绝';
+  t.tx.push(['a', ok ? '已获你允许，继续。' : '你拒绝了，这一步跳过。']);
+  if (ok) { t.state = 'run'; setTimeout(() => finish(t), 1400); } else { t.state = 'done'; t.err = null; t.note = '你拒绝了写入'; }
+  const go = () => { renderAll(); if (selId === id) renderDetail(); toast(msg || (ok ? '已允许' : '已拒绝') + (always ? ' · 以后这类自动允许' : ''), () => toast('原型：正式版可撤销这次写入')); };
+  if (card) { anim(card, { opacity: [1, 0], x: [0, ok ? 16 : -16] }, { duration: 0.22 }); setTimeout(go, REDUCE ? 0 : 220); } else go();
+}
+function finish(t) { flat(t.steps).forEach(s => { if (s.s !== 'err') { s.s = 'ok'; s.tm = s.tm || '0.3s'; } }); t.state = 'done'; t.start = '刚刚'; TASKS = [t, ...TASKS.filter(x => x !== t)]; renderAll(); if (selId === t.id) renderDetail(); }
+function rowRun(t) {
+  const c = curStep(t), sub = t.steps.find(s => s.agent && (s.s === 'run'));
+  return `<div class="trow${t.id === selId ? ' cur' : ''}" data-id="${t.id}">${agentAv('tibi', 'lg')}
+    <div style="min-width:0"><div class="t">${titleHtml(t)}</div>
+      <div class="s"><span class="run">● ${esc(c ? c.t : '收尾')}</span><span class="stepn">· 第 ${Math.min(t.steps.length, t.steps.filter(s => s.s === 'ok').length + 1)} / ${t.steps.length} 步${t.paused ? ' · 已暂停' : ` · 还剩约 ${Math.max(2, (t.steps.length - t.steps.filter(s => s.s === 'ok').length) * 3)} 秒`}</span><span>· ${skillOf(t.agent)}</span><span>· ${fmtCost(t.cost)}</span></div>
+      <div class="bar2"><i style="width:${progress(t)}%"></i></div></div>
+    <div class="acts"><button class="ibtn" data-pause="${t.id}" title="${t.paused ? '继续' : '暂停'}">${t.paused ? PLAY : PAUSE}</button><button class="ibtn" data-cancel="${t.id}" title="取消">${STOP}</button></div></div>`;
+}
+function rowHist(t) {
+  const icon = t.state === 'done' ? `<span class="st ok">${OK}</span>` : t.state === 'err' ? `<span class="st err">${BANG}</span>` : `<span class="st cancel">${X}</span>`;
+  return `<div class="trow${t.id === selId ? ' cur' : ''}" data-id="${t.id}">${agentAv('tibi', 'lg')}
+    <div style="min-width:0"><div class="t">${titleHtml(t)}</div>
+      <div class="s">${icon}${t.state === 'err' ? `<span class="err">${esc(t.err)}</span>` : t.state === 'cancel' ? '<span>已取消</span>' : t.note ? `<span class="warn">${esc(t.note)}</span>` : '<span>完成</span>'}<span>· ${skillOf(t.agent)}</span><span>· ${t.start}</span><span>· ${fmtDur(t.dur)}</span><span>· ${fmtCost(t.cost)}</span></div></div>
+    <div class="acts">${t.state === 'err' || t.state === 'cancel' ? `<button class="btn sm" data-retry="${t.id}">重试</button>` : ''}</div></div>`;
+}
+function renderLists() {
+  const run = TASKS.filter(t => t.state === 'run'), hist = TASKS.filter(t => ['done', 'err', 'cancel'].includes(t.state));
+  $('#run').innerHTML = run.length ? run.map(rowRun).join('') : '<div class="none">现在没有运行中的任务。</div>';
+  const dayOf = t => /^(刚刚|今天)/.test(t.start) ? '今天' : /^昨天/.test(t.start) ? '昨天' : '更早'; let lastDay = '';
+  $('#hist').innerHTML = hist.map(t => { const d = dayOf(t); const h = d !== lastDay ? `<div class="dayh">${d}</div>` : ''; lastDay = d; return h + rowHist(t); }).join('');
+  $('#sched').innerHTML = SCHED.map((s, i) => `<div class="trow sched" data-s="${i}"><span class="av-ag lg">${agentIcon(s.agent, 17)}</span><div style="min-width:0"><div class="t">${esc(s.label)}</div><div class="s"><span class="when">${s.on ? '下次：' + s.next + ' · ' + skillOf(s.agent) : '已关闭'}</span></div></div>
+    <div class="acts"><button class="btn sm" data-now="${i}">立即运行</button><button class="switch" role="switch" aria-checked="${s.on}" aria-label="例行任务开关" data-sw="${i}"></button></div></div>`).join('');
+  document.querySelectorAll('.trow[data-id]').forEach(r => r.onclick = e => { if (e.target.closest('button')) return; openTask(r.dataset.id); });
+  document.querySelectorAll('[data-pause]').forEach(b => b.onclick = () => { const t = TASKS.find(x => x.id === b.dataset.pause); t.paused = !t.paused; renderAll(); toast(t.paused ? '已暂停：完成当前这一步后停下' : '已继续'); });
+  document.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => { const t = TASKS.find(x => x.id === b.dataset.cancel); t.state = 'cancel'; t.start = '刚刚'; t.tx.push(['a', '（你取消了这个任务，已完成的步骤保留，正在用的技能一并停止）']); renderAll(); if (selId === t.id) renderDetail(); toast('已取消', () => { t.state = 'run'; renderAll(); }); });
+  document.querySelectorAll('[data-retry]').forEach(b => b.onclick = () => retry(b.dataset.retry));
+  document.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { const s = SCHED[+b.dataset.sw]; s.on = !s.on; renderAll(); toast(s.on ? `已开启：${s.label}` : '已关闭这项例行任务'); });
+  document.querySelectorAll('[data-now]').forEach(b => b.onclick = () => { const s = SCHED[+b.dataset.now]; const id = 'n' + Date.now();
+    TASKS.unshift({ id, state: 'run', agent: s.agent, title: s.label, trigger: '你手动运行了例行任务', model: agentById(s.agent).model, start: '刚刚', dur: 0, tokens: 0, cost: 0, steps: [st('准备', 'run'), st('执行', 'wait'), st('整理结果', 'wait')], tx: [['a', '（原型）开始运行。']] });
+    renderAll(); toast(`已开始：${s.label}`); });
+}
+function retry(id) {
+  const t = TASKS.find(x => x.id === id); flat(t.steps).forEach(s => { if (s.s === 'err' || s.s === 'wait') s.s = 'wait'; }); const first = flat(t.steps).find(s => s.s === 'wait'); if (first) first.s = 'run';
+  t.state = 'run'; t.err = null; t.start = '刚刚'; t.tx.push(['a', '重试：从失败的那一步继续，已完成的步骤不再重跑。']); renderAll(); if (selId === id) renderDetail(); toast('已从失败的那一步重试');
+}
+function renderAll() { renderFilter(); renderKpis(); renderAppr(); renderLists(); markKb(); }
+
+/* 键盘：J / K 在任务间移动，Enter 打开详情，A / R 允许或拒绝当前确认项，Esc 关闭 */
+let kbId = null;
+function kbList() { return [...document.querySelectorAll('.approve[data-id], .trow[data-id]')].map(el => el.dataset.id); }
+function markKb() { document.querySelectorAll('.approve, .trow').forEach(el => el.classList.toggle('kb', el.dataset.id === kbId)); }
+addEventListener('keydown', e => {
+  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase(), ids = kbList();
+  if (k === 'j' || e.key === 'ArrowDown') { e.preventDefault(); kbId = ids[Math.min(ids.length - 1, ids.indexOf(kbId) + 1)]; markKb(); const el = document.querySelector(`[data-id="${kbId}"]`); el && el.scrollIntoView({ block: 'nearest' }); return; }
+  if (k === 'k' || e.key === 'ArrowUp') { e.preventDefault(); kbId = ids[Math.max(0, ids.indexOf(kbId) - 1)]; markKb(); const el = document.querySelector(`[data-id="${kbId}"]`); el && el.scrollIntoView({ block: 'nearest' }); return; }
+  if (!kbId) return; const t = TASKS.find(x => x.id === kbId);
+  if (e.key === 'Enter') { openTask(kbId); return; }
+  if (t && t.state === 'appr' && k === 'a') { decide(kbId, true); return; }
+  if (t && t.state === 'appr' && k === 'r') { decide(kbId, false); return; }
+});
+
+/* 原型演示：运行中的任务每隔几秒前进一步，做完后进历史并弹一条带动作的通知（借鉴"后台任务要主动告知完成"） */
+function tick() {
+  const t = TASKS.find(x => x.id === 't1' && x.state === 'run' && !x.paused); if (!t) return;
+  const all = flat(t.steps); const cur = all.find(s => s.s === 'run'); if (cur) { cur.s = 'ok'; cur.tm = (0.4 + Math.random() * 2).toFixed(1) + 's'; }
+  const next = all.find(s => s.s === 'wait'); if (next) { next.s = 'run'; if (next.kids) next.kids.forEach(k => k.s = 'run'); t.dur += 3; t.tokens += 900; t.cost += 0.002; renderAll(); if (selId === t.id) renderDetail(); setTimeout(tick, 3200); }
+  else { t.state = 'done'; t.start = '刚刚'; t.tx.push(['a', '导入完成：生词 50 · 待确认 13 · 生词率 4.5%（学习区）。']); renderAll(); if (selId === t.id) renderDetail(); toast('《Pin, and Why It Exists》导入完成，可以开始读了', () => toast('原型：会打开阅读器'), '开始阅读'); }
+}
+setTimeout(tick, 2500);
+
+/* ---------- 详情 ---------- */
+function stepHtml(s) {
+  const ic = s.s === 'ok' ? OK : s.s === 'err' ? BANG : '';
+  const label = s.agent ? `<span class="sub">${esc(s.t)}<small>技能</small></span>` : esc(s.t);
+  return `<div class="step ${s.s}"><span class="ic">${ic}</span><span>${label}</span><span class="tm">${s.s === 'appr' ? '等你确认' : esc(s.tm || '')}</span></div>${s.kids ? `<div class="kids">${s.kids.map(stepHtml).join('')}</div>` : ''}`;
+}
+function txHtml(x) {
+  if (x[0] === 'u') return `<div class="u">${esc(x[1])}</div>`;
+  if (x[0] === 'a') return `<div class="a">${esc(x[1])}</div>`;
+  return `<div class="tcall"><span class="tm">${esc(x[4] || '')}</span><span class="n">${esc(x[1])}</span>(${esc(x[2])})<div class="r">${esc(x[3])}</div></div>`;
+}
+function renderDetail() {
+  const t = TASKS.find(x => x.id === selId); if (!t) return; const a = agentById(t.agent);
+  $('#dTitle').innerHTML = `${agentAv('tibi')}<span>${esc(t.title)}${t.doc ? ' · ' + esc(t.doc) : ''}</span>`;
+  const status = { run: '运行中', appr: '等你确认', done: '完成', err: '失败', cancel: '已取消' }[t.state];
+  $('#dbody').innerHTML = `
+    <dl class="meta"><dt>状态</dt><dd>${status}${t.err ? ` · <span style="color:var(--hard)">${esc(t.err)}</span>` : ''}</dd>
+      <dt>技能</dt><dd>${a.skill}</dd><dt>触发</dt><dd>${esc(t.trigger)}</dd><dt>模型</dt><dd>${MODEL_NAME[t.model]}</dd>
+      <dt>开始</dt><dd>${t.start} · 用时 ${fmtDur(t.dur)}</dd><dt>用量</dt><dd>${t.tokens.toLocaleString()} token · ${fmtCost(t.cost)}</dd></dl>
+    <div class="blk"><h3>步骤</h3><div class="tree">${t.steps.map(stepHtml).join('')}</div></div>
+    <div class="blk"><h3>过程</h3><div class="tx">${t.tx.map(txHtml).join('')}</div></div>
+    <div class="dacts">${t.state === 'err' || t.state === 'cancel' ? `<button class="btn sm pri" id="dRetry">重试</button>` : ''}${t.state === 'appr' ? `<button class="btn sm pri" id="dOk">允许</button><button class="btn sm" id="dNo">拒绝</button>` : ''}<a class="btn sm" data-link="home" href="#" id="dCont">在对话中继续</a><button class="btn sm" id="dCopy">复制诊断信息</button></div>`;
+  $('#dCont').href = URLS.home; ext($('#dCont'));
+  $('#dRetry') && ($('#dRetry').onclick = () => retry(t.id));
+  $('#dOk') && ($('#dOk').onclick = () => decide(t.id, true)); $('#dNo') && ($('#dNo').onclick = () => decide(t.id, false));
+  $('#dCopy').onclick = () => toast('原型：会复制任务 ID、步骤、工具调用与错误（不含 API Key 和文章正文）');
+}
+function openTask(id) {
+  selId = id; renderLists(); renderDetail(); const was = $('#app').classList.contains('drawer-open'); $('#app').classList.add('drawer-open');
+  anim($('#dbody'), { opacity: [0, 1], y: [was ? 6 : 12, 0] }, { duration: 0.35, ease: EASE }); DSCROLL.scrollTop = 0;
+}
+function closeDrawer() { $('#app').classList.remove('drawer-open'); selId = null; renderLists(); }
+$('#closeDrawer').onclick = closeDrawer;
+addEventListener('keydown', e => { if (e.key === 'Escape' && !document.querySelector('.cmdk:not([hidden])')) closeDrawer(); });
+
+/* ---------- 模拟：运行中的任务向前推进 ---------- */
+const TOOL_OF = { '分句、词形还原': 'segment_document', '对照你的词库标注': 'annotate_terms', 'AI 分析（3 个子任务并行）': 'summarize · extract_phrases · find_hard_sentences', '保存到书架': 'save_document', '按生词率排序': 'scout → estimate_difficulty' };
+setInterval(() => {
+  let changed = false;
+  TASKS.filter(t => t.state === 'run' && !t.paused).forEach(t => {
+    t.dur += 2; t.tokens += 180 + (hash(t.id + t.dur) % 400); t.cost += 0.0004; changed = true;
+    const all = flat(t.steps), i = all.findIndex(s => s.s === 'run');
+    if (i < 0) { finish(t); toast(`Tibi 做完了：${t.doc || t.title}`); return; }
+    if (hash(t.id + t.dur) % 3 === 0) {
+      const s = all[i]; s.s = 'ok'; s.tm = (1 + hash(s.t) % 30 / 10).toFixed(1) + 's';
+      if (s.kids) s.kids.forEach(k => { k.s = 'ok'; k.tm = k.tm || (2 + hash(k.t) % 90 / 10).toFixed(1) + 's'; });
+      const parent = t.steps.find(p => p.kids && p.kids.includes(s)); if (parent && parent.kids.every(k => k.s === 'ok')) { parent.s = 'ok'; parent.tm = parent.tm || (2 + hash(parent.t) % 40 / 10).toFixed(1) + 's'; }
+      const nx = flat(t.steps).find(x => x.s === 'wait'); if (nx) { nx.s = 'run'; if (nx.kids) nx.kids.forEach(k => k.s = 'run'); const tool = TOOL_OF[nx.t]; t.tx.push(tool ? ['c', tool, '{ document: "draft-12" }', '进行中…', ''] : ['a', `开始：${nx.t}`]); }
+    }
+  });
+  if (changed) { renderFilter(); renderKpis(); renderLists(); if (selId && TASKS.find(t => t.id === selId)?.state === 'run') renderDetail(); }
+}, 2000);
+
+initShell({}); demoToggle();
+if (IS_EMPTY) { TASKS = []; }
+renderAll();
+if (IS_EMPTY) {
+  $('#secAppr').hidden = true; $('#secHist').hidden = true; $('#filter').hidden = true;
+  emptyState($('#run'), { state: 'idle', title: 'Tibi 还没做过事', desc: '导入一篇文章、找文章，或者问 Tibi 一个问题，它做事的过程、要你确认的改动和花费都会出现在这里。', cls: '',
+    actions: [{ t: '去首页导入一篇文章', pri: true, link: 'home' }, { t: '看看 Tibi 的技能', link: 'settings' }] });
+  $('#kpis').innerHTML = `<div class="kpi"><span class="k">运行中</span><span class="v">0<small>个</small></span></div><div class="kpi"><span class="k">本周完成</span><span class="v">0<small>个</small></span></div><div class="kpi"><span class="k">本月花费</span><span class="v">¥0.00<small>/ 预算 ¥20</small></span><div class="bar2"><i style="width:0%"></i></div></div><div class="kpi"><span class="k">花得最多的技能</span><span class="v" style="font-size:16px;margin-top:4px;color:var(--ink-3)">还没有</span></div>`;
+  $('#secRun h2').innerHTML = '运行中 <span class="n">0</span>';
+  const badge = document.getElementById('navTasks'); if (badge) badge.hidden = true;
+}
+anim(document.querySelectorAll('.tk > section'), { opacity: [0, 1], y: [10, 0] }, { duration: 0.45, ease: EASE, delay: stag(0.05) });
+if (/^#t=/.test(location.hash)) setTimeout(() => openTask(location.hash.slice(3)), 300);
+addEventListener('hashchange', () => { if (/^#t=/.test(location.hash)) openTask(location.hash.slice(3)); });
+</script>
