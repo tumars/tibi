@@ -36,10 +36,10 @@ Character reference sheet of CHARACTER on a plain light grey (#f2f2f1) backgroun
 | hero-morning | 首页标题上方，6:00–12:00 | 1536×1024 | 已出 |
 | hero-day | 首页，12:00–18:00 | 1536×1024 | 已出 |
 | hero-night | 首页，18:00–6:00（23 点后用 sleeping） | 1536×1024 | 已出 |
-| empty-library | 书架为空 | 1024×1024 | 待出 |
-| empty-review | 没有到期卡片 | 1024×1024 | 待出 |
-| empty-tasks | 任务中心为空 | 1024×1024 | 待出 |
-| empty-words | 生词本为空 | 1024×1024 | 待出 |
+| empty-library | 书架为空 | 1024×1024 | 已出 |
+| empty-review | 没有到期卡片 | 1024×1024 | 已出 |
+| empty-tasks | 任务中心为空 | 1024×1024 | 已出 |
+| empty-words | 生词本为空 | 1024×1024 | 已出 |
 | celebrate-review | 复习完成页 | 1024×1024 | 待出 |
 | celebrate-streak | 连续学习 7 / 30 / 100 天 | 1024×1024 | 待出 |
 | onboarding-hello | 引导第 1 步 认识一下 | 1024×1024 | 已出 |
