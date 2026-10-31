@@ -70,7 +70,7 @@ export function guessGenre(md: string, source_uri?: string): Genre {
   const host = source_uri ? (() => { try { return new URL(source_uri).hostname; } catch { return ''; } })() : '';
   if (/arxiv\.org|\.edu\b|acm\.org|ieee\.org|springer|nature\.com|sciencedirect/i.test(host) || /\b(abstract|we propose|et al\.)\b/i.test(md.slice(0, 3000))) return 'academic';
   const code = (md.match(/```/g) ?? []).length / 2 + (md.match(/`[^`]+`/g) ?? []).length;
-  if (code >= 3 || /github\.com|stackoverflow|docs\.|developer\.|rust-lang|python\.org/i.test(host)) return 'tech';
+  if (code >= 1 || /github\.com|stackoverflow|docs\.|developer\.|rust-lang|python\.org/i.test(host)) return 'tech';
   if (/bbc\.|nytimes|reuters|theguardian|cnn\.|apnews|bloomberg|economist|wsj\.|ft\.com/i.test(host)) return 'news';
   const quotes = (md.match(/[“"][^”"]{10,}[”"]/g) ?? []).length;
   if (quotes >= 5 && / (he|she) (said|asked|replied)/i.test(md)) return 'lit';

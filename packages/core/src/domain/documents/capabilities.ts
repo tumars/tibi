@@ -126,7 +126,7 @@ export const documentsCapabilities: CapabilityMap = {
       // 复用导入流水线：把结构化内容拼回 Markdown 走一遍（去重、标注、事件都一致）
       const md = p.sections.map(s => (p.sections.length > 1 ? `# ${s.title}\n\n` : '') + s.paragraphs.map(x => x.block_type === 'code' ? '```\n' + x.text + '\n```' : x.block_type === 'heading' ? `## ${x.text}` : x.text).join('\n\n')).join('\n\n');
       const fakeJob = inlineJob();
-      const r = await runImport(fakeJob, ctx, { source: { type: 'text', text: md, title: p.title }, hints: { kind: p.kind, genre: p.genre, tags: p.tags } });
+      const r = await runImport(fakeJob, ctx, { source: { type: 'text', text: md, title: p.title }, hints: { kind: p.kind as never, genre: p.genre as never, tags: p.tags } });
       const undo = await recordUndo(ctx.db, ctx, { tool: 'documents.delete', args: { id: r.document_id }, undo_payload: { id: r.document_id } });
       return { document_id: r.document_id, section_ids: (await listSections(ctx.db, r.document_id)).map(s => s.id), undo };
     },

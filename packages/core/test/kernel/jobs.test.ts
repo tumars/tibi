@@ -29,28 +29,30 @@ describe('JobRunner：检查点与续跑', () => {
     expect(s?.state).toBe('done'); expect(s?.step.index).toBe(2);
   });
 
-  it('中途 abort（模拟杀进程）后 resumeAll 从检查点接着跑', async () => {
+  it('进程在第 2 步中途死掉：新进程 resumeAll 从检查点接着跑', async () => {
     const { kernel, db } = await makeKernelCore();
     const ran: string[] = [];
-    let release: () => void = () => {};
-    kernel.jobs.register('slow', async (job: JobContext) => {
+    let hang = true;
+    const pipeline = async (job: JobContext) => {
       await job.step('one', async () => { ran.push('one'); return 1; });
-      await job.step('two', async () => { ran.push('two'); await new Promise<void>(r => { release = r; }); return 2; });
+      await job.step('two', async () => { ran.push('two'); if (hang) await new Promise<void>(() => {}); return 2; });   // 第一次永远不返回：模拟进程被杀
       await job.step('three', async () => { ran.push('three'); return 3; });
       return { summary: 'ok' };
-    });
+    };
+    kernel.jobs.register('slow', pipeline);
     const { task_id } = await kernel.jobs.submit('slow', { kind: 'import', title: '慢', input: {} });
     await until(() => ran.includes('two'));
-    // 模拟进程死掉：直接把 jobs 行留在 running，让运行器忘掉它
-    (kernel.jobs as unknown as { active: Map<string, unknown> }).active.delete(task_id);
-    release();
-    await sleep(20);
-    expect((await db.get<{ status: string }>('SELECT status FROM jobs WHERE id = ?', [task_id]))?.status).not.toBe('done');
-    await db.run("UPDATE jobs SET status = 'running' WHERE id = ?", [task_id]);
-    await db.run("UPDATE job_steps SET status = 'running' WHERE job_id = ? AND name = 'two'", [task_id]);
-    const n = await kernel.jobs.resumeAll();
+    // 库里：jobs.status = running，step one done、step two running —— 就是进程死掉时的样子
+    expect((await db.get<{ status: string }>('SELECT status FROM jobs WHERE id = ?', [task_id]))?.status).toBe('running');
+    // 新进程：同一个库上再建一个内核
+    hang = false;
+    const { createKernel } = await import('../../src/kernel/index.js');
+    const { EventBus } = await import('../../src/index.js');
+    const k2 = createKernel(db, new EventBus());
+    k2.jobs.register('slow', pipeline);
+    const n = await k2.jobs.resumeAll();
     expect(n).toBe(1);
-    const r = await kernel.jobs.wait(task_id);
+    const r = await k2.jobs.wait(task_id);
     expect(r.status).toBe('done');
     expect(ran).toEqual(['one', 'two', 'two', 'three']);   // one 没重跑，two 重跑，three 第一次
   });

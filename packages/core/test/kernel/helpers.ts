@@ -1,7 +1,7 @@
 import { openAppDb } from '@tibi/core-node';
 import { createAssistantMessageEventStream, type AssistantMessage, type Model, type Api, type ToolCall } from '@earendil-works/pi-ai';
 import type { StreamFn } from '@earendil-works/pi-agent-core';
-import { Core, EventBus, fakePlatform, type CoreEventName } from '../../src/index.js';
+import { Core, EventBus, fakePlatform, undoMethods, type CoreEventName } from '../../src/index.js';
 import { createKernel, type ResolvedModel } from '../../src/kernel/index.js';
 
 /** 假模型：形状照 pi-ai 目录里的 deepseek-flash */
@@ -59,6 +59,7 @@ export async function makeKernelCore(opts: { turns?: Turn[]; noModel?: boolean }
   const core = new Core({ db, platform: fakePlatform({ isOnline: () => true }), jobs: kernel.jobs });
   kernel.bind(caller => core.ctx(caller), core.events);
   core.use(kernel.methods);
+  if (!core.dispatcher.has('system.undo')) core.use(undoMethods);
   const events: { event: CoreEventName; data: any }[] = [];
   core.events.on((event, data) => events.push({ event, data }));
   return { db, core, kernel, events, stream, call: <T = any>(m: string, p: unknown) => core.call<T>(m, p) };

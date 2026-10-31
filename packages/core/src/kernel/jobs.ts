@@ -112,9 +112,13 @@ export class JobRunnerImpl implements JobRunner {
       await this.db.run('UPDATE job_steps SET status = ?, started_at = ?, finished_at = NULL, error = NULL, input = ? WHERE id = ?', ['running', t, opts?.input === undefined ? null : j.str(opts.input), stepId]);
     } else {
       stepId = uuidv7();
-      const mx = await this.db.get<{ m: number | null }>('SELECT max(idx) AS m FROM job_steps WHERE job_id = ?', [job_id]);
-      await this.db.run('INSERT INTO job_steps(id, job_id, idx, kind, name, status, input, started_at) VALUES (?,?,?,?,?,?,?,?)',
-        [stepId, job_id, Number(mx?.m ?? 0) + 1, opts?.kind ?? 'pipeline', name, 'running', opts?.input === undefined ? null : j.str(opts.input), t]);
+      // 并行子步骤会同时取 idx，放在事务里（Database 串行化事务）避免撞唯一索引
+      const sid = stepId;
+      await this.db.transaction(async tx => {
+        const mx = await tx.get<{ m: number | null }>('SELECT max(idx) AS m FROM job_steps WHERE job_id = ?', [job_id]);
+        await tx.run('INSERT INTO job_steps(id, job_id, idx, kind, name, status, input, started_at) VALUES (?,?,?,?,?,?,?,?)',
+          [sid, job_id, Number(mx?.m ?? 0) + 1, opts?.kind ?? 'pipeline', name, 'running', opts?.input === undefined ? null : j.str(opts.input), t]);
+      });
     }
     if (opts?.label) entry.ctx.progress(opts.label);
     entry.stepStack.push(name);
@@ -140,9 +144,11 @@ export class JobRunnerImpl implements JobRunner {
   /** 不经 step() 的记录（模型调用这类已经发生的事） */
   private async recordStep(job_id: TaskId, kind: 'pipeline' | 'tool' | 'model', name: string, input: unknown, output: unknown, status: 'done' | 'failed'): Promise<string> {
     const id = uuidv7(); const t = now();
-    const mx = await this.db.get<{ m: number | null }>('SELECT max(idx) AS m FROM job_steps WHERE job_id = ?', [job_id]);
-    await this.db.run('INSERT INTO job_steps(id, job_id, idx, kind, name, status, input, output, started_at, finished_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
-      [id, job_id, Number(mx?.m ?? 0) + 1, kind, name, status, input === undefined ? null : j.str(input), output === undefined ? null : j.str(output), t, t]);
+    await this.db.transaction(async tx => {
+      const mx = await tx.get<{ m: number | null }>('SELECT max(idx) AS m FROM job_steps WHERE job_id = ?', [job_id]);
+      await tx.run('INSERT INTO job_steps(id, job_id, idx, kind, name, status, input, output, started_at, finished_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [id, job_id, Number(mx?.m ?? 0) + 1, kind, name, status, input === undefined ? null : j.str(input), output === undefined ? null : j.str(output), t, t]);
+    });
     return id;
   }
 
