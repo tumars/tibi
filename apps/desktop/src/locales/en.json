@@ -262,6 +262,7 @@
   "你好，我是 Tibi。": "Hi, I'm Tibi.",
   "你现在的英语水平大概是？用来决定一开始标出哪些生词，读得越多越准。": "Roughly what is your English level? It decides which words get marked at first, and gets more accurate as you read.",
   "电脑上已经在用 Tibi？开始后到 我 › 同步 连上同一个云盘。": "Already using Tibi on your computer? After starting, go to Me › Sync and connect the same drive.",
+  "正在导入从 Safari 分享的 {n} 篇": "Importing {n} article(s) shared from Safari",
   "{length} 张图片": "{length} images",
   "正在导入": "Importing",
   "浏览器开发模式只能拖入 .txt / .md；PDF、EPUB、DOCX 请在桌面端里拖入或点 +": "Browser dev mode only accepts .txt / .md. For PDF, EPUB or DOCX, drop them into the desktop app or click +",

@@ -133,3 +133,4 @@
 | 2026-10-31 | 手机原生部分：iCloud 同步（壳的 `sync_fs.rs`：iOS 经 NSFileManager 取容器，`sync_fs_*` 读写，处理 `.icloud` 占位；JS `invokeFolderBackend`）；Android 上 API Key 存应用私有目录的 `secrets.json`（keyring 在 Android 上只在内存里）。Rust 单测 + 两台模拟手机经这组命令同步的测试。开发说明 §6、08 §13、00 §3.13 同步 |
 | 2026-10-31 | 模型错误改成人话（`kernel/model-errors.ts`：401 Key 不对、402 余额不足、429 太频繁、连不上、5xx）。在装好的应用里验证到：填 Key → 进 Secret Service → sidecar 经壳取 Key → 真的请求 DeepSeek → 假 Key 得到 401，提示"API Key 不对或已经失效" |
 | 2026-10-31 | 每日提醒（J8）：通知插件；手机系统定时，电脑开着时到点发；设置 → 学习与复习、手机 我 › 每日提醒；`reminder.*` 不同步。00 §3.13 同步 |
+| 2026-10-31 | 手机原生扩展：Safari 分享扩展与小组件的 Swift 代码（`src-tauri/ios-extensions/`，Xcode 里加 target 的步骤见那里的 README）；壳加 `app_group.rs`（App Group `group.app.tibi`：`share_take_pending` 取走分享的网址、`widget_write` 写快照），手机打开 / 回到前台时导入分享的网址、状态变了写快照。浏览器里模拟壳验证：分享的网址经 http 插件抓取进书架。Android：`gen/android/` 生成并提交，Rust 交叉编译通过（aarch64），Gradle 拉依赖被 Maven Central 限流，APK 待重跑；`pick_folder` 只在桌面编译。开发说明 §6、00 §3.13 同步 |

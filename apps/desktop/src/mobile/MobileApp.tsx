@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { Fox } from '../components/Fox';
 import { tl } from '../lib/i18n';
 import { scheduleMobile, type ReminderTime } from '../lib/reminder';
+import { startWidgetSnapshots, takeSharedImports } from './native';
 import { rpc } from '../rpc';
 import { bindCoreEvents, useCore } from '../store/core';
 import { toast } from '../store/ui';
@@ -30,6 +31,14 @@ export function MobileApp() {
     return off;
   }, []);
   useEffect(() => { setImm(false); }, [loc.pathname]);
+  // iOS 扩展：Safari 分享进来的网址、小组件快照
+  useEffect(() => {
+    void takeSharedImports();
+    const vis = () => { if (document.visibilityState === 'visible') void takeSharedImports(); };
+    document.addEventListener('visibilitychange', vis);
+    const stop = startWidgetSnapshots();
+    return () => { document.removeEventListener('visibilitychange', vis); stop(); };
+  }, []);
   // 每日提醒（J8）：交给系统定时，按当前待复习数重排下一条；回到前台再排一次
   useEffect(() => {
     const plan = () => rpc.call('settings.get', { keys: ['reminder.time'] }).then(r => scheduleMobile((r['reminder.time'] as ReminderTime) ?? 'off', useCore.getState().due), () => undefined);

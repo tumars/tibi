@@ -7,6 +7,8 @@ mod keys;
 mod local_db;
 #[cfg(any(mobile, feature = "mobile-preview", test))]
 mod sync_fs;
+#[cfg(any(mobile, feature = "mobile-preview", test))]
+mod app_group;
 
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -125,7 +127,11 @@ fn mcp_command(app: AppHandle) -> Result<Value, String> {
 /// 选一个文件夹（同步：任意本地文件夹，08 §13）；不登记给 Core 的文件白名单，Core 只在里面建 Tibi Sync/
 #[tauri::command]
 async fn pick_folder(app: AppHandle) -> Result<Value, String> {
+    // 手机上没有选文件夹的对话框（同步用 iCloud / WebDAV）
+    #[cfg(desktop)]
     let path = app.dialog().file().blocking_pick_folder().and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().into_owned());
+    #[cfg(mobile)]
+    let path: Option<String> = { let _ = &app; None };
     Ok(json!({ "path": path }))
 }
 
@@ -234,7 +240,7 @@ fn run_mobile() {
         })
         .invoke_handler(tauri::generate_handler![
             local_db::db_open, local_db::db_exec, local_db::db_run, local_db::db_all, local_db::keyring_get, local_db::read_file,
-            sync_fs::sync_fs_read, sync_fs::sync_fs_write, sync_fs::sync_fs_list, sync_fs::sync_fs_remove, sync_fs::sync_icloud_root,
+            sync_fs::sync_fs_read, sync_fs::sync_fs_write, sync_fs::sync_fs_list, sync_fs::sync_fs_remove, sync_fs::sync_icloud_root, app_group::share_take_pending, app_group::widget_write,
             keyring_set, keyring_delete, pick_file, save_text_file
         ])
         .run(tauri::generate_context!())
