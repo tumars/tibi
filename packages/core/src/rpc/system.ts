@@ -3,6 +3,7 @@ import { method, type MethodMap } from './define.js';
 
 /** system.*：启动与顶栏徽标（06 §3）。其余 system 方法随各自模块补 */
 export const systemMethods: MethodMap = {
+  'system.registerPaths': method(Type.Object({ paths: Type.Array(Type.String()) }), async (p, ctx) => { ctx.platform.registerPaths(p.paths); return { ok: true as const }; }, '壳把 pick_file / 拖入的路径登记给 Core；能力层的 path 只认登记过的'),
   'system.status': method(Type.Object({}), async (_p, ctx) => {
     const info = ctx.platform.info();
     const pending = await ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM jobs WHERE status = 'waiting_approval'");

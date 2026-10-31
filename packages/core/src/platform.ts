@@ -19,6 +19,9 @@ export interface Platform {
   info(): { app_version: string; platform: 'macos' | 'windows' | 'linux' | 'ios' | 'android' | 'test'; db_path: string };
   /** 是否在线（界面可提前知道 AI 跑不了） */
   isOnline(): boolean;
+  /** 文件路径白名单（06 §1）：只认 pick_file 所选或拖入后由壳登记的路径 */
+  registerPaths(paths: string[]): void;
+  isPathAllowed(path: string): boolean;
 }
 
 /** 测试与 dev 用的空实现 */
@@ -29,6 +32,8 @@ export function fakePlatform(overrides: Partial<Platform> = {}): Platform {
     async getSecret() { return undefined; },
     info: () => ({ app_version: '0.0.0-test', platform: 'test', db_path: ':memory:' }),
     isOnline: () => false,
+    registerPaths() {},
+    isPathAllowed: () => true,
     ...overrides,
   };
 }

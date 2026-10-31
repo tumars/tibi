@@ -40,7 +40,10 @@ export async function checkUrl(raw: string): Promise<URL> {
 }
 
 export function nodePlatform(opts: NodePlatformOptions): Platform {
+  const allowed = new Set<string>();
   return {
+    registerPaths(paths) { for (const p of paths) allowed.add(p); },
+    isPathAllowed(path) { return allowed.has(path) || !!process.env.TIBI_DEV_ALLOW_ANY_PATH; },
     async fetchUrl(url, o = {}): Promise<FetchedPage> {
       let current = await checkUrl(url);
       const ctrl = new AbortController();
