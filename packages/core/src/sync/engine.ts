@@ -192,13 +192,21 @@ export class SyncEngine {
         ON CONFLICT(device_id) DO UPDATE SET name = excluded.name, platform = excluded.platform, app_version = excluded.app_version, last_seen_at = excluded.last_seen_at`, [d.device_id, d.name, d.platform, d.app_version, d.last_seen_at]);
       const peer = await this.db.get<{ last_read_seq: number; removed: number }>('SELECT last_read_seq, removed FROM sync_peers WHERE device_id = ?', [d.device_id]);
       if (peer?.removed) continue;
-      for (let seq = Number(peer?.last_read_seq ?? 0) + 1; seq <= d.head; seq++) {
+      let last = Number(peer?.last_read_seq ?? 0);
+      // 对方压缩过（08 §6）：比它的 base 还旧，就先读 base 再接着读后面的批次（新设备、久未上线回来的设备都走这里）
+      const base = baseOf(await this.backend.list(`changes/${d.device_id}`));
+      if (base > last) {
+        const data = await this.backend.read(`changes/${d.device_id}/base-${pad(base)}.jsonl.gz`);
+        if (data) {
+          const r = await this.applyFile(data);
+          r.tables.forEach(t => tables.add(t)); pulled += r.applied; errors += r.errors;
+          last = base; await this.db.run('UPDATE sync_peers SET last_read_seq = ? WHERE device_id = ?', [base, d.device_id]);
+        }
+      }
+      for (let seq = last + 1; seq <= d.head; seq++) {
         const data = await this.backend.read(`changes/${d.device_id}/${pad(seq)}.jsonl.gz`);
         if (!data) break;   // 还没传完，下次再读
-        const lines = strFromU8(gunzipSync(data)).split('\n').filter(Boolean);
-        const head = JSON.parse(lines[0]!) as { v: number };
-        if (head.v > FORMAT) throw new SyncError('format_newer', '另一台设备的 Tibi 版本更新。升级后才能继续同步。');
-        const r = await this.applyBatch(lines.slice(1).map(l => JSON.parse(l) as Change));
+        const r = await this.applyFile(data);
         r.tables.forEach(t => tables.add(t)); pulled += r.applied; errors += r.errors;
         await this.db.run('UPDATE sync_peers SET last_read_seq = ? WHERE device_id = ?', [seq, d.device_id]);
       }
@@ -207,11 +215,53 @@ export class SyncEngine {
     return { pulled, tables, errors };
   }
 
+  private async applyFile(data: Uint8Array) {
+    const lines = strFromU8(gunzipSync(data)).split('\n').filter(Boolean);
+    const head = JSON.parse(lines[0]!) as { v: number };
+    if (head.v > FORMAT) throw new SyncError('format_newer', '另一台设备的 Tibi 版本更新。升级后才能继续同步。');
+    return this.applyBatch(lines.slice(1).map(l => JSON.parse(l) as Change));
+  }
+
+  /** 攒够多少批才压缩（测试里调小） */
+  compactAfter = 20;
+
+  /**
+   * 压缩（08 §6）：每台设备只压缩自己的文件夹。所有算数的设备（没被移除、90 天内上线过）都读过第 N 批后，
+   * 把 base 和第 N 批之前的批次合成 base-N：每个字段只留最后的值，删掉的行只留墓碑；然后删旧文件。
+   * 返回新的 N；没到时候返回 undefined。
+   */
+  async compact(): Promise<number | undefined> {
+    const me = await this.device();
+    const head = Number(await this.get('push_seq') ?? 0);
+    const files = await this.backend.list(`changes/${me.id}`);
+    const base = baseOf(files);
+    const removed = new Set((await this.db.all<{ device_id: string }>('SELECT device_id FROM sync_peers WHERE removed = 1')).map(r => r.device_id));
+    const cutoff = this.wall() - 90 * 86_400_000;
+    const counted = (await this.readDevices()).filter(d => d.device_id !== me.id && !removed.has(d.device_id) && d.last_seen_at >= cutoff);
+    const n = Math.min(head, counted.length ? Math.min(...counted.map(d => Number(d.acks?.[me.id] ?? 0))) : head);
+    if (n - base < this.compactAfter) return undefined;
+    const fold = new Fold();
+    const read = async (name: string) => { const d = await this.backend.read(`changes/${me.id}/${name}`); if (!d) throw new Error(`缺 ${name}`); for (const l of strFromU8(gunzipSync(d)).split('\n').filter(Boolean).slice(1)) fold.add(JSON.parse(l) as Change); };
+    try {
+      if (base) await read(`base-${pad(base)}.jsonl.gz`);
+      for (let seq = base + 1; seq <= n; seq++) await read(`${pad(seq)}.jsonl.gz`);
+    } catch { return undefined; }   // 有批次缺失：这次不压缩
+    const out = fold.changes();
+    const text = [{ v: FORMAT, enc: null, device: me.id, base: n, n: out.length }, ...out].map(x => JSON.stringify(x)).join('\n') + '\n';
+    await this.backend.write(`changes/${me.id}/base-${pad(n)}.jsonl.gz`, gzipSync(strToU8(text)));
+    for (const f of files) {
+      const m = /^(?:base-)?(\d+)\.jsonl\.gz$/.exec(f);
+      if (m && Number(m[1]) <= n && f !== `base-${pad(n)}.jsonl.gz`) await this.backend.remove(`changes/${me.id}/${f}`);
+    }
+    return n;
+  }
+
   /** 推送 + 拉取 + 再推一次（拉取时合并重复可能产生本机改动） */
   async sync(): Promise<SyncRunResult> {
     let pushed = await this.push();
     const r = await this.pull();
     pushed += await this.push();
+    try { await this.compact(); } catch (e) { console.error('[sync] 压缩失败', e); }   // 压缩失败不影响这次同步
     await this.set('last_synced_at', this.wall());
     return { pushed, pulled: r.pulled, tables: [...r.tables], errors: r.errors };
   }
@@ -244,6 +294,40 @@ export class SyncEngine {
   /* ---------- 设备 ---------- */
   async removeDevice(device_id: string) { await this.db.run('UPDATE sync_peers SET removed = 1 WHERE device_id = ?', [device_id]); }
   async outboxCount() { return Number((await this.db.get<{ n: number }>('SELECT count(*) AS n FROM sync_outbox'))?.n ?? 0); }
+}
+
+const baseOf = (files: string[]) => Math.max(0, ...files.map(f => /^base-(\d+)\.jsonl\.gz$/.exec(f)).filter((m): m is RegExpExecArray => !!m).map(m => Number(m[1])));
+
+/** 压缩时把一串改动折叠成"每个字段最后的值 + 墓碑 + 全部追加行"（08 §6） */
+class Fold {
+  private puts = new Map<string, { t: string; id: string; f: Record<string, unknown>; c: Record<string, string>; src?: Record<string, string> }>();
+  private dels = new Map<string, { t: string; id: string; c: string }>();
+  private adds = new Map<string, Change>();
+  add(ch: Change) {
+    if (ch.op === 'add') { this.adds.set(`${ch.t}|${String(ch.row.id ?? JSON.stringify(ch.row))}`, ch); return; }
+    const key = `${ch.t}|${ch.id}`;
+    if (ch.op === 'del') {
+      const prev = this.dels.get(key); if (!prev || ch.c > prev.c) this.dels.set(key, { t: ch.t, id: ch.id, c: ch.c });
+      const p = this.puts.get(key);
+      if (p) { for (const k of Object.keys(p.f)) if (p.c[k]! <= ch.c) { delete p.f[k]; delete p.c[k]; } if (!Object.keys(p.f).length) this.puts.delete(key); }
+      return;
+    }
+    const tomb = this.dels.get(key)?.c ?? '';
+    let p = this.puts.get(key);
+    if (!p) { p = { t: ch.t, id: ch.id, f: {}, c: {} }; this.puts.set(key, p); }
+    for (const [k, v] of Object.entries(ch.f)) {
+      const c = typeof ch.c === 'string' ? ch.c : ch.c[k] ?? '';
+      if (c <= tomb || (p.c[k] && p.c[k]! >= c)) continue;
+      p.f[k] = v; p.c[k] = c;
+    }
+    if (ch.src) p.src = { ...p.src, ...ch.src };
+    if (!Object.keys(p.f).length) this.puts.delete(key);
+  }
+  /** 新建的行在前（保持原来先父后子的顺序），然后追加行，最后墓碑 */
+  changes(): Change[] {
+    const puts: Change[] = [...this.puts.values()].map(p => { const cs = [...new Set(Object.values(p.c))]; return { op: 'put', t: p.t, id: p.id, f: p.f, c: cs.length === 1 ? cs[0]! : p.c, ...(p.src ? { src: p.src } : {}) }; });
+    return [...puts, ...this.adds.values(), ...[...this.dels.values()].map(d => ({ op: 'del' as const, ...d }))];
+  }
 }
 
 /** 一批改动的合并（08 §4），在拉取的事务里跑 */

@@ -146,4 +146,38 @@ describe('同步场景（08 §11）', () => {
     expect(await B.db.get("SELECT value FROM settings WHERE key = 'tts.engine'")).toBeUndefined();
     expect((await B.db.get<{ value: string }>("SELECT value FROM settings WHERE key = 'review.recognize'"))?.value).toBe('true');
   });
+
+  it('压缩后：文件夹里只剩 base 和之后的批次；新设备从 base 读起，老设备照常接着读', async () => {
+    const files = new Map<string, Uint8Array>();
+    const A = await device('A', files), B = await device('B', files), C = await device('C', files);
+    A.eng.compactAfter = 1;
+    await A.importText(); await A.eng.enable({ device_name: 'A' }); await B.eng.enable({ device_name: 'B' });
+    for (const m of ['一', '二', '三']) { await A.db.run('UPDATE terms SET meaning = ? WHERE text = ?', [`编译器${m}`, 'compiler']); await A.eng.sync(); }
+    await B.eng.sync();          // B 读到了 A 的全部批次，写进自己的 acks
+    const n = await A.eng.compact();
+    expect(n).toBeGreaterThan(0);
+    const aDir = [...files.keys()].filter(k => k.startsWith('changes/') && !k.includes(B.name)).map(k => k.split('/').pop()!);
+    expect(aDir.some(f => f.startsWith('base-'))).toBe(true);
+    // 压缩后 A 再改，B 照常收到；C 新加入，从 base 拿到全部
+    await A.db.run("UPDATE terms SET note = '压缩后改的' WHERE text = 'compiler'"); await A.eng.sync();
+    await B.eng.sync(); await C.eng.enable({ device_name: 'C' });
+    for (const d of [B, C]) { const t = await term(d.db, 'compiler'); expect(t?.meaning).toBe('编译器三'); expect(t?.note).toBe('压缩后改的'); }
+    expect(Number((await C.db.get<{ n: number }>('SELECT count(*) AS n FROM sentences'))!.n)).toBe(Number((await A.db.get<{ n: number }>('SELECT count(*) AS n FROM sentences'))!.n));
+  });
+
+  it('90 天没上线的设备不拦着压缩；它回来后从 base 读起，数据一致', async () => {
+    const files = new Map<string, Uint8Array>();
+    const A = await device('A', files), D = await device('D', files);
+    A.eng.compactAfter = 1;
+    await A.importText(); await A.eng.enable({ device_name: 'A' }); await D.eng.enable({ device_name: 'D' });
+    // D 很久没上线：把它的设备文件改成 100 天前
+    const dKey = [...files.keys()].find(k => k.startsWith('devices/') && JSON.parse(new TextDecoder().decode(files.get(k)!)).name === 'D')!;
+    const dev = JSON.parse(new TextDecoder().decode(files.get(dKey)!)); dev.last_seen_at = Date.now() - 100 * 86_400_000; dev.acks = {};
+    files.set(dKey, new TextEncoder().encode(JSON.stringify(dev)));
+    await A.db.run("UPDATE terms SET meaning = '离开期间改的' WHERE text = 'parser'"); await A.eng.sync();
+    expect(await A.eng.compact().then(x => x ?? 'already')).toBeTruthy();
+    expect([...files.keys()].some(k => /changes\/[^/]+\/base-/.test(k))).toBe(true);
+    await D.eng.sync();
+    expect((await term(D.db, 'parser'))?.meaning).toBe('离开期间改的');
+  });
 });

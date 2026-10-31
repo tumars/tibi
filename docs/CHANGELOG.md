@@ -123,3 +123,4 @@
 | 2026-10-31 | M7 同步界面：设置 → 数据 → 同步（iCloud Drive / 文件夹 / WebDAV，检查已有资料库 → 加入或新建，状态行、立即同步、设备列表与移除、停止）；壳加 `pick_folder`。00 §3.7、使用指南同步 |
 | 2026-10-31 | M7 手机壳：`mobile.html` 入口（`src/mobile/`：今天、书架、全屏阅读器与词卡面板、复习、我），样式取自原型；复习与对话的状态抽成 `useReviewSession`、`useChat`，桌面和手机共用；左栏的手机当天对话显示为"10 月 31 日 · 手机"；复习"上次做到一半"的提示不再重复。00 §3.13 实现状态、开发说明同步 |
 | 2026-10-31 | M7 手机端运行时：Core 在 WebView 里跑（T28）——壳加 `local_db.rs`（rusqlite）与 `keyring_get`，`run()` 分桌面 / 手机两条，`mobile-preview` 特性在电脑上走手机那条；JS 端 `InvokeDriver`、`localTransport`（http 插件代替全局 fetch）；`SqliteDict` 和网页正文抽取（`web/html.ts`，注入 HTML 解析器）移进 core；`tauri.ios/android/mobile.conf.json`；手机第一次打开选水平；CI 加 `cargo check --features mobile-preview`。开发说明 §6、00 §3.13 与 M7 里程碑同步 |
+| 2026-10-31 | M7 同步压缩（08 §6）：所有算数的设备读过后把自己的批次合成 `base-N`，读的一方比 base 旧时先读 base；补上"压缩后新设备加入""90 天不上线"两个场景测试（08 §11 八条齐了）。08 §13 同步 |
