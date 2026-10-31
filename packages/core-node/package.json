@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "node build.mjs",
     "ecdict": "tsx src/ecdict/ingest.ts",
-    "sidecar": "node scripts/sidecar.mjs"
+    "sidecar": "node scripts/sidecar.mjs",
+    "rpc": "tsx scripts/rpc.mts"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
