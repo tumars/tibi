@@ -30,7 +30,7 @@ export function memoryBackend(files: Map<string, Uint8Array> = new Map()): SyncB
 /** WebDAV：url 是资料库根目录（如 https://dav.jianguoyun.com/dav/Tibi Sync/），密码由调用方从钥匙串取 */
 export function webdavBackend(o: { url: string; user: string; password: string; fetch?: typeof fetch }): SyncBackend {
   const f = o.fetch ?? fetch;
-  const base = o.url.replace(/\/?$/, '/');
+  const base = o.url.replace(/\/?$/, '/').replace(/ /g, '%20');
   const auth = 'Basic ' + btoa(unescape(encodeURIComponent(`${o.user}:${o.password}`)));
   const url = (p: string) => base + p.split('/').map(encodeURIComponent).join('/');
   const req = async (method: string, p: string, init: RequestInit = {}) => {
@@ -42,7 +42,16 @@ export function webdavBackend(o: { url: string; user: string; password: string; 
     return r;
   };
   const made = new Set<string>();
+  // 资料库根目录（如 /dav/Tibi Sync/）可能还不存在：MKCOL 遇到 409（父目录也没有）就先建父目录，最多往上几级
+  const mkcolAbs = async (u: string, depth = 0): Promise<void> => {
+    let r: Response;
+    try { r = await f(u, { method: 'MKCOL', headers: { Authorization: auth } }); } catch { throw new SyncError('offline', '没连上网络。恢复后会自动同步。'); }
+    if (r.status === 401 || r.status === 403) throw new SyncError('auth', 'WebDAV 登录失败。检查账号和应用密码。');
+    if (r.status === 409 && depth < 4) { const parent = u.replace(/[^/]+\/$/, ''); if (parent !== u && /^https?:\/\/[^/]+\/.+/.test(parent)) { await mkcolAbs(parent, depth + 1); await mkcolAbs(u, depth + 1); } }
+  };
+  let baseReady = false;
   const mkdirs = async (p: string) => {
+    if (!baseReady) { await mkcolAbs(base); baseReady = true; }
     const parts = p.split('/').slice(0, -1); let cur = '';
     for (const part of parts) { cur = cur ? `${cur}/${part}` : part; if (made.has(cur)) continue; const r = await req('MKCOL', cur + '/'); if (r.ok || r.status === 405 || r.status === 301) made.add(cur); }
   };
@@ -60,9 +69,11 @@ export function webdavBackend(o: { url: string; user: string; password: string; 
       if (!r.ok && r.status !== 207) throw new SyncError('other', `WebDAV 列目录失败（${r.status}）`);
       const xml = await r.text();
       const out: string[] = [];
+      const self = decodeURIComponent(new URL(url(dir.replace(/\/?$/, '/'))).pathname).replace(/\/$/, '');
       for (const m of xml.matchAll(/<(?:\w+:)?response\b[\s\S]*?<\/(?:\w+:)?response>/g)) {
         const href = /<(?:\w+:)?href>([^<]+)<\/(?:\w+:)?href>/.exec(m[0])?.[1]; if (!href) continue;
         if (/<(?:\w+:)?collection\s*\/>/.test(m[0])) continue;
+        if (decodeURIComponent(href.replace(/^https?:\/\/[^/]+/, '')).replace(/\/$/, '') === self) continue;   // 目录自己
         const name = decodeURIComponent(href.replace(/\/$/, '').split('/').pop() ?? ''); if (name) out.push(name);
       }
       return out;
