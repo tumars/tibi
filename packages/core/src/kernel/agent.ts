@@ -3,6 +3,7 @@ import { calculateCost, createModels, createProvider, type Api, type AssistantMe
 // 静态导入：打成单文件 sidecar 时，动态导入会让 esbuild 把 pi-ai 的模块包成惰性初始化，静态那条路径就漏了初始化（createModels 报 "not a constructor"）
 import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy';
 import { deepseekProvider } from '@earendil-works/pi-ai/providers/deepseek';
+import { friendlyModelError } from './model-errors.js';
 import { j, now, type Database } from '../db/driver.js';
 import type { Ctx } from '../rpc/define.js';
 import { TibiError, type SkillId, type Tier } from '../types.js';
@@ -124,7 +125,7 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
     unsub(); registry.liveTools.delete(job.job_id); job.signal.removeEventListener('abort', onAbort);
   }
   if (job.signal.aborted) throw new TibiError('busy', '已取消');
-  if (errorMessage) throw new TibiError(/unauthorized|401|api key/i.test(errorMessage) ? 'model_unavailable' : 'model_unavailable', `模型调用失败：${errorMessage}`);
+  if (errorMessage) throw new TibiError('model_unavailable', friendlyModelError(errorMessage));
   events.emit('chat.delta', { conversation_id: args.conversation_id, submission_id: job.job_id, delta: '', done: true });
   if (args.conversation_id) await convs.addMessage(args.conversation_id, 'assistant', { text }, job.job_id);
   return { text, usage };

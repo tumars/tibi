@@ -4,6 +4,7 @@ import { now } from '../db/driver.js';
 import type { Ctx } from '../rpc/define.js';
 import { TibiError, type Tier } from '../types.js';
 import type { ResolvedModel } from './agent.js';
+import { friendlyModelError } from './model-errors.js';
 import { checkBudget, monthSpent, recordUsage, USD_CNY } from './usage.js';
 
 /**
@@ -27,7 +28,7 @@ export async function completeOnce(ctx: Ctx, resolve: Resolver, o: CompleteOptio
   try { await agent.prompt(o.prompt); } finally { unsub(); o.signal?.removeEventListener('abort', onAbort); }
   const latency_ms = now() - t0;
   if (!msg) throw new TibiError('model_unavailable', '模型没有回复');
-  if (msg.stopReason === 'error' || msg.stopReason === 'aborted') throw new TibiError('model_unavailable', `模型调用失败：${msg.errorMessage ?? msg.stopReason}`);
+  if (msg.stopReason === 'error' || msg.stopReason === 'aborted') throw new TibiError('model_unavailable', friendlyModelError(msg.errorMessage ?? String(msg.stopReason)));
   const u = msg.usage;
   let usd = u?.cost?.total ?? 0;
   if (!usd && u) { try { usd = calculateCost(resolved.model, u).total; } catch { usd = 0; } }

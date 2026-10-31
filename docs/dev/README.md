@@ -76,6 +76,8 @@ pnpm --filter @tibi/desktop bundle           # tauri build，带上 src-tauri/ta
 
 词典不写在主配置 `tauri.conf.json` 的 resources 里：开发时没有词典也能编译；只有出包时用 `--config src-tauri/tauri.bundle.conf.json` 合并进去。
 
+**在 Linux 上验证装好的应用**（没有显示器的机器）：`Xvfb :99` 起虚拟屏幕，`apt install ./Tibi_*.deb` 安装，在 `dbus-run-session` 里先起 `gnome-keyring-daemon --unlock --components=secrets` 再跑 `tibi`（钥匙串要 Secret Service），用 `xdotool` 点、`import -window root` 截图；`tibi 'tibi://import?url=…'` 测深链。2026-10-31 用这个办法验证过首次引导、导入示例与网页、阅读与词卡、深链、⌘K、钥匙串和测试连接。
+
 ## 5. 界面文案（i18n）
 
 - 源码里直接写中文，用 `tl('中文原文')` 包起来；有变量写成 `tl('已导入 {n} 篇', { n })`，不要把一句话拆成几段拼。

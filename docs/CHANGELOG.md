@@ -131,3 +131,4 @@
 | 2026-10-31 | 手机从"文件"导入：壳加 `read_file`（原始字节），文件抽取移进 core（依赖注入），手机接浏览器版 pdfjs / mammoth / tesseract；浏览器里模拟手机桥端到端导入了 EPUB、Word、PDF、书页照片。T28、开发说明 §6、00 §3.13 同步 |
 | 2026-10-31 | 在 Xvfb 里跑真正装好的应用（.deb）验证：首次引导、导入示例、阅读、词卡、深链（第二个实例把链接交给开着的窗口、弹确认卡、真的抓网页）、⌘K、钥匙串。发现并修了两个只在打包后出现的问题：① Linux 钥匙串用的是内核 keyutils（重启丢、容器里写不进），改用 Secret Service；② 打包后的 sidecar 调模型报 `ModelsImpl is not a constructor`（esbuild 把 pi-ai 包成惰性初始化），改成静态导入，加 `bundle.test.ts` 用本地 OpenAI 兼容服务器经打包后的 sidecar 走一次模型调用 |
 | 2026-10-31 | 手机原生部分：iCloud 同步（壳的 `sync_fs.rs`：iOS 经 NSFileManager 取容器，`sync_fs_*` 读写，处理 `.icloud` 占位；JS `invokeFolderBackend`）；Android 上 API Key 存应用私有目录的 `secrets.json`（keyring 在 Android 上只在内存里）。Rust 单测 + 两台模拟手机经这组命令同步的测试。开发说明 §6、08 §13、00 §3.13 同步 |
+| 2026-10-31 | 模型错误改成人话（`kernel/model-errors.ts`：401 Key 不对、402 余额不足、429 太频繁、连不上、5xx）。在装好的应用里验证到：填 Key → 进 Secret Service → sidecar 经壳取 Key → 真的请求 DeepSeek → 假 Key 得到 401，提示"API Key 不对或已经失效" |
