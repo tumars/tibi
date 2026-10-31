@@ -9,7 +9,7 @@
 | 风格 | 软 3D 玩偶渲染：圆润、柔和的全局光、轻微毛绒质感、无硬描边；扁平 SVG 小狐狸只在应用内动态位置使用，二者同一角色 |
 | 背景 | 透明（`background: transparent`），落地时由页面给底色；hero 系列例外，自带浅色场景 |
 | 尺寸 | 生成 1024×1024 或 1536×1024，导出 PNG；交付时转 WebP（质量 85）并出 @1x / @2x 两档 |
-| 命名 | `docs/prototypes/img/mascot/<id>.webp`，`<id>` 与下表一致 |
+| 命名 | `docs/prototypes/img/mascot/<id>.webp`（@1x）与 `<id>@2x.webp`，`<id>` 与下表一致；贴纸拆为 `sticker-1` … `sticker-6` |
 | 颜色 | 毛色 `#f5a043`、深橙 `#e3842a`、脸颊与肚子 `#fff4e2`、体侧灰 `#cfc3b4`、耳内 `#ffc7a6`、腮红 `#ff8f7d`、五官 `#2b1f17`、书本 `#3b5bfd` |
 | 一致性 | 每张图都以 `ref-sheet` 为参考图；提示词开头固定一段角色描述（§2 的 CHARACTER） |
 | 留白 | 主体占画面 60–70%，四周留白，便于裁切 |
@@ -42,10 +42,10 @@ Character reference sheet of CHARACTER on a plain light grey (#f2f2f1) backgroun
 | empty-words | 生词本为空 | 1024×1024 | 待出 |
 | celebrate-review | 复习完成页 | 1024×1024 | 待出 |
 | celebrate-streak | 连续学习 7 / 30 / 100 天 | 1024×1024 | 待出 |
-| onboarding-hello | 引导第 1 步 认识一下 | 1024×1024 | 待出 |
-| onboarding-test | 引导第 2 步 词汇量测试 | 1024×1024 | 待出 |
-| onboarding-model | 引导第 3 步 连接模型 | 1024×1024 | 待出 |
-| onboarding-read | 引导第 4 步 读第一篇 | 1024×1024 | 待出 |
+| onboarding-hello | 引导第 1 步 认识一下 | 1024×1024 | 已出 |
+| onboarding-test | 引导第 2 步 词汇量测试 | 1024×1024 | 已出 |
+| onboarding-model | 引导第 3 步 连接模型 | 1024×1024 | 已出 |
+| onboarding-read | 引导第 4 步 读第一篇 | 1024×1024 | 已出 |
 | error-offline | 模型不可用 / 离线 | 1024×1024 | 待出 |
 | error-generic | 出错了 | 1024×1024 | 待出 |
 | sticker-* | 对话里的贴纸反应（6 张：赞、笑、疑问、加油、睡、惊） | 512×512 | 待出 |
