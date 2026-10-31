@@ -208,6 +208,7 @@ fn run_mobile() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_http::init())
         .manage(Allowed::default())
         .manage(local_db::Dbs::default())
@@ -256,6 +257,7 @@ fn run_desktop() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(Allowed::default())
         .manage(TrayMode::default())
         .setup(|app| {

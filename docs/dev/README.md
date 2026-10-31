@@ -109,7 +109,7 @@ pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式�
 2. `cd apps/desktop && pnpm tauri android init`（生成 `src-tauri/gen/android/`，提交）
 3. 词典同上；`pnpm tauri android dev` / `pnpm tauri android build`
 
-**还没做 / 没验证**：iOS 上的 iCloud 同步代码写好了（`sync_fs.rs` 的 iOS 分支调 NSFileManager），但这台 Linux 机器编译不了 iOS，要在 Mac 上验证；Android 上 API Key 存在应用私有目录的 `secrets.json`（0600，`keys.rs`），还没接 Android Keystore 再加一层加密；扫描版 PDF 的 OCR（照片可以）；Safari 分享扩展、小组件、每日提醒。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
+**还没做 / 没验证**：iOS 上的 iCloud 同步代码写好了（`sync_fs.rs` 的 iOS 分支调 NSFileManager），但这台 Linux 机器编译不了 iOS，要在 Mac 上验证；Android 上 API Key 存在应用私有目录的 `secrets.json`（0600，`keys.rs`），还没接 Android Keystore 再加一层加密；扫描版 PDF 的 OCR（照片可以）；Safari 分享扩展、小组件。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
 
 ## 7. M0 的技术决定（T 组）
 

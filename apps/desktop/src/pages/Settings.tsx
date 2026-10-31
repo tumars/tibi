@@ -21,6 +21,8 @@ const SECTIONS = [['general', tl('通用')], ['learning', tl('学习与复习')]
 export function Settings() {
   const nav = useNavigate();
   const [recognize, setRecognize] = useState(false);
+  const [reminder, setReminder] = useState<string>('off');
+  useEffect(() => { rpc.call('settings.get', { keys: ['reminder.time'] }).then(r => setReminder((r['reminder.time'] as string) ?? 'off'), () => undefined); }, []);
   useEffect(() => { rpc.call('settings.get', { keys: ['review.recognize'] }).then(r => setRecognize(!!r['review.recognize']), () => undefined); }, []);
   const theme = useUi(s => s.theme); const setTheme = useUi(s => s.setTheme);
   const status = useCore(s => s.status);
@@ -92,6 +94,7 @@ export function Settings() {
           </div></section>
 
           <section className="ssec" id="s-learning"><h2>{tl('学习与复习')}</h2><div className="group">
+            <div className="item"><div><div className="t">{tl('每日提醒')}</div><div className="d">{tl('到点提醒今天要复习的词；电脑上要 Tibi 开着（托盘里也行）')}</div></div><div className="ctl"><div className="seg">{([['off', tl('关闭')], ['morning', tl('早上 8 点')], ['noon', tl('中午 12 点')], ['evening', tl('晚上 8 点')]] as const).map(([v, l]) => <button key={v} className={reminder === v ? 'on' : ''} onClick={() => { setReminder(v); void rpc.call('settings.set', { patch: { 'reminder.time': v } }); }}>{l}</button>)}</div></div></div>
             <div className="item"><div><div className="t">{tl('Tibi 讲解用的语言')}</div><div className="d">{tl('总结、释义、对话回答用什么语言')}</div></div><div className="ctl"><div className="seg">{([['mixed', tl('中文夹英文')], ['zh', tl('只用中文')], ['en', 'English']] as const).map(([v, l]) => <button key={v} className={(profile?.assistant_prefs?.language ?? 'mixed') === v ? 'on' : ''} onClick={() => patch({ assistant_prefs: { ...(profile?.assistant_prefs ?? { nickname: '你', permission: 'default' }), language: v } })}>{l}</button>)}</div></div></div>
             <Range label={tl('每日阅读目标')} value={profile?.daily_goal_minutes ?? 20} min={5} max={60} step={5} unit={tl(' 分钟')} onChange={v => patch({ daily_goal_minutes: v })} />
             <Range label={tl('每天最多新学的词')} value={profile?.daily_new_cards ?? 20} min={5} max={50} step={5} unit={tl(' 个')} desc={tl('超过的排到第二天')} onChange={v => patch({ daily_new_cards: v })} />

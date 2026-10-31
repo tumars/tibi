@@ -1,5 +1,5 @@
 import type { Approval, Conversation, Memory, Term } from '@tibi/core';
-import { Bookmark, Brain, ChevronRight, Cloud, KeyRound, ListChecks, MessageSquare, Moon, Languages } from 'lucide-react';
+import { Bell, Bookmark, Brain, ChevronRight, Cloud, KeyRound, ListChecks, MessageSquare, Moon, Languages } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { lang, setLang, tl } from '../lib/i18n';
@@ -11,7 +11,7 @@ import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
 import { Empty, Ring, Sheet } from './ui';
 
-type SheetKind = 'words' | 'chats' | 'memory' | 'tasks' | 'sync' | 'model' | 'look';
+type SheetKind = 'words' | 'chats' | 'memory' | 'tasks' | 'sync' | 'model' | 'look' | 'remind';
 
 /** 我（00 §3.13）：连续天数圆环、已知词、生词本、对话记录、记忆、任务、同步、模型、外观与语言 */
 export function Me() {
@@ -42,6 +42,7 @@ export function Me() {
         <div className="card menu">
           <Item k="sync" icon={<Cloud />} color="#0a84ff" label={tl('同步')} right={sync?.enabled ? (sync.last_synced_at ? fmtAgo(sync.last_synced_at) : tl('已开启')) : tl('关')} />
           <Item k="model" icon={<KeyRound />} color="#c98a1b" label={tl('模型')} right={status?.models.ok ? status.models.fast : tl('未连接')} />
+          <Item k="remind" icon={<Bell />} color="#c2452d" label={tl('每日提醒')} />
           <Item k="look" icon={<Moon />} color="#636366" label={tl('外观与语言')} />
         </div>
       </div>
@@ -52,6 +53,7 @@ export function Me() {
       <Sheet open={sheet === 'sync'} onClose={() => setSheet(undefined)} tall><SyncPanel st={sync} onChange={setSync} /></Sheet>
       <Sheet open={sheet === 'model'} onClose={() => setSheet(undefined)} tall><ModelPanel onDone={() => setSheet(undefined)} /></Sheet>
       <Sheet open={sheet === 'look'} onClose={() => setSheet(undefined)}><Look /></Sheet>
+      <Sheet open={sheet === 'remind'} onClose={() => setSheet(undefined)}><Remind /></Sheet>
     </div>
   );
 }
@@ -155,5 +157,16 @@ function Look() {
   return <><h2>{tl('外观与语言')}</h2>
     <div className="seg">{(['auto', 'light', 'dark'] as const).map(t => <button key={t} className={theme === t ? 'on' : ''} onClick={() => setTheme(t)}>{{ auto: tl('跟随系统'), light: tl('浅色'), dark: tl('深色') }[t]}</button>)}</div>
     <div className="seg" style={{ marginTop: 12 }}><button className={lang === 'zh' ? 'on' : ''} onClick={() => lang !== 'zh' && setLang('zh')}><Languages size={14} /> 中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => lang !== 'en' && setLang('en')}>English</button></div>
+  </>;
+}
+
+/** 每日提醒（J8）：每天一条，内容是当天待复习数 */
+function Remind() {
+  const [v, setV] = useState<string>('off');
+  useEffect(() => { rpc.call('settings.get', { keys: ['reminder.time'] }).then(r => setV((r['reminder.time'] as string) ?? 'off'), () => undefined); }, []);
+  const pick = (x: string) => { setV(x); void rpc.call('settings.set', { patch: { 'reminder.time': x } }); };
+  return <><h2>{tl('每日提醒')}</h2>
+    <p className="note2">{tl('每天一条，告诉你今天有几个词要复习。')}</p>
+    <div className="card menu" style={{ background: 'var(--sunken)', marginTop: 10 }}>{([['off', tl('关闭')], ['morning', tl('早上 8 点')], ['noon', tl('中午 12 点')], ['evening', tl('晚上 8 点')]] as const).map(([k, l]) => <a key={k} href="#" onClick={e => { e.preventDefault(); pick(k); }}>{l}<span className="r">{v === k ? '✓' : ''}</span></a>)}</div>
   </>;
 }

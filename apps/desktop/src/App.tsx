@@ -16,9 +16,18 @@ import { isTauri, rpc } from './rpc';
 import { bindCoreEvents, useCore } from './store/core';
 import { toast } from './store/ui';
 import { tl } from './lib/i18n';
+import { startDesktopReminder, type ReminderTime } from './lib/reminder';
 
 export function App() {
   const nav = useNavigate();
+  // 每日提醒（J8）：应用开着（含托盘里）时到点提醒
+  useEffect(() => {
+    let time: ReminderTime = 'off';
+    const load = () => rpc.call('settings.get', { keys: ['reminder.time'] }).then(r => { time = (r['reminder.time'] as ReminderTime) ?? 'off'; }, () => undefined);
+    void load(); const off = rpc.on('data.changed', d => { if (d.table === 'settings') void load(); });
+    const stop = startDesktopReminder(() => ({ time, due: useCore.getState().due }));
+    return () => { off(); stop(); };
+  }, []);
   useEffect(() => {
     bindCoreEvents();
     // 朗读设置（tts.*）

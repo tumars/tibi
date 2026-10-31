@@ -30,7 +30,7 @@ const CARD_SCHEDULE = ['due', 'stability', 'stability_fast', 'difficulty', 'elap
 /** 顺序就是推送和初始导出的顺序：被引用的表在前 */
 export const TABLES: TableSpec[] = [
   { t: 'user_profile', kind: 'put', pk: ['id'] },
-  { t: 'settings', kind: 'put', pk: ['key'], localGlobs: ['tts.*', 'mcp.*', 'backup.*', 'sync.*', 'onboarding.*'] },   // 深浅色在 localStorage，不在库里
+  { t: 'settings', kind: 'put', pk: ['key'], localGlobs: ['tts.*', 'mcp.*', 'backup.*', 'sync.*', 'onboarding.*', 'reminder.*'] },   // 深浅色在 localStorage，不在库里
   { t: 'skills', kind: 'put', pk: ['id'] },
   { t: 'tags', kind: 'put', pk: ['id'], natural: { cols: ['name'], where: 'deleted_at IS NULL' } },
   { t: 'documents', kind: 'put', pk: ['id'], exclude: ['original_path', 'cover_path'], natural: { cols: ['content_hash'], where: 'deleted_at IS NULL' } },

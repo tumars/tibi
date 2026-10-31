@@ -24,6 +24,7 @@
             "dialog:allow-open",
             "dialog:allow-save",
             "deep-link:default",
+            "notification:default",
             {
               "identifier": "http:default",
               "allow": [

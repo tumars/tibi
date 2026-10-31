@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { Fox } from '../components/Fox';
 import { tl } from '../lib/i18n';
+import { scheduleMobile, type ReminderTime } from '../lib/reminder';
 import { rpc } from '../rpc';
 import { bindCoreEvents, useCore } from '../store/core';
 import { toast } from '../store/ui';
@@ -29,6 +30,15 @@ export function MobileApp() {
     return off;
   }, []);
   useEffect(() => { setImm(false); }, [loc.pathname]);
+  // 每日提醒（J8）：交给系统定时，按当前待复习数重排下一条；回到前台再排一次
+  useEffect(() => {
+    const plan = () => rpc.call('settings.get', { keys: ['reminder.time'] }).then(r => scheduleMobile((r['reminder.time'] as ReminderTime) ?? 'off', useCore.getState().due), () => undefined);
+    const t = setTimeout(plan, 3000);
+    const vis = () => { if (document.visibilityState === 'visible') void plan(); };
+    document.addEventListener('visibilitychange', vis);
+    const off = rpc.on('data.changed', d => { if (d.table === 'settings' || d.table === 'cards') void plan(); });
+    return () => { clearTimeout(t); document.removeEventListener('visibilitychange', vis); off(); };
+  }, []);
   return (
     <div className={`phone${imm ? ' imm' : ''}`} data-tab={tab}>
       <Routes>
