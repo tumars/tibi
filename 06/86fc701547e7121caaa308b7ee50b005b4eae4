@@ -1,0 +1,50 @@
+docs/DECISIONS.md
+  s_5f1cdd5954dca1::t_712c08d63db00d 134
+  s_5f1cdd5954dca1::t_cd915e99db8858 10,12,24-38,45,51,58-59,74-76,88,114,121,125,127-129,132
+docs/design/02-ai-assistant.md
+  s_5f1cdd5954dca1::t_91f0e4ea36b000 62-63,70,117,128
+docs/design/overview.html
+  s_5f1cdd5954dca1::t_cd915e99db8858 159,178-179,184,217,220,233,242,246,276,281,283,292,295-296,310,312,376,379,383-384,387-388,391-392,395,405-406,427,433,435,438,445,485-486,490,496,500-501,507,510-516,518,520-524,527,529,549,554,575,587-588,600-604,607-615,617,627,634-636,656,659-660
+docs/research/04-mac-native-and-mascot.md
+  s_5f1cdd5954dca1::t_91f0e4ea36b000 98
+docs/design/03-visual-language.md
+  s_5f1cdd5954dca1::t_91f0e4ea36b000 72,94,117
+docs/design/07-mascot-assets.md
+  s_5f1cdd5954dca1::t_91f0e4ea36b000 62-65
+docs/research/02-learning-theory.md
+  s_5f1cdd5954dca1::t_91f0e4ea36b000 18
+docs/design/00-concept-design.md
+  s_5f1cdd5954dca1::t_91f0e4ea36b000 13-15,25,67,103-109,135,139,157,167-175,179,181-182,192,195,223-224,233,280,285-286,304,306,315,318,342-344,346,348-358,365,371-372,375,380,382,396,437-454,458-462,465-473,485-486,497,500-501
+README.md
+  s_5f1cdd5954dca1::t_91f0e4ea36b000 37
+docs/design/06-interface.md
+  s_5f1cdd5954dca1::t_cd915e99db8858 9,16,32,34,37,44,84-85,89,95,99-100,106,109-115,117,126-128,137,144-145,147,153,167,172,176-177,188,215,220,222,239,247,308,361-362,383,402,423
+docs/design/01-database.md
+  s_5f1cdd5954dca1::t_91f0e4ea36b000 3,42,47,84,165-166,171,195-196,260,278,294,296-297,333,337-349,357,361,377,418
+docs/CHANGELOG.md
+  s_5f1cdd5954dca1::t_cd915e99db8858 80
+docs/design/_src/build_interface.py
+  s_5f1cdd5954dca1::t_cd915e99db8858 11,13,16,23,63-64,68,74,78-79,85,88-94,96,102-104,113,117-118,120,126,137,142-144,152,173,175,177,188,196,228,248,286-287,299,330,336-337,366,370,384,407
+docs/research/05-word-atlas-review.md
+  s_5f1cdd5954dca1::t_91f0e4ea36b000 3,58
+docs/design/05-agent-architecture.md
+  s_5f1cdd5954dca1::t_91f0e4ea36b000 15,49,61,109,112-113,124,142-143,186,194,209,231,235,256,258,297,308
+  s_5f1cdd5954dca1::t_712c08d63db00d 311
+  s_5f1cdd5954dca1::t_b69823e741d4c8 291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0686fc701547e7121caaa308b7ee50b005b4eae4",
+  "prompts": {},
+  "sessions": {
+    "s_5f1cdd5954dca1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2f8c40b4-4724-49db-8cdc-59bc7f69ec72",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
