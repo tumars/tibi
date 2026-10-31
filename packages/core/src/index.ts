@@ -11,3 +11,4 @@ export { Dispatcher, type RpcRequest, type RpcResponse } from './rpc/dispatcher.
 export { systemMethods } from './rpc/system.js';
 export { Core, type CoreOptions } from './core.js';
 export * from './domain/shared/index.js';
+export { MIGRATIONS } from './db/migrations.gen.js';

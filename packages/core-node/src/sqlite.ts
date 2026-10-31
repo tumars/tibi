@@ -1,15 +1,20 @@
-import BetterSqlite3 from 'better-sqlite3';
-import { readFileSync, readdirSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
-import { Database, migrate, PRAGMAS, type Driver, type Migration, type Row, type SqlParams } from '@tibi/core';
+import type BetterSqlite3 from 'better-sqlite3';
+import { Database, migrate, MIGRATIONS, PRAGMAS, type Driver, type Migration, type Row, type SqlParams } from '@tibi/core';
 
-/** better-sqlite3 是同步的，这里包成 Core 要的异步接口 */
+/**
+ * Node 运行时的驱动：better-sqlite3（同步 API 包成 Core 要的异步接口）。
+ * 模块按需加载，这样同一份代码在 Bun 下走 bun:sqlite（sqlite-bun.ts），打单文件 sidecar 时不需要原生模块。
+ */
+type BS3 = typeof BetterSqlite3;
+let bs3: BS3 | undefined;
+async function loadBs3(): Promise<BS3> {
+  if (!bs3) bs3 = (await import('better-sqlite3')).default as unknown as BS3;
+  return bs3;
+}
+
 export class BetterSqliteDriver implements Driver {
-  readonly db: BetterSqlite3.Database;
-  constructor(path: string) {
-    this.db = new BetterSqlite3(path);
-  }
+  constructor(readonly db: BetterSqlite3.Database) {}
+  static async open(path: string, opts?: BetterSqlite3.Options) { const B = await loadBs3(); return new BetterSqliteDriver(new B(path, opts)); }
   async exec(sql: string) { this.db.exec(sql); }
   async run(sql: string, params: SqlParams = []) {
     const info = this.db.prepare(sql).run(params as never);
@@ -24,34 +29,22 @@ export class BetterSqliteDriver implements Driver {
   async close() { this.db.close(); }
 }
 
-/** 从 @tibi/core/sql 读全部迁移文件（文件名 NNNN_name.sql） */
-export function loadMigrations(): Migration[] {
-  const require = createRequire(import.meta.url);
-  const corePkg = require.resolve('@tibi/core/package.json');
-  const dir = join(dirname(corePkg), 'sql');
-  return readdirSync(dir)
-    .filter(f => /^\d{4}_.+\.sql$/.test(f))
-    .sort()
-    .map(f => ({ version: parseInt(f.slice(0, 4), 10), name: f.slice(5, -4), sql: readFileSync(join(dir, f), 'utf8') }));
-}
+/** 迁移内嵌在 @tibi/core（scripts/build-sql.mjs 生成），这里只是转一手 */
+export function loadMigrations(): Migration[] { return MIGRATIONS; }
 
 /** 打开（或新建）app.db：设 PRAGMA、跑迁移 */
 export async function openAppDb(path: string): Promise<Database> {
-  const db = new Database(new BetterSqliteDriver(path));
+  const db = new Database(await BetterSqliteDriver.open(path));
   for (const p of PRAGMAS) await db.exec(p);
   await migrate(db, loadMigrations());
   return db;
 }
 
 /** 只读打开 dict.db；不存在时返回 undefined（查词降级为"无词典"） */
-export function openDictDb(path: string | undefined): Database | undefined {
+export async function openDictDb(path: string | undefined): Promise<Database | undefined> {
   if (!path) return undefined;
   try {
-    const d = new BetterSqlite3(path, { readonly: true, fileMustExist: true });
-    const driver = new BetterSqliteDriver(':memory:');
-    driver.db.close();
-    (driver as { db: BetterSqlite3.Database }).db = d;
-    return new Database(driver);
+    return new Database(await BetterSqliteDriver.open(path, { readonly: true, fileMustExist: true }));
   } catch {
     return undefined;
   }

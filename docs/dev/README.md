@@ -40,6 +40,8 @@ pnpm core:dev                      # 起 Core 开发桥：ws://127.0.0.1:3456（
 pnpm --filter @tibi/desktop web    # 浏览器里跑界面，连上面的开发桥（无需编译 Rust）
 pnpm dev                           # tauri dev（需要 Rust 工具链与系统库）
 pnpm --filter @tibi/core-node build   # 打包 dist/tibi-core.js（sidecar 的 JS）
+pnpm --filter @tibi/core-node sidecar # Bun --compile 单文件 sidecar → apps/desktop/src-tauri/binaries/
+pnpm --filter @tibi/core gen          # 改了 sql/*.sql 或 skills/*.md 后重新生成内嵌文件
 pnpm ecdict                        # 下载 ECDICT 并生成 data/dict.db（不进仓库）
 ```
 

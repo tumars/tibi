@@ -142,6 +142,7 @@
 | T7 | HTML → Markdown 自己写了一个小转换器（标题、段落、列表、引用、代码块、行内代码、强调），不引入 turndown；正文抽取用 Readability + linkedom | 只需要 01 §2 约定的那几种结构；少一个依赖 |
 | T8 | 网址校验在 core-node：只收 http(s)，DNS 解析后拒绝回环 / 内网 / 链路本地地址，重定向每跳重查（05 §8） | — |
 | T9 | 词典 `dict.db` 由 `pnpm ecdict` 从 ECDICT 生成，不进仓库；Core 经 `Dict` 接口查词、还原、取词频，没有词典时退化为规则还原 | 01 §8 |
+| T11 | sidecar 用 Bun `--compile` 打单文件（SQLite 走内置 `bun:sqlite`），不用 Node SEA；迁移 SQL 由 `scripts/build-sql.mjs` 内嵌进 Core | 实测 Linux：Bun 105 MB / 114 ms，SEA 119 MB 且原生模块要另放；单文件省掉分发 `.node` 的麻烦 |
 | T10 | 复习用 ts-fsrs 6.0 的 `DefaultScheduler`（FSRS-7 默认），卡片字段按库的命名映射到表（`stability_fast` ← `stabilityFast`、`learning_steps` ← `learningStep`） | 01 §4 |
 
 ## 待决定
