@@ -1,6 +1,6 @@
 # 06 调研：口碑好的 iOS 英语学习与阅读产品，对手机版的参考
 
-> 2026-10-31。目的：手机版（D8，`prototypes/mobile.html`）从"桌面的缩小版"改成"像 iOS 应用"。调研对象分四类：阅读学语言（LingQ、Kindle、Readwise Reader）、背词（墨墨、不背单词、扇贝、AnkiMobile）、习惯养成（多邻国的小组件），开源项目（Readest、LangReader、LWT）。结论落成决策 J1–J8，已在手机版原型里实现，写进 `00-concept-design.md` §3.13 与 `DECISIONS.md`。
+> 2026-10-31。目的：手机版（D8，`prototypes/mobile.html`）从"桌面的缩小版"改成"像 iOS 应用"。调研对象分四类：阅读学语言（LingQ、Kindle、Readwise Reader）、背词（墨墨、不背单词、扇贝、AnkiMobile）、习惯养成（多邻国的小组件），开源项目（Readest、LangReader、LWT）。结论落成决策 J1–J8（J9 是之后补的首页对话入口，见 §5），已在手机版原型里实现，写进 `00-concept-design.md` §3.13 与 `DECISIONS.md`。
 
 ## 1. 各家值得学的一点
 
@@ -41,12 +41,40 @@
 | **J6** | 复习按桌面端 G1–G8 做：题目在上，选项、"继续"、评分全在下半屏；左上角关闭等于"稍后继续"；不做滑动评分；答对轻震、答错两下震动 | AnkiMobile 的滑动问题；G1–G8 |
 | **J7** | 主屏小组件（小：待复习数 + 连续天数 + 狐狸；中：继续读 + 进度）与锁屏小组件（今日分钟圆环、复习数）；狐狸只有"平静 / 开心"两种状态，不做惊慌；不用实时活动 | 多邻国小组件；苹果对实时活动的规定 |
 | **J8** | 每日提醒只有一条，时间可选（关闭 / 早 / 中 / 晚），内容是当天待复习数，不写催促的话 | 文案规则（03 §9） |
+| **J9** | 首页去掉顶栏；标签栏最左边的圆形狐狸就是"今天"；输入条常驻在标签栏上方，对话接在首页卡片下面（见 §5） | 支付宝 AI 版、蚂蚁财富；用户反馈 |
 
 ## 4. 实现要点（M7）
 
 - **Tauri 2 的 iOS 能力**：Readest 已证明阅读器可行。分享扩展有社区插件 `tauri-plugin-mobile-sharetarget`：在 Xcode 里加一个 Share Extension 和 App Group，扩展把网址交给 Tauri 的深链插件，正好接上 R4 的 `tibi://import?url=…`。小组件没有现成插件，需要原生 WidgetKit 扩展读 App Group 里的一份快照（待复习数、连续天数、继续读的文章）。
 - **系统控件**：粘贴用 UIPasteControl；震动用 UIImpactFeedbackGenerator；底部面板高度对应 sheet 的 medium / large 两档。这些在网页原型里只能模拟。
 - **数据**：小组件快照由主应用在每次复习、阅读后写入，不单独开接口；R11（手机端 Core 与同步）仍待决定。
+
+## 5. 首页的对话入口（J9）
+
+用户反馈：首页的顶栏（logo + 名字 + 深浅色）没有用；输入框夹在卡片和建议中间，不显眼。给了两个参照：
+
+- **A. 收进左下角**（支付宝 2026 年 6 月的 AI 版"阿宝"）：底栏左边多一个圆形头像，点它或横滑进入单独的对话页；首页本身不变。适合首页是几十个服务入口的应用，AI 只是其中一种用法。
+- **B. 对话和首页合在一起**（蚂蚁财富）：底栏最左边的圆形吉祥物就是首页；首页是几张卡片，底部常驻输入条，问的东西直接在这一页回答。适合"问"本身就是主要用法的应用。
+
+| | A 收进左下角 | B 和首页合在一起 |
+|---|---|---|
+| 一眼看得到吗 | 只看到一个头像，要点进去才有输入框 | 输入条一直在拇指够得到的位置 |
+| 从别的标签进入 | 一次点击 | 一次点击（点狐狸回首页），再点一次光标进输入框 |
+| 首页内容 | 不受影响 | 卡片在上，对话往下接，要定好"对话留多久" |
+| 导入 | 要么另找入口，要么在对话页里粘贴 | 首页输入条本来就兼做导入，不用改 |
+| 阅读器、复习 | 都是全屏、没有标签栏，左下角按钮在那里本来就看不到 | 一样；这两处继续用各自的 Tibi 入口（底部面板） |
+| 界面元素 | 多一个页面（对话页） | 不多页面 |
+
+**选 B，外形借 A**：左下角的圆形狐狸（两张参考图都把圆形吉祥物放在这里）就是"今天"标签，首页即对话。理由：
+
+1. Tibi 的首页本来就很短（继续读、复习、两个数字），不需要像支付宝那样给 AI 另开一页。
+2. 首页输入条要兼做导入，放在首页最自然；单独的对话页还要再放一个导入入口。
+3. A 的好处是"任何页面都能一下进对话"，但手机端两个最常用的页面（阅读器、复习）都是全屏、不显示标签栏，左下角按钮在那里本来就看不到；它们已经有跟着当前文章或单词走的 Tibi 入口。
+4. 狐狸常驻在标签栏，状态（听、想、开心、睡）就有了固定位置，不用在首页另放一只。
+
+**对话留多久**：当天的对话接在首页卡片下面；第二天首页换新的一页，以前的在"我 › 对话记录"。"今天"这个名字正好对应。
+
+公开资料里没有找到对比这两种入口的可用性研究或 A/B 数据，上面的判断来自产品形态分析。
 
 ## 参考
 
@@ -59,4 +87,5 @@
 - AnkiMobile：[官方文档：学习工具与手势](https://docs.ankiweb.net/ankimobile/study-tools)、[论坛：滑动只识别一半](https://forums.ankiweb.net/t/swipes-left-right-are-registered-only-half-of-the-time/20381)、[论坛：单手轻点评分](https://forums.ankiweb.net/t/feature-request-tap-anywhere-for-show-answer-left-right-taps-for-again-good/68831)
 - 多邻国小组件：[官方博客](https://blog.duolingo.com/widget-feature)；[MacRumors：灵动岛广告](https://www.macrumors.com/2026/01/02/duolingo-dynamic-island-ad/)
 - iOS 26：[WWDC25 SwiftUI 新设计](https://developer.apple.com/videos/play/wwdc2025/323/)、[Liquid Glass 面板](https://nilcoalescing.com/blog/PresentingLiquidGlassSheetsInSwiftUI/)
+- 首页对话入口（J9）：[每日经济新闻：支付宝 AI 版体验](https://www.nbd.com.cn/articles/2026-06-16/4428387.html)、[财新：支付宝最大改版](https://www.caixinglobal.com/2026-06-17/ant-revamps-alipay-with-ai-assistant-in-biggest-app-overhaul-102454831.html)、[界面新闻：蚂小财升级](https://www.jiemian.com/article/11689757.html)、[Adaline：聊天不该是默认界面](https://labs.adaline.ai/p/post-chat-interface-ai-products?open=false)、[Lazyweb：多少应用有 AI 助手页](https://www.lazyweb.com/research/what-percent-of-apps-have-an-ai-assistant.md)
 - Tauri 分享扩展：[tauri-plugin-mobile-sharetarget](https://docs.rs/crate/tauri-plugin-mobile-sharetarget/latest)
