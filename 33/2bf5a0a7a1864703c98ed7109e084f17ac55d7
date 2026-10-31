@@ -1,0 +1,43 @@
+docs/prototypes/_src/_tasks_body.html
+  s_5f1cdd5954dca1::t_85bb16ac192066 317
+docs/prototypes/_src/_library_body.html
+  s_5f1cdd5954dca1::t_85bb16ac192066 150
+docs/prototypes/library.html
+  s_5f1cdd5954dca1::t_85bb16ac192066 177
+docs/prototypes/mobile.html
+  s_5f1cdd5954dca1::t_85bb16ac192066 139,351-352
+docs/prototypes/tasks.html
+  s_5f1cdd5954dca1::t_85bb16ac192066 344
+docs/prototypes/_src/_review_body.html
+  s_5f1cdd5954dca1::t_85bb16ac192066 72,505,701
+docs/prototypes/v2-shell.js
+  s_5f1cdd5954dca1::t_85bb16ac192066 60-61
+docs/prototypes/v2.css
+  s_5f1cdd5954dca1::t_85bb16ac192066 456-457
+docs/prototypes/onboarding.html
+  s_5f1cdd5954dca1::t_85bb16ac192066 13,119,199,202,216,233,242,263,279,287-289,304-305,309
+docs/design/03-visual-language.md
+  s_5f1cdd5954dca1::t_e42ee9507779b3 176
+docs/prototypes/home.html
+  s_5f1cdd5954dca1::t_85bb16ac192066 137-138,181
+docs/prototypes/_src/README.md
+  s_5f1cdd5954dca1::t_85bb16ac192066 13
+docs/prototypes/review.html
+  s_5f1cdd5954dca1::t_85bb16ac192066 77,532,728
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "332bf5a0a7a1864703c98ed7109e084f17ac55d7",
+  "prompts": {},
+  "sessions": {
+    "s_5f1cdd5954dca1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2f8c40b4-4724-49db-8cdc-59bc7f69ec72",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
