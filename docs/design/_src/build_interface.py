@@ -30,7 +30,8 @@ interface DocumentSummary { id: Id; kind: Kind; genre: Genre; title: string; aut
   book?: { chapter: number; chapters: number; chapter_progress: number }; status: 'processing' | 'ready' | 'failed'; ai_status: AiStatus;
   excerpt: string; cover_path?: string; added_at: Ts; opened_at?: Ts; finished_at?: Ts }
 interface Document extends DocumentSummary { sections: { id: Id; idx: number; title: string; status: string; progress: number; word_count: number }[];
-  ai?: { summary?: AiResult; glossary?: AiResult; characters?: AiResult } }
+  ai?: { summary?: AiResult; advice?: AiResult; phrases?: AiResult; hard_sentences?: AiResult; glossary?: AiResult; characters?: AiResult } }
+interface SampleInfo { id: string; title: string; author?: string; genre: Genre; source: string; minutes: number; is_default: boolean; document_id?: Id }   // 内置示例；导入过的带 document_id
 interface Token { t: string; l: string; s: number; e: number; status?: Status; phrase_id?: Id }   // 原文 · lemma · 偏移 · 状态
 interface Sentence { id: Id; idx: number; paragraph_idx: number; block_type: 'prose' | 'heading' | 'list_item' | 'quote'; text: string; tokens: Token[]; translation?: string }
 interface SectionContent { id: Id; document_id: Id; title: string; blocks: ({ type: 'code'; lang?: string; code: string } | { type: 'sentences'; ids: Id[] })[];
@@ -103,7 +104,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 API = [
   ('documents', '文档与书架', [
     ('documents.import', "{ source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' }", '{ task_id: TaskId }', '长任务；进度走 task.update，完成走 task.done（载荷含 document_id）；path 与 url 按 §1 校验；sample 直接写入预生成的 AI 结果，不调模型；deeplink 只在用户确认后才调'),
-    ('documents.samples', '{}', '{ id: string; title: string; genre: Genre; minutes: number; is_default: boolean }[]', '内置示例；技术向那篇 is_default'),
+    ('documents.samples', '{}', 'SampleInfo[]', '内置示例（随应用打包，正文与预生成结果在 packages/core/samples/）；技术向那篇 is_default；用 documents.import({ source: { type: \'sample\', id } }) 导入，导入时写入预生成的总结、短语、长难句、建议与语境释义，不调模型'),
     ('documents.checkUrl', '{ url: string }', '{ ok: boolean; url?: string; host?: string; error?: ErrorCode }', '按 §1 校验网址，不抓内容；深链确认卡先调它'),
     ('documents.list', "{ kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; cursor?: string; limit?: number }", 'Page<DocumentSummary>', '书架页与首页书架；tags 多选为同时满足'),
     ('documents.get', '{ id: Id }', 'Document', '含章节列表与文档级 AI 结果'),

@@ -33,7 +33,7 @@ export interface DocumentSummary {
 }
 export interface Document extends DocumentSummary {
   sections: { id: Id; idx: number; title: string; status: string; progress: number; word_count: number }[];
-  ai?: { summary?: AiResult; glossary?: AiResult; characters?: AiResult };
+  ai?: { summary?: AiResult; advice?: AiResult; phrases?: AiResult; hard_sentences?: AiResult; glossary?: AiResult; characters?: AiResult };
 }
 export interface Token { t: string; l: string; s: number; e: number; status?: Status; phrase_id?: Id }
 export interface Sentence { id: Id; idx: number; paragraph_idx: number; block_type: BlockType; text: string; tokens: Token[]; translation?: string }
@@ -43,6 +43,8 @@ export interface SectionContent {
   sentences: Sentence[]; phrases: { id: Id; text: string; sentence_ids: Id[] }[];
   counts: { new: number; learning: number; unsure: number }; ai?: Record<string, AiResult>;
 }
+/** documents.samples 的一项：内置示例，导入过的带 document_id */
+export interface SampleInfo { id: string; title: string; author?: string; genre: Genre; source: string; minutes: number; is_default: boolean; document_id?: Id }
 export interface AiResult { task: string; output: unknown; model: string; prompt_version: string; created_at: Ts }
 
 // 词汇

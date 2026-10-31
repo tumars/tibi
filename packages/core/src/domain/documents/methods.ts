@@ -7,6 +7,7 @@ import { difficultyOfRatio } from '../text/prelabel.js';
 import type { ImportInput } from './pipeline.js';
 import { DOC_COLS, getDocument, listSections, listSentences, setDocumentTags, toDocument, toSummary, type DocumentRow } from './repo.js';
 import { finishSection, sectionContent, setProgress, softDeleteDocument } from './sections.js';
+import { listSamples } from './samples.js';
 
 /** documents.* / sections.*（06 §3） */
 
@@ -78,7 +79,7 @@ export async function listDocuments(ctx: Ctx, opts: ListOpts): Promise<{ items: 
 
 export const documentsMethods: MethodMap = {
   'documents.import': method(Type.Object({ source: sourceSchema, hints: hintsSchema, origin: Type.Optional(Type.Union([Type.Literal('user'), Type.Literal('deeplink')])) }), async (p, ctx) => submitImport(ctx, p as ImportInput), '长任务；进度走 task.update'),
-  'documents.samples': method(Type.Object({}), async () => [] as { id: string; title: string; genre: Genre; minutes: number; is_default: boolean }[], 'TODO：内置示例随 M1 示例内容一起做'),
+  'documents.samples': method(Type.Object({}), async (_p, ctx) => listSamples(ctx.db), '内置示例（随应用打包，带预生成的总结与语境释义）；导入过的带 document_id'),
   'documents.checkUrl': method(Type.Object({ url: Type.String() }), async p => checkUrlShape(p.url), '按 §1 校验网址，不抓内容'),
   'documents.list': method(Type.Object({ kind: Type.Optional(S.kind), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())), q: Type.Optional(Type.String()), sort: Type.Optional(Type.Union(['fit', 'opened', 'added', 'progress', 'minutes'].map(s => Type.Literal(s)))), archived: Type.Optional(Type.Boolean()), status: Type.Optional(Type.Union(['unread', 'reading', 'done'].map(s => Type.Literal(s)))), ...S.page }), async (p, ctx) => listDocuments(ctx, p as ListOpts), '书架'),
   'documents.get': method(Type.Object({ id: S.id }), async (p, ctx) => toDocument(ctx.db, await requireDoc(ctx, p.id)), '含章节列表与文档级 AI 结果'),

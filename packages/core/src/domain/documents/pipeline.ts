@@ -11,6 +11,7 @@ import { cefrOfDocument, difficultyOfRatio } from '../text/prelabel.js';
 import { countWords, segmentMarkdown, splitSentences, type Segmented } from '../text/segment.js';
 import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, insertTerm, logStatus, readProfile, upsertForm } from '../terms/repo.js';
 import { shortGloss } from '../terms/views.js';
+import { getSample, sampleUri, writeSampleAi } from './samples.js';
 import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSentence, listSections, listSentences, setDocumentTags, TOKENIZER_VERSION, WPM } from './repo.js';
 
 /**
@@ -23,7 +24,7 @@ import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSe
 export type ImportSource = { type: 'text'; text: string; title?: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string };
 export interface ImportInput { source: ImportSource; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' | 'mcp' | 'share' }
 
-interface Fetched { title: string; author?: string; markdown: string; source_type: string; source_uri?: string; published_at?: number; lang?: string; kind?: Kind }
+interface Fetched { title: string; author?: string; markdown: string; source_type: string; source_uri?: string; published_at?: number; lang?: string; kind?: Kind; genre?: Genre }
 
 /** 第一步：拿到干净的 Markdown */
 async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise<Fetched> {
@@ -55,7 +56,9 @@ async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise
     return { title: /^#\s/.test(text) ? titleFromMarkdown(text) : name, markdown: text, source_type: 'file', source_uri: name };
   }
   if (s.type === 'images') throw new TibiError('invalid_source', '图片识别还没做好（M4）');
-  throw new TibiError('invalid_source', '内置示例还没做好');   // sample：M1 随示例内容一起做
+  const sample = getSample(s.id);
+  if (!sample) throw new TibiError('not_found', '没有这篇示例');
+  return { title: sample.title, author: sample.author, markdown: sample.markdown, source_type: 'sample', source_uri: sampleUri(sample.id), genre: sample.genre, kind: 'article' };
 }
 
 function titleFromMarkdown(md: string): string {
@@ -85,7 +88,7 @@ async function saveStep(job: JobContext, ctx: Ctx, fetched: Fetched, seg: Segmen
   const key = `${job.job_id}:save`;
   const existing = await getDocumentByHash(ctx.db, hash);
   if (existing) return { document_id: existing.id, section_ids: (await listSections(ctx.db, existing.id)).map(s => s.id), duplicate: !(await alreadyDone(ctx.db, key)) };
-  const genre = input.hints?.genre ?? guessGenre(fetched.markdown, fetched.source_uri);
+  const genre = input.hints?.genre ?? fetched.genre ?? guessGenre(fetched.markdown, fetched.source_uri);
   const out = await ctx.db.transaction(async tx => {
     const document_id = await insertDocument(tx, {
       title: fetched.title, author: fetched.author, kind: seg.kind, genre, source_type: fetched.source_type, source_uri: fetched.source_uri, lang: seg.lang,
@@ -194,6 +197,14 @@ export async function runImport(job: JobContext, ctx: Ctx, input: ImportInput): 
     await ctx.db.run('INSERT INTO learning_events(id, type, payload, created_at) VALUES (?,?,?,?)', [uuidv7(), 'document_imported', j.str({ document_id: saved.document_id, source_type: fetched.source_type, prelabel_total: ann.prelabel_total, title: fetched.title, word_count: seg.word_count }), now()]);
     return true;
   }, { kind: 'pipeline', label: '记录' });
+  const sample = input.source.type === 'sample' ? getSample(input.source.id) : undefined;
+  if (sample) {
+    // 内置示例：写入预生成的总结与语境释义，不调模型
+    await job.step('ai:sample', () => writeSampleAi(ctx.db, saved.document_id, sample), { kind: 'pipeline', label: '预生成结果' });
+    ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
+    ctx.events.emit('data.changed', { table: 'terms' });
+    return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, unknown_ratio: ann.unknown_ratio, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
+  }
   // AI 子步骤：M0 没有模型，记 deferred；M2 在这里接 summary / phrases / hard_sentences
   job.progress('整理总结');
   await job.parallel({

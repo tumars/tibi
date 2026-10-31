@@ -11,16 +11,21 @@ export const SectionView = memo(function SectionView({ content, mode, gloss, ove
   onWord: (ev: React.MouseEvent<HTMLSpanElement>, word: string, lemma: string, sentence: Sentence, s: number) => void;
 }) {
   const byId = new Map(content.sentences.map(s => [s.id, s]));
+  // 行内代码：分词时已排除（00 §3.1），这里把 `…` 渲染成 <code>
+  const gap = (text: string, key: number) => {
+    if (!text.includes('`')) return text;
+    return text.split(/(`[^`]+`)/).map((x, i) => /^`[^`]+`$/.test(x) ? <code key={`${key}-${i}`}>{x.slice(1, -1)}</code> : x);
+  };
   const renderSentence = (sent: Sentence) => {
     const parts: React.ReactNode[] = []; let pos = 0;
     for (const t of sent.tokens) {
-      if (t.s > pos) parts.push(sent.text.slice(pos, t.s));
+      if (t.s > pos) parts.push(gap(sent.text.slice(pos, t.s), pos));
       const st = overrides.get(t.l) ?? t.status;
       const sel = selected && selected.sentence === sent.id && selected.s === t.s;
       parts.push(<span key={t.s} className={wordClass(st) + (sel ? ' sel' : '')} data-g={gloss && st !== undefined && st <= 4 ? (t as { gloss?: string }).gloss : undefined} onClick={e => onWord(e, t.t, t.l, sent, t.s)}>{sent.text.slice(t.s, t.e)}</span>);
       pos = t.e;
     }
-    if (pos < sent.text.length) parts.push(sent.text.slice(pos));
+    if (pos < sent.text.length) parts.push(gap(sent.text.slice(pos), pos));
     return <Fragment key={sent.id}><span data-sid={sent.id}>{parts}</span>{' '}</Fragment>;
   };
   return (

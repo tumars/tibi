@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { Empty } from '../components/Empty';
 import { Fox } from '../components/Fox';
 import { Modal } from '../components/Modal';
+import { Samples } from '../components/Samples';
 import { Top } from '../components/Shell';
 import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
 import { errorInfo, isTauri, rpc, type Result } from '../rpc';
@@ -168,7 +169,8 @@ export function Home() {
             <a className="more" href="#/library">全部书架 →</a>
           </div>
           {shelf.length ? <div className="docs">{shelf.slice(0, 8).map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} />)}</div>
-            : <Empty title={connected || status ? '书架是空的' : '连不上 Tibi Core'} text={connected || status ? '粘贴一个网址或一段英文试试。' : '先运行 pnpm core:dev，再刷新。'} />}
+            : connected || status ? <Empty title="书架还是空的" text="粘贴网址或拖入文件就能导入，也可以先读一篇示例。" action={<Samples />} />
+            : <Empty title="连不上 Tibi Core" text="先运行 pnpm core:dev，再刷新。" />}
         </section>
       </div></div>
 

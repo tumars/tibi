@@ -1,6 +1,6 @@
 # 开发说明
 
-> 状态：M0 进行中（2026-10-31 开工）。设计以 `docs/design/` 为准，这里只写"怎么跑、代码在哪、怎么改"。
+> 状态：M0 骨架完成（2026-10-31；三平台打包与 DeepSeek 实际调用待在本机验证），M1 进行中。设计以 `docs/design/` 为准，这里只写"怎么跑、代码在哪、怎么改"。
 
 ## 1. 仓库结构
 
@@ -21,6 +21,7 @@ tibi/
         domain/           领域模块：text（切分 / 分词 / 还原 / 预标注）、documents、terms、review、stats、profile、memory、shared（撤销审计、建卡）
         core.ts           组装：db + dict + platform + jobs + 方法表
       skills/             内置 SKILL.md（真相源；构建成 src/kernel/skills.gen.ts）
+      samples/            内置示例 <id>/article.md + ai.json（正文与预生成结果的真相源；构建成 src/domain/documents/samples.gen.ts）
       test/               vitest；helpers.ts 的 makeCore() 给出内存库 + 假平台
     core-node/            @tibi/core-node：Node 运行时。better-sqlite3 驱动、undici fetch + Readability、HTML→Markdown、
                           stdio / WebSocket 传输、启动入口 bin.ts、ECDICT 入库脚本；打包成 Tauri sidecar
@@ -41,7 +42,7 @@ pnpm --filter @tibi/desktop web    # 浏览器里跑界面，连上面的开发�
 pnpm dev                           # tauri dev（需要 Rust 工具链与系统库）
 pnpm --filter @tibi/core-node build   # 打包 dist/tibi-core.js（sidecar 的 JS）
 pnpm --filter @tibi/core-node sidecar # Bun --compile 单文件 sidecar → apps/desktop/src-tauri/binaries/
-pnpm --filter @tibi/core gen          # 改了 sql/*.sql 或 skills/*.md 后重新生成内嵌文件
+pnpm --filter @tibi/core gen          # 改了 sql/*.sql、skills/*.md 或 samples/ 后重新生成内嵌文件
 pnpm ecdict                        # 下载 ECDICT 并生成 data/dict.db（不进仓库）
 ```
 

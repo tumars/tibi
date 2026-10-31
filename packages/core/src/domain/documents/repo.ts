@@ -76,7 +76,7 @@ export async function toSummary(db: Database, d: DocumentRow): Promise<DocumentS
   const tags = await documentTags(db, d.id);
   const ratio = Number(d.unknown_ratio ?? 0);
   const out: DocumentSummary = {
-    id: d.id, kind: d.kind, genre: d.genre, title: d.title, author: d.author ?? undefined, source: d.source_uri ? safeHost(d.source_uri) : sourceLabel(d.source_type), tags,
+    id: d.id, kind: d.kind, genre: d.genre, title: d.title, author: d.author ?? undefined, source: d.source_uri && d.source_type === 'url' ? safeHost(d.source_uri) : sourceLabel(d.source_type), tags,
     minutes: Math.max(1, Math.round(Number(d.word_count) / WPM)), unknown_ratio: ratio, difficulty: difficultyOfRatio(ratio), progress: Number(d.progress),
     status: d.status as DocumentSummary['status'], ai_status: d.ai_status as AiStatus,
     excerpt: await excerptOf(db, d.id), cover_path: d.cover_path ?? undefined, added_at: Number(d.created_at), opened_at: d.last_read_at != null ? Number(d.last_read_at) : undefined, finished_at: d.finished_at != null ? Number(d.finished_at) : undefined,
@@ -93,7 +93,7 @@ export async function toDocument(db: Database, d: DocumentRow): Promise<Document
   const base = await toSummary(db, d);
   const sections = (await listSections(db, d.id)).map(s => ({ id: s.id, idx: s.idx, title: s.title, status: s.status, progress: Number(s.progress), word_count: Number(s.word_count) }));
   const ai: Document['ai'] = {};
-  for (const task of ['summary', 'glossary', 'characters'] as const) {
+  for (const task of ['summary', 'advice', 'phrases', 'hard_sentences', 'glossary', 'characters'] as const) {
     const r = await db.get<{ output: string; model: string; prompt_version: string; created_at: number }>("SELECT output, model, prompt_version, created_at FROM ai_results WHERE scope = 'document' AND target_id = ? AND task = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1", [d.id, task]);
     if (r) ai[task] = { task, output: j.parse(r.output, null), model: r.model, prompt_version: r.prompt_version, created_at: Number(r.created_at) };
   }

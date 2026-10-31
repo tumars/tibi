@@ -3,7 +3,7 @@
  */
 import type {
   Answer, AnswerResult, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Message, Ok, Page, Profile, Provider, Rating, ReviewSession,
-  SectionContent, Status, TaskId, TaskSummary, Term, TermDetail, DictEntry, Undo, Approval,
+  SampleInfo, SectionContent, Status, TaskId, TaskSummary, Term, TermDetail, DictEntry, Undo, Approval,
 } from '@tibi/core';
 
 export interface MethodTable {
@@ -11,7 +11,7 @@ export interface MethodTable {
   'system.undo': { params: { undo_id: Id }; result: Ok };
   'system.registerPaths': { params: { paths: string[] }; result: Ok };
   'documents.import': { params: { source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' }; result: { task_id: TaskId } };
-  'documents.samples': { params: Record<string, never>; result: { id: string; title: string; genre: Genre; minutes: number; is_default: boolean }[] };
+  'documents.samples': { params: Record<string, never>; result: SampleInfo[] };
   'documents.checkUrl': { params: { url: string }; result: { ok: boolean; url?: string; host?: string; error?: string } };
   'documents.list': { params: { kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; status?: 'unread' | 'reading' | 'done'; cursor?: string; limit?: number }; result: Page<DocumentSummary> };
   'documents.get': { params: { id: Id }; result: Document };

@@ -123,7 +123,8 @@ export class JobRunnerImpl implements JobRunner {
     if (opts?.label) entry.ctx.progress(opts.label);
     entry.stepStack.push(name);
     try {
-      const out = await fn(entry.ctx);
+      // 取消要立刻生效：步骤自己不看 signal 时也不等它跑完（结果丢弃、不写检查点）
+      const out = await untilAborted(fn(entry.ctx), entry.ctrl.signal);
       await this.db.run('UPDATE job_steps SET status = ?, output = ?, finished_at = ? WHERE id = ?', ['done', j.str(out ?? null), now(), stepId]);
       this.emitUpdate(job_id);
       if (entry.pausing) throw new PauseSignal();
@@ -322,6 +323,15 @@ export class JobRunnerImpl implements JobRunner {
     }
     return roots;
   }
+}
+
+function untilAborted<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) { p.catch(() => undefined); return Promise.reject(new CancelSignal()); }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => { p.catch(() => undefined); reject(new CancelSignal()); };
+    signal.addEventListener('abort', onAbort, { once: true });
+    p.then(v => { signal.removeEventListener('abort', onAbort); resolve(v); }, e => { signal.removeEventListener('abort', onAbort); reject(e); });
+  });
 }
 
 export function autoRuleKey(skill_id: string | null | undefined, tool: string) { return `perm.auto.${skill_id ?? '-'}.${tool}`; }

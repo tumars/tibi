@@ -3,6 +3,7 @@ import { LayoutGrid, List } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Empty } from '../components/Empty';
+import { Samples } from '../components/Samples';
 import { Top } from '../components/Shell';
 import { fmtAgo, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
 import { rpc } from '../rpc';
@@ -55,7 +56,7 @@ export function Library() {
           {tags.map(t => <button key={t} className={`chip${tag === t ? ' on' : ''}`} style={tag === t ? { background: 'var(--accent-wash)', color: 'var(--accent)', boxShadow: 'none' } : undefined} onClick={() => setTag(tag === t ? undefined : t)}>{t}</button>)}
           {tag && <button className="linkbtn" onClick={() => setTag(undefined)}>清除</button>}
         </div>
-        {items === undefined ? null : items.length === 0 ? <Empty title="书架是空的" text="在首页粘贴网址或一段英文就能导入。" />
+        {items === undefined ? null : items.length === 0 ? <Empty title="书架还是空的" text="在首页粘贴网址或一段英文就能导入，也可以先读一篇示例。" action={<Samples />} />
           : grid ? <div className="docs" style={{ marginTop: 16 }}>{items.map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} />)}</div>
           : <div className="doclist" style={{ marginTop: 12 }}>
             <div className="row h"><span>标题</span><span>类型 · 标签</span><span>时长</span><span>难度 · 生词率</span><span>最近打开</span></div>

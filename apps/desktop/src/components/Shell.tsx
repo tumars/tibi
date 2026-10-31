@@ -57,7 +57,7 @@ export function Shell() {
         </div>
         <div className="sidefoot">
           <div className="streak" title={`今日 ${minutes} / ${goal} 分钟`}>
-            <svg className="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" strokeWidth="4" /><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" strokeWidth="4" strokeLinecap="round" strokeDasharray="87.96" strokeDashoffset={ring} transform="rotate(-90 18 18)" /></svg>
+            <svg className="sring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" strokeWidth="4" /><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" strokeWidth="4" strokeLinecap="round" strokeDasharray="87.96" strokeDashoffset={ring} transform="rotate(-90 18 18)" /></svg>
             <div className="hide-c"><div className="t">{!connected ? 'Core 未连接' : streak > 0 ? `连续 ${streak} 天` : '今天开始'}</div><div className="s">{connected ? `今日 ${minutes} / ${goal} 分钟` : '界面只显示空状态'}</div></div>
           </div>
           <div className="user">

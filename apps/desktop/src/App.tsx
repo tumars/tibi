@@ -20,7 +20,8 @@ export function App() {
     void useCore.getState().refresh();
     const offDone = rpc.on('task.done', d => {
       const r = d.result;
-      if (r?.document_id) toast(r.summary || '导入完成', { action: { label: '开始阅读', run: () => nav(`/read/${r.document_id}`) } });
+      // 已经打开了这篇（如点示例后自动跳进阅读器）就不再提示"开始阅读"
+      if (r?.document_id) setTimeout(() => { if (!location.hash.includes(`/read/${r.document_id}`)) toast(r.summary || '导入完成', { action: { label: '开始阅读', run: () => nav(`/read/${r.document_id}`) } }); }, 80);
       else if (r?.summary) toast(r.summary);
     });
     // 深链：tibi://import?url=…（Rust 发 deep_link 事件）→ 确认后导入

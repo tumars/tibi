@@ -1,5 +1,5 @@
 import type { Document, SectionContent, Sentence, Status } from '@tibi/core';
-import { ArrowUp, BookOpenCheck, Info, Languages, Sparkles, Type } from 'lucide-react';
+import { ArrowUp, BookOpenCheck, FileText, Info, Languages, Sparkles, Type } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Empty } from '../components/Empty';
@@ -7,6 +7,7 @@ import { Modal } from '../components/Modal';
 import { Top } from '../components/Shell';
 import { fmtMinutes, fmtPct, GENRE_NAMES, throttle } from '../lib/util';
 import { SectionView, type Mode } from '../reader/Section';
+import { SummaryPanel } from '../reader/SummaryPanel';
 import { WordCard } from '../reader/WordCard';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
@@ -25,6 +26,7 @@ export function Reader() {
   const [card, setCard] = useState<{ word: string; lemma: string; sentence: Sentence; s: number; anchor: DOMRect }>();
   const [overrides, setOverrides] = useState<Map<string, Status>>(new Map());
   const [showTop, setShowTop] = useState(false);
+  const [panel, setPanel] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const restored = useRef(false);
 
@@ -93,8 +95,10 @@ export function Reader() {
     <>
       <Top crumbs={[{ label: '书架', to: '/library' }, { label: doc.title }]} right={<>
         {doc.sections.length > 1 && <select className="input" value={content.id} onChange={e => nav(`/read/${id}/${e.target.value}`)} aria-label="章节">{doc.sections.map(s => <option key={s.id} value={s.id}>{s.idx + 1}. {s.title || `第 ${s.idx + 1} 章`}</option>)}</select>}
+        <button className={`pill${panel ? ' on' : ''}`} title="总结" onClick={() => setPanel(!panel)}><FileText size={15} />总结</button>
         <button className="ibtn" title="标注说明" onClick={() => setLegend(true)}><Info /></button>
       </>} />
+      <div className={`rdwrap${panel ? ' with-panel' : ''}`}>
       <div className="scroll" ref={scrollRef} onScroll={onScroll}>
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '18px 32px 0' }}>
           <div className="rd" style={{ padding: 0 }}>
@@ -125,6 +129,8 @@ export function Reader() {
           <button onClick={() => toast('M2 起可以问 Tibi')} style={{ color: 'var(--accent)' }}><Sparkles />Tibi</button>
           <button onClick={() => (left ? setFinish(true) : onFinish(false))}><BookOpenCheck />读完了</button>
         </div>
+      </div>
+      {panel && <SummaryPanel doc={doc} onClose={() => setPanel(false)} onPhrase={text => { const el = [...(scrollRef.current?.querySelectorAll<HTMLElement>('[data-sid]') ?? [])].find(x => x.textContent?.toLowerCase().includes(text.toLowerCase())); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); } else toast('这一章里没有找到这个短语'); }} />}
       </div>
       {showTop && <button className="totop" onClick={() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setShowTop(false); }}><ArrowUp size={14} />回到开头</button>}
       {card && <WordCard word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} onClose={() => setCard(undefined)} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}
