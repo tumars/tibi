@@ -1,6 +1,6 @@
 # 07 吉祥物素材：清单、规格与提示词
 
-> 决策 F1–F4 见 [`research/04-mac-native-and-mascot.md`](../research/04-mac-native-and-mascot.md) §4。角色定义以 [`03-visual-language.md` §7.1](03-visual-language.md#71-吉祥物藏狐-tibi缇比) 为准。出图脚本 [`tools/gen-mascot.py`](../../tools/gen-mascot.py) 读的就是本文件里的提示词（`prompt:<id>` 注释块），改提示词只改这里。
+> 决策 F1–F5 见 [`research/04-mac-native-and-mascot.md`](../research/04-mac-native-and-mascot.md) §4。角色定义以 [`03-visual-language.md` §7.1](03-visual-language.md#71-吉祥物藏狐-tibi缇比) 为准。出图脚本 [`tools/gen-mascot.py`](../../tools/gen-mascot.py) 读的就是本文件里的提示词（`prompt:<id>` 注释块），改提示词只改这里。
 
 ## 1. 规格
 
@@ -8,12 +8,29 @@
 |---|---|
 | 风格 | 软 3D 玩偶渲染：圆润、柔和的全局光、轻微毛绒质感、无硬描边；扁平 SVG 小狐狸只在应用内动态位置使用，二者同一角色 |
 | 背景 | 透明（`background: transparent`），落地时由页面给底色；hero 系列例外，自带浅色场景 |
-| 尺寸 | 生成 1024×1024 或 1536×1024，导出 PNG；交付时转 WebP（质量 85）并出 @1x / @2x 两档 |
+| 尺寸 | 生成 1024×1024 或 1536×1024，导出 PNG；交付时转 WebP（质量 85）并出 @1x / @2x 两档。下表的尺寸指 @2x，@1x 减半 |
 | 命名 | `docs/prototypes/img/mascot/<id>.webp`（@1x）与 `<id>@2x.webp`，`<id>` 与下表一致；贴纸拆为 `sticker-1` … `sticker-6` |
-| 颜色 | 毛色 `#f5a043`、深橙 `#e3842a`、脸颊与肚子 `#fff4e2`、体侧灰 `#cfc3b4`、耳内 `#ffc7a6`、腮红 `#ff8f7d`、五官 `#2b1f17`、书本 `#3b5bfd` |
+| 颜色 | 见 [03 §7.1](03-visual-language.md#71-吉祥物藏狐-tibi缇比) |
 | 一致性 | 每张图都以 `ref-sheet` 为参考图；提示词开头固定一段角色描述（§2 的 CHARACTER） |
 | 留白 | 主体占画面 60–70%，四周留白，便于裁切 |
 | 文字 | 图内不出现任何文字或字母 |
+
+### 1.1 怎么出图
+
+实际出图走 Codex 命令行（ChatGPT 登录，不需要 API Key）：
+
+```sh
+python3 tools/gen-mascot.py --print <id> | …   # 拼出提示词（去掉 ===== 标题行），传给下一步的标准输入
+codex exec --json --skip-git-repo-check -s read-only - -i docs/design/mascot/ref-sheet.png
+```
+
+产物在 `~/.codex/generated_images/<thread_id>/`。`tools/gen-mascot.py` 不带 `--print` 时直接调 Images API，是有 API Key 时的备用路径。
+
+归档到 `docs/prototypes/img/mascot/` 时：
+
+- 透明图的实际尺寸不一：先裁切，再居中到画布，主体最长边占 70%（`icon-face` 占 80%）。
+- 贴纸：整张 3×2 按 1024×1024 生成（脚本没有单独给它定尺寸），按连通域切成 6 张，每张交付 512×512（@2x）、256×256（@1x）。所以下表写 512，脚本写 1024，两者不矛盾。
+- WebP 用 `cwebp -q 85`。
 
 ## 2. 角色设定图（先做这一张）
 
@@ -33,21 +50,21 @@ Character reference sheet of CHARACTER on a plain light grey (#f2f2f1) backgroun
 
 | id | 用在哪 | 尺寸 | 状态 |
 |---|---|---|---|
-| hero-morning | 首页标题上方，6:00–12:00 | 1536×1024 | 已出 |
-| hero-day | 首页，12:00–18:00 | 1536×1024 | 已出 |
-| hero-night | 首页，18:00–6:00（23 点后用 sleeping） | 1536×1024 | 已出 |
+| hero-morning | 预留未用（原计划首页 6:00–12:00） | 1536×1024 | 已出 |
+| hero-day | 预留未用（原计划首页 12:00–18:00） | 1536×1024 | 已出 |
+| hero-night | 预留未用（原计划首页 18:00–6:00） | 1536×1024 | 已出 |
 | empty-library | 书架为空 | 1024×1024 | 已落地 |
 | empty-review | 没有到期卡片 | 1024×1024 | 已落地 |
 | empty-tasks | 任务中心为空 | 1024×1024 | 已落地 |
 | empty-words | 生词本为空 | 1024×1024 | 已落地 |
 | celebrate-review | 复习完成页 | 1024×1024 | 已落地 |
 | celebrate-streak | 连续学习 7 / 30 / 100 天 | 1024×1024 | 已出 |
-| onboarding-hello | 引导第 1 步 认识一下 | 1024×1024 | 已出 |
-| onboarding-test | 引导第 2 步 词汇量测试 | 1024×1024 | 已出 |
-| onboarding-model | 引导第 3 步 连接模型 | 1024×1024 | 已出 |
-| onboarding-read | 引导第 4 步 读第一篇 | 1024×1024 | 已出 |
-| error-offline | 模型不可用 / 离线 | 1024×1024 | 已出 |
-| error-generic | 出错了 | 1024×1024 | 已出 |
+| onboarding-hello | 预留未用（引导第 1 步 认识一下；引导页用 SVG 小狐狸） | 1024×1024 | 已出 |
+| onboarding-test | 预留未用（校准词汇量，`#step=2`，不在引导主流程） | 1024×1024 | 已出 |
+| onboarding-model | 预留未用（连接模型，`#step=3`，不在引导主流程） | 1024×1024 | 已出 |
+| onboarding-read | 预留未用（引导第 2 步 读第一篇；引导页用 SVG 小狐狸） | 1024×1024 | 已出 |
+| error-offline | 首页失败态：模型不可用 / 离线 | 1024×1024 | 已落地 |
+| error-generic | 首页失败态：出错了 | 1024×1024 | 已落地 |
 | sticker-* | 对话里的贴纸反应（6 张：赞、笑、疑问、加油、睡、惊） | 512×512 | 已出 |
 | about | 关于页 | 1024×1024 | 已出 |
 | icon-face | 应用图标上层（Icon Composer），只有正脸 | 1024×1024 | 已出 |
@@ -63,6 +80,8 @@ CHARACTER sitting cross-legged, reading the bright blue (#3b5bfd) book held in b
 <!-- prompt:hero-night -->
 CHARACTER curled up sleepily next to a small warm desk lamp, eyes half closed, one paw resting on the closed blue (#3b5bfd) book, a tiny "z" made of soft light (not a letter, a glowing wisp) rising. Dim cool background (#1b1b1e) with a warm pool of lamp light around the character. Wide composition, character lower centre. No text.
 <!-- /prompt -->
+
+> hero-night 注：提示词里的 "z" 会让模型画出字母。交付图是对生成结果局部模糊修图后的版本（`mascot/out/hero-night-retouched.png`），重出时要再修。
 
 <!-- prompt:empty-library -->
 CHARACTER standing in front of an empty, simple wooden bookshelf with three bare shelves, looking at the viewer with a hopeful expression, one paw gesturing at the shelf. Transparent background, character and shelf only, centred, 65% of the frame. No text.
@@ -133,4 +152,4 @@ Only the head of CHARACTER, front view, perfectly centred, filling 80% of the sq
 
 ## 5. 落地到原型
 
-SVG 小狐狸和插画不同框，每个位置只放一只：要跟着输入、思考、完成切换状态的位置用 SVG（首页、手机版首页、引导页、统计页空状态）；静态画面用插画（书架、复习、任务、生词本的空状态，复习完成页，含 `mobile.html`）。`hero-*`、`onboarding-*` 已出图，暂不使用。替换时更新 `03-visual-language.md` §7.2 与本文件状态列。
+SVG 小狐狸和插画不同框，每个位置只放一只：要跟着输入、思考、完成切换状态的位置用 SVG（首页、手机版首页、引导页、统计页空状态）；静态画面用插画（书架、复习、任务、生词本的空状态，复习完成页，首页失败态的 `error-generic` / `error-offline`，含 `mobile.html`）。未用的素材：`hero-*`、`onboarding-*`、`celebrate-streak`、`about`、`icon-face`、`sticker-*`。替换时更新 `03-visual-language.md` §7.2 与本文件状态列。

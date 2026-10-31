@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="v2-theme.js"></script>
 <title>Tibi 设置</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -88,13 +94,9 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
 .ag .chev { transition: transform .2s; } .ag.open .chev { transform: rotate(180deg); }
 .ag .more { padding: 0 18px 16px 68px; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px 14px; align-items: start; font-size: 13px; }
 .ag .more > span { color: var(--ink-2); padding-top: 6px; }
-.ag .more textarea, .newag textarea { width: 100%; min-height: 64px; border: 0; border-radius: 10px; background: var(--sunken); padding: 8px 10px; font: inherit; font-size: 13px; color: var(--ink); resize: vertical; outline: none; }
+.ag .more textarea { width: 100%; min-height: 64px; border: 0; border-radius: 10px; background: var(--sunken); padding: 8px 10px; font: inherit; font-size: 13px; color: var(--ink); resize: vertical; outline: none; }
 .tools { display: flex; flex-wrap: wrap; gap: 6px; }
-.tools code, .tools label { font-family: var(--f-mono); font-size: 11.5px; padding: 3px 8px; border-radius: 6px; background: var(--sunken); color: var(--ink-2); display: inline-flex; align-items: center; gap: 5px; }
-.tools label { cursor: pointer; } .tools label:has(input:checked) { background: var(--ink); color: var(--surface); } .tools label input { display: none; }
-.newag { padding: 4px 18px 18px 68px; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px 14px; align-items: start; font-size: 13px; }
-.newag > span { color: var(--ink-2); padding-top: 8px; }
-.newag pre { margin: 0; font-family: var(--f-mono); font-size: 11.5px; line-height: 1.6; background: var(--sunken); border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; color: var(--ink-2); max-height: 220px; overflow: auto; }
+.tools code { font-family: var(--f-mono); font-size: 11.5px; padding: 3px 8px; border-radius: 6px; background: var(--sunken); color: var(--ink-2); display: inline-flex; align-items: center; gap: 5px; }
 .saved { font-size: 12px; color: var(--ink-3); display: inline-flex; align-items: center; gap: 6px; }
 @media (max-width: 960px) { .sw { grid-template-columns: minmax(0, 1fr); gap: 16px; } .snav { position: static; flex-direction: row; overflow-x: auto; gap: 4px; padding-bottom: 4px; } .snav a { flex: none; } }
 </style>
@@ -109,7 +111,7 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
       <a href="#" data-link="words" title="生词本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="hide-c">生词本</span><span class="n hide-c" id="navWords">33</span></a>
       <a href="#" data-link="review" title="复习"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg><span class="hide-c">复习</span><span class="n badge hide-c">18</span></a>
       <a href="#" data-link="stats" title="统计"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span class="hide-c">统计</span></a>
-      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">3</span></a>
+      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">4</span></a>
     </nav>
     <div class="sideh hide-c" id="sideH">最近</div>
     <div class="recent hide-c" id="recent"></div>
@@ -118,7 +120,7 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
         <svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle id="ringArc" cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="87.96" transform="rotate(-90 18 18)"/></svg>
         <div class="hide-c"><div class="t">连续 9 天</div><div class="s">今日 12 / 20 分钟</div></div>
       </div>
-      <div class="user"><span class="av">你</span><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
+      <div class="user"><a class="av" data-link="settings" href="#" title="设置">你</a><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
     </div>
   </aside>
   <section class="main">
@@ -180,8 +182,8 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
 
           <section class="ssec" id="ai"><h2>模型</h2><div class="desc">文章分析、语境释义和对话使用这里的模型。API Key 保存在系统钥匙串，不写入数据库。</div>
             <div class="group" id="provs">
-              <div class="prov"><span class="ico">DS</span><div><div class="t">DeepSeek <span class="tag def">文本 · 默认</span><span class="tag ok">● 已连接</span></div><div class="d">deepseek-chat · 本月用量约 ¥3.2</div></div><button class="btn sm" data-edit="ds">编辑</button>
-                <div class="pform" id="form-ds" hidden><span>Base URL</span><input class="input" value="https://api.deepseek.com/v1"><span>API Key</span><input class="input" type="password" value="sk-••••••••••••••••"><span>模型</span><select class="input"><option>deepseek-chat</option><option>deepseek-reasoner</option></select><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="ds">测试连接</button><button class="btn sm" data-close="ds">完成</button></div></div></div>
+              <div class="prov"><span class="ico">DS</span><div><div class="t">DeepSeek <span class="tag def">文本 · 默认</span><span class="tag ok">● 已连接</span></div><div class="d">deepseek-v4-flash · 本月用量约 ¥3.2</div></div><button class="btn sm" data-edit="ds">编辑</button>
+                <div class="pform" id="form-ds" hidden><span>Base URL</span><input class="input" value="https://api.deepseek.com/v1"><span>API Key</span><input class="input" type="password" value="sk-••••••••••••••••"><span>模型</span><select class="input"><option>deepseek-v4-flash</option><option>deepseek-v4-pro</option></select><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="ds">测试连接</button><button class="btn sm" data-close="ds">完成</button></div></div></div>
               <div class="prov"><span class="ico">👁</span><div><div class="t">视觉模型 <span class="tag off">未配置</span></div><div class="d">用于高质量识别图片和扫描版 PDF；不配置时使用本地 Tesseract</div></div><button class="btn sm" data-edit="vis">配置</button>
                 <div class="pform" id="form-vis" hidden><span>服务商</span><select class="input"><option>OpenAI 兼容接口</option><option>通义千问 VL</option><option>OpenAI</option></select><span>Base URL</span><input class="input" placeholder="https://…"><span>API Key</span><input class="input" type="password" placeholder="sk-…"><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="vis">测试连接</button><button class="btn sm" data-close="vis">完成</button></div></div></div>
               <div class="prov"><span class="ico">🖼</span><div><div class="t">图像模型 <span class="tag off">未配置</span></div><div class="d">按文章主题生成涂鸦封面；不配置时用程序生成的涂鸦</div></div><button class="btn sm" data-edit="img">配置</button>
@@ -190,14 +192,13 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
             </div>
             <div class="desc" style="margin-top:14px">两档模型 · 每项技能用其中一档（在下面的"Tibi 的技能"里设置）</div>
             <div class="group">
-              <div class="item"><div><div class="t">快速</div><div class="d">对话、查词、导入分析等大多数工作</div></div><div class="ctl"><select class="input" aria-label="快速档模型"><option>DeepSeek · deepseek-chat</option><option>本地 · Ollama qwen3</option></select></div></div>
-              <div class="item"><div><div class="t">深入</div><div class="d">统计洞察、学习计划等需要仔细推理的工作</div></div><div class="ctl"><select class="input" aria-label="深入档模型"><option>DeepSeek · deepseek-reasoner</option><option>DeepSeek · deepseek-chat</option></select></div></div>
+              <div class="item"><div><div class="t">快速</div><div class="d">对话、查词、导入分析等大多数工作</div></div><div class="ctl"><select class="input" aria-label="快速档模型"><option>DeepSeek · deepseek-v4-flash</option><option>本地 · Ollama qwen3</option></select></div></div>
+              <div class="item"><div><div class="t">深入</div><div class="d">统计洞察、学习计划等需要仔细推理的工作</div></div><div class="ctl"><select class="input" aria-label="深入档模型"><option>DeepSeek · deepseek-v4-pro</option><option>DeepSeek · deepseek-v4-flash</option></select></div></div>
             </div>
             <div class="desc" style="margin-top:14px">也可以用你已有的订阅（可选）· 使用前请确认该服务的条款允许在第三方应用中使用</div>
             <div class="radio" id="backend">
               <label><input type="radio" name="be" checked><div><b>使用上面配置的 API Key</b><span>默认。按量计费，花费按技能统计</span></div></label>
               <label><input type="radio" name="be" data-login="ChatGPT"><div><b>用 ChatGPT 账号登录</b><span>使用你的 ChatGPT 订阅额度</span></div></label>
-              <label><input type="radio" name="be" data-login="Claude"><div><b>用 Claude 账号登录</b><span>使用你的 Claude 订阅额度</span></div></label>
             </div>
           </section>
 
@@ -213,8 +214,6 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
 
           <section class="ssec" id="agents"><h2>Tibi 的技能</h2><div class="desc">Tibi 会做的事。平时不用管；想让某项技能更合你心意，可以换模型档或加一句指令。Tibi 只用它自己的能力（查词、标词、导入、出题…），不会运行任意代码。在首页输入 / 可以直接选。</div>
             <div class="group" id="agList"></div>
-            <div class="desc" style="margin-top:14px">例行任务 · Tibi 按时自动做的事，结果放在首页和任务中心</div>
-            <div class="group" id="routines"></div>
             <div class="group" style="margin-top:12px">
               <div class="item"><div><div class="t">每月预算</div><div class="d">本月已用 <b id="spent"></b>；超出后 Tibi 暂停调用模型，只保留不花钱的功能</div></div><div class="ctl"><input class="input" value="20" style="width:70px;text-align:right" aria-label="每月预算"> 元</div></div>
               <div class="item"><div><div class="t">单个任务上限</div><div class="d">一次运行花费超过它会先停下来问你</div></div><div class="ctl"><input class="input" value="0.5" style="width:70px;text-align:right" aria-label="单个任务上限"> 元</div></div>
@@ -277,6 +276,8 @@ const MAIN = osInit($('#scroll'));
 let savedT;
 function saved(msg) { const s = $('#saved'); s.textContent = '✓ ' + (msg || '已保存'); anim(s, { opacity: [0.3, 1] }, { duration: 0.3 }); clearTimeout(savedT); savedT = setTimeout(() => s.textContent = '✓ 修改会自动保存', 2000); }
 
+/* 外观分段跟随已保存的主题 */
+document.querySelectorAll('[data-seg="theme"] button').forEach(b => b.classList.toggle('on', b.dataset.v === (document.documentElement.dataset.theme || 'auto')));
 /* 分段、多选、开关、滑块 */
 document.querySelectorAll('.seg').forEach(g => g.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -296,7 +297,7 @@ document.querySelectorAll('[data-test]').forEach(b => b.onclick = () => {
   const f = $('#form-' + b.dataset.test); f.querySelector('.log') && f.querySelector('.log').remove();
   const log = document.createElement('div'); log.className = 'log'; f.appendChild(log);
   const ok = b.dataset.test === 'ds';
-  const lines = ok ? ['连接 api.deepseek.com … 200 OK', '模型 deepseek-chat 可用 · 延迟 412 ms', '结构化输出（JSON）测试通过'] : ['请先填写 API Key', '连接失败：401 未授权'];
+  const lines = ok ? ['连接 api.deepseek.com … 200 OK', '模型 deepseek-v4-flash 可用 · 延迟 412 ms', '结构化输出（JSON）测试通过'] : ['请先填写 API Key', '连接失败：401 未授权'];
   lines.forEach((l, i) => setTimeout(() => { const d = document.createElement('div'); d.textContent = l; if (!ok && i === 1) d.style.color = 'var(--hard)'; log.appendChild(d); }, 300 + i * 350));
   setTimeout(() => toast(ok ? '连接成功' : '连接失败：请检查 API Key'), 400 + lines.length * 350);
 });
@@ -307,54 +308,26 @@ $('#retest').href = URLS.onboarding + '#step=2'; ext($('#retest'));   // 首次�
 $('#optBtn').onclick = () => { const b = $('#optBtn'); b.disabled = true; b.textContent = '优化中…'; setTimeout(() => { b.textContent = '已优化'; toast('已根据 941 条复习记录优化参数：预计每天少复习约 12% 的卡片'); }, 1600); };
 
 /* Tibi 的技能（内部是专职智能体，界面上叫技能） */
-const ALL_TOOLS = ['lookup_word', 'get_document', 'list_terms', 'get_term', 'get_term_contexts', 'mark_term', 'add_to_wordbook', 'create_quiz', 'grade_answer', 'fetch_url', 'search_feeds', 'web_search', 'estimate_difficulty', 'save_document', 'get_learning_stats', 'get_stats_series', 'search_memory', 'remember', 'speak'];
 const CHEV = '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>';
 let openAg = null;
 function renderAgents() {
   $('#spent').textContent = '¥' + AGENTS.reduce((s, a) => s + a.cost, 0).toFixed(2);
   $('#agList').innerHTML = AGENTS.filter(a => a.id !== 'tibi').map(a => `<div class="ag${openAg === a.id ? ' open' : ''}" data-id="${a.id}">
-      <div class="row"><span class="av-ag lg">${agentIcon(a.id, 17)}</span><div style="min-width:0"><div class="t">${esc(a.skill || a.name)}${a.custom ? '<span class="tag">自定义</span>' : ''}</div><div class="d">${esc(a.desc)}</div></div>
+      <div class="row"><span class="av-ag lg">${agentIcon(a.id, 17)}</span><div style="min-width:0"><div class="t">${esc(a.skill || a.name)}</div><div class="d">${esc(a.desc)}</div></div>
         <div class="rt"><span>${a.model === 'deep' ? '深入' : '快速'}</span><span>本月 ¥${a.cost.toFixed(2)}</span>${CHEV}</div></div>
       ${openAg === a.id ? `<div class="more">
         <span>模型档</span><div><div class="seg" data-ag-model="${a.id}"><button${a.model === 'fast' ? ' class="on"' : ''} data-v="fast">快速</button><button${a.model === 'deep' ? ' class="on"' : ''} data-v="deep">深入</button></div></div>
         <span>附加指令</span><textarea placeholder="${a.id === 'scout' ? '例如：多推荐 BBC 和 The Economist，少推荐 Reddit' : '例如：讲解时多举例，少用术语'}">${esc(a.extra || '')}</textarea>
         <span>用到的能力</span><div class="tools">${a.tools.map(t => `<code>${t}</code>`).join('')}</div>
         <span>写入数据时</span><div><select class="input"><option>跟随全局设置</option><option>每次都问</option></select></div>
-        <span></span><div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn sm" data-link="tasks" href="#">查看最近记录</a>${a.custom ? `<button class="btn sm danger" data-ag-del="${a.id}">删除</button>` : `<button class="btn sm" data-ag-reset="${a.id}">恢复默认</button>`}</div>
-      </div>` : ''}</div>`).join('') + `<div class="ag" id="newAgRow"><div class="row"><span class="av-ag lg">${agentIcon('custom', 17)}</span><div><div class="t">新建技能</div><div class="d">写一段指令，勾选它能用的能力，Tibi 就多会一件事</div></div><div class="rt">${CHEV}</div></div>${openAg === 'new' ? newAgForm() : ''}</div>`;
-  $('#routines').innerHTML = AGENTS.filter(a => a.schedule).map(a => `<div class="item"><div><div class="t">${esc(a.schedule.label)}</div><div class="d">${esc(a.schedule.time)} · 技能：${esc(a.skill)}</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="${a.schedule.on}" data-ag-sched="${a.id}" aria-label="${esc(a.schedule.label)}"></button></div></div>`).join('');
-  document.querySelectorAll('.ag .row').forEach(r => r.onclick = () => { const id = r.parentElement.dataset.id || 'new'; openAg = openAg === id ? null : id; renderAgents(); const el = r.parentElement.querySelector('.more, .newag'); if (el) anim(el, { opacity: [0, 1], y: [-4, 0] }, { duration: 0.25, ease: EASE }); });
+        <span></span><div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn sm" data-link="tasks" href="#">查看最近记录</a><button class="btn sm" data-ag-reset="${a.id}">恢复默认</button></div>
+      </div>` : ''}</div>`).join('');
+  document.querySelectorAll('.ag .row').forEach(r => r.onclick = () => { const id = r.parentElement.dataset.id; openAg = openAg === id ? null : id; renderAgents(); const el = r.parentElement.querySelector('.more'); if (el) anim(el, { opacity: [0, 1], y: [-4, 0] }, { duration: 0.25, ease: EASE }); });
   document.querySelectorAll('[data-ag-model] button').forEach(b => b.onclick = () => { const a = agentById(b.parentElement.dataset.agModel); a.model = b.dataset.v; renderAgents(); saved(`「${a.skill || a.name}」改用${b.dataset.v === 'deep' ? '深入' : '快速'}档`); });
-  document.querySelectorAll('[data-ag-sched]').forEach(b => b.onclick = () => { const a = agentById(b.dataset.agSched); a.schedule.on = !a.schedule.on; renderAgents(); saved(a.schedule.on ? `已开启：${a.schedule.label}` : '已关闭这项例行任务'); });
   document.querySelectorAll('.ag .more textarea').forEach(t => t.onchange = () => { agentById(t.closest('.ag').dataset.id).extra = t.value; saved('附加指令已保存'); });
   document.querySelectorAll('[data-ag-reset]').forEach(b => b.onclick = () => { const a = agentById(b.dataset.agReset); a.extra = ''; renderAgents(); toast(`「${a.skill}」已恢复默认设置`); });
-  document.querySelectorAll('[data-ag-del]').forEach(b => b.onclick = () => { const i = AGENTS.findIndex(a => a.id === b.dataset.agDel), a = AGENTS[i]; AGENTS.splice(i, 1); openAg = null; renderAgents(); toast(`已删除「${a.name}」`, () => { AGENTS.splice(i, 0, a); renderAgents(); }); });
   document.querySelectorAll('#agList [data-link]').forEach(a => { a.href = URLS[a.dataset.link]; ext(a); });
-  if (openAg === 'new') bindNewAg();
   if ($('#sq') && $('#sq').value) searchSettings($('#sq').value);
-}
-function newAgForm() {
-  return `<div class="newag">
-    <span>名字</span><input class="input" id="naName" placeholder="例如：写作批改" value="写作批改">
-    <span>一句话说明</span><input class="input" id="naDesc" value="批改我用生词写的句子和短文，指出问题并给出更地道的写法">
-    <span>指令</span><textarea id="naInst">先肯定写得好的地方，再逐句指出问题。优先使用我生词本里正在学的词给改写建议。每次最多指出 5 个问题。</textarea>
-    <span>用到的能力</span><div class="tools" id="naTools">${ALL_TOOLS.map(t => `<label><input type="checkbox" value="${t}"${['lookup_word', 'list_terms', 'get_term_contexts', 'grade_answer'].includes(t) ? ' checked' : ''}>${t}</label>`).join('')}</div>
-    <span>模型档</span><div><div class="seg" id="naModel"><button class="on" data-v="fast">快速</button><button data-v="deep">深入</button></div></div>
-    <span>SKILL.md</span><pre id="naPre"></pre>
-    <span></span><div style="display:flex;gap:8px"><button class="btn sm pri" id="naCreate">创建</button><span class="d" style="font-size:12px;color:var(--ink-3);align-self:center">保存为 ~/Tibi/skills/<名字>/SKILL.md（Agent Skills 格式），可以分享给别人</span></div>
-  </div>`;
-}
-function bindNewAg() {
-  const slug = n => n.trim() ? 'custom-' + hash(n).toString(36).slice(0, 5) : 'custom';
-  const upd = () => { const tools = [...document.querySelectorAll('#naTools input:checked')].map(i => i.value), m = $('#naModel .on').dataset.v;
-    $('#naPre').textContent = `---\nname: ${slug($('#naName').value)}\ndescription: ${$('#naDesc').value}\nallowed-tools: [${tools.join(', ')}]\nmetadata:\n  title: ${$('#naName').value}\n  model: ${m}\n---\n\n${$('#naInst').value}`; };
-  ['#naName', '#naDesc', '#naInst'].forEach(id => $(id).oninput = upd);
-  document.querySelectorAll('#naTools input').forEach(i => i.onchange = upd);
-  document.querySelectorAll('#naModel button').forEach(b => b.onclick = () => { document.querySelectorAll('#naModel button').forEach(x => x.classList.toggle('on', x === b)); upd(); });
-  $('#naCreate').onclick = () => { const name = $('#naName').value.trim(); if (!name) return toast('先起个名字');
-    AGENTS.push({ id: slug(name), skill: name, slash: name, name, desc: $('#naDesc').value.trim(), model: $('#naModel .on').dataset.v, tools: [...document.querySelectorAll('#naTools input:checked')].map(i => i.value), cost: 0, custom: true });
-    openAg = null; renderAgents(); toast(`Tibi 学会了「${name}」，在首页输入 / 就能用`); };
-  upd();
 }
 renderAgents();
 

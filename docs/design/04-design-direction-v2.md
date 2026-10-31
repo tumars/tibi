@@ -53,13 +53,13 @@
 
 ### 3.3 保持不变
 
-产品结构（首页 / 书架 / 生词本 / 复习 / 阅读器）、熟练度六档、荧光笔标注、Rough Notation 强调、Motion 动效、OverlayScrollbars、阿里巴巴普惠体。
+产品结构（首页 / 书架 / 生词本 / 复习 / 阅读器）、熟练度六档、荧光笔标注、Motion 动效、OverlayScrollbars、阿里巴巴普惠体。
 
 ## 4. 插画与动画：用 ChatGPT 等图像模型生成
 
 当前会话无法直接调用 ChatGPT。分两层处理：
 
-**设计阶段（现在）**：用下面的提示词在 ChatGPT（或其他图像模型）里生成插画，放入 `docs/prototypes/assets/` 后替换概念稿里的程序化占位。
+**设计阶段（现在）**：用下面的提示词在 ChatGPT（或其他图像模型）里生成插画，放入 `docs/prototypes/img/` 后替换概念稿里的程序化占位。
 
 统一风格前缀：
 > Minimal hand-drawn doodle illustration, single continuous black ink line with loose sketchy strokes, one flat accent color (#3b5bfd) and one soft highlighter color (pale yellow), lots of white space, no text, no gradients, no shadows, square composition, playful but calm.
@@ -85,7 +85,7 @@
 | V1 | 是否采用 v2 方向？ | ✅ 采用 |
 | V2 | 强调色 | ✅ 电光蓝 `#3b5bfd`（暗色 `#6f86ff`） |
 | V3 | 阅读器词卡改为浮层、右栏按需出现？ | ✅ 已在原型中实现 |
-| V4 | 插画 | ✅ 先继续用 rough.js 程序化涂鸦；之后可用 ChatGPT 等生成后替换 → **已被后续决定取代**：吉祥物藏狐（SVG 动画）是唯一插画，书架默认无封面（见 03 §7） |
+| V4 | 插画 | ✅ 先继续用 rough.js 程序化涂鸦；之后可用 ChatGPT 等生成后替换 → **已被后续决定取代**：见 03 §7.2 |
 
 ## 参考
 

@@ -1,6 +1,6 @@
 # 调研 03：技术选型
 
-> 每一项给出候选、推荐与理由。标注 ⭐ 的为推荐方案，均为**待讨论**状态。
+> 每一项给出候选、推荐与理由。标注 ⭐ 的为当时的推荐方案；现行决定见 [`DECISIONS.md`](../DECISIONS.md)。
 
 ## 1. 应用形态 / 运行框架
 
@@ -13,7 +13,7 @@
 | 本地 Web 服务 + 浏览器（类似 Lute） | 实现最简单 | 用户需装运行时/Docker，体验差 |
 | 纯 PWA（浏览器 + SQLite WASM + OPFS） | 零安装 | 数据在浏览器沙箱里，不是用户可见的 `.db` 文件；导入文件、跨域抓网页受限 |
 
-**结论（2026-10-29 已确认）**：Tauri 2。前端用 React + TypeScript + Vite。核心业务逻辑尽量写在 TS 侧，Rust 侧只做"系统能力"（文件、网络抓取、数据库、密钥存储），降低贡献门槛。
+**结论（2026-10-29 已确认）**：Tauri 2。前端用 React + TypeScript + Vite。核心业务逻辑尽量写在 TS 侧，Rust 侧只做"系统能力"（窗口、托盘、文件对话框、密钥存储、守护 Core），不碰业务数据（见 06 §7），降低贡献门槛。
 
 ## 2. UI 组件库
 
@@ -28,7 +28,7 @@
 - 图标：`lucide-react`
 - 动效：`motion`（原 Framer Motion）
 - 图表（统计页）：`recharts`（shadcn 的 Chart 组件即基于它）；原型里是手写 SVG，正式版按 03 §5 的图表规范用 recharts 实现
-- 字体与视觉风格：见 [视觉语言](../design/03-visual-language.md)（界面 Geist + 阿里巴巴普惠体 3.0、阅读正文 Charter / Charis SIL、代码 JetBrains Mono；普惠体随包分发前需核对许可）
+- 字体与视觉风格：见 [视觉语言](../design/03-visual-language.md)（界面系统字体、阅读正文 Charter / Charis SIL、代码 JetBrains Mono；普惠体只做回落，随包分发前需核对许可）
 - shadcn/ui 的默认风格与 v2「安静的 AI 工作台」接近，按 `v2.css` 的 token 调整颜色、圆角即可
 
 ## 3. 内容导入与识别
@@ -36,7 +36,7 @@
 | 输入 | 方案 |
 |---|---|
 | 纯文本 | 直接处理 |
-| 网址 | Rust 侧抓取 HTML（规避 CORS）→ ⭐ **Defuddle**（Obsidian Web Clipper 使用，对 Readability 的改进版）或 Mozilla Readability 提取正文 → 转 Markdown |
+| 网址 | Core 抓取 HTML（规避 CORS，能力 `fetch_url`）→ ⭐ **Defuddle**（Obsidian Web Clipper 使用，对 Readability 的改进版）或 Mozilla Readability 提取正文 → 转 Markdown |
 | PDF | `pdf.js` 提取文本层；无文本层（扫描件）走 OCR |
 | EPUB | `epub.js` / 直接解压解析 XHTML |
 | DOCX | `mammoth.js` → HTML/Markdown |
@@ -44,7 +44,7 @@
 
 ### OCR 方案
 
-**注意：DeepSeek 官方 API（deepseek-chat / deepseek-reasoner）目前不支持图片输入。** DeepSeek 开源了 DeepSeek-OCR / DeepSeek-OCR-2 模型，但官方没有直接的 OCR API，只能通过第三方托管平台（SiliconFlow、Novita 等）或本地部署调用。因此 OCR 需要独立设计：
+**注意：调研时 DeepSeek 官方 API 不支持图片输入（现行模型 deepseek-v4-flash / deepseek-v4-pro 是否支持未核实）。** DeepSeek 开源了 DeepSeek-OCR / DeepSeek-OCR-2 模型，但官方没有直接的 OCR API，只能通过第三方托管平台（SiliconFlow、Novita 等）或本地部署调用。因此 OCR 需要独立设计：
 
 | 方案 | 优点 | 缺点 |
 |---|---|---|
@@ -71,8 +71,8 @@
 
 | 要点 | 方案 |
 |---|---|
-| 接口抽象 | ⭐ **pi-ai**（2026-10-29 确认，B1）：统一接入 DeepSeek、通义、Kimi、智谱、OpenAI、Ollama 本地等 OpenAI 兼容接口，以及 ChatGPT / Claude 账号登录；TypeBox 校验结构化输出。~~Vercel AI SDK~~ 不再考虑 |
-| 默认 | DeepSeek（`deepseek-chat`），性价比高，中文解释能力好 |
+| 接口抽象 | ⭐ **pi-ai**（2026-10-29 确认，B1）：统一接入 DeepSeek、通义、Kimi、智谱、OpenAI、Ollama 本地等 OpenAI 兼容接口，以及 ChatGPT 账号登录（条款待核实；Claude 订阅登录不做，Anthropic 条款禁止第三方使用，见 05 §10）；TypeBox 校验结构化输出。~~Vercel AI SDK~~ 不再考虑 |
+| 默认 | DeepSeek（`deepseek-v4-flash` / `deepseek-v4-pro`，[官方价格页](https://api-docs.deepseek.com/quick_start/pricing)），性价比高，中文解释能力好；模型名是配置项，不写死 |
 | 结构化输出 | JSON Mode + TypeBox schema 校验（pi-ai 自带），失败重试 |
 | 本地模型 | 支持 Ollama / LM Studio（OpenAI 兼容），满足离线/隐私需求 |
 | 密钥存储 | 不明文存 SQLite；用系统钥匙串（Rust `keyring` crate）或 Tauri Stronghold |
@@ -128,12 +128,12 @@
 | 方案 | 说明 | 结论 |
 |---|---|---|
 | **MCP（Model Context Protocol）** | agent ↔ 工具/数据 的标准协议 | ⭐ 用于把 Tibi 学习能力暴露给外部 harness（TS 官方 SDK `@modelcontextprotocol/sdk`） |
-| **ACP（Agent Client Protocol）** | Zed 发起，客户端 ↔ agent 的标准协议，JSON-RPC over stdio；2026 年 Zed 1.0 主推，JetBrains 支持，已有 ACP Registry；Gemini CLI 原生支持，Codex / Claude Code 通过适配器支持 | v1 不做（2026-10-29，B6）：外部 AI 工具改走 MCP；pi-ai 的账号登录可用已有订阅 |
+| **ACP（Agent Client Protocol）** | Zed 发起，客户端 ↔ agent 的标准协议，JSON-RPC over stdio；2026 年 Zed 1.0 主推，JetBrains 支持，已有 ACP Registry；Gemini CLI 原生支持，Codex / Claude Code 通过适配器支持 | v1 不做（2026-10-29，B6）：外部 AI 工具改走 MCP；pi-ai 的账号登录可用已有 ChatGPT 订阅（条款待核实） |
 | **Codex app-server** | Codex 官方集成协议（JSON-RPC，stdio，WebSocket 实验性）；会话持久化/恢复、审批请求、可生成 TS 类型 | 备选专用通道 |
 | `codex exec` / `claude -p` 等非交互 CLI | 一次性调用，输出 JSON 流 | 只适合批量任务，不适合常驻对话，不采用为主路径 |
 | 记忆框架：Letta / Mem0 / Zep / LangMem | Letta：核心常驻 + 归档检索的分层记忆，agent 自管记忆；Mem0：add/search API、记忆整合 | 借鉴设计，**不引入依赖**（多为 Python/服务端，且需要向量库）；用 SQLite + FTS5 自实现轻量版 |
 | `sqlite-vec` | SQLite 向量检索扩展 | 记忆语义检索的后续选项 |
-| **pi**（`@earendil-works/pi-*`，MIT，1.4.0） | `pi-ai` 统一模型接口（含 DeepSeek、任意 OpenAI 兼容接口、账号登录）；`pi-agent-core` 最小 agent 循环；`pi-durable` 持久化 harness（对话、任务、子智能体、断点续跑、SQLite 存储，**实验性**）；`pi-coding-agent` 终端编程 agent | ⭐ **已选为 harness 底座**（2026-10-29，B1）：`pi-ai` + `pi-durable`，外包一层 `TibiKernel`；`pi-agent-core` 作退路。详见 [`05-agent-architecture.md`](../design/05-agent-architecture.md) |
+| **pi**（`@earendil-works/pi-*`，MIT，1.4.0） | `pi-ai` 统一模型接口（含 DeepSeek、任意 OpenAI 兼容接口、账号登录）；`pi-agent-core` 最小 agent 循环；`pi-durable` 持久化 harness（对话、任务、子对话、断点续跑、SQLite 存储，**实验性**）；`pi-coding-agent` 终端编程 agent | ⭐ **已选为 harness 底座**（2026-10-29，B1）：`pi-ai` + `pi-durable`，外包一层 `TibiKernel`；`pi-agent-core` 作退路。详见 [`05-agent-architecture.md`](../design/05-agent-architecture.md) |
 | Vercel AI SDK / OpenAI Agents SDK / Mastra / LangGraph.js | 通用 agent 框架 | 不选：缺少本地持久化任务，或体量偏大，见 05 §2 |
 
 ## 9. 动效库
@@ -147,7 +147,7 @@
 | Lottie / dotLottie、Rive | MIT / 运行时开源 | 播放设计师制作的动画文件 | 后期：空状态插画、成就动画 |
 | 原生：CSS 过渡、Web Animations API、View Transitions API | — | 零依赖；View Transitions 适合页面级切换（书架 → 阅读器） | 简单过渡用 CSS；页面切换可用 View Transitions（Tauri 的 WebView 需确认支持度） |
 
-结论：**Motion 为主，CSS 处理简单过渡**；动效清单见 [视觉语言 §7](../design/03-visual-language.md#7-动效)。
+结论：**Motion 为主，CSS 处理简单过渡**；动效清单见 [视觉语言 §8](../design/03-visual-language.md#8-动效)。
 
 ## 10. 高亮与标注库
 

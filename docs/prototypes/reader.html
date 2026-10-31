@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="v2-theme.js"></script>
 <title>Tibi 阅读器</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -113,7 +119,8 @@
 
 /* 词卡浮层：贴着单词出现（AI 就地出现） */
 .wpop { position: fixed; z-index: 30; width: 340px; max-width: calc(100vw - 24px); max-height: min(560px, calc(100vh - 32px)); overflow: auto; border-radius: 18px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 18px 48px rgba(0,0,0,.12); padding: 18px 18px 16px; }
-.wpop .x { position: absolute; top: 10px; right: 10px; }
+.wpop .x { position: absolute; top: 10px; right: 10px; z-index: 2; }
+.wpop .wact { position: sticky; bottom: -16px; z-index: 1; margin: 0 -18px -16px; padding: 12px 18px 14px; background: var(--surface); box-shadow: 0 -1px 0 var(--line); }   /* 熟练度与"加入生词本"固定在词卡底部 */
 .icard { display: flex; flex-direction: column; gap: 16px; }
 .wpop .whead { padding-right: 34px; }
 .wpop .sentsec { display: none; }
@@ -154,6 +161,11 @@ input[type=range] { accent-color: var(--ink); width: 100%; }
 .toast button { color: inherit; text-decoration: underline; margin-left: 10px; font-weight: 500; }
 
 @media (max-width: 1180px) { .top .crumb b { max-width: 180px; } .tools .lbl { display: none; } }
+/* 顶栏按主区宽度（不是窗口宽度）收起：开抽屉后主区变窄，先去文字只留图标，再隐藏次要项；总结、生词、Tibi 始终可见（抽屉的开关） */
+.top { container: rtop / inline-size; }
+.top .crumb { flex: 0 1 auto; white-space: nowrap; } .top .crumb a, .tools { flex: none; }
+@container rtop (max-width: 860px) { .tools .lbl { display: none; } .top .crumb b { max-width: 180px; } }
+@container rtop (max-width: 600px) { #speed, #trTog, #glossTog, .tools .vsep { display: none; } }
 </style>
 
 <div class="app collapsed" id="app">
@@ -166,7 +178,7 @@ input[type=range] { accent-color: var(--ink); width: 100%; }
       <a href="#" data-link="words" title="生词本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="hide-c">生词本</span><span class="n hide-c" id="navWords">33</span></a>
       <a href="#" data-link="review" title="复习"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg><span class="hide-c">复习</span><span class="n badge hide-c">18</span></a>
       <a href="#" data-link="stats" title="统计"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span class="hide-c">统计</span></a>
-      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">3</span></a>
+      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">4</span></a>
     </nav>
     <div class="sideh hide-c" id="docH">书架</div>
     <div class="hide-c" id="doclist"></div>
@@ -176,7 +188,7 @@ input[type=range] { accent-color: var(--ink); width: 100%; }
         <svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle id="ringArc" cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="87.96" transform="rotate(-90 18 18)"/></svg>
         <div class="hide-c"><div class="t">连续 9 天</div><div class="s">今日 12 / 20 分钟</div></div>
       </div>
-      <div class="user"><span class="av">你</span><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
+      <div class="user"><a class="av" data-link="settings" href="#" title="设置">你</a><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
     </div>
   </aside>
 
@@ -195,7 +207,7 @@ input[type=range] { accent-color: var(--ink); width: 100%; }
         <span class="vsep"></span>
         <button class="pill" id="sumBtn" title="AI 总结"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg><span class="lbl">总结</span></button>
         <button class="pill" id="vocabBtn" title="本篇生词"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="lbl">生词</span> <span class="n" id="vocabN"></span></button>
-        <button class="pill" id="lexiBtn"><svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg><span class="lbl">Tibi</span></button>
+        <button class="pill" id="lexiBtn" title="Tibi"><svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg><span class="lbl">Tibi</span></button>
       </div>
     </header>
     <section class="reader" id="reader"><article class="page" id="page"></article></section>
@@ -260,16 +272,17 @@ function osInit(sel) {
 const READER = osInit('#reader'), PBODY = osInit('#pbody');
 
 /* ============ 外壳（与 v2-shell.js 行为一致） ============ */
-const URLS = location.protocol === 'file:' ? { home: 'home.html', reader: 'reader.html', words: 'words.html', review: 'review.html', stats: 'stats.html', settings: 'settings.html', tasks: 'tasks.html', mobile: 'mobile.html', library: 'library.html', onboarding: 'onboarding.html' } : { home: 'https://claude.ai/artifact/25jzi4f4fvQg9qbpiQziqd', reader: 'https://claude.ai/artifact/WoQdUMnm2aTwoEaaW2uGiM', words: 'https://claude.ai/artifact/FqP5DF1DAyKoSPj3Ek8AEf', review: 'https://claude.ai/artifact/FTUFPKbBTQ2EV7NmkE8VF4', stats: 'https://claude.ai/artifact/Ry1MR9bvumcJ1cvMZYiH15', settings: 'https://claude.ai/artifact/4os2bCRwuuHXpXp6JYB8pA', tasks: 'https://claude.ai/artifact/FPy1wjttFMjohaYoZ4PWez', mobile: 'https://claude.ai/artifact/9V1ocjyp3cDBiT9aUbkinn', library: 'https://claude.ai/artifact/Cqyenzc3YMxdDTMfKRgrWo', onboarding: 'https://claude.ai/artifact/NbaX6HBbBSW6rmvM9fTPM3' };
-(function(){ if (!(screen.width < 760 || (visualViewport && visualViewport.width < 760))) return; /* 桌面页有 min-width，innerWidth 不可靠 */ const d = document.createElement('div'); d.className = 'phone-hint'; d.innerHTML = `这是桌面版原型（窗口最小 960px）。手机上请看 <a href="${URLS.mobile}">手机版原型</a>`; if (location.protocol !== 'file:') { d.querySelector('a').target = '_blank'; } document.body.appendChild(d); })();
-document.querySelectorAll('[data-link]').forEach(a => { a.href = URLS[a.dataset.link]; if (location.protocol !== 'file:') { a.target = '_blank'; a.rel = 'noopener'; } });
+const LOCAL = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+const URLS = LOCAL ? { home: 'home.html', reader: 'reader.html', words: 'words.html', review: 'review.html', stats: 'stats.html', settings: 'settings.html', tasks: 'tasks.html', mobile: 'mobile.html', library: 'library.html', onboarding: 'onboarding.html' } : { home: 'https://claude.ai/artifact/25jzi4f4fvQg9qbpiQziqd', reader: 'https://claude.ai/artifact/WoQdUMnm2aTwoEaaW2uGiM', words: 'https://claude.ai/artifact/FqP5DF1DAyKoSPj3Ek8AEf', review: 'https://claude.ai/artifact/FTUFPKbBTQ2EV7NmkE8VF4', stats: 'https://claude.ai/artifact/Ry1MR9bvumcJ1cvMZYiH15', settings: 'https://claude.ai/artifact/4os2bCRwuuHXpXp6JYB8pA', tasks: 'https://claude.ai/artifact/FPy1wjttFMjohaYoZ4PWez', mobile: 'https://claude.ai/artifact/9V1ocjyp3cDBiT9aUbkinn', library: 'https://claude.ai/artifact/Cqyenzc3YMxdDTMfKRgrWo', onboarding: 'https://claude.ai/artifact/NbaX6HBbBSW6rmvM9fTPM3' };
+(function(){ if (!((screen.width < 960 && navigator.maxTouchPoints > 0) || (visualViewport && visualViewport.width < 960))) return; /* 桌面页有 min-width，innerWidth 不可靠 */ const d = document.createElement('div'); d.className = 'phone-hint'; d.innerHTML = `这是桌面版原型（窗口最小 960px）。手机上请看 <a href="${URLS.mobile}">手机版原型</a>`; if (!LOCAL) { d.querySelector('a').target = '_blank'; } document.body.appendChild(d); })();
+document.querySelectorAll('[data-link]').forEach(a => { a.href = URLS[a.dataset.link]; if (!LOCAL) { a.target = '_blank'; a.rel = 'noopener'; } });
 document.querySelectorAll('[data-todo]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); showToast(`「${a.dataset.todo}」的原型还没做`); }));
 document.getElementById('collapseBtn').onclick = () => { document.getElementById('app').classList.toggle('collapsed'); setTimeout(() => { moveTabDot(false); rr(); }, 380); };
 document.getElementById('menuBtn').onclick = () => document.getElementById('app').classList.toggle('menu');
 addEventListener('keydown', e => { if (!(e.metaKey || e.ctrlKey)) return; if (e.key === '\\') { e.preventDefault(); document.getElementById('collapseBtn').click(); } else if (e.key.toLowerCase() === 'k') { e.preventDefault(); e.stopImmediatePropagation(); document.querySelector('.newbtn.search').click(); } });
 
 /* ============ 示例数据（原型用；正式版来自 ECDICT + 用户词库 + AI 缓存） ============ */
-const STATUS_LABEL = {0:'生词',1:'见过',2:'眼熟',3:'认得',4:'熟悉',5:'掌握',98:'忽略',99:'待确认'};
+const STATUS_LABEL = {0:'生词',1:'见过',2:'眼熟',3:'认得',4:'熟悉',5:'掌握',97:'已知',98:'忽略',99:'待确认'};
 
 // 用户词库：lemma → 状态。未出现的词按「词汇量画像」推断为已知（原型简化）
 const VOCAB = {
@@ -625,8 +638,8 @@ function refresh() {
   $('#ratio').innerHTML = `生词率 <b>${(st.ratio * 100).toFixed(1)}%</b> &nbsp;<span class="lvl ${cls}">${lv}</span>`;
   const left = st.nNew.size, unc = st.nU.size;
   $('#endcard').innerHTML = `<h3>读完本篇</h3>
-    <p>本篇还有 ${left} 个没处理的生词、${unc} 个待确认的词。把它们标为已知，可以让下一篇文章的自动标注更准。之后在任何文章里都能改回来。</p>
-    <div class="row"><button class="btn pri" id="markRest"${left + unc ? '' : ' disabled'}>剩余 ${left + unc} 个全部标为已知</button><button class="btn" id="review">回顾本篇重点</button><button class="btn" id="toAsst">让 Tibi 出 3 道理解题</button></div>`;
+    <p>本篇还有 ${left} 个没处理的生词。标为已知后不进复习，也不算掌握，下一篇的自动标注会更准；之后在任何文章里都能改回来。${unc ? `另有 ${unc} 个待确认的词，还等你在词卡上确认。` : ''}</p>
+    <div class="row"><button class="btn pri" id="markRest"${left ? '' : ' disabled'}>把 ${left} 个生词标为已知</button><button class="btn" id="review">回顾本篇重点</button><button class="btn" id="toAsst">让 Tibi 出 3 道理解题</button><a class="btn" id="calib" href="${URLS.onboarding}#step=2&from=reader">标得不准？校准词汇量</a></div>`;
   $('#markRest').onclick = markRestKnown;
   $('#toAsst').onclick = () => { switchTab('asst'); runPreset('quiz'); };
   $('#review').onclick = roughReview;
@@ -718,7 +731,7 @@ const STAGES = [
   ['掌握', '已经会了，不再标注'],
 ];
 function statusButtons(s) {
-  const desc = s >= 0 && s <= 5 ? `<b>${STAGES[s][0]}</b>：${STAGES[s][1]}` : (s === -2 ? '已忽略，不再标注' : '还没有设定，点上面的格子选择你对它的熟悉程度');
+  const desc = s >= 0 && s <= 5 ? `<b>${STAGES[s][0]}</b>：${STAGES[s][1]}` : (s === 97 ? '<b>已知</b>：你标过认识，不进复习，也不算掌握' : s === -2 ? '已忽略，不再标注' : '还没有设定，点上面的格子选择你对它的熟悉程度');
   return `<div class="pips" role="group" aria-label="熟练度">${STAGES.map(([n, dsc], v) =>
     `<button class="pip${s === v ? ' on' : ''}${s >= v && s <= 5 ? ' fill' : ''}" data-s="${v}" title="${n}：${dsc}（快捷键 ${v === 5 ? 'K' : v}）"><i></i>${n}</button>`).join('')}</div>
     <div class="stagedesc">${desc}</div>`;
@@ -746,8 +759,7 @@ function renderCard() {
       <div class="sec"><h5><span class="note">✦ AI</span>语境释义</h5><div class="gloss">${esc(ph.ctx)}</div></div>
       <div class="divider"></div>
       ${sentSec(sent, ph.show || ph.k)}
-      <div class="divider"></div>
-      <div class="sec"><h5>熟练度</h5>${statusButtons(ph.s)}</div></div>`;
+      <div class="sec wact"><h5>熟练度</h5>${statusButtons(ph.s)}</div></div>`;
     p.querySelectorAll('.pip').forEach(b => b.onclick = () => { const old = ph.s; ph.s = +b.dataset.s; pushUndo(() => { ph.s = old; }); renderCard(); showToast(`短语 “${ph.show || ph.k}” 设为${STATUS_LABEL[ph.s]}`); });
     bindSent(p);
     enterCard(p);
@@ -767,8 +779,7 @@ function renderCard() {
     ${inPh >= 0 ? `<div class="subrow"><span class="lbl-i">属于短语</span><button class="linkbtn" id="toPh">${esc(PHRASES[inPh].show || PHRASES[inPh].k)} →</button></div>` : ''}
     <div class="divider"></div>
     ${sentSec(sent, selected.surface)}
-    <div class="divider"></div>
-    <div class="sec"><h5>熟练度</h5>${statusButtons(s === 98 ? -2 : s === 99 ? -1 : s)}
+    <div class="sec wact"><h5>熟练度</h5>${statusButtons(s === 98 ? -2 : s === 99 ? -1 : s)}
       <div class="subrow" style="margin-top:6px"><span class="lbl-i">在 ${enc.docs} 篇文章里遇到过 ${enc.times} 次</span>
       <span class="row" style="gap:14px"><button class="linkbtn" id="ignBtn">${s === 98 ? '取消忽略' : '忽略'}</button>
       <button class="linkbtn" id="wbBtn">${wordbook.has(L) ? '✓ 在生词本中' : '加入生词本'}</button></span></div></div></div>`;
@@ -835,7 +846,7 @@ function renderSum() {
     selected = { kind: 'phrase', idx: +b.dataset.pi, sent: si }; refresh(); switchTab('card'); renderCard(); flashTo(el);
   });
   $('#regen').onclick = () => showToast('原型：会用当前模型重新生成，旧版本会保留');
-  $('#sumProv').href = URLS.tasks + '#t=h1'; if (location.protocol !== 'file:') { $('#sumProv').target = '_blank'; $('#sumProv').rel = 'noopener'; }
+  $('#sumProv').href = URLS.tasks + '#t=h1'; if (!LOCAL) { $('#sumProv').target = '_blank'; $('#sumProv').rel = 'noopener'; }
 }
 
 function renderVocab() {
@@ -919,6 +930,7 @@ function selectWord(el) {
 $('#page').addEventListener('click', e => {
   const w = e.target.closest('.w'); if (!w) return;
   if (window.getSelection().toString().trim().split(/\s+/).length > 1) return;
+  if (!e.shiftKey && statusOf(w.dataset.l) === 0) { VOCAB[w.dataset.l] = 1; wordbook.add(w.dataset.l); }   // 查词 = 见过，并建卡
   if (e.shiftKey && w.closest('.ph')) {
     const ph = w.closest('.ph');
     selected = { kind: 'phrase', idx: +ph.dataset.p, sent: +w.closest('.sent').dataset.si }; selEl = ph; refresh(); renderCard();
@@ -955,10 +967,10 @@ $('#mkPhrase').onclick = () => {
 $('#askSel').onclick = () => { const t = $('#selTool').dataset.txt; window.getSelection().removeAllRanges(); $('#selTool').hidden = true; switchTab('asst'); post('u', `这段是什么意思：<i>${esc(t)}</i>`); reply('<p>（原型）正式版会结合上下文解释这段话，并指出其中值得学的搭配。</p>'); };
 
 function markRestKnown() {
-  const st = docStats(); const ls = [...st.nNew, ...st.nU]; const before = ls.map(l => [l, VOCAB[l]]);
-  const els = [...document.querySelectorAll('#page .w.s0, #page .w.s99')];
+  const ls = [...docStats().nNew]; const before = ls.map(l => [l, VOCAB[l]]);
+  const els = [...document.querySelectorAll('#page .w.s0')];
   const done = () => {
-    ls.forEach(l => VOCAB[l] = 5);
+    ls.forEach(l => VOCAB[l] = 97);
     pushUndo(() => before.forEach(([l, v]) => VOCAB[l] = v));
     refresh(); renderCard();
     showToast(`已将 ${ls.length} 个词标为已知`);
@@ -1062,6 +1074,7 @@ function applyFont() {
 }
 $('#setBtn').onclick = e => { e.stopPropagation(); $('#settings').hidden = !$('#settings').hidden; };
 document.addEventListener('click', e => { if (!$('#settings').hidden && !$('#settings').contains(e.target) && e.target !== $('#setBtn')) $('#settings').hidden = true; });
+document.querySelectorAll('#paperSeg button').forEach(b => b.classList.toggle('on', b.dataset.p === (document.documentElement.dataset.theme || 'auto')));   // 跟随已保存的主题
 $('#paperSeg').onclick = e => {
   const p = e.target.dataset.p; if (!p) return;
   document.querySelectorAll('#paperSeg button').forEach(b => b.classList.toggle('on', b === e.target));

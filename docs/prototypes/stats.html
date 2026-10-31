@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="v2-theme.js"></script>
 <title>Tibi 统计</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,7 +79,7 @@
       <a href="#" data-link="words" title="生词本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="hide-c">生词本</span><span class="n hide-c" id="navWords">33</span></a>
       <a href="#" data-link="review" title="复习"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg><span class="hide-c">复习</span><span class="n badge hide-c">18</span></a>
       <a href="#" class="cur" title="统计"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span class="hide-c">统计</span></a>
-      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">3</span></a>
+      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">4</span></a>
     </nav>
     <div class="sideh hide-c" id="sideH">最近</div>
     <div class="recent hide-c" id="recent"></div>
@@ -82,7 +88,7 @@
         <svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle id="ringArc" cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="87.96" transform="rotate(-90 18 18)"/></svg>
         <div class="hide-c"><div class="t">连续 9 天</div><div class="s">今日 12 / 20 分钟</div></div>
       </div>
-      <div class="user"><span class="av">你</span><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
+      <div class="user"><a class="av" data-link="settings" href="#" title="设置">你</a><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
     </div>
   </aside>
   <section class="main">
@@ -99,7 +105,7 @@
         <section class="kp" id="kp"></section>
 
         <section class="insight"><svg class="spark" viewBox="0 0 24 24" fill="var(--accent)"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>
-          <div><p id="insight"></p><div class="acts"><a class="btn sm" data-link="review" href="#">复习 18 个到期的词</a><a class="btn sm" data-link="home" href="#">找一篇学习区的新闻</a><a class="btn sm" id="leechLink" href="#">看看 2 个难词</a></div>
+          <div><p id="insight"></p><div class="acts"><a class="btn sm" data-link="review" href="#">复习 18 张（到期 14 + 新词 4）</a><a class="btn sm" data-link="home" href="#">找一篇学习区的新闻</a><a class="btn sm" id="leechLink" href="#">看看 2 个难词</a></div>
             <div class="prov-line" style="margin-top:10px"><span class="av-ag tibi" id="insAv" aria-hidden="true"></span><span>Tibi · 学习洞察</span> · <a href="#" id="insProv" title="DeepSeek 深入 · 昨天 21:03 · ¥0.009">查看过程</a> · <button id="insRe">重新生成</button></div></div></section>
 
         <section class="panel" id="growthPanel">
@@ -127,7 +133,7 @@
         </section>
 
         <section class="panel" id="heatPanel">
-          <div class="ph"><h2>学习日历</h2><span class="sub">最近 26 周 · 每天学习分钟数</span><div class="legend"><span>少</span><span><i style="background:var(--sunken)"></i><i style="background:color-mix(in srgb,var(--accent) 25%,var(--sunken))"></i><i style="background:color-mix(in srgb,var(--accent) 50%,var(--sunken))"></i><i style="background:color-mix(in srgb,var(--accent) 75%,var(--sunken))"></i><i style="background:var(--accent)"></i></span><span>多</span></div></div>
+          <div class="ph"><h2>学习日历</h2><span class="sub">最近 26 周 · 每天学习分钟数</span><div class="legend"><span>少</span><span style="display:inline-flex;align-items:center"><i style="background:var(--sunken)"></i><i style="background:color-mix(in srgb,var(--accent) 25%,var(--sunken))"></i><i style="background:color-mix(in srgb,var(--accent) 50%,var(--sunken))"></i><i style="background:color-mix(in srgb,var(--accent) 75%,var(--sunken))"></i><i style="background:var(--accent)"></i></span><span>多</span></div></div>
           <div class="months" id="months"></div>
           <div class="heatwrap"><div class="days"><span></span><span>一</span><span></span><span>三</span><span></span><span>五</span><span></span></div><div class="chart"><div class="heat" id="heat"></div></div></div>
         </section>

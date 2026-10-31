@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="v2-theme.js"></script>
 <title>Tibi 生词本</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -143,7 +149,7 @@ body.bulk-on .toast { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       <a href="#" class="cur" title="生词本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="hide-c">生词本</span><span class="n hide-c" id="navWords">33</span></a>
       <a href="#" data-link="review" title="复习"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg><span class="hide-c">复习</span><span class="n badge hide-c">18</span></a>
       <a href="#" data-link="stats" title="统计"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span class="hide-c">统计</span></a>
-      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">3</span></a>
+      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">4</span></a>
     </nav>
     <div class="sideh hide-c" id="sideH">最近</div>
     <div class="recent hide-c" id="recent"></div>
@@ -152,7 +158,7 @@ body.bulk-on .toast { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         <svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle id="ringArc" cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="87.96" transform="rotate(-90 18 18)"/></svg>
         <div class="hide-c"><div class="t">连续 9 天</div><div class="s">今日 12 / 20 分钟</div></div>
       </div>
-      <div class="user"><span class="av">你</span><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
+      <div class="user"><a class="av" data-link="settings" href="#" title="设置">你</a><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
     </div>
   </aside>
 
@@ -208,7 +214,7 @@ body.bulk-on .toast { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
           <div class="bulk" id="bulk" hidden>
             <span id="bulkN"></span>
             <select id="bulkStage" aria-label="批量设置熟练度"><option value="">设为熟练度…</option><option value="0">生词</option><option value="1">见过</option><option value="2">眼熟</option><option value="3">认得</option><option value="4">熟悉</option><option value="5">掌握</option></select>
-            <button id="bulkTag">加标签</button><button id="bulkIgnore">忽略</button><button id="bulkExport">导出所选</button><button id="bulkRemove">移出生词本</button><button id="bulkClear">取消</button>
+            <button id="bulkIgnore">忽略</button><button id="bulkExport">导出所选</button><button id="bulkRemove">移出生词本</button><button id="bulkClear">取消</button>
           </div>
         </section>
       </main>
@@ -284,6 +290,7 @@ const RAW = [
   ['borrow checker','phrase','','专有名词 · Rust 的借用检查器',98,6,60,999,[['tech','…the borrow checker verifies that no reference outlives the value it points to.']],'',{star:0,exam:[],seen:2}],
 ];
 const EXAM = { zk: '中考', gk: '高考', cet4: '四级', cet6: '六级', ky: '考研', toefl: '托福', ielts: '雅思', gre: 'GRE' };
+const NEW_TODAY = 4;   // 今天复习 18 张 = 到期 14 + 新词 4
 let WORDS = RAW.map(([w, kind, ipa, zh, s, enc, added, due, ctx, en, x], i) => ({ id: i, w, kind, ipa, zh, s, enc, added, due, ctx, en, forms: x.forms || [], star: x.star || 0, exam: x.exam || [], lapses: x.lapses || 0, seen: x.seen ?? added, tags: [...new Set(ctx.flatMap(c => DOCS[c[0]].tags))], docs: [...new Set(ctx.map(c => c[0]))] }));
 /* 用户已知词：原句里其它词都认识 → 这句最适合做复习卡（i+1） */
 const KNOWN_HARD = new Set(WORDS.filter(w => w.s < 3).map(w => w.w.split(' ')[0].toLowerCase()));
@@ -336,8 +343,8 @@ function setView(v) { view = v; fStage = null; checked.clear(); kbId = null; ren
 function renderTop() {
   const live = WORDS.filter(x => x.s < 5 && x.s !== 98), counts = STAGES.map((_, i) => WORDS.filter(x => x.s === i).length), dueToday = live.filter(x => x.due <= 0).length;
   const V = VIEWS.find(v => v[0] === view); $('#vtitle').textContent = V[1]; document.title = `Tibi 生词本 · ${V[1]}`;
-  $('#summary').textContent = `${filtered().length} 个 · 单词 ${live.filter(x => x.kind === 'word').length}、短语 ${live.filter(x => x.kind === 'phrase').length} 在学 · 本周新增 ${live.filter(x => x.added <= 7).length} · 今天要复习 ${dueToday}`;
-  $('#reviewBtn').textContent = `开始复习 · ${dueToday}`; $('#navWords').textContent = live.length;
+  $('#summary').textContent = `${filtered().length} 个 · 单词 ${live.filter(x => x.kind === 'word').length}、短语 ${live.filter(x => x.kind === 'phrase').length} 在学 · 本周新增 ${live.filter(x => x.added <= 7).length} · 今天到期 ${dueToday}`;
+  $('#reviewBtn').textContent = `开始复习 · ${dueToday + NEW_TODAY} 张`; $('#reviewBtn').title = `到期 ${dueToday} + 新词 ${NEW_TODAY}`; $('#navWords').textContent = live.length;
   $('#distbar').className = 'distbar' + (fStage !== null ? ' filtering' : '');
   $('#distbar').innerHTML = counts.map((c, i) => c ? `<button class="c${i}${fStage === i ? ' on' : ''}" data-s="${i}" style="flex:${c}" title="${STAGES[i][0]}：${c} 个（${STAGES[i][1]}）" aria-label="${STAGES[i][0]} ${c} 个"></button>` : '').join('');
   $('#distlab').innerHTML = counts.map((c, i) => `<button data-s="${i}" title="${STAGES[i][1]}" style="${fStage !== null && fStage !== i ? 'opacity:.4' : ''}"><i class="c${i}"></i>${STAGES[i][0]} <b>${c}</b></button>`).join('') + (fStage !== null ? `<button data-s="clear" style="color:var(--accent)">清除筛选</button>` : '');
@@ -400,7 +407,6 @@ function openRowMenu(btn, x) {
   const leech = x.lapses >= 3;
   m.innerHTML = `${leech ? `<button data-a="explain">${IC.ask} 让 Tibi 讲讲为什么老忘</button><button data-a="retype">换一种题型（改为填空）</button><button data-a="pause">暂停复习 2 周</button><div class="sep"></div>` : ''}
     <button data-a="open">打开详情<span class="k">↵</span></button>
-    <button data-a="tag">加标签…</button>
     ${x.s === 98 ? '<button data-a="restore">恢复标注</button>' : x.s === 5 ? '<button data-a="relearn">重新学（设为"熟悉"）</button>' : '<button data-a="master">标为掌握<span class="k">5</span></button><button data-a="ignore">忽略（不再标注）<span class="k">I</span></button>'}
     <div class="sep"></div><button data-a="remove" style="color:var(--hard)">移出生词本</button>`;
   const r = btn.getBoundingClientRect(); m.classList.add('on');
@@ -415,7 +421,6 @@ function rowAction(a, x) {
   else if (a === 'explain') { selId = x.id; switchTab('asst'); openDrawer(); preset('why'); }
   else if (a === 'retype') toast(`「${x.w}」下次复习改为语境填空（原本按熟练度是识别题）`);
   else if (a === 'pause') { const before = x.due; x.due = 14; render(false); toast(`「${x.w}」暂停复习，2 周后再出现`, () => { x.due = before; render(false); }); }
-  else if (a === 'tag') addTag([x.id]);
   else if (a === 'master') setStage([x.id], 5);
   else if (a === 'relearn') setStage([x.id], 4);
   else if (a === 'ignore') ignoreIds([x.id]);
@@ -489,11 +494,9 @@ function removeIds(ids) {
   const done = () => { WORDS = WORDS.filter(w => !ids.includes(w.id)); ids.forEach(id => checked.delete(id)); if (ids.includes(selId)) closeDrawer(); render(false); toast(`已移出 ${ids.length} 个词`, () => { WORDS = WORDS.concat(removed); render(false); }); };
   if (M && !REDUCE && rows.length) { anim(rows, { opacity: [1, 0], x: [0, 24] }, { duration: 0.25, ease: EASE, delay: stag(0.03) }); setTimeout(done, 260 + rows.length * 30); } else done();
 }
-function addTag(ids) { const v = prompt('标签（会出现在书架和生词本的筛选里）'); if (!v || !v.trim()) return; ids.forEach(id => { const x = WORDS.find(w => w.id === id); if (!x.tags.includes(v.trim())) x.tags.push(v.trim()); }); render(false); if (selId !== null) renderDetail(); toast(`已给 ${ids.length} 个词加上「${v.trim()}」`); }
 $('#bulkStage').onchange = e => { if (e.target.value === '') return; setStage([...checked], +e.target.value); e.target.value = ''; };
 $('#bulkRemove').onclick = () => removeIds([...checked]);
 $('#bulkIgnore').onclick = () => ignoreIds([...checked]);
-$('#bulkTag').onclick = () => addTag([...checked]);
 $('#bulkClear').onclick = () => { checked.clear(); render(false); };
 $('#bulkExport').onclick = () => toast(`原型：正式版会把所选 ${checked.size} 个词保存为 CSV 文件`);
 
@@ -566,7 +569,6 @@ addEventListener('keydown', e => {
   if (/^[0-5]$/.test(e.key) && cur.s < 6) { setStage([cur.id], +e.key); return; }
   if (k === 'i' && cur.s < 6) { ignoreIds([cur.id]); return; }
   if (k === 'p' && cur.kind === 'word') { speakW(cur.w); return; }
-  if (k === 't') { addTag([cur.id]); return; }
 });
 
 /* ---------- 启动 ---------- */

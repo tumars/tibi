@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="v2-theme.js"></script>
 <title>Tibi 首次使用</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6,7 +12,7 @@
 <style>
 /* 首次启动引导（3.9）：没有侧栏，一张居中的卡片，左边是步骤与藏狐，右边是当前这一步 */
 body { display: grid; place-items: center; padding: 24px; }
-.ob { width: min(960px, 100%); min-height: 600px; background: var(--surface); border-radius: 20px; box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: 300px minmax(0, 1fr); overflow: hidden; }
+.ob { width: min(960px, 100%); height: min(712px, calc(100vh - 48px)); background: var(--surface); border-radius: 20px; box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: 300px minmax(0, 1fr); overflow: hidden; }
 .ob .left { background: var(--sunken); padding: 28px 26px; display: flex; flex-direction: column; gap: 18px; }
 .ob .obbrand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; }
 .ob .obbrand img { width: 26px; height: 26px; border-radius: 7px; }
@@ -119,16 +125,14 @@ body { display: grid; place-items: center; padding: 24px; }
     <div class="obsay" id="say">你好，我是 Tibi。先聊几句，我好知道该怎么帮你。</div>
     <ol class="obsteps" id="steps">
       <li data-s="1" class="cur"><i>1</i>先认识一下</li>
-      <li data-s="2"><i>2</i>测测词汇量</li>
-      <li data-s="3"><i>3</i>连接模型</li>
-      <li data-s="4"><i>4</i>读第一篇</li>
+      <li data-s="4"><i>2</i>读第一篇</li>
     </ol>
   </aside>
   <section class="right">
     <!-- 1 先认识一下 -->
     <div class="pane on" data-p="1">
       <h1>先认识一下</h1>
-      <p class="lead">这些会写进 Tibi 对你的了解，影响它挑文章、标生词和讲解的方式。以后在"设置"里随时能改。</p>
+      <p class="lead">这些会写进 Tibi 对你的了解，影响它挑文章、标生词和讲解的方式。可以跳过，以后在"设置"里随时能改。</p>
       <div class="f"><label class="t" for="nick">Tibi 怎么称呼你</label><input class="input" id="nick" placeholder="比如：小孟" maxlength="20"></div>
       <div class="f"><span class="t">你学英语是为了</span><div class="opts" id="goal"><button class="chip on" data-v="雅思 7 分">雅思 / 托福</button><button class="chip" data-v="工作阅读">工作里读文档和邮件</button><button class="chip" data-v="读原版书">读原版书</button><button class="chip" data-v="考研 / CET">考研 / CET</button><button class="chip" data-v="兴趣">就是感兴趣</button></div></div>
       <div class="f"><span class="t">你觉得自己现在的水平</span><div class="lv4" id="lv">
@@ -158,18 +162,18 @@ body { display: grid; place-items: center; padding: 24px; }
       <div class="seg" id="mseg"><button class="on" data-m="key">填 API Key</button><button data-m="login">用账号登录</button><button data-m="local">本地模型</button></div>
       <div class="mp on" data-m="key">
         <div class="prov" id="prov">
-          <button class="on" data-v="deepseek"><b>DeepSeek <span class="tag">推荐</span></b><span>便宜、中文好；快速档 deepseek-chat，深入档 deepseek-reasoner</span></button>
+          <button class="on" data-v="deepseek"><b>DeepSeek <span class="tag">推荐</span></b><span>便宜、中文好；快速档 deepseek-v4-flash，深入档 deepseek-v4-pro</span></button>
           <button data-v="openai"><b>OpenAI</b><span>gpt-4.1-mini / gpt-4.1</span></button>
           <button data-v="anthropic"><b>Anthropic</b><span>claude-haiku / claude-sonnet</span></button>
           <button data-v="custom"><b>其他兼容 OpenAI 的服务</b><span>自己填 Base URL 和模型名</span></button>
         </div>
         <div class="keyrow"><input class="input" id="key" type="password" placeholder="sk-…（只存在本机，不会上传）" autocomplete="off"><button class="btn" id="testBtn">测试连接</button></div>
         <div class="conn" id="conn"></div>
-        <div class="tiers" id="tiers"><div><span>快速档 · 查词、标注、日常问答</span><span>deepseek-chat</span></div><div><span>深入档 · 长难句、学习洞察、出题</span><span>deepseek-reasoner</span></div></div>
+        <div class="tiers" id="tiers"><div><span>快速档 · 查词、标注、日常问答</span><span>deepseek-v4-flash</span></div><div><span>深入档 · 长难句、学习洞察、出题</span><span>deepseek-v4-pro</span></div></div>
       </div>
       <div class="mp" data-m="login">
-        <div class="login"><button class="btn" data-login="ChatGPT">用 ChatGPT 账号登录</button><button class="btn" data-login="Claude">用 Claude 账号登录</button></div>
-        <div class="note">用你已有的订阅，不另外付费。这两家的条款对第三方应用的限制还在核对，正式版可能只保留其中一种。</div>
+        <div class="login"><button class="btn" data-login="ChatGPT">用 ChatGPT 账号登录</button></div>
+        <div class="note">用你已有的 ChatGPT 订阅，不另外付费。它的条款对第三方应用的限制还在核对。想用 Claude，请在“填 API Key”里选 Anthropic。</div>
       </div>
       <div class="mp" data-m="local">
         <div class="note">检测到本机没有在运行 Ollama。装好后（`ollama run qwen3:8b`）回到这里，Tibi 会自动找到它。本地模型适合查词和标注，讲解和洞察建议还是用云端模型。</div>
@@ -178,7 +182,7 @@ body { display: grid; place-items: center; padding: 24px; }
     <!-- 4 第一篇 -->
     <div class="pane" data-p="4">
       <h1>读第一篇</h1>
-      <p class="lead">挑一篇公有领域的示例，或者粘贴一个网址。Tibi 会按你刚才的词汇量标出生词。</p>
+      <p class="lead">示例已经备好标注、释义和总结，不用连模型就能看效果。也可以粘贴一个网址。</p>
       <div class="samples2" id="samples"></div>
       <div class="or">或者</div>
       <div class="urlrow"><input class="input" id="url" placeholder="粘贴网址，或一段英文"><button class="btn" id="urlBtn">导入</button></div>
@@ -200,37 +204,42 @@ body { display: grid; place-items: center; padding: 24px; }
 const fox = Fox.mount($('#fx'), { state: 'idle', size: 150, interactive: true });
 const say = t => { $('#say').textContent = t; anim($('#say'), { opacity: [0, 1] }, { duration: 0.3 }); };
 const ans = { nick: '', goal: '雅思 7 分', lv: 'B2', mat: ['tech', 'news'], lang: 'mixed', vocab: 0, model: 'deepseek', connected: false, first: null };
-const FROM_SETTINGS = /step=2/.test(location.hash);   // 设置里的“重新测词汇量”直接进第 2 步
-let step = FROM_SETTINGS ? 2 : 1;
-const SAY = { 1: '你好，我是 Tibi。先聊几句，我好知道该怎么帮你。', 2: '不用紧张，这不是考试。只点你确定认识的词就好。', 3: '连好模型我才能讲解和总结。先跳过也没关系。', 4: '挑一篇试试，我把生词标出来给你看。' };
+/* 引导主流程只有 1 → 4；词汇测试（#step=2）和连接模型（#step=3）按需单独进入，from 决定回到哪里 */
+const SINGLE = +(location.hash.match(/step=([23])/) || [])[1] || 0;
+const BACK_TO = (location.hash.match(/from=(\w+)/) || [])[1] || (SINGLE === 2 ? 'settings' : 'home');
+const BACK_LABEL = { settings: '设置', reader: '阅读器', home: '首页' }[BACK_TO] || '首页';
+let step = SINGLE || 1;
+const SAY = { 1: '你好，我是 Tibi。先聊几句，我好知道该怎么帮你。', 2: '不用紧张，这不是考试。只点你确定认识的词就好。', 3: '连好模型，我就能讲解你自己的文章了。', 4: '先读一篇试试，我把生词标出来给你看。' };
 function go(n) {
   step = n;
   document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', +p.dataset.p === n));
-  document.querySelectorAll('#steps li').forEach(li => { const s = +li.dataset.s; li.className = s === n ? 'cur' : s < n ? 'done' : ''; if (s < n) li.querySelector('i').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>'; else li.querySelector('i').textContent = s; });
-  $('#back').hidden = n === 1 || FROM_SETTINGS;
-  const skip = $('#skip'); skip.hidden = !(n === 2 || n === 3 || n === 4); skip.textContent = n === 2 ? '跳过，直接按自评水平' : n === 3 ? '先跳过（AI 功能暂不可用）' : '先不读，进入 Tibi';
-  const next = $('#next'); next.textContent = n === 4 ? '进入 Tibi' : n === 2 ? '继续' : '继续'; next.disabled = (n === 2 && !ans.vocab) || (n === 4 && !ans.first);
-  if (FROM_SETTINGS && n === 2) { skip.hidden = true; next.textContent = '保存并回到设置'; }
+  document.querySelectorAll('#steps li').forEach(li => { const s = +li.dataset.s; li.className = s === n ? 'cur' : s < n ? 'done' : ''; if (s < n) li.querySelector('i').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>'; else li.querySelector('i').textContent = s === 4 ? 2 : s; });
+  $('#back').hidden = n === 1 || !!SINGLE;
+  $('#steps').hidden = !!SINGLE;
+  const skip = $('#skip'); skip.hidden = false; skip.textContent = n === 1 ? '跳过' : n === 2 ? '取消' : n === 3 ? '先不连' : '先不读，进入 Tibi';
+  const next = $('#next'); next.textContent = n === 4 ? '开始阅读' : '继续'; next.disabled = (n === 2 && !ans.vocab) || (n === 4 && !ans.first);
+  if (SINGLE) next.textContent = `保存并回到${BACK_LABEL}`;
+  if (n === 4 && !ans.first) { $('#samples button').classList.add('on'); importFirst(SAMPLES[0]); }
   say(SAY[n]); fox.set(n === 2 ? 'listening' : 'idle');
   anim($(`.pane[data-p="${n}"]`), { opacity: [0, 1], x: [10, 0] }, { duration: 0.35, ease: EASE });
   document.title = `Tibi 首次使用 · ${['', '先认识一下', '测测词汇量', '连接模型', '读第一篇'][n]}`;
 }
 $('#next').onclick = () => {
-  if (step === 4 || (FROM_SETTINGS && step === 2)) { finish(); return; }
-  if (step === 1) ans.nick = $('#nick').value.trim();
-  go(step + 1);
+  if (step === 4 || SINGLE) { finish(); return; }
+  ans.nick = $('#nick').value.trim(); useSelfRating(); go(4);
 };
-$('#back').onclick = () => go(step - 1);
+$('#back').onclick = () => go(1);
+function useSelfRating() { ans.vocab = { A2: 2000, B1: 3500, B2: 6000, C1: 9000 }[ans.lv]; }
 $('#skip').onclick = () => {
-  if (step === 2) { ans.vocab = { A2: 2000, B1: 3500, B2: 6000, C1: 9000 }[ans.lv]; toast(`按自评水平先记为约 ${ans.vocab.toLocaleString()} 词，以后在设置里可以重测`); }
-  if (step === 3) toast('已跳过。查词、标注、复习照常，讲解和总结会提示你先连接模型');
-  if (step === 4) { finish(); return; }
-  go(step + 1);
+  if (step === 1) { useSelfRating(); go(4); return; }
+  if (step === 2) { location.href = URLS[BACK_TO] || URLS.home; return; }
+  if (step === 3) { toast('已跳过。查词、标注、复习照常，讲解和总结会提示你先连接模型'); setTimeout(() => { location.href = URLS[BACK_TO] || URLS.home; }, 900); return; }
+  finish();
 };
 function finish() {
   fox.set('happy');
-  const dest = FROM_SETTINGS ? URLS.settings : ans.first && ans.first.open ? URLS.reader : URLS.home;
-  toast(FROM_SETTINGS ? '词汇量已更新，已知词库会按新结果重新初始化' : `准备好了${ans.nick ? '，' + ans.nick : ''}。进入 Tibi…`);
+  const dest = SINGLE ? URLS[BACK_TO] || URLS.home : ans.first && ans.first.open ? URLS.reader : URLS.home;
+  toast(SINGLE === 2 ? '词汇量已更新，已知词库会按新结果重新初始化' : SINGLE === 3 ? '模型已连接' : `准备好了${ans.nick ? '，' + ans.nick : ''}。进入 Tibi…`);
   setTimeout(() => { location.href = dest; }, 900);
 }
 /* ---------- 第 1 步 ---------- */
@@ -279,7 +288,7 @@ function showResult() {
 renderBand();
 /* ---------- 第 3 步：模型 ---------- */
 $('#mseg').querySelectorAll('button').forEach(b => b.onclick = () => { $('#mseg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); document.querySelectorAll('.mp').forEach(p => p.classList.toggle('on', p.dataset.m === b.dataset.m)); });
-const TIERS = { deepseek: ['deepseek-chat', 'deepseek-reasoner'], openai: ['gpt-4.1-mini', 'gpt-4.1'], anthropic: ['claude-haiku', 'claude-sonnet'], custom: ['（填模型名）', '（填模型名）'] };
+const TIERS = { deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro'], openai: ['gpt-4.1-mini', 'gpt-4.1'], anthropic: ['claude-haiku', 'claude-sonnet'], custom: ['（填模型名）', '（填模型名）'] };
 $('#prov').querySelectorAll('button').forEach(b => b.onclick = () => { $('#prov').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); ans.model = b.dataset.v; const t = TIERS[ans.model]; $('#tiers').querySelectorAll('div span:last-child').forEach((s, i) => s.textContent = t[i]); $('#conn').className = 'conn'; $('#conn').textContent = ''; ans.connected = false; });
 $('#testBtn').onclick = () => {
   const c = $('#conn'); if (!$('#key').value.trim()) { c.className = 'conn err'; c.textContent = '先填 API Key'; fox.pulse('surprised', 1200); return; }
@@ -289,22 +298,22 @@ $('#testBtn').onclick = () => {
 document.querySelectorAll('[data-login]').forEach(b => b.onclick = () => toast(`原型：会打开浏览器登录 ${b.dataset.login}，登录后两档模型都可选它的模型`));
 /* ---------- 第 4 步：第一篇 ---------- */
 const SAMPLES = [
-  { g: '小说 · 示例', t: 'The Gift of the Magi', m: '约 12 分钟 · O. Henry · 公有领域', open: false },
-  { g: '技术文档 · 示例', t: 'Understanding Ownership in Rust', m: '约 4 分钟 · 自拟示例', open: true },
-  { g: '新闻 · 示例', t: 'Why Cities Are Getting Hotter', m: '约 5 分钟 · 自拟示例', open: false },
+  { g: '技术文档 · 示例', t: 'Understanding Ownership in Rust', m: '约 4 分钟 · 自拟示例', open: true, sample: true },
+  { g: '小说 · 示例', t: 'The Gift of the Magi', m: '约 12 分钟 · O. Henry · 公有领域', open: false, sample: true },
+  { g: '新闻 · 示例', t: 'Why Cities Are Getting Hotter', m: '约 5 分钟 · 自拟示例', open: false, sample: true },
 ];
 $('#samples').innerHTML = SAMPLES.map((d, i) => `<button data-i="${i}"><span class="g">${d.g}</span><span class="t">${d.t}</span><span class="m">${d.m}</span></button>`).join('');
 $('#samples').querySelectorAll('button').forEach(b => b.onclick = () => { $('#samples').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); importFirst(SAMPLES[+b.dataset.i]); });
 $('#urlBtn').onclick = () => { const v = $('#url').value.trim(); if (!v) return; $('#samples').querySelectorAll('button').forEach(x => x.classList.remove('on')); importFirst({ t: v.replace(/^https?:\/\//, '').split('/')[0] || v.slice(0, 40), open: false }); };
 function importFirst(d) {
   ans.first = d; const box = $('#imp'); box.className = 'imp on';
-  const ST = ['获取内容', '分句、词形还原', `对照你的 ${ans.vocab ? ans.vocab.toLocaleString() : '—'} 词标注生词`, 'AI 总结（没连模型就跳过）'];
-  box.innerHTML = ST.map(s => `<div class="st"><i></i>${s}</div>`).join('') + `<div class="done">好了。《${esc(d.t)}》已经在书架上，生词率 4.5%，正好在学习区。</div>`;
+  const ST = ['获取内容', '分句、词形还原', `按你的水平（约 ${(ans.vocab || 6000).toLocaleString()} 词）标注生词`, d.sample ? 'AI 总结（示例已备好）' : 'AI 总结（没连模型，先跳过）'];
+  box.innerHTML = ST.map(s => `<div class="st"><i></i>${s}</div>`).join('') + `<div class="done">好了。《${esc(d.t)}》已经在书架上，生词率 4.5%，正好在学习区。标得不准的话，读完可以校准词汇量。</div>`;
   fox.set('reading'); $('#next').disabled = true;
   const rows = [...box.querySelectorAll('.st')]; let i = 0;
   const tick = () => {
     if (i > 0) { rows[i - 1].className = 'st ok'; rows[i - 1].querySelector('i').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>'; }
-    if (i >= rows.length) { box.classList.add('finished'); fox.set('happy'); say('第一篇准备好了。点"进入 Tibi"开始读。'); $('#next').disabled = false; $('#next').textContent = d.open ? '开始阅读' : '进入 Tibi'; return; }
+    if (i >= rows.length) { box.classList.add('finished'); fox.set('happy'); say('第一篇准备好了。点"开始阅读"。'); $('#next').disabled = false; $('#next').textContent = d.open ? '开始阅读' : '进入 Tibi'; return; }
     rows[i].className = 'st run'; i++; setTimeout(tick, i === 4 && !ans.connected ? 300 : 700);
   };
   tick();

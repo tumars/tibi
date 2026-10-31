@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="v2-theme.js"></script>
 <title>Tibi 首页</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,7 +21,7 @@
       <a href="#" id="wordsLink" title="生词本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="hide-c">生词本</span><span class="n hide-c">33</span></a>
       <a href="#" data-link="review" title="复习"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg><span class="hide-c">复习</span><span class="n badge hide-c">18</span></a>
       <a href="#" data-link="stats" title="统计"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span class="hide-c">统计</span></a>
-      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">3</span></a>
+      <a href="#" data-link="tasks" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">4</span></a>
     </nav>
     <div class="sideh hide-c">最近</div>
     <div class="recent hide-c" id="recent"></div>
@@ -24,7 +30,7 @@
         <svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle id="ringArc" cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="87.96" transform="rotate(-90 18 18)"/></svg>
         <div class="hide-c"><div class="t">连续 9 天</div><div class="s">今日 12 / 20 分钟</div></div>
       </div>
-      <div class="user"><span class="av">你</span><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
+      <div class="user"><a class="av" data-link="settings" href="#" title="设置">你</a><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
     </div>
   </aside>
 
@@ -60,7 +66,7 @@
           </div>
           <div class="chips" id="chips">
             <button class="chip" data-c="continue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 5v14l11-7z"/></svg>继续读 Ownership in Rust</button>
-            <button class="chip" data-c="review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg>复习 18 个到期的词</button>
+            <button class="chip" data-c="review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg>复习 18 张（到期 14 + 新词 4）</button>
             <button class="chip" data-c="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>推荐一篇 10 分钟的科技新闻</button>
             <button class="chip" data-c="story"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>用这周的生词写个小故事</button>
           </div>
@@ -94,7 +100,7 @@
   </section>
 </div>
 
-<input type="file" id="fileIn" hidden multiple accept=".pdf,.epub,.docx,.txt,.md,image/*">
+<input type="file" id="fileIn" hidden multiple><!-- 原型不限制类型，选不支持的文件能看到失败态 -->
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/motion@11.11.17/dist/motion.js"></script>
@@ -104,7 +110,7 @@
 <script>
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const LOCAL = location.protocol === 'file:';
+const LOCAL = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 const URLS = LOCAL ? { reader: 'reader.html', words: 'words.html', v1: 'home.html' , review: 'review.html', stats: 'stats.html', settings: 'settings.html', tasks: 'tasks.html', mobile: 'mobile.html', library: 'library.html', onboarding: 'onboarding.html' } : { reader: 'https://claude.ai/artifact/WoQdUMnm2aTwoEaaW2uGiM', words: 'https://claude.ai/artifact/FqP5DF1DAyKoSPj3Ek8AEf', v1: 'https://claude.ai/artifact/25jzi4f4fvQg9qbpiQziqd' , review: 'https://claude.ai/artifact/FTUFPKbBTQ2EV7NmkE8VF4', stats: 'https://claude.ai/artifact/Ry1MR9bvumcJ1cvMZYiH15', settings: 'https://claude.ai/artifact/4os2bCRwuuHXpXp6JYB8pA', tasks: 'https://claude.ai/artifact/FPy1wjttFMjohaYoZ4PWez', mobile: 'https://claude.ai/artifact/9V1ocjyp3cDBiT9aUbkinn', library: 'https://claude.ai/artifact/Cqyenzc3YMxdDTMfKRgrWo', onboarding: 'https://claude.ai/artifact/NbaX6HBbBSW6rmvM9fTPM3' };
 const ext = a => { if (!LOCAL) { a.target = '_blank'; a.rel = 'noopener'; } };
 const M = window.Motion, REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches, EASE = [0.22, 0.8, 0.24, 1];
@@ -142,7 +148,7 @@ function emptyState(el, { state = 'idle', img, title, desc, actions = [], cls = 
 }
 /* 桌面原型在手机上打开时的提示（桌面应用最小窗口 960px，手机端是独立的壳） */
 function phoneHint() {
-  if (!(screen.width < 760 || (visualViewport && visualViewport.width < 760))) return; /* 桌面页有 min-width，innerWidth 不可靠 */
+  if (!((screen.width < 960 && navigator.maxTouchPoints > 0) || (visualViewport && visualViewport.width < 960))) return; /* 桌面页有 min-width，innerWidth 不可靠 */
   const d = document.createElement('div'); d.className = 'phone-hint';
   d.innerHTML = `这是桌面版原型（窗口最小 960px）。手机上请看 <a href="${URLS.mobile}">手机版原型</a>`; ext(d.querySelector('a'));
   document.body.appendChild(d);
@@ -320,11 +326,11 @@ function steps(list) {
   const box = document.createElement('div'); box.className = 'steps';
   box.innerHTML = list.map(s => `<div class="step"><span class="ic"></span><span>${s}</span><span class="tm"></span></div>`).join(''); dbody.appendChild(box); return box;
 }
-function logBox() { const l = document.createElement('div'); l.className = 'log'; dbody.appendChild(l); return l; }
-function play(box, log, script, done) {
+function logBox() { const f = document.createElement('details'); f.className = 'logfold'; f.innerHTML = '<summary>查看过程</summary><div class="log"></div>'; dbody.appendChild(f); return f.lastChild; }   // 日志默认收起
+function play(box, log, script, done, onStep) {
   const rows = [...box.children]; let i = 0; const t0 = performance.now();
   const next = () => {
-    if (i > 0) { rows[i - 1].className = 'step ok'; rows[i - 1].querySelector('.ic').innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>'; rows[i - 1].querySelector('.tm').textContent = ((performance.now() - t0) / 1000).toFixed(1) + 's'; }
+    if (i > 0) { rows[i - 1].className = 'step ok'; rows[i - 1].querySelector('.ic').innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>'; rows[i - 1].querySelector('.tm').textContent = ((performance.now() - t0) / 1000).toFixed(1) + 's'; onStep && onStep(i - 1); }
     if (i >= rows.length) { done(); return; }
     rows[i].className = 'step run';
     (script[i] || []).forEach((line, j) => setTimeout(() => { const d = document.createElement('div'); d.textContent = line; log.appendChild(d); log.scrollTop = log.scrollHeight; scrollEnd(); }, 160 + j * 260));
@@ -345,70 +351,92 @@ function nameOf(src) {
   const slug = isUrl ? decodeURIComponent(src.split(/[?#]/)[0].replace(/\/$/, '').split('/').pop()) : '';
   return { isUrl, isFile, host, t: isFile ? tc(src.slice(5)) : isUrl ? (slug && slug !== host ? tc(slug) : host) : src.split(/\s+/).slice(0, 7).join(' ') + (src.split(/\s+/).length > 7 ? '…' : '') };
 }
-function runImport(src) {
+/* 失败态：静态画面用插画（对话页里没有藏狐，不会同框）。原型演示入口：网址含 fail → 抓取失败；选不支持的文件；网址加 #offline / #nomodel */
+const AI_STATE = location.hash === '#offline' ? 'offline' : location.hash === '#nomodel' ? 'nomodel' : null;
+const FILE_OK = /\.(pdf|epub|docx|txt|md|markdown|png|jpe?g|gif|webp|heic|bmp|tiff?)$/i;
+const go = url => { const a = document.createElement('a'); a.href = url; ext(a); a.click(); };
+const pasteInstead = () => { closeDrawer(); setMode('import', true); input.placeholder = '把文章正文复制到这里，回车导入'; MAIN.scrollTop = 0; };
+const READ_NO_AI = { t: '先读，不用 AI', link: 'reader' };
+const FAIL = {
+  fetch: c => ({ img: 'error-generic', title: '这个网址没读到', desc: `Tibi 打开了 ${esc(c.host)}，但对方拒绝了请求（403），没拿到正文。有些网站要登录，或者不让程序读取。可以再试一次，或者把正文复制过来。`, actions: [{ t: '重试', pri: true, onclick: c.retry }, { t: '粘贴正文', onclick: pasteInstead }] }),
+  file: c => ({ img: 'error-generic', title: '这个文件 Tibi 读不了', desc: `「${esc(c.name)}」的格式不支持。目前能读 PDF、EPUB、DOCX、TXT、Markdown 和图片。换一个文件，或者把正文复制过来。`, actions: [{ t: '换一个文件', pri: true, onclick: () => $('#fileIn').click() }, { t: '粘贴正文', onclick: pasteInstead }] }),
+  offline: () => ({ img: 'error-offline', title: '现在连不上模型', desc: '网络断了，或者 DeepSeek 暂时不可用。总结、讲解和出题要等恢复后才能用；书架里的文章、查词、标注和复习都在本机，不受影响。', actions: [{ t: '重试', pri: true, onclick: () => { location.hash = ''; } }, READ_NO_AI] }),
+  nomodel: () => ({ img: 'error-offline', title: '还没有连接模型', desc: '总结、讲解和出题需要一个模型。查词、标注和复习在本机，不连模型也能用。', actions: [{ t: '去连接模型', pri: true, onclick: () => { location.href = URLS.onboarding + '#step=3&from=home'; } }, READ_NO_AI] }),
+};
+function showFail(kind, c) { const el = document.createElement('div'); el.style.maxWidth = '640px'; dbody.appendChild(el); emptyState(el, Object.assign({ cls: 'card-like' }, FAIL[kind](c))); scrollEnd(); return el; }
+function blockAI(q) {
+  if (!$('#app').classList.contains('chat-open') || chatSub !== '对话') newChat('对话', q);
+  addMsg('u', esc(q)); showFail(AI_STATE);
+}
+const LV_TIP = { ok: '读起来会比较轻松，可以直接开始', mid: '正好在学习区，建议先看总结再读', hard: '对你偏难，建议先看总结和 6 个短语再读' };
+function runImport(src, retry) {
   const smp = SAMPLES.find(d => 'sample:' + d.t === src);
   const n = nameOf(src), g = smp ? smp.g : /\.epub$|novel|chapter/i.test(src) ? 'lit' : /(bbc|reuters|nytimes|theguardian|apnews|economist|news)/i.test(n.host) ? 'news' : /arxiv|\.pdf$/i.test(src) ? 'academic' : 'tech', kind = /\.epub$/i.test(src) ? 'book' : 'article', sugTags = SUGGEST[g];
   const words = smp ? smp.mins * 230 : 1200 + hash(src) % 2400, ratio = +(2 + (hash(src) % 60) / 10).toFixed(1), lv = ratio <= 2 ? ['舒适', 'ok'] : ratio <= 5 ? ['学习区', 'mid'] : ['偏难', 'hard'];
-  foxWork('reading'); newChat('导入文章', smp ? smp.t : n.t); const body = dbody;   // 任务跑完时用户可能已切到别的对话，结果要写回自己那一页
-  addMsg('u', esc(src)); agentLine('importer', '离开页面也会继续');
-  const box = steps(['获取内容', '提取正文与结构', '分句、词形还原', '对照你的词库标注', 'AI 分析（3 个子任务并行）']); const log = logBox();
+  if (!retry) { newChat('导入文章', smp ? smp.t : n.t); addMsg('u', esc(n.isFile ? src.slice(5) : src)); }
+  const body = dbody;   // 任务跑完时用户可能已切到别的对话，结果要写回自己那一页
+  if (n.isFile && !FILE_OK.test(src)) { showFail('file', { name: src.slice(5) }); return; }
+  if (n.isUrl && AI_STATE === 'offline') { showFail('offline'); return; }
+  foxWork('reading');
+  if (n.isUrl && /fail/i.test(src) && !retry) {   // 原型演示：抓取失败
+    const box = steps(['获取内容']), log = logBox(), row = box.firstElementChild; row.className = 'step run';
+    const line = document.createElement('div'); line.textContent = `GET ${n.host} … 403 Forbidden`;
+    setTimeout(() => {
+      row.className = 'step err'; row.querySelector('.ic').textContent = '!'; log.appendChild(line); foxDone(false);
+      const card = showFail('fetch', { host: n.host, retry: () => { card.remove(); box.remove(); log.parentElement.remove(); runImport(src, true); } });
+    }, 800);
+    return;
+  }
+  if (!retry) agentLine('importer', '离开页面也会继续');
+  const box = steps(['获取内容', '提取正文与结构', '分句、词形还原', '对照你的词库标注', AI_STATE ? `AI 分析（${AI_STATE === 'offline' ? '连不上模型' : '未连接模型'}，先跳过）` : 'AI 分析（3 个子任务并行）']); const log = logBox();
   const script = [
     [n.isUrl ? `GET ${n.host} … 200 OK` : n.isFile ? `读取文件 ${src.slice(5)}` : `读取粘贴的文字（${src.length} 字符）`],
     [`识别标题：${n.t}`, `正文 ${words.toLocaleString()} 词，${Math.round(words / 22)} 句；过滤导航与广告`, `形态：${KIND[kind]} · 类型：${GEN[g]}`],
     ['分句完成', `词形还原 ${Math.round(words * 0.42)} 个不同词形`],
     [`对照你的 6,214 个已知词`, `生词 ${Math.round(words * ratio / 100 / 3)} 个 · 待确认 ${Math.round(words * 0.004)} 个`, `生词率 ${ratio}%（${lv[0]}）`],
-    ['子任务 · 中文总结 ✓ 9.1s', '子任务 · 6 个值得学的短语 ✓ 6.3s', '子任务 · 3 句长难句 ✓ 11.8s'],
+    AI_STATE ? [] : ['子任务 · 中文总结 ✓ 9.1s', '子任务 · 6 个值得学的短语 ✓ 6.3s', '子任务 · 3 句长难句 ✓ 11.8s'],
   ];
-  play(box, log, script, () => {
+  const id = 'n' + Date.now(), res = document.createElement('div'); res.className = 'result';
+  const nd = { id, kind, g, tags: [...sugTags], t: n.t, src: n.host || '导入', mins: Math.round(words / 230), ratio, lv, p: 0 };
+  play(box, log, script, () => {   // AI 分析完成：补上标签、总结和推荐读法
     foxDone();
-    const id = 'n' + Date.now(); const nd = { id, kind, g, tags: [...sugTags], t: n.t, src: n.host || '导入', mins: Math.round(words / 230), ratio, lv, p: 0 }; DOCS.unshift(nd);
-    const res = document.createElement('div'); res.className = 'result';
-    res.innerHTML = `<span class="cv" data-cover="${id}"></span><div class="rb"><div class="t">${esc(n.t)}</div><div class="m"><span>${KIND[kind]} · ${GEN[g]}</span><span>约 ${Math.round(words / 230)} 分钟</span><span class="lv ${lv[1]}">${lv[0]} · 生词率 ${ratio}%</span></div>
-      <div class="sug">Tibi 建议的标签：${sugTags.map(t => `<button class="tagf on" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}<button class="tagf" data-tag="">＋ 自己加</button><span>点一下取消 · 书架里随时能改</span></div>
-      <div class="sum">（原型）这里显示 AI 生成的 3–5 句中文总结，以及推荐的阅读方式：生词率在学习区，建议先看总结再读，重点关注 6 个短语。</div>
-      <div class="acts"><a class="btn pri" href="${URLS.reader}" id="openNew">开始阅读</a><button class="btn" id="seeShelf">在书架中查看</button></div>${provHtml('importer', '用时 18 秒 · ¥0.008', 'h1')}</div>`;
-    body.appendChild(res); ext($('#openNew')); res.querySelectorAll('[data-ext]').forEach(ext); covers(); anim(res, { opacity: [0, 1], y: [12, 0] }, { type: 'spring', bounce: 0.2, duration: 0.5 }); scrollEnd();
+    const rb = res.querySelector('.rb'), acts = rb.querySelector('.acts'); rb.querySelector('.bgnote').remove();
+    if (AI_STATE) acts.insertAdjacentHTML('beforebegin', `<div class="sum">${AI_STATE === 'offline' ? '现在连不上模型，所以还没有总结，恢复后会自动补上。' : '还没有连接模型，所以没有总结和短语。'}生词已经标好，可以直接读。</div>`);
+    else acts.insertAdjacentHTML('beforebegin', `<div class="sug">Tibi 建议的标签：${sugTags.map(t => `<button class="tagf on" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}<button class="tagf" data-tag="">＋ 自己加</button><span>点一下取消 · 书架里随时能改</span></div>
+      <div class="sum">（原型）这里显示 AI 生成的 3–5 句中文总结，以及推荐的阅读方式：${LV_TIP[lv[1]]}。</div>`);
+    if (!AI_STATE) rb.insertAdjacentHTML('beforeend', provHtml('importer', '用时 18 秒 · ¥0.008', 'h1'));
+    res.querySelectorAll('[data-ext]').forEach(ext); anim(rb.querySelectorAll('.sug, .sum, .prov-line'), { opacity: [0, 1], y: [6, 0] }, { duration: 0.3, ease: EASE }); scrollEnd();
     res.querySelectorAll('[data-tag]').forEach(b => b.onclick = () => { if (!b.dataset.tag) { const v = prompt('新标签'); if (v && v.trim()) { nd.tags.push(v.trim()); b.insertAdjacentHTML('beforebegin', `<button class="tagf on" data-tag="${esc(v.trim())}">${esc(v.trim())}</button>`); renderGrid(false); } return; } b.classList.toggle('on'); nd.tags = [...res.querySelectorAll('[data-tag].on')].map(x => x.dataset.tag); renderGrid(false); });
-    $('#seeShelf').onclick = () => { $('#grid').scrollIntoView({ block: 'start', behavior: REDUCE ? 'auto' : 'smooth' }); };
-    filter = 'all'; document.querySelectorAll('#filters .pill').forEach(x => x.classList.toggle('on', x.dataset.f === 'all'));
-    renderGrid(false, id); anim($(`.card[data-id="${id}"]`), { opacity: [0, 1], scale: [0.94, 1] }, { type: 'spring', bounce: 0.3, duration: 0.6 });
-    $('[data-nav-count]') && 0;
+  }, i => {
+    if (i === 1) {   // 正文提取好就能读（可先读后分析），标注和 AI 分析在后台继续
+      DOCS.unshift(nd);
+      res.innerHTML = `<span class="cv" data-cover="${id}"></span><div class="rb"><div class="t">${esc(n.t)}</div><div class="m"><span>${KIND[kind]} · ${GEN[g]}</span><span>约 ${nd.mins} 分钟</span></div>
+        <div class="bgnote">正文已经可以读了。生词标注和 AI 分析在后台继续，读的时候会陆续出现。</div>
+        <div class="acts"><a class="btn pri" href="${URLS.reader}">开始阅读</a><button class="btn" data-see>在书架中查看</button></div></div>`;
+      body.appendChild(res); ext(res.querySelector('a.pri')); covers(); anim(res, { opacity: [0, 1], y: [12, 0] }, { type: 'spring', bounce: 0.2, duration: 0.5 }); scrollEnd();
+      res.querySelector('[data-see]').onclick = () => { closeDrawer(); $('#grid').scrollIntoView({ block: 'start', behavior: REDUCE ? 'auto' : 'smooth' }); };
+      filter = 'all'; document.querySelectorAll('#filters .pill').forEach(x => x.classList.toggle('on', x.dataset.f === 'all'));
+      renderGrid(false, id); renderCont(); renderRecent(); anim($(`.card[data-id="${id}"]`), { opacity: [0, 1], scale: [0.94, 1] }, { type: 'spring', bounce: 0.3, duration: 0.6 });
+    } else if (i === 3) {   // 标注完：生词率、难度取实际值
+      res.querySelector('.m').insertAdjacentHTML('beforeend', `<span class="lv ${lv[1]}">${lv[0]} · 生词率 ${ratio}%</span>`);
+    }
   });
 }
 function runFind(q) {
+  if (AI_STATE) return blockAI(q);
   foxWork('thinking'); newChat('找文章', q); const body = dbody; addMsg('u', esc(q)); agentLine('scout');
   const box = steps(['读取你的词汇画像和兴趣', '扫描书架与订阅源', '按"对你的生词率"和"复现学习中的词"排序']); const log = logBox();
-  play(box, log, [['词汇量约 6,214 · 目标雅思 7 分', '兴趣：Rust 技术文档、科技新闻、英国古典小说'], ['书架 7 篇 · 订阅源 3 个 · 候选 42 篇'], ['筛掉生词率 > 6% 的 31 篇', '优先复现 overhead、deterministic 等 6 个学习中的词']], () => {
+  play(box, log, [['词汇量约 6,214 · 目标雅思 7 分', '兴趣：Rust 技术文档、科技新闻、英国古典小说'], ['书架 8 篇 · 订阅源 3 个 · 候选 42 篇'], ['筛掉生词率 > 6% 的 31 篇', '优先复现 overhead、deterministic 等 6 个学习中的词']], () => {
     const picks = [DOCS.find(d => d.id === 'async'), DOCS.find(d => d.id === 'trains')];
     const why = { async: '生词率 3.1% · 约 9 分钟 · 复现 6 个你正在学的词', trains: '生词率 1.6% · 约 5 分钟 · 轻松读完，适合今天收尾' };
     const r = document.createElement('div'); r.innerHTML = `<div class="msg a" style="margin-bottom:10px"><p>按你的水平挑了两篇，第一篇最适合今天：</p></div><div class="recs">${picks.map(d => `<a class="rec" href="#"><span class="cv" data-cover="${d.id}"></span><div><div class="t">${esc(d.t)}</div><div class="why">${why[d.id]}</div></div></a>`).join('')}</div>`;
     foxDone(); r.insertAdjacentHTML('beforeend', `<div style="margin-top:10px">${provHtml('scout', '用时 6 秒 · <¥0.01', 'h2')}</div>`); r.querySelectorAll('[data-ext]').forEach(ext);
     body.appendChild(r); covers(); anim(r.querySelectorAll('.rec'), { opacity: [0, 1], y: [10, 0] }, { duration: 0.4, ease: EASE, delay: stag(0.08) }); scrollEnd();
     r.querySelectorAll('.rec').forEach(a => a.onclick = e => { e.preventDefault(); toast('原型中只有阅读器里的三篇可以打开'); });
-    setTimeout(() => suggestRoutine(body), 1200);
-  });
-}
-/* 在自然断点建议例行任务：手动找文章满 2 次后问一次，拒绝后不再问 */
-let findCount = 0;
-function suggestRoutine(body = dbody) {
-  findCount++;
-  let state = ''; try { state = localStorage.getItem('tibi-routine-scout') || ''; } catch (e) {}
-  if (findCount < 2 || state) return;
-  const card = document.createElement('div'); card.className = 'approve suggest';
-  card.innerHTML = `<div class="h">${agentAv('tibi')}<span>要不要每天早上帮你找 3 篇？</span></div>
-    <div class="b">你今天已经让我找了 ${findCount} 次文章。开启后，我每天 08:00 按你的水平和正在学的词挑好 3 篇，放在首页"今天推荐"里。随时可以在"设置 → Tibi 的技能 → 例行任务"里关掉。</div>
-    <div class="acts"><button class="btn sm pri" data-r="on">每天早上推荐</button><button class="btn sm" data-r="later">以后再说</button><button class="btn sm" data-r="never">不用了</button></div><div class="res" hidden></div>`;
-  body.appendChild(card); anim(card, { opacity: [0, 1], y: [8, 0] }, { duration: 0.35, ease: EASE }); scrollEnd();
-  fox.pulse('listening', 1600);
-  card.querySelectorAll('[data-r]').forEach(b => b.onclick = () => {
-    const k = b.dataset.r, res = card.querySelector('.res'); card.classList.add('done'); res.hidden = false;
-    if (k === 'on') { res.innerHTML = '✓ 已开启：每天早上帮你找 3 篇文章'; toast('已开启例行任务：每天 08:00 帮你找 3 篇文章'); fox.pulse('happy', 2000); }
-    else res.textContent = k === 'later' ? '好，下次再问你' : '好的，不再提这个';
-    try { if (k !== 'later') localStorage.setItem('tibi-routine-scout', k); } catch (e) {}
-    if (k === 'later') findCount = 0;
   });
 }
 function runAsk(q) {
+  if (AI_STATE) return blockAI(q);
   if (!/记住|remember/i.test(q)) { const r = route(q); if (r === 'scout') return runFind(q); if (r) return runDelegate(r, q, false); }
   if (!$('#app').classList.contains('chat-open') || chatSub !== '对话') newChat('对话', q);
   addMsg('u', esc(q));
@@ -447,6 +475,7 @@ const DELEG = {
   archivist: { steps: ['读取今天的学习事件', '对照已有记忆去重', '列出想写入的记忆'], ans: '<p>（原型）整理出 2 条新观察，已放到<b>任务中心 → 等你确认</b>。</p>', meta: '整理记忆 · DeepSeek 快速 · 3 秒 · <¥0.01' },
 };
 function runDelegate(id, q, explicit = true) {
+  if (AI_STATE) return blockAI(q);
   const a = agentById(id), d = DELEG[id];
   if (!$('#app').classList.contains('chat-open') || chatSub !== '对话') newChat('对话', q);
   addMsg('u', explicit ? `<span class="agchip" style="height:22px;margin-right:6px">/${esc(a.slash)}</span>${esc(q)}` : esc(q));
@@ -520,10 +549,12 @@ function foxDone(ok = true) { foxBusy = Math.max(0, foxBusy - 1); if (!foxBusy) 
 input.addEventListener('focus', () => { if (!foxBusy) fox.set('listening'); });
 input.addEventListener('blur', () => { if (!foxBusy) fox.set(NIGHT && !input.value ? 'sleeping' : 'idle'); });
 /* 复习做到一半（G6）：待复习卡片改为"接着复习"。正式版由 review.start 返回未完成的会话；原型读复习页存的进度 */
-try { const sv = JSON.parse(localStorage.getItem('tibi-review-session') || 'null'); if (sv && sv.Q && sv.idx > 0 && sv.idx < sv.Q.length && !IS_EMPTY) { const t = document.querySelector('.tile'), left = sv.Q.length - sv.idx; t.querySelector('.k').textContent = '复习做到一半'; t.querySelector('[data-count]').dataset.count = left; t.querySelector('.d').textContent = `还剩约 ${Math.max(1, Math.round(left * 0.4))} 分钟 · 进度已保存`; t.querySelector('.go').textContent = '接着复习'; } } catch (e) {}
+try { const sv = JSON.parse(localStorage.getItem('tibi-review-session') || 'null'); if (sv && sv.Q && sv.idx > 0 && sv.idx < sv.Q.length && !IS_EMPTY) { const t = document.querySelector('.tile'), left = new Set(sv.Q.map(c => c.w)).size - (sv.results || []).length; t.querySelector('.k').textContent = '复习做到一半'; t.querySelector('[data-count]').dataset.count = left; t.querySelector('.d').textContent = `还剩 ${left} 张，约 ${Math.max(1, Math.round(left / 3))} 分钟 · 进度已保存`; t.querySelector('.go').textContent = '接着复习'; } } catch (e) {}
 document.querySelectorAll('[data-count]').forEach(el => { const to = +el.dataset.count, f = v => el.dataset.sep ? Math.round(v).toLocaleString() : Math.round(v); if (!M || REDUCE) { el.textContent = f(to); return; } try { M.animate(0, to, { duration: 0.9, ease: EASE, onUpdate: v => el.textContent = f(v) }); } catch (e) { el.textContent = f(to); } });
 anim(document.querySelectorAll('.hero > *'), { opacity: [0, 1], y: [12, 0] }, { duration: 0.55, ease: EASE, delay: stag(0.06) });
 anim(document.querySelectorAll('.page > section:not(.hero)'), { opacity: [0, 1], y: [12, 0] }, { duration: 0.5, ease: EASE, delay: stag(0.07, { startDelay: 0.25 }) });
 anim($('#ringArc'), { strokeDashoffset: [87.96, 87.96 * 0.4] }, { duration: 1, ease: EASE, delay: 0.3 }); if (!M || REDUCE) $('#ringArc').setAttribute('stroke-dashoffset', 87.96 * 0.4);
+if (AI_STATE) { newChat('连接状态', AI_STATE === 'offline' ? '现在连不上模型' : '还没有连接模型'); showFail(AI_STATE); }
+addEventListener('hashchange', () => { if (AI_STATE || location.hash === '#offline' || location.hash === '#nomodel') location.reload(); });
 </script>
 <script src="v2-search.js"></script>

@@ -2,7 +2,7 @@
    依赖（可缺省）：Motion、OverlayScrollbars。 */
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const LOCAL = location.protocol === 'file:';
+const LOCAL = location.protocol === 'file:' || ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);   // 本地预览（文件或本机服务）走相对路径
 const URLS = LOCAL
   ? { home: 'home.html', reader: 'reader.html', words: 'words.html', review: 'review.html', stats: 'stats.html', settings: 'settings.html', tasks: 'tasks.html', mobile: 'mobile.html', library: 'library.html', onboarding: 'onboarding.html' }
   : { home: 'https://claude.ai/artifact/25jzi4f4fvQg9qbpiQziqd', reader: 'https://claude.ai/artifact/WoQdUMnm2aTwoEaaW2uGiM', words: 'https://claude.ai/artifact/FqP5DF1DAyKoSPj3Ek8AEf', review: 'https://claude.ai/artifact/FTUFPKbBTQ2EV7NmkE8VF4', stats: 'https://claude.ai/artifact/Ry1MR9bvumcJ1cvMZYiH15', settings: 'https://claude.ai/artifact/4os2bCRwuuHXpXp6JYB8pA', tasks: 'https://claude.ai/artifact/FPy1wjttFMjohaYoZ4PWez', mobile: 'https://claude.ai/artifact/9V1ocjyp3cDBiT9aUbkinn', library: 'https://claude.ai/artifact/Cqyenzc3YMxdDTMfKRgrWo', onboarding: 'https://claude.ai/artifact/NbaX6HBbBSW6rmvM9fTPM3' };
@@ -74,7 +74,7 @@ function demoToggle() {
 
 /* 桌面原型在手机上打开时的提示（桌面应用最小窗口 960px，手机端是独立的壳） */
 function phoneHint() {
-  if (!(screen.width < 760 || (visualViewport && visualViewport.width < 760))) return; /* 桌面页有 min-width，innerWidth 不可靠 */
+  if (!((screen.width < 960 && navigator.maxTouchPoints > 0) || (visualViewport && visualViewport.width < 960))) return; /* 桌面页有 min-width，innerWidth 不可靠 */
   const d = document.createElement('div'); d.className = 'phone-hint';
   d.innerHTML = `这是桌面版原型（窗口最小 960px）。手机上请看 <a href="${URLS.mobile}">手机版原型</a>`; ext(d.querySelector('a'));
   document.body.appendChild(d);

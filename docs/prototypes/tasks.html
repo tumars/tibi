@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="v2-theme.js"></script>
 <title>Tibi 任务</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,7 +20,7 @@
 .seg button .n { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; } .seg button .n.hot { color: var(--accent); }
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .kpi { border-radius: 14px; background: var(--sunken); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
-.kpi .k { font-size: 12px; color: var(--ink-2); } .kpi .v { font-size: 22px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.kpi .k { font-size: 12px; color: var(--ink-2); } .kpi .v { display: flex; flex-wrap: wrap; align-items: baseline; font-size: 22px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .kpi .v small { font-size: 12px; font-weight: 400; color: var(--ink-3); margin-left: 3px; }
 .kpi .bar2 { margin-top: 4px; }
 .tsec { display: flex; flex-direction: column; gap: 8px; }
@@ -35,7 +41,6 @@
 .trow .acts .ibtn { width: 30px; height: 30px; }
 .st { width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; flex: none; }
 .st.ok { background: var(--ink); color: var(--surface); } .st.err { background: var(--hard); color: #fff; } .st.cancel { box-shadow: inset 0 0 0 1.5px var(--line-2); color: var(--ink-3); }
-.sched .when { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .none { padding: 16px; font-size: 13px; color: var(--ink-3); }
 .appr-list { display: flex; flex-direction: column; gap: 8px; }
 .approve .edit { width: 100%; min-height: 54px; border: 0; border-radius: 10px; background: var(--sunken); padding: 8px 10px; font: inherit; font-size: 13px; color: var(--ink); resize: vertical; outline: none; }
@@ -80,7 +85,7 @@
       <a href="#" data-link="words" title="生词本"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg><span class="hide-c">生词本</span><span class="n hide-c" id="navWords">33</span></a>
       <a href="#" data-link="review" title="复习"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg><span class="hide-c">复习</span><span class="n badge hide-c">18</span></a>
       <a href="#" data-link="stats" title="统计"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span class="hide-c">统计</span></a>
-      <a href="#" class="cur" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">3</span></a>
+      <a href="#" class="cur" title="任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg><span class="hide-c">任务</span><span class="n badge hide-c" id="navTasks">4</span></a>
     </nav>
     <div class="sideh hide-c" id="sideH">最近</div>
     <div class="recent hide-c" id="recent"></div>
@@ -89,7 +94,7 @@
         <svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle id="ringArc" cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="87.96" transform="rotate(-90 18 18)"/></svg>
         <div class="hide-c"><div class="t">连续 9 天</div><div class="s">今日 12 / 20 分钟</div></div>
       </div>
-      <div class="user"><span class="av">你</span><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
+      <div class="user"><a class="av" data-link="settings" href="#" title="设置">你</a><span class="t hide-c">约 6,214 词</span><a class="ibtn hide-c" title="设置" data-link="settings" href="#" id="setLink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></a></div>
     </div>
   </aside>
   <section class="main">
@@ -108,7 +113,6 @@
         <section class="kpis" id="kpis"></section>
         <section class="tsec" id="secAppr"><h2>等你确认 <span class="n" id="nAppr"></span></h2><div class="desc">Tibi 要改动你的数据时，会按"设置 → Tibi"里的权限先问你</div><div class="appr-list" id="appr"></div></section>
         <section class="tsec" id="secRun"><h2>运行中 <span class="n" id="nRun"></span></h2><div class="list" id="run"></div></section>
-        <section class="tsec" id="secSched"><h2>例行任务 <span class="n" id="nSched"></span></h2><div class="desc">Tibi 按时自动做的事；在"设置 → Tibi 的技能"里可以改时间</div><div class="list" id="sched"></div></section>
         <section class="tsec" id="secHist"><h2>最近 <span class="n" id="nHist"></span></h2><div class="list" id="hist"></div></section>
       </main>
     </div>
@@ -144,7 +148,7 @@ let TASKS = [
   { id: 't2', state: 'run', agent: 'tibi', title: '找两篇周末读的小说章节', trigger: '你在对话里问 Tibi', model: 'fast', start: '1 分钟前', dur: 38, tokens: 5840, cost: 0.006,
     steps: [st('理解你的要求', 'ok', '1.4s'), st('找文章', 'run', '', [st('读取词汇画像与兴趣', 'ok', '0.3s'), st('扫描订阅源与公有领域书库', 'run'), st('按生词率排序', 'wait')], 'scout'), st('整理推荐理由并回复你', 'wait')],
     tx: [['u', '周末想读点小说，帮我找两篇难度合适的章节'], ['a', '好的，我去找，优先选你在读的英国古典小说。'], ['c', 'delegate', '{ agent: "scout", task: "两篇小说章节，生词率 2–5%，约 15 分钟" }', '技能「找文章」运行中', ''], ['c', 'scout → search_feeds', '{ genre: "novel", source: "gutenberg" }', '候选 64 篇', '2.3s']] },
-  { id: 't3', state: 'appr', agent: 'archivist', title: '整理今天的记忆', trigger: '例行任务 · 每晚 23:00（你手动提前运行了）', model: 'fast', start: '3 分钟前', dur: 12, tokens: 2210, cost: 0.002,
+  { id: 't3', state: 'appr', agent: 'archivist', title: '整理今天的记忆', trigger: '你在首页输入 /整理记忆', model: 'fast', start: '3 分钟前', dur: 12, tokens: 2210, cost: 0.002,
     steps: [st('读取今天的学习事件（14 条）', 'ok', '0.2s'), st('对照已有记忆去重', 'ok', '2.1s'), st('写入新观察', 'appr'), st('标记过时的记忆', 'wait')],
     appr: { tool: 'remember', title: 'Tibi 想记住一条新观察', body: '经常混淆 <b>affect / effect</b>：今天复习时第 3 次选错，阅读时也查了 2 次。', edit: '经常混淆 affect / effect（复习第 3 次选错，阅读时查了 2 次）', src: '来自：复习记录、阅读记录 · 今天' },
     tx: [['c', 'list_learning_events', '{ since: "today" }', '14 条事件', '0.2s'], ['c', 'search_memory', '{ query: "affect effect" }', '1 条相似：经常混淆 affect / effect（10/26）', '0.1s'], ['a', '这条和 10/26 的观察是同一件事，但又出现了一次，所以更新它并提高置信度。'], ['c', 'remember', '{ type: "semantic", content: "经常混淆 affect / effect…", supersedes: 18 }', '等你确认', '']] },
@@ -167,7 +171,6 @@ let TASKS = [
   { id: 'h5', state: 'cancel', agent: 'tutor', title: '讲解长难句', trigger: '阅读器选中句子', model: 'fast', start: '昨天 20:12', dur: 2, tokens: 300, cost: 0.0003,
     steps: [st('分析句子结构', 'wait')], tx: [['u', 'When the owner goes out of scope, the value is dropped…'], ['a', '（你在回答前取消了）']] },
 ];
-let SCHED = AGENTS.filter(a => a.schedule).map(a => ({ agent: a.id, label: a.schedule.label, on: a.schedule.on, next: { scout: '明天 08:00', insight: '下周一 09:00', archivist: '今晚 23:00' }[a.id] }));
 let view = 'all', selId = null;
 const BUDGET = 20, SPENT = AGENTS.reduce((s, a) => s + a.cost, 0);
 const fmtCost = c => c < 0.01 ? '<¥0.01' : '¥' + c.toFixed(2);
@@ -178,12 +181,12 @@ const progress = t => { const all = t.steps; return Math.round(all.filter(s => s
 
 /* ---------- 渲染 ---------- */
 function renderFilter() {
-  const n = { run: TASKS.filter(t => t.state === 'run').length, appr: TASKS.filter(t => t.state === 'appr').length, sched: SCHED.length, hist: TASKS.filter(t => ['done', 'err', 'cancel'].includes(t.state)).length };
-  $('#filter').innerHTML = [['all', '全部'], ['appr', '等你确认', n.appr, 1], ['run', '运行中', n.run, 1], ['sched', '例行任务', n.sched], ['hist', '历史', n.hist]].map(([k, l, c, hot]) => `<button data-v="${k}"${k === view ? ' class="on"' : ''}>${l}${c !== undefined ? `<span class="n${hot && c ? ' hot' : ''}">${c}</span>` : ''}</button>`).join('');
+  const n = { run: TASKS.filter(t => t.state === 'run').length, appr: TASKS.filter(t => t.state === 'appr').length, hist: TASKS.filter(t => ['done', 'err', 'cancel'].includes(t.state)).length };
+  $('#filter').innerHTML = [['all', '全部'], ['appr', '等你确认', n.appr, 1], ['run', '运行中', n.run, 1], ['hist', '历史', n.hist]].map(([k, l, c, hot]) => `<button data-v="${k}"${k === view ? ' class="on"' : ''}>${l}${c !== undefined ? `<span class="n${hot && c ? ' hot' : ''}">${c}</span>` : ''}</button>`).join('');
   $('#filter').querySelectorAll('button').forEach(b => b.onclick = () => { view = b.dataset.v; renderAll(); });
-  $('#nAppr').textContent = n.appr; $('#nRun').textContent = n.run; $('#nSched').textContent = n.sched; $('#nHist').textContent = n.hist;
+  $('#nAppr').textContent = n.appr; $('#nRun').textContent = n.run; $('#nHist').textContent = n.hist;
   const badge = document.getElementById('navTasks'); if (badge) { badge.textContent = n.run + n.appr; badge.hidden = !(n.run + n.appr); }
-  const show = { secAppr: ['all', 'appr'], secRun: ['all', 'run'], secSched: ['all', 'sched'], secHist: ['all', 'hist'] };
+  const show = { secAppr: ['all', 'appr'], secRun: ['all', 'run'], secHist: ['all', 'hist'] };
   Object.entries(show).forEach(([id, v]) => $('#' + id).hidden = !v.includes(view) || (view === 'all' && id === 'secAppr' && !n.appr));
 }
 function renderKpis() {
@@ -242,16 +245,10 @@ function renderLists() {
   $('#run').innerHTML = run.length ? run.map(rowRun).join('') : '<div class="none">现在没有运行中的任务。</div>';
   const dayOf = t => /^(刚刚|今天)/.test(t.start) ? '今天' : /^昨天/.test(t.start) ? '昨天' : '更早'; let lastDay = '';
   $('#hist').innerHTML = hist.map(t => { const d = dayOf(t); const h = d !== lastDay ? `<div class="dayh">${d}</div>` : ''; lastDay = d; return h + rowHist(t); }).join('');
-  $('#sched').innerHTML = SCHED.map((s, i) => `<div class="trow sched" data-s="${i}"><span class="av-ag lg">${agentIcon(s.agent, 17)}</span><div style="min-width:0"><div class="t">${esc(s.label)}</div><div class="s"><span class="when">${s.on ? '下次：' + s.next + ' · ' + skillOf(s.agent) : '已关闭'}</span></div></div>
-    <div class="acts"><button class="btn sm" data-now="${i}">立即运行</button><button class="switch" role="switch" aria-checked="${s.on}" aria-label="例行任务开关" data-sw="${i}"></button></div></div>`).join('');
   document.querySelectorAll('.trow[data-id]').forEach(r => r.onclick = e => { if (e.target.closest('button')) return; openTask(r.dataset.id); });
   document.querySelectorAll('[data-pause]').forEach(b => b.onclick = () => { const t = TASKS.find(x => x.id === b.dataset.pause); t.paused = !t.paused; renderAll(); toast(t.paused ? '已暂停：完成当前这一步后停下' : '已继续'); });
   document.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => { const t = TASKS.find(x => x.id === b.dataset.cancel); t.state = 'cancel'; t.start = '刚刚'; t.tx.push(['a', '（你取消了这个任务，已完成的步骤保留，正在用的技能一并停止）']); renderAll(); if (selId === t.id) renderDetail(); toast('已取消', () => { t.state = 'run'; renderAll(); }); });
   document.querySelectorAll('[data-retry]').forEach(b => b.onclick = () => retry(b.dataset.retry));
-  document.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { const s = SCHED[+b.dataset.sw]; s.on = !s.on; renderAll(); toast(s.on ? `已开启：${s.label}` : '已关闭这项例行任务'); });
-  document.querySelectorAll('[data-now]').forEach(b => b.onclick = () => { const s = SCHED[+b.dataset.now]; const id = 'n' + Date.now();
-    TASKS.unshift({ id, state: 'run', agent: s.agent, title: s.label, trigger: '你手动运行了例行任务', model: agentById(s.agent).model, start: '刚刚', dur: 0, tokens: 0, cost: 0, steps: [st('准备', 'run'), st('执行', 'wait'), st('整理结果', 'wait')], tx: [['a', '（原型）开始运行。']] });
-    renderAll(); toast(`已开始：${s.label}`); });
 }
 function retry(id) {
   const t = TASKS.find(x => x.id === id); flat(t.steps).forEach(s => { if (s.s === 'err' || s.s === 'wait') s.s = 'wait'; }); const first = flat(t.steps).find(s => s.s === 'wait'); if (first) first.s = 'run';
