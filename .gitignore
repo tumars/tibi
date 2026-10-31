@@ -12,3 +12,17 @@ docs/design/mascot/out/
 node_modules/
 dist/
 target/
+# Node / 构建产物
+node_modules/
+dist/
+*.tsbuildinfo
+# Rust
+target/
+# 本地数据库与密钥
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+# 词典原始数据（用 pnpm ecdict 下载）
+data/ecdict/

@@ -1,0 +1,25 @@
+{
+  "name": "@tibi/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tibi Core：领域服务、能力层、内核（对话 / 任务 / 检查点）、JSON-RPC。纯 TypeScript，不依赖 Node 专有 API（R11）",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./sql/*": "./sql/*",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "1.4.0",
+    "@earendil-works/pi-ai": "1.4.0",
+    "@sinclair/typebox": "^0.34.52",
+    "ts-fsrs": "^6.0.0"
+  },
+  "devDependencies": {
+    "@tibi/core-node": "workspace:*"
+  }
+}
