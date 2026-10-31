@@ -132,7 +132,16 @@ fn handle_deep_link(app: &AppHandle, urls: &[tauri::Url]) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // 单实例要最先注册（插件文档要求）；第二个进程带来的深链由 deep-link 特性转发给 on_open_url
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+    }));
+    builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())

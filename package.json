@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "typecheck": "pnpm -r --parallel typecheck",
     "build": "pnpm -r build",
-    "ecdict": "pnpm --filter @tibi/core-node ecdict"
+    "ecdict": "pnpm --filter @tibi/core-node ecdict",
+    "clipper:zip": "node extensions/clipper/zip.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",

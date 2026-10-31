@@ -29,6 +29,10 @@ env_logger = "0.11"
 [target.'cfg(target_os = "macos")'.dependencies]
 window-vibrancy = "0.6"
 
+# Windows / Linux：深链会再起一个进程，交给已经开着的那个（deep-link 特性会转发 URL）
+[target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+
 [profile.release]
 codegen-units = 1
 lto = true

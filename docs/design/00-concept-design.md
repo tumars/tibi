@@ -109,6 +109,7 @@
 - **扩展**：只用 `activeTab` 权限取当前标签页的 URL（只发 http(s)），通过深链 `tibi://import?url=…` 打开 Tibi，应用没开时由系统拉起。不用本地服务和 native messaging，不读页面内容，也不登录。
 - **Tibi**：深链算外部触发。按 [05 §8](05-agent-architecture.md#8-权限审批与安全) 校验 URL，弹出确认卡（显示站点和网址）；用户确认后才抓取，取消则什么都不留。
 - **失败**：需要登录的页面抓不到正文时走失败态，提示打开页面复制正文、粘贴到 Tibi。
+- **实现**（M1，2026-10-31）：`extensions/clipper/`，Chrome / Edge 的 MV3 扩展，点工具栏按钮或按 Alt+Shift+T 发送；非 http(s) 页面在按钮上显示"!"，不发送。桌面端在 Windows / Linux 上用单实例插件，Tibi 已经开着时深链交给原来的窗口，不再起第二个进程。Firefox 和 Safari 版放到后面。
 
 ### 3.2 沉浸式阅读面板（Reader）——核心界面
 

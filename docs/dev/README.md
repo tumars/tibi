@@ -27,6 +27,8 @@ tibi/
                           stdio / WebSocket 传输、启动入口 bin.ts、ECDICT 入库脚本；打包成 Tauri sidecar
   apps/
     desktop/              @tibi/desktop：Tauri 2 壳（src-tauri）+ React 界面（src）
+  extensions/
+    clipper/              剪藏插件（Chrome / Edge MV3，只有"发送到 Tibi"，见 README）
   docs/                   设计文档、原型、调研（文档即代码）
   tools/                  gen-mascot.py 等脚本
 ```
@@ -44,6 +46,7 @@ pnpm --filter @tibi/core-node build   # 打包 dist/tibi-core.js（sidecar 的 J
 pnpm --filter @tibi/core-node sidecar # Bun --compile 单文件 sidecar → apps/desktop/src-tauri/binaries/
 pnpm --filter @tibi/core gen          # 改了 sql/*.sql、skills/*.md 或 samples/ 后重新生成内嵌文件
 pnpm ecdict                        # 下载 ECDICT 并生成 data/dict.db（不进仓库）
+pnpm clipper:zip                   # 打包剪藏插件 extensions/clipper/dist/*.zip
 ```
 
 Core 的 stdio 协议（06 §1）：每行一条 JSON。壳 → Core 请求 `{jsonrpc, id, method, params}`；Core → 壳 响应 `{jsonrpc, id, result | error}`、事件 `{jsonrpc, method: 'event', params: {event, data}}`、反向请求 `{jsonrpc, id: 'h-n', method: 'secret.get', params: {ref}}`（壳回 `{id, result: {secret}}`）。日志只走 stderr。
