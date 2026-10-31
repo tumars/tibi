@@ -26,10 +26,10 @@
 :root {
   --bg: #f6f6f5; --surface: #ffffff; --sunken: #f2f2f1; --hover: rgba(0,0,0,.04); --line: rgba(0,0,0,.08); --line-2: rgba(0,0,0,.13);
   --ink: #18181b; --ink-2: #55555c; --ink-3: #6b6b74;
-  --accent: #3b5bfd; --accent-ink: #ffffff; --accent-wash: rgba(59,91,253,.08);
+  --accent: #3d52e0; --accent-ink: #ffffff; --accent-wash: rgba(61,82,224,.08);
   --warm: #f5a043; --warm-wash: rgba(245,160,67,.14); /* 品牌暖色：只用于吉祥物、庆祝、连续学习、logo 书签 */
   --ok: #2f8a4c; --mid: #b07a12; --hard: #c2452f;
-  --hl-new: rgba(110,155,220,.34); --hl-1: rgba(226,170,50,.50); --hl-2: rgba(226,170,50,.36); --hl-3: rgba(226,170,50,.23); --hl-4: rgba(226,170,50,.12); --pencil: #8d8a83; --play: rgba(59,91,253,.07);
+  --hl-new: rgba(110,155,220,.34); --hl-1: rgba(226,170,50,.50); --hl-2: rgba(226,170,50,.36); --hl-3: rgba(226,170,50,.23); --hl-4: rgba(226,170,50,.12); --pencil: #8d8a83; --play: rgba(61,82,224,.07);
   --c-tech: #e9eeff; --c-news: #fff1e3; --c-novel: #eaf4e6; --c-ink: #22232a;
   --scroll: rgba(0,0,0,.14); --scroll-hover: rgba(0,0,0,.3); --scroll-active: rgba(0,0,0,.42);
   --f-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Alibaba PuHuiTi 3.0", "Noto Sans SC", sans-serif;   /* 系统字体优先（2026-10-30 精修并入）；普惠体只做回落 */
@@ -39,8 +39,8 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0b0b0c; --surface: #141416; --sunken: #1b1b1e; --hover: rgba(255,255,255,.05); --line: rgba(255,255,255,.09); --line-2: rgba(255,255,255,.15);
-    --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #8e8e97; --accent: #6f86ff; --accent-ink: #0b0b0c; --accent-wash: rgba(111,134,255,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16);
-    --ok: #6cc28a; --mid: #e2b04f; --hard: #ef8a76; --hl-new: rgba(110,155,230,.30); --hl-1: rgba(230,180,70,.40); --hl-2: rgba(230,180,70,.28); --hl-3: rgba(230,180,70,.18); --hl-4: rgba(230,180,70,.09); --play: rgba(111,134,255,.10);
+    --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #8e8e97; --accent: #7d8cf0; --accent-ink: #0b0b0c; --accent-wash: rgba(125,140,240,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16);
+    --ok: #6cc28a; --mid: #e2b04f; --hard: #ef8a76; --hl-new: rgba(110,155,230,.30); --hl-1: rgba(230,180,70,.40); --hl-2: rgba(230,180,70,.28); --hl-3: rgba(230,180,70,.18); --hl-4: rgba(230,180,70,.09); --play: rgba(125,140,240,.10);
     --c-tech: #1c2136; --c-news: #2a2118; --c-novel: #1b2619; --c-ink: #d9d9de;
     --scroll: rgba(255,255,255,.14); --scroll-hover: rgba(255,255,255,.28); --scroll-active: rgba(255,255,255,.4);
     color-scheme: dark;
@@ -48,8 +48,8 @@
 }
 :root[data-theme="dark"] {
   --bg: #0b0b0c; --surface: #141416; --sunken: #1b1b1e; --hover: rgba(255,255,255,.05); --line: rgba(255,255,255,.09); --line-2: rgba(255,255,255,.15);
-  --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #8e8e97; --accent: #6f86ff; --accent-ink: #0b0b0c; --accent-wash: rgba(111,134,255,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16);
-  --ok: #6cc28a; --mid: #e2b04f; --hard: #ef8a76; --hl-new: rgba(110,155,230,.30); --hl-1: rgba(230,180,70,.40); --hl-2: rgba(230,180,70,.28); --hl-3: rgba(230,180,70,.18); --hl-4: rgba(230,180,70,.09); --play: rgba(111,134,255,.10);
+  --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #8e8e97; --accent: #7d8cf0; --accent-ink: #0b0b0c; --accent-wash: rgba(125,140,240,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16);
+  --ok: #6cc28a; --mid: #e2b04f; --hard: #ef8a76; --hl-new: rgba(110,155,230,.30); --hl-1: rgba(230,180,70,.40); --hl-2: rgba(230,180,70,.28); --hl-3: rgba(230,180,70,.18); --hl-4: rgba(230,180,70,.09); --play: rgba(125,140,240,.10);
   --c-tech: #1c2136; --c-news: #2a2118; --c-novel: #1b2619; --c-ink: #d9d9de;
   --scroll: rgba(255,255,255,.14); --scroll-hover: rgba(255,255,255,.28); --scroll-active: rgba(255,255,255,.4);
   color-scheme: dark;
