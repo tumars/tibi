@@ -480,3 +480,13 @@ h2.st .sp { flex: 1; }
 .approve .h .k { margin-left: auto; font-size: 11px; color: var(--mid); font-weight: 500; }
 .approve .b { color: var(--ink-2); line-height: 1.6; white-space: pre-wrap; }
 .approve .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 阅读器 Tibi 面板与选中文本的"问 Tibi" */
+.rpanel.tibi { grid-template-rows: auto minmax(0, 1fr); }
+.rpanel .chatwrap { min-height: 0; }
+.rpanel .chatpage { padding: 6px 16px 16px; gap: 14px; }
+.rpanel .chatwrap .dfoot { padding: 8px 12px 12px; }
+.rpanel .msg { font-size: 13.5px; }
+.tibi-empty { margin-top: 24px; font-size: 13.5px; color: var(--ink-2); line-height: 1.7; }
+.tibi-empty p { margin: 0 0 6px; }
+.selask { position: fixed; z-index: 40; transform: translate(-50%, calc(-100% - 8px)); height: 30px; padding: 0 12px; border-radius: 15px; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; background: var(--ink); color: var(--surface); box-shadow: 0 6px 18px -8px rgba(0,0,0,.4); }

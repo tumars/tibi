@@ -7,10 +7,10 @@ import { speak, STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { toast } from '../store/ui';
 
-export interface WordCardProps { word: string; sentenceId?: string; anchor: DOMRect; onClose: () => void; onStatus?: (text: string, status: Status) => void }
+export interface WordCardProps { word: string; sentenceId?: string; anchor: DOMRect; onClose: () => void; onStatus?: (text: string, status: Status) => void; onAsk?: (word: string, sentenceId?: string) => void }
 
 /** 词卡浮层（00 §3.2）：词典 + 本地状态 + 语境释义；六档熟练度与忽略 */
-export function WordCard({ word, sentenceId, anchor, onClose, onStatus }: WordCardProps) {
+export function WordCard({ word, sentenceId, anchor, onClose, onStatus, onAsk }: WordCardProps) {
   const [data, setData] = useState<Result<'terms.lookup'>>();
   const [err, setErr] = useState<string>();
   const [status, setStatus] = useState<Status | undefined>();
@@ -73,7 +73,7 @@ export function WordCard({ word, sentenceId, anchor, onClose, onStatus }: WordCa
       </div>
       <div className="row">
         <button className={`btn${status === 98 ? ' pri' : ''}`} onClick={() => setS(98)}>忽略</button>
-        <button className="btn" onClick={() => toast('M2 起可以问 Tibi')}>问 Tibi</button>
+        <button className="btn" onClick={() => (onAsk ? onAsk(data?.term?.display ?? word, sentenceId) : toast('在阅读器里可以问 Tibi'))}>问 Tibi</button>
       </div>
     </div>
   );

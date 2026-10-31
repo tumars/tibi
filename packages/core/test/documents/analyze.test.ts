@@ -70,6 +70,14 @@ describe('导入后的 AI 分析（M2）', () => {
     expect(sec.sentences.map(s => s.translation)).toEqual(['大多数团队低估了重试策略增加的延迟。', '天真的指数退避会放大故障。']);
   });
 
+  it('同一篇文章同时打开两次对话只建一个（阅读器 Tibi 面板）', async () => {
+    const { core, imp } = await setup(null);
+    const id = await imp();
+    const [a, b] = await Promise.all([core.call<{ id: string }>('chat.open', { document_id: id }), core.call<{ id: string }>('chat.open', { document_id: id })]);
+    expect(a.id).toBe(b.id);
+    expect((await core.call<{ id: string }>('chat.open', { document_id: id })).id).toBe(a.id);
+  });
+
   it('宽松解析 JSON', () => {
     expect(parseJsonLoose('好的：{"a":1} 以上')).toEqual({ a: 1 });
     expect(parseJsonLoose('```\n["x"]\n```')).toEqual(['x']);

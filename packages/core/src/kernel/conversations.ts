@@ -15,6 +15,9 @@ export function localDay(t: number = now()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** 正在打开的文章对话（进程内去重） */
+const OPENING = new Map<string, Promise<Conversation>>();
+
 export class Conversations {
   constructor(private readonly db: Database) {}
 
@@ -33,10 +36,11 @@ export class Conversations {
       return c;
     }
     if (opts.document_id) {
-      const link = await this.db.get<{ conversation_id: string }>('SELECT tl.conversation_id FROM thread_links tl JOIN conversations c ON c.id = tl.conversation_id WHERE tl.document_id = ? AND c.deleted_at IS NULL ORDER BY c.updated_at DESC LIMIT 1', [opts.document_id]);
-      if (link) return (await this.get(link.conversation_id))!;
-      const doc = await this.db.get<{ title: string }>('SELECT title FROM documents WHERE id = ?', [opts.document_id]);
-      return this.create({ kind: 'document', title: doc?.title ?? '', document_id: opts.document_id, device: opts.device });
+      // 同一篇文章同时打开两次（界面重复调用）只建一个对话
+      const key = `doc:${opts.document_id}`;
+      const inflight = OPENING.get(key); if (inflight) return inflight;
+      const p = this.openForDocument(opts.document_id, opts.device).finally(() => OPENING.delete(key));
+      OPENING.set(key, p); return p;
     }
     if (opts.today) {
       const day = localDay();
@@ -45,6 +49,13 @@ export class Conversations {
       return this.create({ kind: 'day', day, title: day, device: opts.device ?? 'mobile' });
     }
     return this.create({ kind: 'chat', title: '', device: opts.device });
+  }
+
+  private async openForDocument(document_id: string, device?: 'desktop' | 'mobile'): Promise<Conversation> {
+    const link = await this.db.get<{ conversation_id: string }>('SELECT tl.conversation_id FROM thread_links tl JOIN conversations c ON c.id = tl.conversation_id WHERE tl.document_id = ? AND c.deleted_at IS NULL ORDER BY c.updated_at DESC LIMIT 1', [document_id]);
+    if (link) return (await this.get(link.conversation_id))!;
+    const doc = await this.db.get<{ title: string }>('SELECT title FROM documents WHERE id = ?', [document_id]);
+    return this.create({ kind: 'document', title: doc?.title ?? '', document_id, device });
   }
 
   async create(opts: { kind: 'chat' | 'day' | 'document' | 'skill'; title: string; day?: string; document_id?: string; device?: 'desktop' | 'mobile'; skill_id?: SkillId; trigger?: string }): Promise<Conversation> {

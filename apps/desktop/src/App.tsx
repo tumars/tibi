@@ -30,6 +30,7 @@ export function App() {
     const offDone = rpc.on('task.done', d => {
       const r = d.result;
       if (d.task.trigger === 'auto') return;   // 后台自动的任务（补做总结等）不打扰
+      if (d.task.skill_id !== 'importer') return;   // 对话里的回答在对话页 / 面板里看，不再弹通知
       // 已经打开了这篇（如点示例后自动跳进阅读器）就不再提示"开始阅读"
       if (r?.document_id) setTimeout(() => { if (!location.hash.includes(`/read/${r.document_id}`) && !location.hash.startsWith('#/welcome')) toast(r.summary || '导入完成', { action: { label: '开始阅读', run: () => nav(`/read/${r.document_id}`) } }); }, 80);
       else if (r?.summary) toast(r.summary);

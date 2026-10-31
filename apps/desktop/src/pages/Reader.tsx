@@ -8,6 +8,8 @@ import { Top } from '../components/Shell';
 import { fmtMinutes, fmtPct, GENRE_NAMES, throttle } from '../lib/util';
 import { SectionView, type Mode } from '../reader/Section';
 import { SummaryPanel } from '../reader/SummaryPanel';
+import { TibiPanel } from '../reader/TibiPanel';
+import type { Pending } from '../components/ChatThread';
 import { WordCard } from '../reader/WordCard';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
@@ -27,7 +29,9 @@ export function Reader() {
   const [card, setCard] = useState<{ word: string; lemma: string; sentence: Sentence; s: number; anchor: DOMRect }>();
   const [overrides, setOverrides] = useState<Map<string, Status>>(new Map());
   const [showTop, setShowTop] = useState(false);
-  const [panel, setPanel] = useState(false);
+  const [panel, setPanel] = useState<'summary' | 'tibi'>();
+  const [pending, setPending] = useState<Pending>();
+  const [selAsk, setSelAsk] = useState<{ text: string; sentence_id?: string; x: number; y: number }>();
   const [translating, setTranslating] = useState(false);
   const modelOk = useCore(st => !!st.status?.models.ok);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -80,6 +84,22 @@ export function Reader() {
     setCard({ word, lemma, sentence, s, anchor: (ev.currentTarget as HTMLElement).getBoundingClientRect() });
   }, [mode]);
 
+  // 问 Tibi：打开右侧面板，把问题和当前位置一起发给讲解技能
+  const ask = useCallback((text: string, extra: { sentence_id?: string; selection?: string } = {}) => {
+    if (!content || !id) return;
+    setPending({ key: `${Date.now()}`, text, context: { page: 'reader', document_id: id, section_id: content.id, ...extra } });
+    setPanel('tibi'); setSelAsk(undefined); setCard(undefined); window.getSelection()?.removeAllRanges();
+  }, [content, id]);
+  // 选中一段文字：在选区上方浮出"问 Tibi"
+  const onSelect = useCallback(() => {
+    const sel = window.getSelection(); const t = sel?.toString().trim() ?? '';
+    if (!sel || sel.isCollapsed || t.length < 2 || t.length > 600) { setSelAsk(undefined); return; }
+    const node = sel.anchorNode instanceof Element ? sel.anchorNode : sel.anchorNode?.parentElement;
+    const sid = node?.closest<HTMLElement>('[data-sid]')?.dataset.sid;
+    const r = sel.getRangeAt(0).getBoundingClientRect();
+    setSelAsk({ text: t, sentence_id: sid, x: r.left + r.width / 2, y: r.top });
+  }, []);
+
   const counts = content?.counts;
   const onFinish = async (markRest: boolean) => {
     setFinish(false); if (!content) return;
@@ -103,11 +123,12 @@ export function Reader() {
     <>
       <Top crumbs={[{ label: '书架', to: '/library' }, { label: doc.title }]} right={<>
         {doc.sections.length > 1 && <select className="input" value={content.id} onChange={e => nav(`/read/${id}/${e.target.value}`)} aria-label="章节">{doc.sections.map(s => <option key={s.id} value={s.id}>{s.idx + 1}. {s.title || `第 ${s.idx + 1} 章`}</option>)}</select>}
-        <button className={`pill${panel ? ' on' : ''}`} title="总结" onClick={() => setPanel(!panel)}><FileText size={15} />总结</button>
+        <button className={`pill${panel === 'summary' ? ' on' : ''}`} title="总结" onClick={() => setPanel(panel === 'summary' ? undefined : 'summary')}><FileText size={15} />总结</button>
+        <button className={`pill${panel === 'tibi' ? ' on' : ''}`} title="问 Tibi" onClick={() => setPanel(panel === 'tibi' ? undefined : 'tibi')}><Sparkles size={15} />Tibi</button>
         <button className="ibtn" title="标注说明" onClick={() => setLegend(true)}><Info /></button>
       </>} />
       <div className={`rdwrap${panel ? ' with-panel' : ''}`}>
-      <div className="scroll" ref={scrollRef} onScroll={onScroll}>
+      <div className="scroll" ref={scrollRef} onScroll={() => { onScroll(); setSelAsk(undefined); }} onMouseUp={onSelect}>
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '18px 32px 0' }}>
           <div className="rd" style={{ padding: 0 }}>
             <div className="meta">
@@ -139,14 +160,16 @@ export function Reader() {
           <span className="vsep" />
           <button onClick={() => setMode(mode === 'all' ? 'new' : mode === 'new' ? 'clean' : 'all')}>{{ all: '全部标注', new: '仅生词', clean: '纯净阅读' }[mode]}</button>
           <span className="vsep" />
-          <button onClick={() => toast('M2 起可以问 Tibi')} style={{ color: 'var(--accent)' }}><Sparkles />Tibi</button>
+          <button onClick={() => setPanel(panel === 'tibi' ? undefined : 'tibi')} style={{ color: 'var(--accent)' }}><Sparkles />Tibi</button>
           <button onClick={() => (left ? setFinish(true) : onFinish(false))}><BookOpenCheck />读完了</button>
         </div>
       </div>
-      {panel && <SummaryPanel doc={doc} onClose={() => setPanel(false)} onPhrase={text => { const el = [...(scrollRef.current?.querySelectorAll<HTMLElement>('[data-sid]') ?? [])].find(x => x.textContent?.toLowerCase().includes(text.toLowerCase())); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); } else toast('这一章里没有找到这个短语'); }} />}
+      {panel === 'tibi' && <TibiPanel doc={doc} sectionId={content.id} pending={pending} onClose={() => setPanel(undefined)} />}
+      {panel === 'summary' && <SummaryPanel doc={doc} onClose={() => setPanel(undefined)} onPhrase={text => { const el = [...(scrollRef.current?.querySelectorAll<HTMLElement>('[data-sid]') ?? [])].find(x => x.textContent?.toLowerCase().includes(text.toLowerCase())); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); } else toast('这一章里没有找到这个短语'); }} />}
       </div>
       {showTop && <button className="totop" onClick={() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setShowTop(false); }}><ArrowUp size={14} />回到开头</button>}
-      {card && <WordCard word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} onClose={() => setCard(undefined)} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}
+      {selAsk && <button className="selask" style={{ left: selAsk.x, top: selAsk.y }} onMouseDown={e => e.preventDefault()} onClick={() => ask(selAsk.text.length > 80 ? `讲讲这句：${selAsk.text}` : `「${selAsk.text}」在这里是什么意思？`, { sentence_id: selAsk.sentence_id, selection: selAsk.text })}><Sparkles size={13} />问 Tibi</button>}
+      {card && <WordCard onAsk={(w, sid) => ask(`「${w}」在这句话里是什么意思？用法上要注意什么？`, { sentence_id: sid, selection: w })} word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} onClose={() => setCard(undefined)} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}
       <Modal open={legend} onOpenChange={setLegend} title="标注说明" actions={<button className="btn pri" onClick={() => setLegend(false)}>知道了</button>}>
         <div className="legend">
           <div className="row"><span className="ex"><span className="w s0">upshot</span></span><span>生词：可能不认识，点开看释义</span></div>
