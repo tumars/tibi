@@ -43,7 +43,7 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 /* 左下角的狐狸就是"今天"：首页即与 Tibi 的对话（J9） */
 .tabs .foxtab { width: 62px; height: 62px; flex: none; border-radius: 50%; display: grid; place-items: center; }
 .tabs .foxtab .fx { width: 50px; height: 50px; pointer-events: none; }
-.tabs .foxtab.on { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); box-shadow: 0 0 0 1.5px var(--accent); }
+/* 狐狸按钮选中时不变色、不加框：右边胶囊里没有选中项，就说明在"今天" */
 .tabs .pill .f { display: none; } .tabs .pill .on .f { display: block; } .tabs .pill .on .o { display: none; }
 .tabs .pill button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10px; font-weight: 600; color: var(--ink); border-radius: 26px; position: relative; }
 .tabs .pill button svg { width: 23px; height: 23px; }
@@ -73,11 +73,10 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .seg button { flex: 1; height: 30px; border-radius: 8px; font-size: 13.5px; font-weight: 500; color: var(--ink-2); }
 .seg button.on { background: var(--seg-on); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 /* 今天 */
-/* 首页：顶部一层浅靛蓝 + 狐狸橙的渐变（参考支小宝、蚂小财），随内容滚走；卡片白底、无描边、无阴影 */
-#s-home { padding-bottom: calc(160px + var(--sab)); background: radial-gradient(90% 260px at 100% 0, color-mix(in srgb, var(--warm) 18%, transparent), transparent), linear-gradient(180deg, color-mix(in srgb, var(--accent) 14%, var(--bg)), var(--bg) 360px); background-attachment: local; }
-.hello { padding: calc(var(--sat) + 30px) 16px 0; }
-.hello h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
-.hello .lbl { display: block; margin-top: 2px; font-size: 13px; }
+#s-home { padding-bottom: calc(160px + var(--sab)); }
+/* 首页顶部不放问候，只放一行今天的进度（像蚂小财顶部的"休市"那样的状态行）；卡片直接接在下面 */
+.todayline { display: flex; align-items: center; gap: 8px; height: 44px; padding: var(--sat) 18px 0; box-sizing: content-box; font-size: 15px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.todayline svg { width: 22px; height: 22px; flex: none; } .todayline b { color: var(--ink); font-weight: 600; } .todayline .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-3); margin: 0 2px; }
 /* 首页底部常驻的输入条：粘贴网址即导入，其他内容即问 Tibi；对话就接在今天的卡片下面 */
 .dock { position: absolute; left: 14px; right: 14px; bottom: calc(86px + var(--sab)); z-index: 19; border-radius: 25px; }
 .thread { display: flex; flex-direction: column; gap: 10px; font-size: 14.5px; line-height: 1.6; }
@@ -89,7 +88,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .phone[data-tab="home"] .toast { bottom: calc(150px + var(--sab)); }
 .cont { padding: 18px; display: flex; flex-direction: column; gap: 6px; }
 .cont .k { font-size: 12.5px; color: var(--ink-3); }
-.cont .t { font-family: var(--f-read); font-size: 21px; font-weight: 700; line-height: 1.25; }
+.cont .t { font-family: var(--f-read); font-size: 23px; font-weight: 700; line-height: 1.25; }
 .cont .bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-top: 6px; } .cont .bar i { display: block; height: 100%; background: var(--accent); }
 .cont .row { display: flex; align-items: center; gap: 10px; margin-top: 8px; } .cont .row .lbl { flex: 1; }
 .rvc { margin-top: 10px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
@@ -264,8 +263,8 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
   <div class="hbar" aria-hidden="true"></div>
   <!-- 今天 -->
   <section class="screen" id="s-home">
-    <div class="hello"><h1 id="greet">早上好</h1><span class="lbl" id="today"></span></div>
-    <div class="pad sec" style="margin-top:16px">
+    <div class="todayline"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="5"/><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="5" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="35" transform="rotate(-90 18 18)"/></svg><span>今日 <b>12</b> / 20 分钟</span><i class="dot"></i><span>连续 <b>9</b> 天</span></div>
+    <div class="pad" style="margin-top:6px">
       <button class="card cont" id="contCard" style="width:100%;text-align:left">
         <span class="k">继续读 · 技术</span>
         <span class="t">Understanding Ownership in Rust</span>
@@ -274,10 +273,6 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
       </button>
       <button class="card rvc" id="rvCard" style="width:100%;text-align:left"><span class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg></span><div><b id="rvT">复习 18 张</b><span id="rvS">到期 14 + 新词 4 · 约 6 分钟</span></div><span class="btn sm tint" id="rvGo">开始</span></button>
     </div>
-    <div class="pad sec"><div class="mini">
-      <div><b>12</b><small>/ 20 分钟</small><span>今日阅读</span><div class="bar"><i style="width:60%"></i></div></div>
-      <div><b>6,214</b><small>词</small><span>已知词 · 本周 +38</span></div>
-    </div></div>
     <div class="pad sec"><div class="chips" id="hsug">
       <button class="chip" data-q="推荐一篇 10 分钟的新闻"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>推荐一篇 10 分钟的新闻</button>
       <button class="chip" data-q="用这周的生词写个小故事"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>用这周的生词写个小故事</button>
@@ -302,7 +297,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
   <section class="screen me" id="s-me" hidden>
     <header class="top"><h1 id="meTop" style="opacity:0">我</h1><button class="ib" id="themeBtn" title="深浅色"><svg class="i" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button><button class="ib" data-say="原型：打开设置"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button></header>
     <h1 class="big">我</h1>
-    <div class="head"><svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="35" transform="rotate(-90 18 18)"/></svg><div><b>连续 9 天</b><span>今日 12 / 20 分钟</span></div></div>
+    <div class="head"><svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="35" transform="rotate(-90 18 18)"/></svg><div><b>连续 9 天</b><span>今日 12 / 20 分钟 · 已知 6,214 词</span></div></div>
     <div class="pad sec"><h2>本周阅读<a href="#" data-say="原型：打开统计">统计</a></h2><div class="card" style="padding:12px 14px"><div class="week"><i class="ok" style="height:70%"></i><i class="ok" style="height:55%"></i><i style="height:30%"></i><i class="ok" style="height:90%"></i><i class="ok" style="height:60%"></i><i style="height:20%"></i><i class="ok" style="height:40%"></i></div><div class="lbl" style="margin-top:6px">本周 5 天达到 20 分钟</div></div></div>
     <div class="pad sec"><div class="card menu">
       <a href="#" data-say="原型：生词本"><i class="ti" style="--c:#3d52e0"><svg class="i" viewBox="0 0 24 24"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg></i>生词本<span class="r"><em>33</em>›</span></a>
@@ -396,8 +391,7 @@ $('#themeBtn').onclick = () => { const r = document.documentElement, dark = matc
 const mascotImg = id => `<img src="img/mascot/${id}.webp" srcset="img/mascot/${id}.webp 1x, img/mascot/${id}@2x.webp 2x" alt="">`;
 
 /* ---------- 今天 ---------- */
-const hr = new Date().getHours(); $('#greet').textContent = hr < 5 ? '夜深了' : hr < 11 ? '早上好' : hr < 13 ? '中午好' : hr < 18 ? '下午好' : '晚上好';
-const now = new Date(); $('#today').textContent = `${now.getMonth() + 1} 月 ${now.getDate()} 日 · 周${'日一二三四五六'[now.getDay()]}`;
+const now = new Date(), hr = now.getHours();
 const fox = Fox.mount($('#fox'), { state: hr >= 23 || hr < 5 ? 'sleeping' : 'idle', size: 50 });
 
 /* ---------- 标签页与全屏阅读器 ---------- */
