@@ -14,7 +14,7 @@ v2 原型页面共用 `../v2.css` 与 `../v2-shell.js`。这里是生成各页�
 - `../mobile.html`：手机版原型，独立单文件（只复用 token、`v2-fox.js`、`v2-agents.js`），不经过构建脚本
 - `../v2-fox.js`：吉祥物藏狐（SVG + CSS 动画，`Fox.mount` / `set` / `pulse`），首页、复习页与手机版使用；展示页 `../mascot.html`。直接编辑，不需要生成
 - `../v2-theme.js`：深浅色的保存与顶栏图标，所有页面在 `<head>` 里最先加载；直接编辑，不需要生成
-- `../v2-agents.js`：智能体目录（名字、说明、图标、模型档、能力、定时），首页、设置、任务中心共用；直接编辑，不需要生成
+- `../v2-agents.js`：智能体目录（名字、说明、图标、模型档、能力），首页、设置、任务中心共用；直接编辑，不需要生成
 - `_search.js` + `build_search.py`：搜索面板源码；`build_search.py` 从 `words.html` 取出词表注入后生成 `../v2-search.js`（需要 node）
 - `build_pages.py`：把共用侧栏、页面头部和脚本拼进复习、统计、设置、任务、书架页的主体，生成对应页面
 

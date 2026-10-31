@@ -282,7 +282,7 @@ document.getElementById('menuBtn').onclick = () => document.getElementById('app'
 addEventListener('keydown', e => { if (!(e.metaKey || e.ctrlKey)) return; if (e.key === '\\') { e.preventDefault(); document.getElementById('collapseBtn').click(); } else if (e.key.toLowerCase() === 'k') { e.preventDefault(); e.stopImmediatePropagation(); document.querySelector('.newbtn.search').click(); } });
 
 /* ============ 示例数据（原型用；正式版来自 ECDICT + 用户词库 + AI 缓存） ============ */
-const STATUS_LABEL = {0:'生词',1:'见过',2:'眼熟',3:'认得',4:'熟悉',5:'掌握',98:'忽略',99:'待确认'};
+const STATUS_LABEL = {0:'生词',1:'见过',2:'眼熟',3:'认得',4:'熟悉',5:'掌握',97:'已知',98:'忽略',99:'待确认'};
 
 // 用户词库：lemma → 状态。未出现的词按「词汇量画像」推断为已知（原型简化）
 const VOCAB = {
@@ -638,8 +638,8 @@ function refresh() {
   $('#ratio').innerHTML = `生词率 <b>${(st.ratio * 100).toFixed(1)}%</b> &nbsp;<span class="lvl ${cls}">${lv}</span>`;
   const left = st.nNew.size, unc = st.nU.size;
   $('#endcard').innerHTML = `<h3>读完本篇</h3>
-    <p>本篇还有 ${left} 个没处理的生词、${unc} 个待确认的词。把它们标为已知，可以让下一篇文章的自动标注更准。之后在任何文章里都能改回来。</p>
-    <div class="row"><button class="btn pri" id="markRest"${left + unc ? '' : ' disabled'}>剩余 ${left + unc} 个全部标为已知</button><button class="btn" id="review">回顾本篇重点</button><button class="btn" id="toAsst">让 Tibi 出 3 道理解题</button></div>`;
+    <p>本篇还有 ${left} 个没处理的生词。标为已知后不进复习，也不算掌握，下一篇的自动标注会更准；之后在任何文章里都能改回来。${unc ? `另有 ${unc} 个待确认的词，还等你在词卡上确认。` : ''}</p>
+    <div class="row"><button class="btn pri" id="markRest"${left ? '' : ' disabled'}>把 ${left} 个生词标为已知</button><button class="btn" id="review">回顾本篇重点</button><button class="btn" id="toAsst">让 Tibi 出 3 道理解题</button><a class="btn" id="calib" href="${URLS.onboarding}#step=2&from=reader">标得不准？校准词汇量</a></div>`;
   $('#markRest').onclick = markRestKnown;
   $('#toAsst').onclick = () => { switchTab('asst'); runPreset('quiz'); };
   $('#review').onclick = roughReview;
@@ -731,7 +731,7 @@ const STAGES = [
   ['掌握', '已经会了，不再标注'],
 ];
 function statusButtons(s) {
-  const desc = s >= 0 && s <= 5 ? `<b>${STAGES[s][0]}</b>：${STAGES[s][1]}` : (s === -2 ? '已忽略，不再标注' : '还没有设定，点上面的格子选择你对它的熟悉程度');
+  const desc = s >= 0 && s <= 5 ? `<b>${STAGES[s][0]}</b>：${STAGES[s][1]}` : (s === 97 ? '<b>已知</b>：你标过认识，不进复习，也不算掌握' : s === -2 ? '已忽略，不再标注' : '还没有设定，点上面的格子选择你对它的熟悉程度');
   return `<div class="pips" role="group" aria-label="熟练度">${STAGES.map(([n, dsc], v) =>
     `<button class="pip${s === v ? ' on' : ''}${s >= v && s <= 5 ? ' fill' : ''}" data-s="${v}" title="${n}：${dsc}（快捷键 ${v === 5 ? 'K' : v}）"><i></i>${n}</button>`).join('')}</div>
     <div class="stagedesc">${desc}</div>`;
@@ -930,6 +930,7 @@ function selectWord(el) {
 $('#page').addEventListener('click', e => {
   const w = e.target.closest('.w'); if (!w) return;
   if (window.getSelection().toString().trim().split(/\s+/).length > 1) return;
+  if (!e.shiftKey && statusOf(w.dataset.l) === 0) { VOCAB[w.dataset.l] = 1; wordbook.add(w.dataset.l); }   // 查词 = 见过，并建卡
   if (e.shiftKey && w.closest('.ph')) {
     const ph = w.closest('.ph');
     selected = { kind: 'phrase', idx: +ph.dataset.p, sent: +w.closest('.sent').dataset.si }; selEl = ph; refresh(); renderCard();
@@ -966,10 +967,10 @@ $('#mkPhrase').onclick = () => {
 $('#askSel').onclick = () => { const t = $('#selTool').dataset.txt; window.getSelection().removeAllRanges(); $('#selTool').hidden = true; switchTab('asst'); post('u', `这段是什么意思：<i>${esc(t)}</i>`); reply('<p>（原型）正式版会结合上下文解释这段话，并指出其中值得学的搭配。</p>'); };
 
 function markRestKnown() {
-  const st = docStats(); const ls = [...st.nNew, ...st.nU]; const before = ls.map(l => [l, VOCAB[l]]);
-  const els = [...document.querySelectorAll('#page .w.s0, #page .w.s99')];
+  const ls = [...docStats().nNew]; const before = ls.map(l => [l, VOCAB[l]]);
+  const els = [...document.querySelectorAll('#page .w.s0')];
   const done = () => {
-    ls.forEach(l => VOCAB[l] = 5);
+    ls.forEach(l => VOCAB[l] = 97);
     pushUndo(() => before.forEach(([l, v]) => VOCAB[l] = v));
     refresh(); renderCard();
     showToast(`已将 ${ls.length} 个词标为已知`);

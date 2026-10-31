@@ -26,7 +26,7 @@
     ['reading', '正文字体', '阅读', 'charter 字体 font'], ['reading', '字号', '阅读', '字体大小 font size'], ['reading', '标注强度', '阅读', '纯净阅读 高亮 标记'], ['reading', '默认显示译文', '阅读', '翻译 translation'], ['reading', '默认显示行间释义', '阅读', 'gloss 小字'], ['reading', '释义语言', '阅读', '英英 中英'],
     ['learning', '每日阅读目标', '学习与复习', '分钟 goal'], ['learning', '每天最多新学的词', '学习与复习', '新卡 上限'], ['learning', '目标记忆保持率', '学习与复习', 'fsrs retention 复习量'], ['learning', '题型', '学习与复习', '识别 填空 听写 拼写 造句'], ['learning', '按个人复习记录优化 FSRS 参数', '学习与复习', '优化 fsrs'],
     ['ai', 'DeepSeek', '模型', 'api key 模型 服务商 base url provider'], ['ai', '视觉模型', '模型', 'ocr 图片 识别'], ['ai', '图像模型', '模型', '封面 插画'], ['ai', '快速', '模型', '模型档 deepseek-v4-flash'], ['ai', '深入', '模型', '模型档 deepseek-v4-pro'], ['ai', '用 ChatGPT 账号登录', '模型', '订阅 chatgpt claude 账号 登录 oauth'], ['tibi', 'Tibi 修改学习数据时', 'Tibi', '权限 自动 询问'], ['tibi', 'Tibi 怎么称呼你', 'Tibi', '称呼 名字 对话语言 中英'], ['tibi', '允许其他 AI 工具使用 Tibi（MCP）', 'Tibi', 'mcp'],
-    ['agents', 'Tibi 的技能', '技能', 'skill 技能 帮手 新建技能 自定义 agent 智能体'], ['agents', '导入文章', '技能', '导入 importer 总结 短语'], ['agents', '找文章', '技能', '选文 scout 推荐'], ['agents', '讲解', '技能', '伴读 tutor 长难句 语法'], ['agents', '出题与批改', '技能', '复习 coach 造句 批改'], ['agents', '学习洞察', '技能', 'insight 周报 统计'], ['agents', '整理记忆', '技能', 'archivist 记忆'], ['agents', '每天早上帮你找 3 篇文章', '例行任务', '定时 例行 推荐 schedule'], ['agents', '每晚整理一次记忆', '例行任务', '定时 例行'], ['agents', '每周一写一份学习周报', '例行任务', '定时 例行 周报'], ['agents', '每月预算', '技能', '花费 预算 费用 cost budget'],
+    ['agents', 'Tibi 的技能', '技能', 'skill 技能 帮手 agent 智能体'], ['agents', '导入文章', '技能', '导入 importer 总结 短语'], ['agents', '找文章', '技能', '选文 scout 推荐'], ['agents', '讲解', '技能', '伴读 tutor 长难句 语法'], ['agents', '出题与批改', '技能', '复习 coach 造句 批改'], ['agents', '学习洞察', '技能', 'insight 周报 统计'], ['agents', '整理记忆', '技能', 'archivist 记忆'], ['agents', '每月预算', '技能', '花费 预算 费用 cost budget'],
     ['voice', '朗读引擎', '语音', 'tts kokoro 发音'], ['voice', '音色', '语音', '美音 英音 voice'], ['voice', '默认语速', '语音', '速度 speed'],
     ['memory', '记忆', '记忆', '记住 memory 清空 删除 tibi'],
     ['data', '数据库位置', '数据', 'sqlite db'], ['data', '备份', '数据', '恢复 backup'], ['data', '导出生词本', '数据', 'csv anki export'], ['data', '从其他工具导入已知词', '数据', 'anki lingq'], ['data', '重置 Tibi', '数据', '清空 删除 全部数据 reset'], ['data', '词典', '数据', 'ecdict'], ['data', '语音缓存', '数据', '清理 缓存'],
@@ -46,7 +46,7 @@
     { k: 'review', t: '开始复习', sub: '18 张（到期 14 + 新词 4）· 约 6 分钟', icon: 'review', kw: 'review 背单词 练习' },
     { k: 'theme', t: '切换深浅色', sub: '', icon: 'moon', kw: 'dark light theme 夜间 主题' },
     { k: 'page:home', t: '首页', icon: 'home', kw: 'home' }, { k: 'page:shelf', t: '书架', icon: 'shelf', kw: 'library shelf 文章' }, { k: 'page:words', t: '生词本', icon: 'words', kw: 'words vocabulary 单词' },
-    { k: 'page:stats', t: '统计', icon: 'stats', kw: 'stats 数据 进度' }, { k: 'page:tasks', t: '任务', icon: 'tasks', kw: 'tasks 任务中心 运行 定时 确认 审批 花费' }, { k: 'page:settings', t: '设置', icon: 'settings', kw: 'settings preferences 偏好' },
+    { k: 'page:stats', t: '统计', icon: 'stats', kw: 'stats 数据 进度' }, { k: 'page:tasks', t: '任务', icon: 'tasks', kw: 'tasks 任务中心 运行 确认 审批 花费' }, { k: 'page:settings', t: '设置', icon: 'settings', kw: 'settings preferences 偏好' },
   ];
 
   /* ---------- 匹配 ---------- */

@@ -77,6 +77,7 @@
 .kpis3 div { padding: 16px; border-radius: 16px; background: var(--sunken); display: flex; flex-direction: column; gap: 4px; text-align: left; }
 .kpis3 b { font-size: 26px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .kpis3 span { font-size: 12px; color: var(--ink-3); }
+.kpis3.two { grid-template-columns: repeat(2, 1fr); }
 .dbar { width: 100%; display: flex; flex-direction: column; gap: 8px; text-align: left; }
 .dbar .bar { display: flex; gap: 3px; height: 10px; }
 .dbar .bar i { border-radius: 4px; }
@@ -135,14 +136,12 @@
 .story p { margin: 0 0 10px; }
 .smeta { font-family: var(--f-ui); font-size: 11.5px; color: var(--ink-3); }
 .phead h2 { margin: 0 0 4px; font-size: 20px; font-weight: 600; letter-spacing: -.01em; } .phead p { margin: 0; color: var(--ink-2); font-size: 13.5px; }
-.pmodes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pmodes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .pmode { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); text-align: left; transition: box-shadow .15s, background .15s; }
 .pmode:hover { background: var(--hover); }
 .pmode.on { box-shadow: inset 0 0 0 1.5px var(--ink); }
 .pmode .pic { font-size: 18px; color: var(--accent); } .pmode b { font-size: 14px; } .pmode small { font-size: 12px; color: var(--ink-3); }
 .prow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.ptarget { font-family: var(--f-mono); font-size: 17px; line-height: 1.8; color: var(--ink-3); word-break: break-word; }
-.ptarget .ok { color: var(--ink); } .ptarget .bad { color: var(--hard); background: color-mix(in srgb, var(--hard) 12%, transparent); border-radius: 2px; } .ptarget .cur { box-shadow: inset 0 -2px 0 var(--accent); }
 .pdiff .miss { color: var(--hard); text-decoration: underline wavy; text-underline-offset: 4px; }
 .opts.two { grid-template-columns: 1fr 1fr; }
 </style>
@@ -547,7 +546,7 @@ function story() {   // G7：用今天的词读一篇（选文技能先找，找
 
 /* ============ 练习（G8：不计分，成绩单独记录） ============ */
 const PSRC = ['最近复习', '错词', '难词', '《Understanding Ownership in Rust》'];
-const PMODES = { dict: ['听写原句', '听你读过的句子，写下整句', '♪'], type: ['跟打原句', '照着原句打字，练手感', '⌨'], conf: ['易混词辨析', '在句子里选对的那个', '⇄'] };
+const PMODES = { dict: ['听写原句', '听你读过的句子，写下整句', '♪'], conf: ['易混词辨析', '在句子里选对的那个', '⇄'] };
 const DICT = ['Delays affect fewer than one in ten journeys.', 'Newcomers often find themselves grappling with the borrow checker.', 'The upshot is memory safety without the runtime overhead.', 'The borrow checker verifies that no reference outlives its value.', 'Cities are turning to sponge design as floods intensify.'];
 const CONF = [
   { s: 'Delays {} fewer than one in ten journeys.', a: 'affect', b: 'effect', why: '这里需要谓语动词。affect 是动词"影响"；effect 多作名词"效果"。' },
@@ -568,10 +567,10 @@ function lcsMatch(t, u) {   // 目标句的每个词是否被写出来（按最�
 function renderPractice(dir) {
   renderQueue();
   if (!prun) {
-    $('#rv').innerHTML = `<div class="phead"><h2>练习</h2><p>用你读过的句子练听写、手感和易混词。成绩单独记录，不会改动复习排期。</p></div>
+    $('#rv').innerHTML = `<div class="phead"><h2>练习</h2><p>用你读过的句子练听写和易混词。成绩单独记录，不会改动复习排期。</p></div>
       <div class="pmodes">${Object.entries(PMODES).map(([k, v]) => `<button class="pmode${k === pm ? ' on' : ''}" data-m="${k}"><span class="pic">${v[2]}</span><b>${v[0]}</b><small>${v[1]}</small></button>`).join('')}</div>
       <div class="prow"><span class="lbl-i">${pm === 'conf' ? '词来自' : '句子来自'}</span><div class="rvseg wrap">${PSRC.map((s, i) => `<button class="${i === psrc ? 'on' : ''}" data-s="${i}">${esc(s)}</button>`).join('')}</div></div>
-      <div class="kpis3"><div><b>92%</b><span>听写准确率（最近 5 轮）</span></div><div><b>38</b><span>跟打最快 WPM</span></div><div><b>4</b><span>完成轮次</span></div></div>
+      <div class="kpis3 two"><div><b>92%</b><span>听写准确率（最近 5 轮）</span></div><div><b>4</b><span>完成轮次</span></div></div>
       <div class="rvfoot"><div class="actions"><button class="reveal" id="pStart">开始一轮 · 5 ${pm === 'conf' ? '题' : '句'} <span class="kbd">Enter</span></button></div></div>`;
     document.querySelectorAll('.pmode').forEach(b => b.onclick = () => { pm = b.dataset.m; renderPractice(); });
     document.querySelectorAll('.prow button').forEach(b => b.onclick = () => { psrc = +b.dataset.s; renderPractice(); });
@@ -589,9 +588,6 @@ function renderPractice(dir) {
     else { const t = it.split(' '), hit = lcsMatch(words(it), words(r.val)); let k = 0;
       body += `<div class="sentence pdiff">${t.map(w => { const ok = words(w).length ? hit[k++] : true; return ok ? esc(w) : `<span class="miss">${esc(w)}</span>`; }).join(' ')}</div><div class="hint">你写的：${esc(r.val || '（空）')}</div>`;
       foot = `<div class="gline"><span class="gtag">${r.acc}%</span><span>写对了 ${r.acc}% 的词${r.acc === 100 ? '，一个不差' : '；红色是漏掉或写错的'}</span></div><button class="reveal" id="pNext">继续 <span class="kbd">Enter</span></button>`; }
-  } else if (r.m === 'type') {
-    body = `<div class="prompt">照着打一遍（大小写和标点也要一致）</div><div class="ptarget" id="ptarget">${[...it].map(ch => `<span>${esc(ch)}</span>`).join('')}</div><input class="spellin" id="pIn" autocomplete="off" spellcheck="false" aria-label="跟打" style="font-size:18px">`;
-    foot = `<div class="footnote">打完自动进入下一句 · 已完成 ${r.i} 句${r.cps ? ` · 当前 ${Math.round(r.cps * 12)} WPM` : ''}</div>`;
   } else {
     const [x, y] = hash(it.s) % 2 ? [it.a, it.b] : [it.b, it.a];
     body = `<div class="prompt">选出放在空里正确的那个词</div><div class="sentence">${esc(it.s).replace('{}', r.shown ? `<span class="tw s0">${it.a}</span>` : '<span style="border-bottom:2px solid var(--ink-3);padding:0 2.2em"></span>')}</div>
@@ -609,17 +605,11 @@ function renderPractice(dir) {
   const inp = $('#pIn');
   if (inp && !r.shown) setTimeout(() => inp.focus(), 60);
   if (r.m === 'dict' && !r.shown && dir === 'next') setTimeout(() => speak(it, 0.95), 400);
-  if (r.m === 'type' && inp) inp.oninput = () => {
-    if (!r.start) r.start = Date.now();
-    const v = inp.value; let bad = 0;
-    document.querySelectorAll('#ptarget span').forEach((s, k) => { s.className = k >= v.length ? (k === v.length ? 'cur' : '') : v[k] === it[k] ? 'ok' : (bad++, 'bad'); });
-    if (v === it) { const ms = Date.now() - r.start; r.cps = it.length / (ms / 1000); r.score[r.i] = 100; r.chars += it.length; r.ms += ms; r.i++; r.start = 0; setTimeout(() => renderPractice('next'), 250); }
-  };
   if (dir === 'next') anim($('#card'), { opacity: [0, 1], x: [24, 0] }, { type: 'spring', bounce: 0.15, duration: 0.45 });
 }
 function startPractice() {
   const items = pm === 'conf' ? CONF.slice() : DICT.slice();
-  prun = { m: pm, items, i: 0, shown: false, val: '', acc: 0, score: [], t0: Date.now(), chars: 0, ms: 0 };
+  prun = { m: pm, items, i: 0, shown: false, val: '', acc: 0, score: [], t0: Date.now() };
   renderPractice('next');
 }
 function pCheck() {
@@ -631,9 +621,8 @@ function pConf(o) { const r = prun; if (r.shown) return; r.val = o; r.shown = tr
 function pNext() { const r = prun; r.i++; r.shown = false; r.val = ''; renderPractice('next'); }
 function practiceDone() {
   const r = prun, acc = Math.round(r.score.reduce((a, b) => a + b, 0) / r.score.length), secs = Math.round((Date.now() - r.t0) / 1000);
-  const wpm = r.ms ? Math.round(r.chars / 5 / (r.ms / 60000)) : 0;
   $('#rv').innerHTML = `<div class="rvbar"><div class="segs">${r.items.map((_, i) => `<i class="${r.score[i] >= 80 ? 'ro' : 'rx'}"></i>`).join('')}</div><span>练习完成</span></div>
-    <section class="card resume"><div class="rfox" id="rfox"></div><div><h3>${PMODES[r.m][0]} · ${r.m === 'type' ? wpm + ' WPM' : '准确率 ' + acc + '%'}</h3><p>用时 ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}。练习成绩单独记录在统计里，不会改动这些词的复习排期。</p></div></section>
+    <section class="card resume"><div class="rfox" id="rfox"></div><div><h3>${PMODES[r.m][0]} · 准确率 ${acc}%</h3><p>用时 ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}。练习成绩单独记录在统计里，不会改动这些词的复习排期。</p></div></section>
     <div class="rvfoot"><div class="actions"><button class="reveal" id="pAgain">再来一轮 <span class="kbd">Enter</span></button><div class="footrow"><button class="linkbtn" id="pBack">回到练习</button></div></div></div>`;
   if (window.Fox) Fox.mount($('#rfox'), { state: acc >= 80 ? 'happy' : 'idle', size: 72 });
   $('#pAgain').onclick = startPractice; $('#pBack').onclick = () => { prun = null; renderPractice('enter'); };

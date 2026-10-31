@@ -361,7 +361,7 @@ const FAIL = {
   fetch: c => ({ img: 'error-generic', title: '这个网址没读到', desc: `Tibi 打开了 ${esc(c.host)}，但对方拒绝了请求（403），没拿到正文。有些网站要登录，或者不让程序读取。可以再试一次，或者把正文复制过来。`, actions: [{ t: '重试', pri: true, onclick: c.retry }, { t: '粘贴正文', onclick: pasteInstead }] }),
   file: c => ({ img: 'error-generic', title: '这个文件 Tibi 读不了', desc: `「${esc(c.name)}」的格式不支持。目前能读 PDF、EPUB、DOCX、TXT、Markdown 和图片。换一个文件，或者把正文复制过来。`, actions: [{ t: '换一个文件', pri: true, onclick: () => $('#fileIn').click() }, { t: '粘贴正文', onclick: pasteInstead }] }),
   offline: () => ({ img: 'error-offline', title: '现在连不上模型', desc: '网络断了，或者 DeepSeek 暂时不可用。总结、讲解和出题要等恢复后才能用；书架里的文章、查词、标注和复习都在本机，不受影响。', actions: [{ t: '重试', pri: true, onclick: () => { location.hash = ''; } }, READ_NO_AI] }),
-  nomodel: () => ({ img: 'error-offline', title: '还没有连接模型', desc: '总结、讲解和出题需要一个模型。查词、标注和复习在本机，不连模型也能用。', actions: [{ t: '去连接模型', pri: true, onclick: () => go(URLS.settings + '#ai') }, READ_NO_AI] }),
+  nomodel: () => ({ img: 'error-offline', title: '还没有连接模型', desc: '总结、讲解和出题需要一个模型。查词、标注和复习在本机，不连模型也能用。', actions: [{ t: '去连接模型', pri: true, onclick: () => { location.href = URLS.onboarding + '#step=3&from=home'; } }, READ_NO_AI] }),
 };
 function showFail(kind, c) { const el = document.createElement('div'); el.style.maxWidth = '640px'; dbody.appendChild(el); emptyState(el, Object.assign({ cls: 'card-like' }, FAIL[kind](c))); scrollEnd(); return el; }
 function blockAI(q) {
@@ -433,27 +433,6 @@ function runFind(q) {
     foxDone(); r.insertAdjacentHTML('beforeend', `<div style="margin-top:10px">${provHtml('scout', '用时 6 秒 · <¥0.01', 'h2')}</div>`); r.querySelectorAll('[data-ext]').forEach(ext);
     body.appendChild(r); covers(); anim(r.querySelectorAll('.rec'), { opacity: [0, 1], y: [10, 0] }, { duration: 0.4, ease: EASE, delay: stag(0.08) }); scrollEnd();
     r.querySelectorAll('.rec').forEach(a => a.onclick = e => { e.preventDefault(); toast('原型中只有阅读器里的三篇可以打开'); });
-    setTimeout(() => suggestRoutine(body), 1200);
-  });
-}
-/* 在自然断点建议例行任务：手动找文章满 2 次后问一次，拒绝后不再问 */
-let findCount = 0;
-function suggestRoutine(body = dbody) {
-  findCount++;
-  let state = ''; try { state = localStorage.getItem('tibi-routine-scout') || ''; } catch (e) {}
-  if (findCount < 2 || state) return;
-  const card = document.createElement('div'); card.className = 'approve suggest';
-  card.innerHTML = `<div class="h">${agentAv('tibi')}<span>要不要每天早上帮你找 3 篇？</span></div>
-    <div class="b">你今天已经让我找了 ${findCount} 次文章。开启后，我每天 08:00 按你的水平和正在学的词挑好 3 篇，放在首页"今天推荐"里。随时可以在"设置 → Tibi 的技能 → 例行任务"里关掉。</div>
-    <div class="acts"><button class="btn sm pri" data-r="on">每天早上推荐</button><button class="btn sm" data-r="later">以后再说</button><button class="btn sm" data-r="never">不用了</button></div><div class="res" hidden></div>`;
-  body.appendChild(card); anim(card, { opacity: [0, 1], y: [8, 0] }, { duration: 0.35, ease: EASE }); scrollEnd();
-  fox.pulse('listening', 1600);
-  card.querySelectorAll('[data-r]').forEach(b => b.onclick = () => {
-    const k = b.dataset.r, res = card.querySelector('.res'); card.classList.add('done'); res.hidden = false;
-    if (k === 'on') { res.innerHTML = '✓ 已开启：每天早上帮你找 3 篇文章'; toast('已开启例行任务：每天 08:00 帮你找 3 篇文章'); fox.pulse('happy', 2000); }
-    else res.textContent = k === 'later' ? '好，下次再问你' : '好的，不再提这个';
-    try { if (k !== 'later') localStorage.setItem('tibi-routine-scout', k); } catch (e) {}
-    if (k === 'later') findCount = 0;
   });
 }
 function runAsk(q) {
