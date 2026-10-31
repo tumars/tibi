@@ -33,6 +33,7 @@ export function throttle<A extends unknown[]>(fn: (...a: A) => void, ms: number)
   return (...a: A) => { last = a; const now = Date.now(); if (now - t >= ms) { t = now; fn(...a); } else if (!timer) timer = setTimeout(() => { timer = undefined; t = Date.now(); fn(...last!); }, ms - (now - t)); };
 }
 
-export function speak(text: string, lang = 'en-US') {
-  try { const u = new SpeechSynthesisUtterance(text); u.lang = lang; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch { /* 无语音 */ }
+/** 单词发音、句子朗读：走设置里选的引擎（系统语音 / Kokoro，lib/tts） */
+export function speak(text: string) {
+  void import('./tts').then(t => t.say(text));
 }

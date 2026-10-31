@@ -20,6 +20,8 @@ export function App() {
   const nav = useNavigate();
   useEffect(() => {
     bindCoreEvents();
+    // 朗读设置（tts.*）
+    void rpc.call('settings.get', { keys: ['tts.engine', 'tts.voice', 'tts.rate'] }).then(s => void import('./lib/tts').then(t => t.configure({ engine: (s['tts.engine'] as 'system' | 'kokoro') ?? 'system', voice: (s['tts.voice'] as string) ?? '', rate: Number(s['tts.rate'] ?? 1) || 1 })), () => undefined);
     // 第一次打开（没走过引导、书架是空的）进首次启动引导；已有文章的老库直接记为走过（00 §3.9）
     void useCore.getState().refresh().then(async () => {
       const st = useCore.getState(); if (!st.connected) return;

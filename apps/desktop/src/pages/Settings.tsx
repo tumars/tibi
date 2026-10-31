@@ -7,6 +7,7 @@ import { Switch } from '../components/Switch';
 import { saveProvider } from '../lib/providers';
 import { BackupItems, ExportSummaryItem } from '../settings/DataItems';
 import { MemoryItems } from '../settings/MemoryItems';
+import { VoiceItems } from '../settings/VoiceItems';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
@@ -66,6 +67,7 @@ export function Settings() {
               <span className="lbl">估算 {profile?.vocab_estimate?.toLocaleString() ?? '—'} 词{profile?.vocab_source === 'self' ? '（按自评）' : profile?.vocab_source === 'test' ? '（测试）' : ''}</span>
             </div></div>
             <div className="item"><div><div className="t">校准词汇量</div><div className="d">7 组词，点亮认识的，约 3–4 分钟。测完按新结果标注生词</div></div><div className="ctl"><button className="btn sm" onClick={() => nav('/welcome?step=2&from=settings')}>开始</button></div></div>
+                      <VoiceItems />
           </div></section>
 
           <section className="ssec" id="s-learning"><h2>学习与复习</h2><div className="group">

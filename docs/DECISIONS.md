@@ -154,6 +154,7 @@
 | T20 | 导入后的 AI 分析不走模型驱动的技能，而是三次固定提示的快速档调用（completeOnce，JSON 输出，宽松解析，正文放在分隔符里当不可信材料）；作为独立的 `analyze` 任务排在导入之后，导入任务不等它。后台自动任务（trigger = auto）完成时界面不弹通知 | R10：导入是固定流水线；先读后分析 |
 | T21 | 文件抽取放在 core-node（Platform.extractFile）：EPUB 用 fflate 解压 + linkedom 读 OPF / 目录，PDF 用 pdfjs-dist 4（legacy 构建，先把 worker 模块挂到 `globalThis.pdfjsWorker`，单文件 sidecar 里才找得到），DOCX 用 mammoth；都转成 Markdown 交给 Core 切分。sidecar 打包的 banner 里 `createRequire` 改名，避免和 pdfjs 冲突。书导入只标前两章（LAZY_EAGER = 2），其余在 sections.get 时补标 | M4 多格式 |
 | T22 | OCR 用 tesseract.js 5（Platform.ocr，在 Core 进程的 worker_threads 里跑）：语言包按需下载到 `tessdata/`；扫描版 PDF 用 pdfjs 的 operator list 取每页最大的图，自己编成 PNG；分段按"比这页最小行间空白大 1.7 倍"。打包时 worker 单独打成 `tesseract-worker.cjs`，和 tesseract.js-core 的 wasm 一起放进安装包 `resources/ocr/`，壳用 `TIBI_RESOURCE_DIR` 告诉 Core | D4 |
+| T23 | 朗读在 WebView 里做（lib/tts）：系统语音用 speechSynthesis；Kokoro 用 kokoro-js（transformers.js + onnxruntime-web 的 wasm，q8 量化模型从 Hugging Face 下载），动态 import 单独成块，不选就不加载。CSP 因此加了 `'wasm-unsafe-eval'`、huggingface / jsdelivr 的 connect-src、`worker-src blob:` | M4 朗读 |
 | T10 | 复习用 ts-fsrs 6.0 的 `DefaultScheduler`（FSRS-7 默认），卡片字段按库的命名映射到表（`stability_fast` ← `stabilityFast`、`learning_steps` ← `learningStep`） | 01 §4 |
 
 ## 待决定

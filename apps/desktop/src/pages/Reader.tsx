@@ -1,5 +1,5 @@
 import type { Document, SectionContent, Sentence, Status } from '@tibi/core';
-import { ArrowUp, BookOpenCheck, FileText, Info, Languages, Sparkles, Type } from 'lucide-react';
+import { ArrowUp, BookOpenCheck, FileText, Info, Languages, Sparkles, Type, Volume2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Empty } from '../components/Empty';
@@ -9,6 +9,7 @@ import { fmtMinutes, fmtPct, GENRE_NAMES, throttle } from '../lib/util';
 import { SectionView, type Mode } from '../reader/Section';
 import { SummaryPanel } from '../reader/SummaryPanel';
 import { TibiPanel } from '../reader/TibiPanel';
+import { ReadAloud } from '../reader/ReadAloud';
 import type { Pending } from '../components/ChatThread';
 import { WordCard } from '../reader/WordCard';
 import { errorInfo, rpc } from '../rpc';
@@ -33,6 +34,7 @@ export function Reader() {
   const [pending, setPending] = useState<Pending>();
   const [selAsk, setSelAsk] = useState<{ text: string; sentence_id?: string; x: number; y: number }>();
   const [translating, setTranslating] = useState(false);
+  const [aloud, setAloud] = useState(false);
   const modelOk = useCore(st => !!st.status?.models.ok);
   const scrollRef = useRef<HTMLDivElement>(null);
   const restored = useRef(false);
@@ -157,6 +159,7 @@ export function Reader() {
             try { setTranslating(true); await rpc.call('sections.translate', { id: content.id }); toast('正在翻译这一章，好了会自动显示'); } catch (e) { setTranslating(false); toast(errorInfo(e).message, { kind: 'err' }); }
           }}><Languages />{translating ? '翻译中…' : '译文'}</button>
           <button className={gloss ? 'on' : ''} onClick={() => setGloss(!gloss)}><Type />释义</button>
+          <button className={aloud ? 'on' : ''} onClick={() => setAloud(!aloud)}><Volume2 />朗读</button>
           <span className="vsep" />
           <button onClick={() => setMode(mode === 'all' ? 'new' : mode === 'new' ? 'clean' : 'all')}>{{ all: '全部标注', new: '仅生词', clean: '纯净阅读' }[mode]}</button>
           <span className="vsep" />
@@ -167,6 +170,7 @@ export function Reader() {
       {panel === 'tibi' && <TibiPanel doc={doc} sectionId={content.id} pending={pending} onClose={() => setPanel(undefined)} />}
       {panel === 'summary' && <SummaryPanel doc={doc} onClose={() => setPanel(undefined)} onPhrase={text => { const el = [...(scrollRef.current?.querySelectorAll<HTMLElement>('[data-sid]') ?? [])].find(x => x.textContent?.toLowerCase().includes(text.toLowerCase())); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); } else toast('这一章里没有找到这个短语'); }} />}
       </div>
+      {aloud && <ReadAloud key={content.id} content={content} scroller={scrollRef.current} onClose={() => setAloud(false)} />}
       {showTop && <button className="totop" onClick={() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setShowTop(false); }}><ArrowUp size={14} />回到开头</button>}
       {selAsk && <button className="selask" style={{ left: selAsk.x, top: selAsk.y }} onMouseDown={e => e.preventDefault()} onClick={() => ask(selAsk.text.length > 80 ? `讲讲这句：${selAsk.text}` : `「${selAsk.text}」在这里是什么意思？`, { sentence_id: selAsk.sentence_id, selection: selAsk.text })}><Sparkles size={13} />问 Tibi</button>}
       {card && <WordCard onAsk={(w, sid) => ask(`「${w}」在这句话里是什么意思？用法上要注意什么？`, { sentence_id: sid, selection: w })} word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} onClose={() => setCard(undefined)} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}

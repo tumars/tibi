@@ -569,3 +569,11 @@ h2.st .sp { flex: 1; }
 .dict-diff { font-family: var(--f-read); font-size: 17px; } .dict-diff .miss { color: var(--hard); text-decoration: underline wavy; text-underline-offset: 4px; }
 .pfoot { display: flex; justify-content: flex-end; }
 .pdone { text-align: center; } .pdone .big { font-size: 44px; font-weight: 600; margin: 4px 0; }
+
+/* 全文朗读（00 §3.4） */
+.aloud { position: fixed; z-index: 35; left: 50%; bottom: 72px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 10px 30px -12px rgba(0,0,0,.3); font-size: 12.5px; }
+.aloud .play { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; }
+.aloud .input { height: 28px; padding: 0 6px; font-size: 12.5px; width: auto; }
+.aloud .ibtn.on { color: var(--accent); background: var(--accent-wash); }
+.aloud .vsep { width: 1px; height: 18px; background: var(--line-2); margin: 0 4px; }
+[data-sid].speaking { background: var(--accent-wash); border-radius: 4px; box-shadow: 0 0 0 2px var(--accent-wash); transition: background .2s; }
