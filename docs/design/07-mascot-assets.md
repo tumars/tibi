@@ -48,9 +48,9 @@ Character reference sheet of CHARACTER on a plain light grey (#f2f2f1) backgroun
 | onboarding-read | 引导第 4 步 读第一篇 | 1024×1024 | 已出 |
 | error-offline | 模型不可用 / 离线 | 1024×1024 | 已出 |
 | error-generic | 出错了 | 1024×1024 | 已出 |
-| sticker-* | 对话里的贴纸反应（6 张：赞、笑、疑问、加油、睡、惊） | 512×512 | 待出 |
+| sticker-* | 对话里的贴纸反应（6 张：赞、笑、疑问、加油、睡、惊） | 512×512 | 已出 |
 | about | 关于页 | 1024×1024 | 已出 |
-| icon-face | 应用图标上层（Icon Composer），只有正脸 | 1024×1024 | 待出 |
+| icon-face | 应用图标上层（Icon Composer），只有正脸 | 1024×1024 | 已出 |
 
 <!-- prompt:hero-morning -->
 CHARACTER sitting on a small stack of three books, holding a bright blue (#3b5bfd) open book, looking up at the viewer with the calm default expression, a tiny cup of coffee beside the books. Soft morning light from the left, warm and airy. Plain very light warm background (#fbfaf8) fading to white, no scene details other than the books and the cup. Wide composition with the character in the lower centre, generous empty space above. No text.
