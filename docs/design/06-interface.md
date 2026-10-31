@@ -347,7 +347,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 
 | 能力 | 参数 | 返回 | 权限 | 说明 |
 |---|---|---|---|---|
-| `search_feeds` | `{ interests?: string[]; genres?: Genre[]; max_unknown_ratio?: number; since?: Ts; limit?: number }` | `{ url: string; title: string; site: string; published_at?: Ts; excerpt: string; est_minutes: number; est_unknown_ratio?: number }[]` | 读 | 从用户订阅的来源与内置推荐源拉取候选；难度估算用摘要粗算 |
+| `search_feeds` | `{ interests?: string[]; genres?: Genre[]; max_unknown_ratio?: number; since?: Ts; limit?: number }` | `{ url: string; title: string; site: string; published_at?: Ts; excerpt: string; est_minutes: number; est_unknown_ratio?: number }[]` | 读 | 从用户订阅的来源与内置推荐源拉取候选；难度估算用摘要粗算。M5：内置 Hacker News Best、Rust Blog、Go Blog、Quanta、Ars Technica，设置里可关掉或加自己的 RSS / Atom；一小时内用缓存；书架里已有的不再推荐 |
 | `web_search` | `{ q: string; limit?: number }` | `{ url: string; title: string; snippet: string }[]` | 读 | 可选，需在设置里配置搜索服务；M5 还没有接任何搜索服务，调用返回 conflict |
 
 ### 词汇
