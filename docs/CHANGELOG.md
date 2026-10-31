@@ -137,3 +137,4 @@
 | 2026-10-31 | Android 打出 APK（aarch64，未签名，约 56 MB，带词典）；`gen/android` 加备份规则，API Key 所在的 `secrets.json` 不进 Google 云端备份和换机迁移；CI 加 `android` job（`cargo check --target aarch64-linux-android`）；手机与 iOS 扩展交换数据的部分加单测（`test/native.test.ts`）。开发说明 §6、00 §3.13、PRIVACY、SECURITY 同步 |
 | 2026-10-31 | CI 加 `ios` 任务（macOS runner：iOS 目标 `cargo check`，分享扩展与小组件 Swift 类型检查）；发布流程加 `android` 任务（APK 留作构建产物，打 tag 时挂到草稿 Release）；推到开发分支 `m0-scaffold` 时 CI 和发布流程都跑（不建 Release），在打 tag 之前验证打包。开发说明 §4 同步 |
 | 2026-10-31 | 发布流程第一次在 GitHub 上跑：词典生成通过；macOS 两个目标编译通过、打包时因为没配签名密钥却传了空值去导入证书而失败（改成配了才传）；Windows 在 `pnpm install` 编 better-sqlite3 时找不到 VS（runner 换成 `windows-2022`）。开发说明 §4 同步 |
+| 2026-10-31 | GitHub 上 CI 与发布流程全部跑通（开发分支，只出构建产物）：macOS ×2、Linux、Windows 安装包与 Android APK。修 Windows 上打包脚本的路径（`fileURLToPath`）。开发说明 §4 同步 |
