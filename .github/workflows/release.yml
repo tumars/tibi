@@ -3,10 +3,16 @@
 #   macOS：APPLE_CERTIFICATE、APPLE_CERTIFICATE_PASSWORD、APPLE_SIGNING_IDENTITY、APPLE_ID、APPLE_PASSWORD、APPLE_TEAM_ID
 #   Windows：暂不签（以后接 Azure Trusted Signing）
 name: Release
+# 推送开发分支（main 之前的 m0-scaffold）也跑一遍：只出构建产物、不建 Release，用来在打 tag 之前验证打包
 on:
   push:
     tags: ['v*']
+    branches: [m0-scaffold]
   workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
 
 permissions:
   contents: write
@@ -116,14 +122,60 @@ jobs:
             apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
           if-no-files-found: ignore
 
-  # 剪藏插件 zip 也挂到同一个 Release
+  # Android APK（aarch64，未签名；配了签名密钥以后再加 apksigner 一步）。runner 自带 Android SDK 和 NDK
+  android:
+    needs: dict
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: android
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: dict
+          path: data/ecdict
+      - name: 词典
+        run: node apps/desktop/scripts/bundle-prep.mjs --skip-sidecar
+      - name: tauri android build
+        working-directory: apps/desktop
+        run: NDK_HOME=$ANDROID_NDK_LATEST_HOME pnpm tauri android build --apk --target aarch64 --ci
+      - name: 改名
+        run: |
+          mkdir -p out
+          cp apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk "out/Tibi-${GITHUB_REF_NAME//\//-}-android-arm64-unsigned.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tibi-android-arm64
+          path: out/*.apk
+          retention-days: 7
+
+  # 剪藏插件 zip 和 Android APK 也挂到同一个 Release（等桌面包把草稿 Release 建好）
   clipper:
-    needs: build
+    needs: [build, android]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: node extensions/clipper/zip.mjs
-      - run: gh release upload "$GITHUB_REF_NAME" extensions/clipper/dist/*.zip --clobber
+      - uses: actions/download-artifact@v4
+        with:
+          name: tibi-android-arm64
+          path: out
+      - run: gh release upload "$GITHUB_REF_NAME" extensions/clipper/dist/*.zip out/*.apk --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

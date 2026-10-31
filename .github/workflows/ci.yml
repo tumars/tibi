@@ -2,7 +2,7 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, m0-scaffold]
   pull_request:
   workflow_dispatch:
 
@@ -74,3 +74,29 @@ jobs:
           export CC_aarch64_linux_android=$TC/aarch64-linux-android24-clang AR_aarch64_linux_android=$TC/llvm-ar
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$TC/aarch64-linux-android24-clang
           cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --lib --target aarch64-linux-android
+
+  ios:
+    # iOS 目标的 Rust 部分（iCloud 容器、App Group 走 objc2-foundation）能编译；两个扩展的 Swift 对 iOS SDK 做类型检查。
+    # 打 .ipa 要签名和 gen/apple 工程（tauri ios init，要 Apple 开发者账号），不在 CI 里做，见开发说明 §6。
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: ios
+      - name: 前端产物占位（不打包，只让 frontendDist 指的目录存在）
+        run: mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html apps/desktop/dist/mobile.html
+      - name: cargo check（aarch64-apple-ios）
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --lib --target aarch64-apple-ios
+      - name: Safari 分享扩展、小组件（Swift）类型检查
+        working-directory: apps/desktop/src-tauri/ios-extensions
+        run: |
+          SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          for f in ShareExtension/ShareViewController.swift TibiWidget/TibiWidget.swift; do
+            echo "== $f"
+            xcrun swiftc -typecheck -parse-as-library -sdk "$SDK" -target arm64-apple-ios17.0-simulator "$f"
+          done

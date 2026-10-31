@@ -64,8 +64,8 @@ Core 的 stdio 协议（06 §1）：每行一条 JSON。壳 → Core 请求 `{js
 
 ## 4. 出安装包与 CI
 
-- **CI**（`.github/workflows/ci.yml`，每个 PR 和推到 main）：内嵌文件是否最新（`pnpm --filter @tibi/core gen` 后无改动）、类型检查、单测、界面构建、界面文案是否都有英文（`i18n:check`）；另起一个任务在 Ubuntu 上 `cargo clippy` 检查 Rust 壳。
-- **发布**（`.github/workflows/release.yml`）：推一个 `v0.1.0` 这样的 tag → 先生成一次词典（缓存）→ macOS（Apple 芯片、Intel）、Windows、Linux 四个目标各自打 sidecar + 安装包 → 放进一个**草稿** Release，剪藏插件 zip 也挂上去；人工检查后再发布。tag 必须和 `tauri.conf.json`、`Cargo.toml` 的版本一致。手动触发（不打 tag）时安装包留作构建产物。
+- **CI**（`.github/workflows/ci.yml`，每个 PR、推到 main 和开发分支 `m0-scaffold`）：内嵌文件是否最新（`pnpm --filter @tibi/core gen` 后无改动）、类型检查、单测、界面构建、界面文案是否都有英文（`i18n:check`）；另起几个任务检查 Rust 壳：Ubuntu 上 `cargo clippy` 与 `--features mobile-preview`，`android`（`cargo check --target aarch64-linux-android`），`ios`（macOS runner：`cargo check --target aarch64-apple-ios`，两个扩展的 Swift 对 iOS SDK 做 `swiftc -typecheck`）。
+- **发布**（`.github/workflows/release.yml`）：推一个 `v0.1.0` 这样的 tag → 先生成一次词典（缓存）→ macOS（Apple 芯片、Intel）、Windows、Linux 四个目标各自打 sidecar + 安装包 → 放进一个**草稿** Release，剪藏插件 zip 也挂上去；人工检查后再发布。tag 必须和 `tauri.conf.json`、`Cargo.toml` 的版本一致。另有 `android` 任务打 APK（aarch64，未签名），也挂到这个 Release。推到开发分支 `m0-scaffold` 或手动触发（不打 tag）时跑同样的流程，但不建 Release，安装包和 APK 留作构建产物（Actions 页面下载），用来在打 tag 之前验证打包；合进 main 以后把触发分支改成 main。
 - **签名**：仓库里配了 `APPLE_CERTIFICATE` 等密钥就自动签名、公证 macOS 包；没配就出未签名的包。Windows 暂不签。
 - **本地出包**：
 
