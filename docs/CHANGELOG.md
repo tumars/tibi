@@ -125,3 +125,4 @@
 | 2026-10-31 | M7 手机端运行时：Core 在 WebView 里跑（T28）——壳加 `local_db.rs`（rusqlite）与 `keyring_get`，`run()` 分桌面 / 手机两条，`mobile-preview` 特性在电脑上走手机那条；JS 端 `InvokeDriver`、`localTransport`（http 插件代替全局 fetch）；`SqliteDict` 和网页正文抽取（`web/html.ts`，注入 HTML 解析器）移进 core；`tauri.ios/android/mobile.conf.json`；手机第一次打开选水平；CI 加 `cargo check --features mobile-preview`。开发说明 §6、00 §3.13 与 M7 里程碑同步 |
 | 2026-10-31 | M7 同步压缩（08 §6）：所有算数的设备读过后把自己的批次合成 `base-N`，读的一方比 base 旧时先读 base；补上"压缩后新设备加入""90 天不上线"两个场景测试（08 §11 八条齐了）。08 §13 同步 |
 | 2026-10-31 | 修词形还原：规则去掉 -ing / -ed 后碰巧是词典里另一个不相干的词（Lexing → lex「法律」）时，要那个词列出了这个变形或有动词义才还原，否则保留原词。示例文章里 lexing 的预生成释义因此能对上 |
+| 2026-10-31 | ⌘K 补齐：空输入时显示继续阅读、"单词"范围列最近加入的词；在阅读器里"问 Tibi"发到 Tibi 面板。00 §3.8 同步 |

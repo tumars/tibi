@@ -1,11 +1,12 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import type { SearchResult } from '@tibi/core';
+import type { SearchResult, Term } from '@tibi/core';
 import { BarChart3, BookA, BookOpen, Bookmark, CornerDownLeft, FileText, Home as HomeIcon, ListChecks, MessageSquare, Moon, Plus, RotateCcw, Search, Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { tl } from '../lib/i18n';
 import { GENRE_NAMES, STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
+import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
 
 /**
@@ -61,6 +62,9 @@ export function SearchPalette() {
   const [sel, setSel] = useState(0);
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const list = useRef<HTMLDivElement>(null);
+  const recentDocs = useCore(st => st.recentDocs);
+  const [recentWords, setRecentWords] = useState<Term[]>([]);
+  useEffect(() => { if (open && scope === 'words' && !q) rpc.call('terms.list', { view: 'all', sort: 'added', limit: 6 }).then(r => setRecentWords(r.items), () => undefined); }, [open, scope, q]);
 
   // ⌘K / Ctrl+K 全局打开；左栏按钮发 tibi:search 事件
   useEffect(() => {
@@ -81,6 +85,7 @@ export function SearchPalette() {
   const go = (to: string) => { remember(q); setOpen(false); nav(to); };
   const ask = async (text: string) => {
     remember(text); setOpen(false);
+    if (loc.pathname.startsWith('/read/')) { window.dispatchEvent(new CustomEvent('tibi:ask', { detail: text })); return; }
     try { const c = await rpc.call('chat.open', {}); nav(`/chat/${c.id}?q=${encodeURIComponent(text)}`); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
@@ -103,6 +108,8 @@ export function SearchPalette() {
     const want = (s: Scope) => scope === 'all' || scope === s;
     if (!t) {
       if (scope === 'all' || scope === 'docs' || scope === 'words') recent.forEach(r => out.push({ key: `r-${r}`, group: tl('最近搜索'), icon: <Search size={15} />, title: r, run: () => setQ(r) }));
+      if (scope === 'all' || scope === 'docs') recentDocs.filter(d => d.progress > 0 && d.progress < 1).slice(0, 2).forEach(d => out.push({ key: `cd-${d.id}`, group: tl('继续阅读'), icon: <FileText size={15} />, title: d.title, tag: `${Math.round(d.progress * 100)}%`, run: () => go(`/read/${d.id}`) }));
+      if (scope === 'words') recentWords.forEach(w => out.push({ key: `rw-${w.id}`, group: tl('最近加入的词'), icon: <BookA size={15} />, title: w.display, sub: w.meaning, tag: STATUS_NAMES[w.status], run: () => go(`/words?term=${w.id}`) }));
       if (want('settings') && scope === 'settings') SETTINGS.forEach(s => out.push({ key: `s-${s.label}`, group: tl('设置'), icon: <SettingsIcon size={15} />, title: tl(s.label), run: () => go(`/settings?sec=${s.sec}&item=${encodeURIComponent(s.label)}`) }));
       if (want('actions')) ACTIONS.forEach(a => out.push({ key: `a-${a.label}`, group: tl('跳转与操作'), icon: a.icon, title: a.label, run: a.run }));
       return out;
@@ -126,7 +133,7 @@ export function SearchPalette() {
     out.push({ key: 'ask', group: '', icon: <Sparkles size={15} />, title: <>{tl('问 Tibi')}：“{q.trim()}”</>, tag: '⌘↵', run: () => ask(q) });
     return out;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, scope, res, recent, ACTIONS, loc.pathname]);
+  }, [q, scope, res, recent, ACTIONS, loc.pathname, recentDocs, recentWords]);
 
   useEffect(() => { setSel(0); }, [q, scope]);
   useEffect(() => { list.current?.querySelector('.pal-row.on')?.scrollIntoView({ block: 'nearest' }); }, [sel]);

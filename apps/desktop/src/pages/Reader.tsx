@@ -93,6 +93,8 @@ export function Reader() {
     setPending({ key: `${Date.now()}`, text, context: { page: 'reader', document_id: id, section_id: content.id, ...extra } });
     setPanel('tibi'); setSelAsk(undefined); setCard(undefined); window.getSelection()?.removeAllRanges();
   }, [content, id]);
+  // ⌘K 搜索里的"问 Tibi"：在阅读器里时发到 Tibi 面板，带上这篇文章（00 §3.8）
+  useEffect(() => { const on = (e: Event) => ask((e as CustomEvent<string>).detail); window.addEventListener('tibi:ask', on); return () => window.removeEventListener('tibi:ask', on); }, [ask]);
   // 选中一段文字：在选区上方浮出"问 Tibi"
   const onSelect = useCallback(() => {
     const sel = window.getSelection(); const t = sel?.toString().trim() ?? '';
