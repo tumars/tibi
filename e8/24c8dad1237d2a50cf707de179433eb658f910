@@ -1,0 +1,65 @@
+docs/research/01-products-and-open-source.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 10,25,27
+docs/design/archive/05-section-9-agents-ui.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 1-20
+README.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 10-11,30,41
+docs/design/07-mascot-assets.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 3,11,13,18-34,53-55,62-67,84-85,155
+docs/research/03-tech-survey.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 3,16,31,39,47,74-75,131,150
+  s_5f1cdd5954dca1::t_73fd0df97a394e 136
+docs/design/00-concept-design.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 4,91,97,163,166-167,204,210,214,290-291,295,317,328-329,347,365,367,377,413,415,418,442-444,449
+  s_5f1cdd5954dca1::t_73fd0df97a394e 395-396
+docs/design/06-interface.md
+  s_5f1cdd5954dca1::t_61835b13a39bdc 13-23,44-46,50-51,63,65,96-97,103-104,111,120,124-125,137,144-145,161,191,203,214,226,228,241,272,276,304-308,313,316,329,356-357,365,371,373,377-380,389,409,413,415,418
+docs/CHANGELOG.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 1-79
+docs/design/05-agent-architecture.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 1,3,6,12-13,27,40,43,49,65,72,75,99,108,110-112,141,144,158,186,188-190,192,194-218,224-225,234,237,239,257-261,289
+docs/research/05-word-atlas-review.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 42,57,76
+tools/gen-mascot.py
+  s_5f1cdd5954dca1::t_31cf309e1e6317 4-7,14,22
+docs/design/_src/build_interface.py
+  s_5f1cdd5954dca1::t_61835b13a39bdc 22-24,28-29,41,43,74-75,81-82,89,95,99-100,109,116-117,130,151,160,168,177,179,189,216,218,221,242-246,251,254,261,279-280,285,288,290,294,296,329-337,348,351,359-362,368,380,403
+docs/design/archive/03-visual-language-v1.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 150
+docs/design/01-database.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 15-17,42,45,62,64,83,85-86,94,101,113-114,161,172,177-195,201-205,224,232,234,236,263-265,292,300,373-375,383,396,428-454
+docs/design/03-visual-language.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 9,15,41,65,115,159,163,175-176,193,205,207-208
+docs/design/04-design-direction-v2.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 56,62,88
+docs/design/overview.html
+  s_5f1cdd5954dca1::t_ac0cb0ff7ad548 180,184,186,208,229-230,247,337,363,373,378-379,381-382,385-390,395-396,398,408,579-584,596,598,617,621,625,635-645,647
+  s_5f1cdd5954dca1::t_61835b13a39bdc 276-278,281-283,429,446-448,452-453,465,467,498-499,505-506,513,515-517,520-524,537,539,542,548,554
+docs/research/04-mac-native-and-mascot.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 3,31,81,84,94,98,121,131,135
+  s_5f1cdd5954dca1::t_109c8dd7d0feba 136
+docs/research/02-learning-theory.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 17,23,33,56,58,78,81,91-92
+  s_5f1cdd5954dca1::t_73fd0df97a394e 15
+docs/design/02-ai-assistant.md
+  s_5f1cdd5954dca1::t_31cf309e1e6317 4,6,24,32,61-62,89,95,98-100,102-104,125,128,138-140,144
+docs/DECISIONS.md
+  s_5f1cdd5954dca1::t_19ee9c8634521d 103,105-125
+  s_5f1cdd5954dca1::t_ac0cb0ff7ad548 1-102,104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e824c8dad1237d2a50cf707de179433eb658f910",
+  "prompts": {},
+  "sessions": {
+    "s_5f1cdd5954dca1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2f8c40b4-4724-49db-8cdc-59bc7f69ec72",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
