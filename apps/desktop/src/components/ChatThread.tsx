@@ -14,7 +14,7 @@ import { toast } from '../store/ui';
  */
 type Live = { id: string; text: string; tools: { tool: string; summary: string; done: boolean }[]; error?: string; done: boolean };
 export type ChatContext = NonNullable<Params<'chat.send'>['context']>;
-export interface Pending { key: string; text: string; context?: ChatContext }
+export interface Pending { key: string; text: string; context?: ChatContext; skill?: string; tier?: 'fast' | 'deep' }
 
 export function ChatThread({ conversationId, skill, context, pending, placeholder = '继续问 Tibi…', empty, back, onConv }: {
   conversationId: string; skill?: string; context?: ChatContext; pending?: Pending; placeholder?: string; empty?: React.ReactNode;
@@ -37,12 +37,12 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
   useEffect(() => { setLive([]); setApprovals([]); mine.current.clear(); setReady(false); void reload(); }, [reload]);
   useEffect(() => { requestAnimationFrame(() => { const el = scroll.current; if (el) el.scrollTop = el.scrollHeight; }); }, [msgs, live, approvals]);
 
-  const send = useCallback(async (t: string, ctx?: ChatContext) => {
+  const send = useCallback(async (t: string, ctx?: ChatContext, sk?: string, tier?: 'fast' | 'deep') => {
     const q = t.trim(); if (!q) return;
     setText('');
     setMsgs(m => [...m, { id: `local-${Date.now()}`, role: 'user', text: q, created_at: Date.now() }]);
     try {
-      const { submission_id } = await rpc.call('chat.send', { conversation_id: conversationId, text: q, context: ctx ?? context, skill });
+      const { submission_id } = await rpc.call('chat.send', { conversation_id: conversationId, text: q, context: ctx ?? context, skill: sk ?? skill, tier });
       mine.current.add(submission_id);
       setLive(l => [...l, { id: submission_id, text: '', tools: [], done: false }]);
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
@@ -50,7 +50,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
 
   useEffect(() => {
     if (!ready || !pending || sent.current.has(pending.key)) return;
-    sent.current.add(pending.key); void send(pending.text, pending.context);
+    sent.current.add(pending.key); void send(pending.text, pending.context, pending.skill, pending.tier);
   }, [ready, pending, send]);
 
   useEffect(() => {
@@ -75,7 +75,13 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
   return (
     <div className="chatwrap">
       <div className="scroll" ref={scroll}>
-        <div className="chatpage">
+        <div className="chatpage" onClick={e => {
+          // 回答里的网页链接：点一下导入到书架（找文章的结果直接能读）；按住 ⌘ / Ctrl 点在浏览器里打开
+          const a = (e.target as HTMLElement).closest('.msg.a a[href^="http"]') as HTMLAnchorElement | null;
+          if (!a || e.metaKey || e.ctrlKey) return;
+          e.preventDefault();
+          void rpc.call('documents.import', { source: { type: 'url', url: a.href } }).then(() => toast('正在导入这篇，好了会提示'), err => toast(errorInfo(err).message, { kind: 'err' }));
+        }}>
           {msgs.filter(m => m.role !== 'tool' && m.text).map(m => m.role === 'user'
             ? <div key={m.id} className="msg u">{m.text}</div>
             : <div key={m.id} className="msg a"><Markdown text={m.text!} /><div className="prov-line"><span>Tibi</span>{m.task_id && <> · <a href={`#/tasks?t=${m.task_id}`}>查看过程</a></>}</div></div>)}

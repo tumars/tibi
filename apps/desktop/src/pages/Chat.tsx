@@ -10,9 +10,9 @@ export function Chat() {
   const [params, setParams] = useSearchParams();
   const [conv, setConv] = useState<Conversation>();
   const [pending, setPending] = useState<Pending>();
-  const q = params.get('q');
+  const q = params.get('q'); const skill = params.get('skill') ?? undefined; const tier = params.get('tier') === 'deep' ? 'deep' as const : undefined;
   // 取走 ?q= 后从网址里去掉，刷新页面不会再发一次
-  useEffect(() => { if (q) { setPending({ key: `${id}:${q}`, text: q, context: { page: 'chat' } }); setParams({}, { replace: true }); } }, [id, q, setParams]);
+  useEffect(() => { if (q) { setPending({ key: `${id}:${q}`, text: q, context: { page: 'chat' }, skill, tier }); setParams({}, { replace: true }); } }, [id, q, skill, tier, setParams]);
   if (!id) return null;
   return (
     <>

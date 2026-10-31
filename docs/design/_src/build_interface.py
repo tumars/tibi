@@ -152,6 +152,9 @@ API = [
     ('practice.finish', '{ practice_id: Id; results: { item_id: string; accuracy: number; duration_ms: number }[] }', 'PracticeResult', '写 practice_logs，不改 cards / review_logs'),
   ]),
   ('stats', '统计', [
+    ('feeds.list', '{}', '{ url: string; title: string; builtin: boolean; enabled: boolean }[]', 'M5 订阅源：内置 + 自己加的'),
+    ('feeds.update', '{ add?: { url: string; title?: string }; remove?: string; toggle?: { url: string; enabled: boolean } }', '同 feeds.list', '加源时先抓一次，确认是 RSS / Atom'),
+    ('feeds.search', '{ interests?: string[]; max_unknown_ratio?: number; limit?: number }', 'search_feeds 的返回', '界面直接看候选，不经模型'),
     ('stats.summary', '{ range: 30 | 90 | 180 }', '{ known: number; known_delta: number; prev_delta: number; minutes: number; words: number; study_days: number; streak: number; longest_streak: number; reviews: number; retention: number }', '四张指标卡'),
     ('stats.series', "{ metrics: ('known' | 'minutes' | 'words' | 'reviews')[]; days: number }", '{ dates: Ts[]; series: Record<string, number[]> }', '折线、柱状、热力图共用'),
     ('stats.retention', '{ weeks: number }', '{ weeks: { ratings: [number, number, number, number]; retention: number }[]; lapses: number; leeches: number }', '"复习表现"面板'),
@@ -281,7 +284,7 @@ CAPS = [
   ]),
   ('找文章', [
     ('search_feeds', "{ interests?: string[]; genres?: Genre[]; max_unknown_ratio?: number; since?: Ts; limit?: number }", "{ url: string; title: string; site: string; published_at?: Ts; excerpt: string; est_minutes: number; est_unknown_ratio?: number }[]", 'read', '从用户订阅的来源与内置推荐源拉取候选；难度估算用摘要粗算'),
-    ('web_search', '{ q: string; limit?: number }', '{ url: string; title: string; snippet: string }[]', 'read', '可选，需在设置里配置搜索服务'),
+    ('web_search', '{ q: string; limit?: number }', '{ url: string; title: string; snippet: string }[]', 'read', '可选，需在设置里配置搜索服务；M5 还没有接任何搜索服务，调用返回 conflict'),
   ]),
   ('词汇', [
     ('get_term', '{ text: string } | { id: Id }', 'TermDetail', 'read', ''),

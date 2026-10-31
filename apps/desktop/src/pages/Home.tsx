@@ -31,6 +31,7 @@ export function Home() {
   const [over, setOver] = useState(false);
   const [focus, setFocus] = useState(false);
   const [kind, setKind] = useState<Kind>('all');
+  const [tier, setTier] = useState<'fast' | 'deep'>('fast');
   const due = useCore(s => s.due); const connected = useCore(s => s.connected); const status = useCore(s => s.status);
   const goal = useCore(s => s.goal); const nickname = useCore(s => s.nickname);
   const ta = useRef<HTMLTextAreaElement>(null);
@@ -66,8 +67,8 @@ export function Home() {
   };
 
   // 问 Tibi（R13 不分模式：不是网址、不是整段英文就当提问）：新开一个对话，主区切到对话页
-  const ask = async (q: string) => {
-    try { const c = await rpc.call('chat.open', {}); setText(''); nav(`/chat/${c.id}?q=${encodeURIComponent(q)}`); }
+  const ask = async (q: string, skill?: string) => {
+    try { const c = await rpc.call('chat.open', {}); setText(''); nav(`/chat/${c.id}?q=${encodeURIComponent(q)}${skill ? `&skill=${skill}` : ''}${tier === 'deep' ? '&tier=deep' : ''}`); }
     catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
@@ -137,7 +138,7 @@ export function Home() {
                 <button className="attach" title="添加文件" onClick={pickFile}><Plus size={16} /></button>
                 {text.trim() && <span className="hint">{({ url: '导入这个网址', text: '导入这段英文', ask: '问 Tibi' } as const)[k]}</span>}
                 <span className="sp" />
-                <button className="tier" title="切换速度与深度" onClick={() => toast('"深入"档从 M2 起可用')}>快速 <ChevronDown size={12} /></button>
+                <button className="tier" title="切换速度与深度：快速适合查词和短问题，深入更慢但更仔细" onClick={() => { const t = tier === 'fast' ? 'deep' : 'fast'; setTier(t); toast(t === 'deep' ? '深入：更慢但更仔细，适合长文分析和学习计划' : '快速：响应快，适合查词和短问题'); }}>{tier === 'fast' ? '快速' : '深入'} <ChevronDown size={12} /></button>
                 <button className="send" disabled={!text.trim()} onClick={submit} aria-label="发送"><ArrowUp size={17} /></button>
               </div>
           </div>
@@ -146,7 +147,7 @@ export function Home() {
             <button className="chip" onClick={async () => { const list = await rpc.call('documents.samples', {}).catch(() => []); const s = list.find(x => x.is_default) ?? list[0]; if (s) void openSample(s, nav); }}><Play />读一篇示例文章</button>
             <button className="chip" onClick={() => nav('/welcome?step=2&from=home')}><Sparkles />先测一下我的词汇量</button>
           </div> : <div className="chips">
-            <button className="chip" onClick={() => toast('找文章从 M5 起可用')}><Search />推荐一篇 10 分钟的科技新闻</button>
+            <button className="chip" onClick={() => void ask('推荐一篇 10 分钟左右、适合我水平的科技文章', 'scout')}><Search />推荐一篇 10 分钟的科技新闻</button>
             <button className="chip" onClick={() => void ask('用这周的生词写个小故事')}><Sparkles />用这周的生词写个小故事</button>
           </div>}
         </section>
