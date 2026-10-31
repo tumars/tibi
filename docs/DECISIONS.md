@@ -114,11 +114,11 @@
 | — | 手机可以单独用：手机自带 Core、自己的库和 API Key，电脑不开机也能导入、问 Tibi、复习；两端靠同步合并 | [00 §3.13](design/00-concept-design.md#313-手机端d8) |
 | — | 对话：电脑一次一页、手机一天一页，同一个数据模型（`conversations.kind`）；同步后互相可见（"10 月 31 日 · 手机"） | [00 §3.5、§3.13](design/00-concept-design.md#313-手机端d8)、[01 conversations](design/01-database.md#conversations对话) |
 | R12 | 纯开源 + 自带 Key，不做托管、不收费、不经手用户数据 | [00 §1](design/00-concept-design.md#1-产品定位) |
-| R13 | 电脑首页去掉模式切换（网址即导入，其余问 Tibi），继续阅读升为主卡 | [00 §3.5](design/00-concept-design.md#35-首页与书架home--library) |
+| R13 | 电脑首页去掉模式切换，按内容判断（网址或长段英文 → 导入，含"推荐 / 找"→ 找文章，其余问 Tibi，`/` 可手动指定）；继续读升为最上面的主卡 | [00 §3.5](design/00-concept-design.md#35-首页与书架home--library) |
 | R14 | 界面统一叫"Tibi 能做的事"，"技能"只在查看过程与设置 → 高级里出现；实现词不上界面 | [00 §3.10](design/00-concept-design.md#310-tibi-与技能) |
-| R15 | 设置里的模型、技能、MCP、预算收进"高级"；生词本左栏 4 个视图 | [00 §3.7、§3.3](design/00-concept-design.md#37-设置settings) |
+| R15 | 设置里的模型、能做的事、花费上限、MCP 收进"高级"（默认折叠）；生词本左栏 4 个视图：全部 / 今天到期 / 难词 / 不在复习里 | [00 §3.7、§3.3](design/00-concept-design.md#37-设置settings) |
 | R16 | 打开文章直接回到上次位置，给"回到开头"；不再弹 8 秒提示 | [00 §3.2](design/00-concept-design.md#32-沉浸式阅读面板reader核心界面) |
-| R17 | 统计空状态用专属插画；首页 `#empty` 保留 | [03 §7.2](design/03-visual-language.md#72-插画与封面) |
+| R17 | 统计空状态改用专属插画 `empty-stats`（已加进 07 清单，待出图，出图前仍用 SVG）；首页 `#empty` 保留 | [03 §7.2](design/03-visual-language.md#72-插画与封面) |
 | E1–E8 | E1、E2、E5、E7、E8 采用；E4 不采用（继续用品牌靛蓝）；E3、E6 采用做法但数值不改（13.5px、6 / 8 / 12、控件 30px） | [research/04 §3](research/04-mac-native-and-mascot.md#3-建议的决策e-组界面)、[03 §10](design/03-visual-language.md#10-待讨论) |
 | — | 账号登录不做：ChatGPT 条款未核实，从 M5 拿掉；只用 API Key | [05 §10](design/05-agent-architecture.md#10-外部-ai-工具对-a2a6-的影响) |
 | — | 正式版不打包普惠体，各平台用系统中文字体 | [03 §2](design/03-visual-language.md#2-字体) |

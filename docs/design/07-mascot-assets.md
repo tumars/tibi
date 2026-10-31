@@ -57,6 +57,7 @@ Character reference sheet of CHARACTER on a plain light grey (#f2f2f1) backgroun
 | empty-review | 没有到期卡片 | 1024×1024 | 已落地 |
 | empty-tasks | 任务中心为空 | 1024×1024 | 已落地 |
 | empty-words | 生词本为空 | 1024×1024 | 已落地 |
+| empty-stats | 统计页还没有数据（R17） | 1024×1024 | 待出图；出图前统计空状态仍用 SVG |
 | celebrate-review | 复习完成页 | 1024×1024 | 已落地 |
 | celebrate-streak | 连续学习 7 / 30 / 100 天 | 1024×1024 | 已出 |
 | onboarding-hello | 预留未用（引导第 1 步 认识一下；引导页用 SVG 小狐狸） | 1024×1024 | 已出 |
@@ -93,6 +94,10 @@ CHARACTER lying on its back on a small pile of flashcards that are all neatly st
 
 <!-- prompt:empty-tasks -->
 CHARACTER sitting at a tiny desk with nothing on it but one pencil, chin resting on both paws, patient waiting expression with half-lowered lids. Transparent background, centred. No text.
+<!-- /prompt -->
+
+<!-- prompt:empty-stats -->
+CHARACTER sitting next to a small, blank bar chart with three empty bars, holding a pencil as if about to draw the first bar, curious and eager expression, ears up. Transparent background, centred. No text.
 <!-- /prompt -->
 
 <!-- prompt:empty-words -->
@@ -152,4 +157,4 @@ Only the head of CHARACTER, front view, perfectly centred, filling 80% of the sq
 
 ## 5. 落地到原型
 
-SVG 小狐狸和插画不同框，每个位置只放一只：要跟着输入、思考、完成切换状态的位置用 SVG（首页、手机版首页、引导页、统计页空状态）；静态画面用插画（书架、复习、任务、生词本的空状态，复习完成页，首页失败态的 `error-generic` / `error-offline`，含 `mobile.html`）。未用的素材：`hero-*`、`onboarding-*`、`celebrate-streak`、`about`、`icon-face`、`sticker-*`。替换时更新 `03-visual-language.md` §7.2 与本文件状态列。
+SVG 小狐狸和插画不同框，每个位置只放一只：要跟着输入、思考、完成切换状态的位置用 SVG（首页、手机版首页、引导页；统计页空状态在 `empty-stats` 出图前暂用 SVG，R17 定为改用插画）；静态画面用插画（书架、复习、任务、生词本的空状态，复习完成页，首页失败态的 `error-generic` / `error-offline`，含 `mobile.html`）。未用的素材：`hero-*`、`onboarding-*`、`celebrate-streak`、`about`、`icon-face`、`sticker-*`。替换时更新 `03-visual-language.md` §7.2 与本文件状态列。
