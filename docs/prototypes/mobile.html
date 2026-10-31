@@ -35,7 +35,11 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 .top .ib, .rvhead .x { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 0 0 .5px var(--line-2); }
 .top .ib:active, .rvhead .x:active { transform: scale(.94); }
 /* 手机版各页不放页标题（2026-10-31）：顶栏只留按钮，内容直接开始 */
-.top .sp { flex: 1; } .topgap { height: calc(var(--sat) + 16px); }
+.top .sp { flex: 1; }
+/* 书架顶栏：搜索框 + 导入按钮同一行（iOS"文件"、备忘录的做法），不单独占一行放"+" */
+.libbar { gap: 10px; }
+.lsearch { flex: 1; min-width: 0; height: 40px; border-radius: 20px; background: var(--fill); display: flex; align-items: center; gap: 6px; padding: 0 14px; color: var(--ink-3); }
+.lsearch svg { width: 17px; height: 17px; } .lsearch input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font-size: 16px; color: var(--ink); } .lsearch input::placeholder { color: var(--ink-3); } .lsearch input::-webkit-search-cancel-button { display: none; } .topgap { height: calc(var(--sat) + 16px); }
 .logo { width: 28px; height: 28px; border-radius: 8px; }
 /* 底部标签栏：浮动胶囊（iOS 26 风格），滚动时收窄 */
 .tabs { position: absolute; left: 14px; right: 14px; bottom: calc(14px + var(--sab)); z-index: 20; display: flex; gap: 8px; height: 62px; transition: transform .3s cubic-bezier(.22,.8,.24,1); }
@@ -285,8 +289,8 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 
   <!-- 书架 -->
   <section class="screen" id="s-lib" hidden>
-    <header class="top"><span class="sp"></span><button class="ib" id="addBtn" title="导入"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 5v14M5 12h14"/></svg></button></header>
-    <div class="pad"><div class="seg" id="kindSeg"><button class="on" data-k="all">全部</button><button data-k="article">文章</button><button data-k="book">书</button></div></div>
+    <header class="top libbar"><label class="lsearch"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><input id="libQ" type="search" placeholder="搜索书架" autocomplete="off"></label><button class="ib" id="addBtn" title="导入" aria-label="导入"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 5v14M5 12h14"/></svg></button></header>
+    <div class="pad" style="margin-top:6px"><div class="seg" id="kindSeg"><button class="on" data-k="all">全部</button><button data-k="article">文章</button><button data-k="book">书</button></div></div>
     <div class="pad" style="margin-top:10px"><div class="chips" id="tagChips"></div></div>
     <div class="pad" style="margin-top:12px"><div class="card" id="shelf"></div></div>
   </section>
@@ -476,17 +480,18 @@ const DOCS = [
   { k: 'article', g: '新闻', t: 'The Quiet Return of Night Trains in Europe', p: 100, mins: 5, ratio: 1.6, tags: ['旅行'] },
   { k: 'article', g: '学术', t: 'How Transformers Handle Long Context', p: 0, mins: 12, ratio: 6.3, hard: true, tags: ['机器学习'] },
 ];
-let kind = 'all', tag = '';
+let kind = 'all', tag = '', libQ = '';
 function renderShelf() {
   const tags = [...new Set(DOCS.flatMap(d => d.tags))];
   $('#tagChips').innerHTML = tags.map(t => `<button class="chip${t === tag ? ' on' : ''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
   $('#tagChips').querySelectorAll('[data-tag]').forEach(b => b.onclick = () => { tag = tag === b.dataset.tag ? '' : b.dataset.tag; renderShelf(); });
-  const list = DOCS.filter(d => (kind === 'all' || d.k === kind) && (!tag || d.tags.includes(tag)));
+  const list = DOCS.filter(d => (kind === 'all' || d.k === kind) && (!tag || d.tags.includes(tag)) && (!libQ || (d.t + ' ' + d.tags.join(' ')).toLowerCase().includes(libQ)));
   $('#shelf').innerHTML = list.map(d => `<button class="doc" data-open="${d.open ? 1 : 0}"><span class="b"><span class="t">${esc(d.t)}</span><span class="m"><span>${d.k === 'book' ? '书 · ' : ''}${d.g}</span><span>·</span><span>${d.ch || (d.p >= 100 ? '已读完' : `约 ${d.mins} 分钟`)}</span><span class="lv${d.hard ? ' hard' : ''}">· 生词率 ${d.ratio}%</span></span>${d.p && d.p < 100 ? `<span class="bar"><i style="width:${d.p}%"></i></span>` : ''}</span><span class="chev">›</span></button>`).join('') || '<div class="lbl" style="padding:20px;text-align:center">没有符合的文章</div>';
   $('#shelf').querySelectorAll('.doc').forEach(b => b.onclick = () => +b.dataset.open ? openReader() : toast('原型里只有第一篇可以打开'));
 }
 document.querySelectorAll('#kindSeg button').forEach(b => b.onclick = () => { kind = b.dataset.k; document.querySelectorAll('#kindSeg button').forEach(x => x.classList.toggle('on', x === b)); renderShelf(); });
 renderShelf();
+$('#libQ').addEventListener('input', e => { libQ = e.target.value.trim().toLowerCase(); renderShelf(); });
 $('#addBtn').onclick = () => openSheet('#isheet');
 $('#impPaste').onclick = () => { closeSheets(); show('home'); setTimeout(() => $('#pasteBtn').click(), 250); };
 
