@@ -104,6 +104,7 @@ export function Settings() {
           <section className="ssec" id="s-data"><h2>数据</h2><div className="group">
             <div className="item"><div><div className="t">数据库位置</div><div className="mono" style={{ marginTop: 6 }}>{status?.db_path ?? '—'}</div></div><div className="ctl"><button className="btn sm" onClick={async () => { if (!isTauri() || !status) return toast('浏览器模式不能打开'); const { invoke } = await import('@tauri-apps/api/core'); await invoke('open_path', { path: status.db_path }).catch(e => toast(String(e), { kind: 'err' })); }}>在文件夹中显示</button></div></div>
             <BackupItems />
+            <div className="item"><div><div className="t">生词本导入与导出</div><div className="d">导出为 Anki / CSV / 纯文本；从其他工具导入已知词表或单词表。在生词本页右上角。</div></div><div className="ctl"><button className="btn sm" onClick={() => nav('/words')}>去生词本</button></div></div>
             <ExportSummaryItem />
             <div className="item"><div><div className="t">同步</div><div className="d">和手机、其他电脑同步，经过你自己的 iCloud Drive 或 WebDAV 云盘。M7 起可用。</div></div><div className="ctl"><button className="btn sm" disabled>开启同步</button></div></div>
           </div></section>

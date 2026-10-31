@@ -22,6 +22,7 @@ describe('ruleLemma', () => {
     const dict: Dict = { async lookup() { return undefined; }, async frequencyRank() { return undefined; }, async lemmas(f) { return f === 'left' ? ['left', 'leave'] : []; } };
     expect(await lemmatize('left', dict)).toBe('left');
     expect(await lemmatize('verifies', dict)).toBe('verify');
+    expect(ruleLemma('ubiquitous')).toBe('ubiquitous'); expect(ruleLemma('status')).toBe('status'); expect(ruleLemma('cats')).toBe('cat');
   });
 });
 

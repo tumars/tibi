@@ -130,8 +130,8 @@ API = [
     ('terms.pause', '{ ids: Id[]; days: number }', '{ changed: number; undo: Undo }', '难词暂停复习'),
     ('terms.setCardType', '{ id: Id; card_type?: CardType }', 'CardState', '难词换题型；undefined 恢复默认'),
     ('terms.remove', '{ ids: Id[] }', 'Undo', '移出生词本：in_wordbook = 0，卡片软删（cards.deleted_at），review_logs 保留；再次加入时恢复原卡片'),
-    ('terms.import', "{ path: string; format: 'csv' | 'txt' | 'anki' | 'known' }", '{ task_id: TaskId }', 'known = 已知词表，直接标为已知（97）；path 按 §1 校验'),
-    ('terms.export', "{ format: 'csv' | 'anki' | 'txt'; ids?: Id[]; with_contexts?: boolean }", '{ path: string }', ''),
+    ('terms.import', "{ path: string; format: 'csv' | 'txt' | 'anki' | 'known' }", '{ added: number; known: number; skipped: number; total: number }', 'M3：读用户选的文件（path 按 §1 校验）。known = 已知词表：没有的建成已知（97），生词 / 待确认改为已知，学习中、已知、忽略的不动；txt / csv / anki = 加进生词本，第二列当释义。每行一个词，# 开头的行和表头跳过，一次最多 20,000 个'),
+    ('terms.export', "{ format: 'csv' | 'anki' | 'txt'; ids?: Id[]; with_contexts?: boolean }", '{ filename: string; text: string; count: number }', 'M3：只生成文本，壳用 save_text_file 另存为（Core 不写文件）。csv 带 BOM（Excel 直接打开）；anki 是 Anki"导入文件"认的制表符文本（#separator / #html / #columns 头，背面是释义 + 原句加粗 + 译文 + 出处）；txt 每行一个词。不给 ids 时导出整个生词本'),
   ]),
   ('review', '复习', [
     ('review.start', "{ resume?: boolean; ahead?: boolean; limit?: number }", 'ReviewSession', '默认先续上未完成的会话（G6）；否则按"先到期、后新词，新词 5 个一组先初见再回忆"排好步骤'),

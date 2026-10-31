@@ -6,6 +6,7 @@ import { normalizeCase } from '../text/tokenize.js';
 import { getTerm, getTermByText, readProfile, type TermRow } from './repo.js';
 import { addPhrase, addWords, applyStatus, contextMeaning, pauseTerms, removeTerms, setContextMeaning, touchOnLookup } from './service.js';
 import { listTerms, termDetail, toTerm, VIEWS } from './views.js';
+import { exportTerms, importTerms } from './io.js';
 
 /** terms.*（06 §3 词汇与生词本） */
 
@@ -103,12 +104,10 @@ export const termsMethods: MethodMap = {
 
   'terms.remove': method(Type.Object({ ids: Type.Array(S.id, { minItems: 1 }) }), async (p, ctx) => removeTerms(ctx, p.ids), '移出生词本'),
 
-  'terms.import': method(Type.Object({ path: Type.String(), format: Type.Union(['csv', 'txt', 'anki', 'known'].map(s => Type.Literal(s))) }), async () => {
-    throw new TibiError('invalid_source', '从文件导入生词还没做好');
-  }, 'M3'),
-  'terms.export': method(Type.Object({ format: Type.Union(['csv', 'anki', 'txt'].map(s => Type.Literal(s))), ids: Type.Optional(Type.Array(S.id)), with_contexts: Type.Optional(Type.Boolean()) }), async () => {
-    throw new TibiError('invalid_source', '导出生词本还没做好');
-  }, 'M3'),
+  'terms.import': method(Type.Object({ path: Type.String(), format: Type.Union(['csv', 'txt', 'anki', 'known'].map(s => Type.Literal(s))) }), async (p, ctx) => importTerms(ctx, p.path, p.format as 'csv'),
+    '从文件导入：known = 已知词表（直接标为已知 97，学习中的不动）；txt / csv / anki = 加进生词本（第二列当释义）。path 必须经壳登记'),
+  'terms.export': method(Type.Object({ format: Type.Union(['csv', 'anki', 'txt'].map(s => Type.Literal(s))), ids: Type.Optional(Type.Array(S.id)), with_contexts: Type.Optional(Type.Boolean()) }), async (p, ctx) => exportTerms(ctx, p as never),
+    '生成导出文本（壳用 save_text_file 存盘）：csv 带 BOM；anki 是 Anki 能直接导入的制表符文本；txt 每行一个词。不给 ids 时导出整个生词本'),
 
   'profile.vocab': method(Type.Object({}), async (_p, ctx) => readProfile(ctx.db), '内部：标注用的画像'),
 };

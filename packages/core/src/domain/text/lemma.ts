@@ -68,6 +68,8 @@ export function ruleLemma(form: string): string {
     const stem = w.slice(0, -2); const dd = dedupeDouble(stem); if (dd !== stem) return dd;
     return w;
   }
+  // -ous / -us / -is 结尾的是原形（ubiquitous、status、analysis），英语复数不会这样结尾
+  if (/(ous|us|is)$/.test(w)) return w;
   if (w.endsWith('s') && !w.endsWith('ss') && !S_WORDS.has(w)) {
     if (/(ches|shes|sses|xes|zes|oes)$/.test(w) && w.length > 4) return /oes$/.test(w) && !/^(does|goes)$/.test(w) ? w.slice(0, -2) : w.slice(0, -2);
     if (/[^aeiou]es$/.test(w) && w.length > 4 && /(ves)$/.test(w)) return w.slice(0, -3) + 'f';
