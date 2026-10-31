@@ -38,7 +38,7 @@
 - [首次启动引导](docs/prototypes/onboarding.html)（两步：认识一下、读第一篇；校准词汇量 `#step=2`、连接模型 `#step=3` 按需进入）
 - [书架页：现在 vs mac 原生化对照](docs/prototypes/native-mac.html)（调研 [research/04](docs/research/04-mac-native-and-mascot.md)）
 - [吉祥物：藏狐](docs/prototypes/mascot.html)（SVG 动画，7 种状态，组件 `v2-fox.js`）
-- [手机版](docs/prototypes/mobile.html)（独立的壳：今天 / 书架 / 复习 / 我、全屏阅读器、两档底部面板、小组件与分享演示；D8、J1–J9）
+- [手机版](docs/prototypes/mobile.html)（独立的壳：今天 / 书架 / 复习 / 我、全屏阅读器、两档底部面板、小组件与分享演示；D8、J1–J10）
 - 空状态：首页 / 书架 / 复习 / 任务 / 统计页左下角的"原型演示"开关，或网址加 `#empty`
 - 归档：[v1 原型](docs/prototypes/v1/)
 

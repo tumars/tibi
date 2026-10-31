@@ -76,6 +76,24 @@
 
 公开资料里没有找到对比这两种入口的可用性研究或 A/B 数据，上面的判断来自产品形态分析。
 
+## 6. 看起来像网页而不像 iOS 应用（J10）
+
+用户反馈手机版"像 web 应用"，参考支小宝、蚂小财。对照后，网页感主要来自这几处：
+
+| 网页感的来源 | 改成 |
+|---|---|
+| 暖灰底 + 每张卡片一圈细描边 | iOS 系统分组背景 `#f2f2f7`（深色纯黑），白卡片不描边，靠底色区分层次；首页卡片加很淡的投影 |
+| 主按钮是黑色圆角矩形 | 胶囊按钮：主按钮强调色填充、次按钮系统灰填充、"开始"用浅强调色 |
+| 列表行 15px 字、分隔线通到左边缘、图标是灰色线条 | 分组列表：16.5px 字、行高 52px、分隔线从文字起点开始；"我"用设置应用那样的彩色圆角方块图标 |
+| 标签栏选中只是换颜色 | 选中换实心图标（SF Symbols 的 fill 变体）+ 强调色 + 一块系统灰 |
+| 导航栏按钮是方形浅底 | iOS 26 的圆形玻璃按钮；大标题 34px |
+| 首页平铺一个颜色 | 顶部浅靛蓝 + 狐狸橙的渐变，随内容滚走（蚂小财、支小宝首页都是这样的浅色渐变） |
+| 输入条右边是黑色发送键 | 空着时是"+"（导入），有字时变成强调色发送键（像蚂小财的输入条和 iMessage） |
+| 对话气泡是灰色 | 自己的话用强调色气泡，Tibi 的回答用白色气泡 |
+| 预览时没有状态栏 | 手机框里模拟状态栏和主屏指示条（只在桌面浏览器预览时显示） |
+
+做法参照苹果 Human Interface Guidelines 的系统颜色、按钮、列表与标签栏规范，以及 WWDC25 的新设计（Liquid Glass）。
+
 ## 参考
 
 - LingQ：[iOS 使用说明](https://www.lingq.com/en/ios-app-support/)、[设置指南（翻页标已知）](https://lingtuitive.com/blog/ultimate-lingq-settings)、[论坛：误标几百个已知词](https://forum.lingq.com/t/accidently-marked-hundreds-of-words-as-known-this-cant-be-undone/149976)；[LangReader（开源）](https://github.com/stephenedgerton/LangReader)
@@ -88,4 +106,5 @@
 - 多邻国小组件：[官方博客](https://blog.duolingo.com/widget-feature)；[MacRumors：灵动岛广告](https://www.macrumors.com/2026/01/02/duolingo-dynamic-island-ad/)
 - iOS 26：[WWDC25 SwiftUI 新设计](https://developer.apple.com/videos/play/wwdc2025/323/)、[Liquid Glass 面板](https://nilcoalescing.com/blog/PresentingLiquidGlassSheetsInSwiftUI/)
 - 首页对话入口（J9）：[每日经济新闻：支付宝 AI 版体验](https://www.nbd.com.cn/articles/2026-06-16/4428387.html)、[财新：支付宝最大改版](https://www.caixinglobal.com/2026-06-17/ant-revamps-alipay-with-ai-assistant-in-biggest-app-overhaul-102454831.html)、[界面新闻：蚂小财升级](https://www.jiemian.com/article/11689757.html)、[Adaline：聊天不该是默认界面](https://labs.adaline.ai/p/post-chat-interface-ai-products?open=false)、[Lazyweb：多少应用有 AI 助手页](https://www.lazyweb.com/research/what-percent-of-apps-have-an-ai-assistant.md)
+- iOS 外观（J10）：[HIG：颜色](https://developer.apple.com/design/human-interface-guidelines/color)、[HIG：按钮](https://developer.apple.com/design/human-interface-guidelines/buttons)、[HIG：列表与表格](https://developer.apple.com/design/human-interface-guidelines/lists-and-tables)、[HIG：标签栏](https://developer.apple.com/design/human-interface-guidelines/tab-bars)
 - Tauri 分享扩展：[tauri-plugin-mobile-sharetarget](https://docs.rs/crate/tauri-plugin-mobile-sharetarget/latest)
