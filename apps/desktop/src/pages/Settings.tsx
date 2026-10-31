@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Top } from '../components/Shell';
+import { Switch } from '../components/Switch';
 import { saveProvider } from '../lib/providers';
 import { BackupItems, ExportSummaryItem } from '../settings/DataItems';
 import { MemoryItems } from '../settings/MemoryItems';
@@ -14,6 +15,8 @@ const SECTIONS = [['general', '通用'], ['learning', '学习与复习'], ['memo
 
 export function Settings() {
   const nav = useNavigate();
+  const [recognize, setRecognize] = useState(false);
+  useEffect(() => { rpc.call('settings.get', { keys: ['review.recognize'] }).then(r => setRecognize(!!r['review.recognize']), () => undefined); }, []);
   const theme = useUi(s => s.theme); const setTheme = useUi(s => s.setTheme);
   const status = useCore(s => s.status);
   const [sec, setSec] = useState<string>('general');
@@ -69,6 +72,7 @@ export function Settings() {
             <Range label="每日阅读目标" value={profile?.daily_goal_minutes ?? 20} min={5} max={60} step={5} unit=" 分钟" onChange={v => patch({ daily_goal_minutes: v })} />
             <Range label="每天最多新学的词" value={profile?.daily_new_cards ?? 20} min={5} max={50} step={5} unit=" 个" desc="超过的排到第二天" onChange={v => patch({ daily_new_cards: v })} />
             <Range label="目标记得率" value={Math.round((profile?.desired_retention ?? 0.9) * 100)} min={80} max={97} step={1} unit="%" desc="越高复习越频繁" onChange={v => patch({ desired_retention: v / 100 })} />
+            <div className="item"><div><div className="t">出识别题</div><div className="d">看着词想意思，自己评分。关掉时这一步由选义题代替（R6）</div></div><div className="ctl"><Switch label="出识别题" checked={recognize} onChange={async v => { setRecognize(v); await rpc.call('settings.set', { patch: { 'review.recognize': v } }).catch(e => toast(errorInfo(e).message, { kind: 'err' })); }} /></div></div>
           </div></section>
 
           <section className="ssec" id="s-advanced">

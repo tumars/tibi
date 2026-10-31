@@ -171,9 +171,9 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `review.next` | `{ session_id: Id; step: number }` | `Ok` | 初见步"认识了"、重练步"继续"；推进游标并保存进度 |
 | `review.undo` | `{ session_id: Id }` | `AnswerResult` | 撤销上一张（恢复卡片状态与插入的重练步） |
 | `review.pause` | `{ session_id: Id }` | `Ok` | "稍后继续"；每次作答已自动保存，这里只标记暂停 |
-| `review.grade` | `{ session_id: Id; step: number; text: string }` | `{ task_id: TaskId }` | 造句题（M3）交给出题与批改技能；结果（含建议评分）走 task.done |
+| `review.grade` | `{ session_id: Id; step: number; text: string }` | `—` | R6 后计分复习没有造句题，调用返回 conflict；造句批改用 practice.grade |
 | `review.quiz` | `{ term_ids?: Id[]; count?: number; from?: "session_mistakes" }` | `ReviewSession` | 不计分的会话（kind = drill，graded = false）：完成页"再练错词"、空状态"用生词出题"（G7） |
-| `review.story` | `{ term_ids: Id[] }` | `{ task_id: TaskId }` | 完成页"读一篇用到这些词的短文"（G7）：找文章技能先找；找不到由 Tibi 写一篇（≤ 300 词、生词率 ≤ 5%），保存时 source_type = tibi_generated |
+| `review.story` | `{ term_ids: Id[] }` | `{ task_id: TaskId }` | G7"读一篇用到这些词的短文"（M3）：快速档按固定提示写 150–250 词、词汇量以内、贴近兴趣的短文，作为 tibi_generated 文章导入书架（标签"Tibi 写的"），返回导入任务；没连模型 → model_unavailable |
 | `review.optimize` | `{}` | `{ task_id: TaskId }` | 按个人记录优化 FSRS 参数（≥ 400 条） |
 
 ### practice · 练习（不计分，G8；排在后续）
@@ -181,6 +181,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
 | `practice.start` | `{ mode: PracticeMode; source: 'recent' \| 'mistakes' \| 'leech' \| 'document'; document_id?: Id; count?: number }` | `{ practice_id: Id; items: PracticeItem[] }` | 句子来自用户读过的文章；易混词来自生词本与词典的易混提示 |
+| `practice.grade` | `{ word: string; text: string; sentence?: string }` | `{ score: number; ok: boolean; feedback: string; better?: string }` | 造句批改（M3，不计分）：快速档按固定提示给 0–100 分、是否用对、一两句中文点评和改好的句子；学生句子当不可信材料 |
 | `practice.finish` | `{ practice_id: Id; results: { item_id: string; accuracy: number; duration_ms: number }[] }` | `PracticeResult` | 写 practice_logs，不改 cards / review_logs |
 
 ### stats · 统计

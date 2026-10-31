@@ -1,6 +1,7 @@
 import type { AnswerResult, QueueItem, Rating, ReviewSession } from '@tibi/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
+import { Practice } from '../review/Practice';
 import { Empty } from '../components/Empty';
 import { Top } from '../components/Shell';
 import { speak, STATUS_NAMES } from '../lib/util';
@@ -12,7 +13,7 @@ const RATING = { 1: '忘了', 2: '模糊', 3: '记得', 4: '轻松' } as const;
 type Phase = { kind: 'ask' } | { kind: 'reveal' } | { kind: 'answered'; result: AnswerResult; chosen?: string; typed?: string };
 
 /** 复习（00 §3.3，G1–G8）：题目在卡片里，所有操作固定在底部 */
-export function Review() {
+function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
   const nav = useNavigate();
   const [session, setSession] = useState<ReviewSession>();
   const [err, setErr] = useState<string>();
@@ -108,14 +109,14 @@ export function Review() {
 
   useEffect(() => { if (item?.card_type === 'cloze' && phase.kind === 'ask') inputRef.current?.focus(); }, [item, phase]);
 
-  if (err) return <><Top crumbs={[{ label: '复习' }]} /><Empty title="复习还没准备好" text={err} action={<button className="btn" onClick={() => load()}>重试</button>} /></>;
-  if (!session) return <><Top crumbs={[{ label: '复习' }]} /><div className="scroll" /></>;
+  if (err) return <><Top crumbs={[{ label: '复习' }]} right={tabs} /><Empty title="复习还没准备好" text={err} action={<button className="btn" onClick={() => load()}>重试</button>} /></>;
+  if (!session) return <><Top crumbs={[{ label: '复习' }]} right={tabs} /><div className="scroll" /></>;
   if (done || !item) {
     const graded = Object.entries(results).filter(([, r]) => !r.retry && !r.intro);
     const correct = graded.filter(([, r]) => r.correct).length;
     const wrong = session.steps.filter(s => results[s.step] && !results[s.step]!.correct && !s.retry && !s.intro).map(s => s.term.id);
     return <>
-      <Top crumbs={[{ label: '复习' }]} />
+      <Top crumbs={[{ label: '复习' }]} right={tabs} />
       <div className="scroll"><div className="rv">
         {session.steps.length === 0 ? <Empty title="今天没有要复习的" text="读文章时点开的生词会排进来。" action={<button className="btn" onClick={() => nav('/library')}>去读点什么</button>} /> : (
           <div className="done">
@@ -128,6 +129,11 @@ export function Review() {
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               {wrong.length > 0 && <button className="btn" onClick={() => load({}).then(() => rpc.call('review.quiz', { term_ids: wrong }).then(s => { setSession(s); setDone(false); setResults({}); setPhase({ kind: 'ask' }); }, e => toast(errorInfo(e).message, { kind: 'err' })))}>再练 {wrong.length} 个错词（不计分）</button>}
+              {session.kind !== 'drill' && session.steps.length > 0 && <button className="btn" onClick={async () => {
+                const ids = [...new Set(session.steps.filter(s => !s.intro).map(s => s.term.id))].slice(0, 12);
+                try { await rpc.call('review.story', { term_ids: ids }); toast('Tibi 正在写一篇用到这些词的短文，写好会放进书架'); } catch (e) { const i = errorInfo(e); toast(i.code === 'model_unavailable' ? '要连接模型才能写短文' : i.message, { kind: 'err' }); }
+              }}>读一篇用到这些词的短文</button>}
+              <button className="btn" onClick={() => nav('/review?tab=practice')}>去练习</button>
               <button className="btn pri" onClick={() => nav('/')}>回首页</button>
             </div>
           </div>
@@ -150,7 +156,7 @@ export function Review() {
 
   return (
     <>
-      <Top crumbs={[{ label: '复习' }]} right={<button className="btn sm" onClick={pause}>稍后继续</button>} />
+      <Top crumbs={[{ label: '复习' }]} right={<>{tabs}<button className="btn sm" onClick={pause}>稍后继续</button></>} />
       <div className="scroll"><div className="rv">
         <div className="rvhead">
           <div className="segs">{session.steps.map(s => { const res = results[s.step]; const cls = s.step === item.step ? 'cur' : res ? (s.intro ? 'ri' : res.retry ? (res.correct ? 'ro' : 'rx') : `r${res.rating ?? (res.correct ? 3 : 1)}`) : ''; return <i key={s.step} className={`${cls}${s.retry ? ' rt' : ''}`} />; })}</div>
@@ -211,4 +217,13 @@ export function Review() {
       </div></div>
     </>
   );
+}
+
+/** 复习页（00 §3.3）：顶栏"复习 / 练习"切换；练习不计分（G8 / R6） */
+export function Review() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'practice' ? 'practice' : 'review';
+  const tabs = <div className="seg">{(['review', 'practice'] as const).map(t => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setParams(t === 'practice' ? { tab: 'practice' } : {}, { replace: true })}>{t === 'review' ? '复习' : '练习'}</button>)}</div>;
+  if (tab === 'practice') return <><Top crumbs={[{ label: '复习' }]} right={tabs} /><div className="scroll"><div className="rv"><Practice /></div></div></>;
+  return <ReviewSessionView tabs={tabs} />;
 }

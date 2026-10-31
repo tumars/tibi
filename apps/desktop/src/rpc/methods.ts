@@ -41,6 +41,10 @@ export interface MethodTable {
   'review.undo': { params: { session_id: Id }; result: AnswerResult };
   'review.pause': { params: { session_id: Id }; result: Ok };
   'review.quiz': { params: { term_ids?: Id[]; count?: number; from?: 'session_mistakes' }; result: ReviewSession };
+  'review.story': { params: { term_ids: Id[] }; result: { task_id: TaskId } };
+  'practice.start': { params: { mode: 'dictation' | 'spell' | 'confusable' | 'produce'; source: 'recent' | 'mistakes' | 'leech' | 'document'; document_id?: Id; count?: number }; result: { practice_id: Id; items: { id: string; mode: string; sentence: string; options?: [string, string]; answer?: string; explain?: string; source: { document_id?: Id; term_id?: Id } }[] } };
+  'practice.grade': { params: { word: string; text: string; sentence?: string }; result: { score: number; ok: boolean; feedback: string; better?: string } };
+  'practice.finish': { params: { practice_id: Id; results: { item_id: string; accuracy: number; duration_ms: number }[] }; result: { practice_id: Id; accuracy: number; duration_ms: number; best: { dictation_accuracy: number; rounds: number } } };
   'stats.summary': { params: { range: 30 | 90 | 180 }; result: { known: number; known_delta: number; prev_delta: number; minutes: number; words: number; study_days: number; streak: number; longest_streak: number; reviews: number; retention: number } };
   'stats.series': { params: { metrics: ('known' | 'minutes' | 'words' | 'reviews')[]; days: number }; result: { dates: number[]; series: Record<string, number[]> } };
   'stats.retention': { params: { weeks: number }; result: { weeks: { ratings: [number, number, number, number]; retention: number }[]; lapses: number; leeches: number } };

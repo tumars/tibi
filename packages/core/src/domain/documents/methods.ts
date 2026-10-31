@@ -23,7 +23,7 @@ export function checkUrlShape(raw: string): { ok: boolean; url?: string; host?: 
 }
 
 const sourceSchema = Type.Union([
-  Type.Object({ type: Type.Literal('text'), text: Type.String({ minLength: 1 }), title: Type.Optional(Type.String()) }),
+  Type.Object({ type: Type.Literal('text'), text: Type.String({ minLength: 1 }), title: Type.Optional(Type.String()), generated: Type.Optional(Type.Boolean()) }),
   Type.Object({ type: Type.Literal('url'), url: Type.String({ minLength: 1 }) }),
   Type.Object({ type: Type.Literal('file'), path: Type.String({ minLength: 1 }) }),
   Type.Object({ type: Type.Literal('images'), paths: Type.Array(Type.String()) }),

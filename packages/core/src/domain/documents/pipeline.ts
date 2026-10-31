@@ -23,7 +23,7 @@ import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSe
  * M0 没有模型：AI 子步骤一律记 deferred（稍后补做），M2 接讲解技能。
  */
 
-export type ImportSource = { type: 'text'; text: string; title?: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string };
+export type ImportSource = { type: 'text'; text: string; title?: string; generated?: boolean } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string };
 export interface ImportInput { source: ImportSource; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' | 'mcp' | 'share' }
 
 interface Fetched { title: string; author?: string; markdown: string; source_type: string; source_uri?: string; published_at?: number; lang?: string; kind?: Kind; genre?: Genre }
@@ -35,7 +35,7 @@ async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise
     const md = s.text.replace(/\r\n?/g, '\n').trim();
     if (!md) throw new TibiError('invalid_source', '没有内容');
     const title = s.title?.trim() || titleFromMarkdown(md);
-    return { title, markdown: md, source_type: 'text' };
+    return { title, markdown: md, source_type: s.generated ? 'tibi_generated' : 'text' };
   }
   if (s.type === 'url') {
     job.progress('正在抓取网页');

@@ -84,3 +84,22 @@ describe('导入后的 AI 分析（M2）', () => {
     expect(parseJsonLoose('没有')).toBeUndefined();
   });
 });
+
+describe('练习批改与短文（M3）', () => {
+  it('practice.grade 返回分数、点评、改好的句子', async () => {
+    const { core } = await setup([{ text: '{"score": 82, "ok": true, "feedback": "用对了，amplify 后面接宾语。", "better": "Retries can amplify an outage."}' }]);
+    const r = await core.call<{ score: number; ok: boolean; better?: string }>('practice.grade', { word: 'amplify', text: 'Retry can amplify outage.' });
+    expect(r).toMatchObject({ score: 82, ok: true, better: 'Retries can amplify an outage.' });
+  });
+  it('review.story 写短文并作为 Tibi 写的文章导入', async () => {
+    const story = 'The Quiet Retry\n\n' + 'Every engineer knows that a retry can amplify a small outage into a large one. '.repeat(6);
+    const { core, kernel, db, imp } = await setup([{ text: ALL }, { text: ALL }, { text: ALL }, { text: story }, { text: ALL }]);
+    await imp();
+    const t = await db.get<{ id: string }>("SELECT id FROM terms LIMIT 1");
+    const { task_id } = await core.call<{ task_id: string }>('review.story', { term_ids: [t!.id] });
+    const r = await kernel.jobs.wait(task_id);
+    expect(r.status, r.error).toBe('done');
+    const doc = await db.get<{ title: string; source_type: string }>('SELECT title, source_type FROM documents WHERE id = ?', [(r.output as { document_id: string }).document_id]);
+    expect(doc).toEqual({ title: 'The Quiet Retry', source_type: 'tibi_generated' });
+  });
+});
