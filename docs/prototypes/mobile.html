@@ -32,18 +32,18 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 .top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; height: calc(52px + var(--sat)); padding: var(--sat) 12px 0 16px; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .top h1 { margin: 0; font-size: 17px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* iOS 26 导航栏按钮：圆形玻璃 */
-.top .ib, .rvhead .x { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 0 0 .5px var(--line), 0 4px 14px -8px rgba(0,0,0,.25); }
+.top .ib, .rvhead .x { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 0 0 .5px var(--line-2); }
 .top .ib:active, .rvhead .x:active { transform: scale(.94); }
 .big { margin: 0; padding: 2px 16px 8px; font-size: 34px; font-weight: 700; letter-spacing: -.02em; }
 .logo { width: 28px; height: 28px; border-radius: 8px; }
 /* 底部标签栏：浮动胶囊（iOS 26 风格），滚动时收窄 */
 .tabs { position: absolute; left: 14px; right: 14px; bottom: calc(14px + var(--sab)); z-index: 20; display: flex; gap: 8px; height: 62px; transition: transform .3s cubic-bezier(.22,.8,.24,1); }
-.tabs .pill, .tabs .foxtab, .dock { background: color-mix(in srgb, var(--surface) 78%, transparent); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); box-shadow: 0 0 0 .5px var(--line-2), 0 10px 30px -12px rgba(0,0,0,.28); }
+.tabs .pill, .tabs .foxtab, .dock { background: color-mix(in srgb, var(--surface) 78%, transparent); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); box-shadow: 0 0 0 .5px var(--line-2); }
 .tabs .pill { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); padding: 5px; border-radius: 31px; }
 /* 左下角的狐狸就是"今天"：首页即与 Tibi 的对话（J9） */
 .tabs .foxtab { width: 62px; height: 62px; flex: none; border-radius: 50%; display: grid; place-items: center; }
 .tabs .foxtab .fx { width: 50px; height: 50px; pointer-events: none; }
-.tabs .foxtab.on { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); box-shadow: 0 0 0 1.5px var(--accent), 0 10px 30px -12px rgba(0,0,0,.28); }
+.tabs .foxtab.on { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); box-shadow: 0 0 0 1.5px var(--accent); }
 .tabs .pill .f { display: none; } .tabs .pill .on .f { display: block; } .tabs .pill .on .o { display: none; }
 .tabs .pill button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10px; font-weight: 600; color: var(--ink); border-radius: 26px; position: relative; }
 .tabs .pill button svg { width: 23px; height: 23px; }
@@ -71,11 +71,10 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .lbl { font-size: 12.5px; color: var(--ink-3); }
 .seg { display: flex; padding: 2px; border-radius: 10px; background: var(--fill); }
 .seg button { flex: 1; height: 30px; border-radius: 8px; font-size: 13.5px; font-weight: 500; color: var(--ink-2); }
-.seg button.on { background: var(--seg-on); color: var(--ink); font-weight: 600; box-shadow: 0 3px 8px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04); }
+.seg button.on { background: var(--seg-on); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
 /* 今天 */
-/* 首页：顶部一层浅靛蓝 + 狐狸橙的渐变（参考支小宝、蚂小财），随内容滚走；卡片白底、无描边、软阴影 */
+/* 首页：顶部一层浅靛蓝 + 狐狸橙的渐变（参考支小宝、蚂小财），随内容滚走；卡片白底、无描边、无阴影 */
 #s-home { padding-bottom: calc(160px + var(--sab)); background: radial-gradient(90% 260px at 100% 0, color-mix(in srgb, var(--warm) 18%, transparent), transparent), linear-gradient(180deg, color-mix(in srgb, var(--accent) 14%, var(--bg)), var(--bg) 360px); background-attachment: local; }
-#s-home .card, #s-home .mini > div, #s-home .chip, .thread .a { box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px -14px rgba(31,45,120,.22); }
 .hello { padding: calc(var(--sat) + 30px) 16px 0; }
 .hello h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
 .hello .lbl { display: block; margin-top: 2px; font-size: 13px; }
@@ -143,7 +142,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .w.sel { background-image: none; background-color: var(--accent-wash); box-shadow: 0 0 0 3px var(--accent-wash); color: var(--accent); border-radius: 5px; }
 .gl .w.s0::before, .gl .w.s1::before, .gl .w.s2::before { content: attr(data-g); position: absolute; left: 0; top: -0.95em; font: 500 10.5px/1 var(--f-ui); color: var(--ink-3); white-space: nowrap; }
 .gl .rd p { line-height: 2.15; }
-.rdbar { position: absolute; left: 14px; right: 14px; bottom: calc(14px + var(--sab)); z-index: 20; display: flex; align-items: center; gap: 2px; height: 58px; padding: 5px; border-radius: 29px; background: color-mix(in srgb, var(--surface) 78%, transparent); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); box-shadow: 0 0 0 .5px var(--line-2), 0 10px 30px -12px rgba(0,0,0,.28); }
+.rdbar { position: absolute; left: 14px; right: 14px; bottom: calc(14px + var(--sab)); z-index: 20; display: flex; align-items: center; gap: 2px; height: 58px; padding: 5px; border-radius: 29px; background: color-mix(in srgb, var(--surface) 78%, transparent); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); box-shadow: 0 0 0 .5px var(--line-2); }
 .rdbar button { flex: 1; height: 48px; border-radius: 24px; font-size: 10px; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--ink); }
 .rdbar button svg { width: 20px; height: 20px; } .rdbar button[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent); }
 .rdbar .tibi { color: var(--accent); }
@@ -155,7 +154,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 /* 底部面板：半屏 / 全屏两档（iOS sheet detents） */
 .scrim { position: absolute; inset: 0; z-index: 30; background: rgba(0,0,0,.2); opacity: 0; pointer-events: none; transition: opacity .25s; }
 .scrim.on { opacity: 1; pointer-events: auto; }
-.sheet { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 31; background: var(--surface); border-radius: 36px; padding: 8px 20px calc(16px + var(--sab)); transform: translateY(110%); transition: transform .34s cubic-bezier(.22,.8,.24,1), max-height .34s cubic-bezier(.22,.8,.24,1), left .3s, right .3s, bottom .3s, border-radius .3s; max-height: 56%; display: flex; flex-direction: column; box-shadow: 0 -8px 40px -20px rgba(0,0,0,.4); }
+.sheet { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 31; background: var(--surface); border-radius: 36px; padding: 8px 20px calc(16px + var(--sab)); transform: translateY(110%); transition: transform .34s cubic-bezier(.22,.8,.24,1), max-height .34s cubic-bezier(.22,.8,.24,1), left .3s, right .3s, bottom .3s, border-radius .3s; max-height: 56%; display: flex; flex-direction: column;  }
 .sheet.on { transform: none; }
 .sheet.full { max-height: calc(100% - var(--sat) - 10px); left: 0; right: 0; bottom: 0; border-radius: 36px 36px 0 0; }
 .sheet.tall { max-height: 82%; }
@@ -232,7 +231,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .menu a .r { margin-left: auto; font-size: 16px; display: flex; align-items: center; gap: 4px; } .menu a .r em { font-style: normal; color: var(--ink-3); }
 /* 系统集成演示：小组件、锁屏、分享 */
 .wgs { display: grid; grid-template-columns: 158px 1fr; gap: 12px; align-items: start; }
-.wg { border-radius: 22px; padding: 14px; background: linear-gradient(160deg, #2f3fa8, #232f86); color: #fff; height: 158px; display: flex; flex-direction: column; box-shadow: 0 8px 24px -12px rgba(0,0,0,.4); }
+.wg { border-radius: 22px; padding: 14px; background: linear-gradient(160deg, #2f3fa8, #232f86); color: #fff; height: 158px; display: flex; flex-direction: column; }
 .wg .fx { width: 50px; height: 50px; margin: -4px 0 0 -4px; }
 .wg b { font-size: 30px; line-height: 1; margin-top: auto; letter-spacing: -.02em; } .wg span { font-size: 12px; opacity: .85; margin-top: 4px; }
 .wg.md { height: auto; padding: 14px 16px; gap: 10px; }
