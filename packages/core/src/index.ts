@@ -6,7 +6,7 @@ export { migrate, PRAGMAS, type Migration } from './db/migrate.js';
 export * from './platform.js';
 export * from './dict/types.js';
 export { SqliteDict, parseExchange } from './dict/sqlite.js';
-export * as web from './web/html.js';
+export * as web from './web/index.js';
 export * from './kernel/types.js';
 export * from './rpc/define.js';
 export { Dispatcher, type RpcRequest, type RpcResponse } from './rpc/dispatcher.js';

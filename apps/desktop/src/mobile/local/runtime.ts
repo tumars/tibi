@@ -1,6 +1,7 @@
 import { assembleCore, documents, SqliteDict, sync, TibiError, web, type Core, type Platform } from '@tibi/core';
 import { RpcError, type Transport } from '../../rpc/client';
 import { openLocalDbs, type Invoke } from './driver';
+import { browserExtractDeps, ocrImages } from './files';
 
 /**
  * 手机上的 Core（00 §3.13、R11、T28）：同一个 @tibi/core 跑在 WebView 里，没有 sidecar。
@@ -30,6 +31,7 @@ async function start(): Promise<Transport> {
   }) as typeof fetch;
 
   const { db, dict, path } = await openLocalDbs(inv);
+  const readBytes = async (p: string) => new Uint8Array(await invoke<ArrayBuffer>('read_file', { path: p }));
   const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
   const platform: Platform = {
     async fetchUrl(url, opts) {
@@ -47,8 +49,13 @@ async function start(): Promise<Transport> {
     isOnline: () => navigator.onLine,
     // 手机上的文件都来自系统的文件选择，不另做白名单
     registerPaths() {}, isPathAllowed: () => true,
-    // 读本地文件（EPUB / PDF / 图片导入）要 fs 插件和 iOS 的安全作用域书签，还没接：先只支持网址和粘贴
-    async readFile() { throw new TibiError('conflict', '手机上暂时只能导入网址和粘贴的文字，文件请在电脑上导入后同步过来'); },
+    // 文件来自系统的文件选择（壳的 read_file 读原始字节）；EPUB / PDF / Word 用和桌面同一份抽取逻辑，图片用浏览器版 tesseract
+    readFile: readBytes,
+    async extractFile(p) { return web.extractBuffer(p, await readBytes(p), browserExtractDeps); },
+    async ocr(input, opts) {
+      if (!input.images?.length) throw new TibiError('conflict', '手机上还不能识别扫描版 PDF，可以拍成照片再导入');
+      return ocrImages(await Promise.all(input.images.map(readBytes)), opts?.onProgress);
+    },
     async syncFolder(o) {
       if (o.kind === 'icloud') throw new sync.SyncError('other', '这个版本还不能用 iCloud Drive 同步（需要原生插件），请先用 WebDAV。');
       throw new sync.SyncError('other', '手机上不能选同步文件夹，请用 iCloud Drive 或 WebDAV。');

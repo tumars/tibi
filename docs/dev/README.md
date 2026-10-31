@@ -107,7 +107,7 @@ pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式�
 2. `cd apps/desktop && pnpm tauri android init`（生成 `src-tauri/gen/android/`，提交）
 3. 词典同上；`pnpm tauri android dev` / `pnpm tauri android build`
 
-**还没做（要原生代码或真机验证）**：iCloud Drive 同步（Swift 小插件：取容器路径、`startDownloadingUbiquitousItem`、`NSMetadataQuery`，08 §8；现在手机上同步只能用 WebDAV）；Android 上 API Key 的安全存储（`keyring` 在 Android 上没有后端，要接 Keystore 插件）；从"文件"导入 EPUB / PDF / 图片（fs 插件 + iOS 安全作用域）；Safari 分享扩展、小组件、每日提醒；手机上的 OCR。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
+**还没做（要原生代码或真机验证）**：iCloud Drive 同步（Swift 小插件：取容器路径、`startDownloadingUbiquitousItem`、`NSMetadataQuery`，08 §8；现在手机上同步只能用 WebDAV）；Android 上 API Key 的安全存储（`keyring` 在 Android 上没有后端，要接 Keystore 插件）；扫描版 PDF 的 OCR（照片可以）；Safari 分享扩展、小组件、每日提醒。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
 
 ## 7. M0 的技术决定（T 组）
 

@@ -226,7 +226,7 @@ fn run_mobile() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            local_db::db_open, local_db::db_exec, local_db::db_run, local_db::db_all, local_db::keyring_get,
+            local_db::db_open, local_db::db_exec, local_db::db_run, local_db::db_all, local_db::keyring_get, local_db::read_file,
             keyring_set, keyring_delete, pick_file, save_text_file
         ])
         .run(tauri::generate_context!())

@@ -116,3 +116,10 @@ pub fn db_all(dbs: State<'_, Dbs>, name: String, sql: String, params: Option<Vec
 pub fn keyring_get(r#ref: String) -> Result<Value, String> {
     Ok(json!({ "secret": crate::keys::get(&r#ref).ok().flatten() }))
 }
+
+/// 读用户在系统文件选择里挑的文件（手机导入 EPUB / PDF / Word / 图片）：原始字节，不过 JSON
+#[tauri::command]
+pub fn read_file(path: String) -> Result<tauri::ipc::Response, String> {
+    let p = path.strip_prefix("file://").unwrap_or(&path);
+    std::fs::read(p).map(tauri::ipc::Response::new).map_err(|e| format!("读不了这个文件：{e}"))
+}

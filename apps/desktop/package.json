@@ -33,9 +33,12 @@
     "@tauri-apps/plugin-shell": "^2.6.0",
     "kokoro-js": "1.2.1",
     "lucide-react": "^1.66.0",
+    "mammoth": "1.9.0",
+    "pdfjs-dist": "4.10.38",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^7.9.0",
+    "tesseract.js": "5.1.1",
     "zustand": "^5.0.16"
   },
   "devDependencies": {
