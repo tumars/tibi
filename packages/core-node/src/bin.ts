@@ -7,7 +7,7 @@
  */
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { maybeAutoBackup } from '@tibi/core';
+import { devFakeResolver, maybeAutoBackup } from '@tibi/core';
 import { createCore } from './create.js';
 import { attachStdio, HostBridge, startWebSocket, stdoutWriter } from './transport.js';
 
@@ -24,6 +24,8 @@ async function main() {
   const core = await createCore({
     dbPath, dictPath, version: process.env.TIBI_VERSION ?? '0.1.0-dev',
     getSecret: host ? async ref => (await host.request<{ secret?: string }>('secret.get', { ref }).catch((): { secret?: string } => ({}))).secret : undefined,
+    // 开发：--fake-model 用假模型走通 AI 界面（不联网、不花钱）
+    resolveModel: flag('fake-model') ? async () => devFakeResolver() : undefined,
   });
   if (ws) {
     startWebSocket(core, Number(ws), arg('token') ?? process.env.TIBI_TOKEN);

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router';
 import { Shell } from './components/Shell';
 import { Toasts } from './components/Toasts';
+import { Chat } from './pages/Chat';
 import { Home } from './pages/Home';
 import { Library } from './pages/Library';
 import { Onboarding, ONBOARDING_KEY } from './pages/Onboarding';
@@ -50,6 +51,7 @@ export function App() {
         <Route element={<Shell />}>
           <Route index element={<Home />} />
           <Route path="library" element={<Library />} />
+          <Route path="chat/:id" element={<Chat />} />
           <Route path="read/:id" element={<Reader />} />
           <Route path="read/:id/:section" element={<Reader />} />
           <Route path="words" element={<Words />} />

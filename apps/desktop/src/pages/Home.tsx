@@ -62,7 +62,13 @@ export function Home() {
     const k = classifyInput(t);
     if (k === 'url') { await importSource({ type: 'url', url: t }); return; }
     if (k === 'text') { await importSource({ type: 'text', text: t }); return; }
-    toast('问 Tibi 从 M2 起可用。粘贴网址或一段英文可以导入。');
+    await ask(t);
+  };
+
+  // 问 Tibi（R13 不分模式：不是网址、不是整段英文就当提问）：新开一个对话，主区切到对话页
+  const ask = async (q: string) => {
+    try { const c = await rpc.call('chat.open', {}); setText(''); nav(`/chat/${c.id}?q=${encodeURIComponent(q)}`); }
+    catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
   const onDrop = async (e: React.DragEvent) => {
@@ -110,7 +116,7 @@ export function Home() {
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void submit(); } }} />
               <div className="cbar">
                 <button className="attach" title="添加文件" onClick={pickFile}><Plus size={16} /></button>
-                {text.trim() && <span className="hint">{({ url: '导入这个网址', text: '导入这段英文', ask: '问 Tibi（M2 起）' } as const)[k]}</span>}
+                {text.trim() && <span className="hint">{({ url: '导入这个网址', text: '导入这段英文', ask: '问 Tibi' } as const)[k]}</span>}
                 <span className="sp" />
                 <button className="tier" title="切换速度与深度" onClick={() => toast('"深入"档从 M2 起可用')}>快速 <ChevronDown size={12} /></button>
                 <button className="send" disabled={!text.trim()} onClick={submit} aria-label="发送"><ArrowUp size={17} /></button>
@@ -122,7 +128,7 @@ export function Home() {
             <button className="chip" onClick={() => nav('/welcome?step=2&from=home')}><Sparkles />先测一下我的词汇量</button>
           </div> : <div className="chips">
             <button className="chip" onClick={() => toast('找文章从 M5 起可用')}><Search />推荐一篇 10 分钟的科技新闻</button>
-            <button className="chip" onClick={() => toast('M2 起可用')}><Sparkles />用这周的生词写个小故事</button>
+            <button className="chip" onClick={() => void ask('用这周的生词写个小故事')}><Sparkles />用这周的生词写个小故事</button>
           </div>}
         </section>
         {lead && (

@@ -51,7 +51,7 @@ export function Shell() {
         </nav>
         <div className="sideh hide-c">最近</div>
         <div className="recent hide-c">
-          {recentChats.map(c => <a key={c.id} href="#/" title={c.title} onClick={e => { e.preventDefault(); }}><MessageSquare /><span>{c.title || '对话'}</span></a>)}
+          {recentChats.map(c => <NavLink key={c.id} to={`/chat/${c.id}`} title={c.title} className={({ isActive }) => (isActive ? 'cur' : '')}><MessageSquare /><span>{c.title || '对话'}</span></NavLink>)}
           {recentDocs.map(d => <NavLink key={d.id} to={`/read/${d.id}`} title={d.title} className={loc.pathname.startsWith(`/read/${d.id}`) ? 'cur' : ''}><FileText /><span>{d.title}</span></NavLink>)}
           {!recentChats.length && !recentDocs.length && <div className="none">还没有对话和文章</div>}
         </div>

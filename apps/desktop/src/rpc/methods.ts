@@ -52,6 +52,12 @@ export interface MethodTable {
   'providers.test': { params: { id: Id }; result: { ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string } };
   'tasks.list': { params: { limit?: number }; result: { running: TaskSummary[]; pending: Approval[]; history: TaskSummary[]; kpis: { running: number; week_done: number; week_failed: number; month_cost: number; budget: number; top_skill: { id: string; cost: number } } } };
   'chat.list': { params: { limit?: number }; result: Conversation[] };
+  'chat.open': { params: { conversation_id?: Id; document_id?: Id; today?: boolean }; result: Conversation & { messages: Message[] } };
+  'chat.send': { params: { conversation_id: Id; text: string; context?: { page: string; document_id?: Id; section_id?: Id; sentence_id?: Id; selection?: string; card_id?: Id }; skill?: string; tier?: 'fast' | 'deep' }; result: { submission_id: TaskId } };
+  'chat.cancel': { params: { submission_id: TaskId }; result: Ok };
+  'chat.rename': { params: { conversation_id: Id; title: string }; result: Conversation };
+  'chat.delete': { params: { conversation_id: Id }; result: Ok };
+  'tasks.approve': { params: { id: TaskId; decision: 'allow' | 'deny' | 'edit'; edited?: Record<string, unknown>; always?: boolean }; result: TaskSummary };
   'chat.history': { params: { conversation_id: Id; cursor?: string }; result: Page<Message> };
 }
 
@@ -69,6 +75,7 @@ export interface EventTable {
   'usage.updated': { skill_id: string; month_cost: number; total: number };
   'model.status': { ok: boolean; reason?: 'offline' | 'unauthorized' | 'budget' };
   'chat.delta': { conversation_id: Id; submission_id: TaskId; delta: string; done?: boolean };
+  'chat.tool': { conversation_id?: Id; task_id: TaskId; phase: 'start' | 'end'; tool: string; skill_id: string; summary: string; duration_ms?: number };
   'sync.update': { state: 'idle' | 'syncing' | 'error' };
 }
 export type EventName = keyof EventTable;

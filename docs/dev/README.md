@@ -40,6 +40,7 @@ pnpm install                       # 装依赖（better-sqlite3、esbuild 的构
 pnpm test                          # 全部单测（vitest）
 pnpm -r typecheck                  # 各包类型检查
 pnpm core:dev                      # 起 Core 开发桥：ws://127.0.0.1:3456（JSON-RPC，协议同 stdio），库在 .tibi/app.db
+pnpm core:dev -- --fake-model      # 同上，但用假模型（不联网、不花钱）走通对话、总结、译文、语境释义的界面；还要先在设置里随便建一个模型连接
 pnpm --filter @tibi/desktop web    # 浏览器里跑界面，连上面的开发桥（无需编译 Rust）
 pnpm dev                           # tauri dev（需要 Rust 工具链与系统库）
 pnpm --filter @tibi/core-node build   # 打包 dist/tibi-core.js（sidecar 的 JS）

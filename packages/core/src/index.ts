@@ -22,3 +22,4 @@ export * as stats from './domain/stats/index.js';
 export * as profile from './domain/profile/index.js';
 export { assembleCore, type AssembleOptions } from './assemble.js';
 export { backupNow, listBackups, maybeAutoBackup, type BackupReason } from './domain/backup.js';
+export { devFakeResolver } from './kernel/devfake.js';
