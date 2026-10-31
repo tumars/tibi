@@ -59,13 +59,53 @@ fn keyring_delete(r#ref: String) -> Result<Value, String> {
 #[tauri::command]
 fn open_path(path: String, allowed: State<'_, Allowed>, app: AppHandle) -> Result<Value, String> {
     use tauri_plugin_opener::OpenerExt;
-    let db = app.path().app_data_dir().map(|d| d.join("app.db")).ok();
-    let ok = allowed.0.lock().unwrap().contains(&path) || db.map(|d| d.to_string_lossy() == path).unwrap_or(false);
+    let data = app.path().app_data_dir().ok();
+    let db = data.as_ref().map(|d| d.join("app.db"));
+    let in_backups = data.as_ref().map(|d| std::path::Path::new(&path).starts_with(d.join("backups"))).unwrap_or(false);
+    let ok = allowed.0.lock().unwrap().contains(&path) || db.map(|d| d.to_string_lossy() == path).unwrap_or(false) || in_backups;
     if !ok {
         return Err("permission_denied".into());
     }
     app.opener().reveal_item_in_dir(&path).map_err(|e| e.to_string())?;
     Ok(json!({ "ok": true }))
+}
+
+/// 从备份恢复（06 system.backups）：先把当前库再备一份，停 Core，换文件，重启。只认 app 数据目录 backups/ 下的文件
+#[tauri::command]
+async fn restore_backup(path: String, app: AppHandle, core: State<'_, Arc<core::CoreProcess>>) -> Result<Value, String> {
+    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let src = std::path::PathBuf::from(&path);
+    if !src.starts_with(data.join("backups")) || !src.is_file() {
+        return Err("permission_denied".into());
+    }
+    let core = core.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<Value, String> {
+        let r = core.call("system.backup", json!({ "reason": "before_restore" }), Duration::from_secs(60));
+        if r.get("error").is_some() {
+            return Err(format!("恢复前备份失败：{}", r["error"]["message"].as_str().unwrap_or("")));
+        }
+        core.stop();
+        let db = data.join("app.db");
+        for ext in ["-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{}{}", db.to_string_lossy(), ext));
+        }
+        std::fs::copy(&src, &db).map_err(|e| e.to_string())?;
+        core.start()?;
+        Ok(json!({ "ok": true }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// 另存为文本（导出学习汇总等）：弹保存对话框，用户选了路径才写
+#[tauri::command]
+async fn save_text_file(app: AppHandle, default_name: String, text: String) -> Result<Value, String> {
+    let picked = app.dialog().file().set_file_name(&default_name).blocking_save_file();
+    let Some(p) = picked.and_then(|p| p.into_path().ok()) else {
+        return Ok(json!({ "saved": false }));
+    };
+    std::fs::write(&p, text).map_err(|e| e.to_string())?;
+    Ok(json!({ "saved": true, "path": p.to_string_lossy() }))
 }
 
 /// 文件选择：所选路径登记到白名单，并告诉 Core（system.registerPaths）
@@ -227,7 +267,7 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move { register_paths(&app, &paths).await; });
             }
         })
-        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, window_set_tray_mode])
+        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, window_set_tray_mode, restore_backup, save_text_file])
         .run(tauri::generate_context!())
         .expect("Tibi 启动失败");
 }

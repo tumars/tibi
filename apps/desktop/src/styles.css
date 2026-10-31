@@ -440,3 +440,10 @@ h2.st .sp { flex: 1; }
 .ob .foot .skip { font-size: 13px; color: var(--ink-3); background: none; text-decoration: underline; text-underline-offset: 3px; }
 .ob .foot .skip:hover { color: var(--ink); }
 .ob .foot .btn.pri:disabled { opacity: .4; }
+
+/* 设置 → 数据：备份列表、学习汇总 */
+.item.col { flex-direction: column; align-items: stretch; gap: 8px; }
+.bklist { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.bk { display: flex; align-items: center; gap: 10px; min-height: 30px; }
+.bk .sp { flex: 1; }
+.sumjson { max-height: min(42vh, 360px); overflow: auto; margin: 0; padding: 12px 14px; border-radius: 10px; background: var(--sunken); font-family: var(--f-mono); font-size: 12px; line-height: 1.55; white-space: pre; }

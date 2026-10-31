@@ -22,6 +22,16 @@ export interface Platform {
   /** 文件路径白名单（06 §1）：只认 pick_file 所选或拖入后由壳登记的路径 */
   registerPaths(paths: string[]): void;
   isPathAllowed(path: string): boolean;
+  /** 备份目录（app.db 旁边的 backups/）；Core 用 VACUUM INTO 写文件，这里只管列出和删除。没有文件系统的运行时不提供 */
+  backups?: BackupStore;
+}
+
+export interface BackupFile { name: string; path: string; size: number; created_at: number }
+export interface BackupStore {
+  /** 新备份文件的完整路径（文件名由 Core 给，如 tibi-20261031-1705-auto.db） */
+  pathFor(name: string): string;
+  list(): Promise<BackupFile[]>;
+  remove(path: string): Promise<void>;
 }
 
 /** 测试与 dev 用的空实现 */

@@ -7,6 +7,7 @@
  */
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { maybeAutoBackup } from '@tibi/core';
 import { createCore } from './create.js';
 import { attachStdio, HostBridge, startWebSocket, stdoutWriter } from './transport.js';
 
@@ -29,6 +30,10 @@ async function main() {
     console.error(`[tibi-core] ws://127.0.0.1:${ws}  db=${dbPath}  dict=${dictPath ?? '（无）'}  方法 ${core.dispatcher.list().length} 个`);
   }
   if (useStdio) attachStdio(core, host);
+  // 自动备份：启动后一分钟查一次，之后每小时查一次；最近一份自动备份超过一天就备份（00 §3.7 数据）
+  const tick = () => { void maybeAutoBackup(core.db, core.platform).catch(e => console.error('[tibi-core] 自动备份失败', e)); };
+  setTimeout(tick, 60_000).unref?.();
+  setInterval(tick, 3600_000).unref?.();
 }
 
 main().catch(e => { console.error('[tibi-core] 启动失败', e); process.exit(1); });

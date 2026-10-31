@@ -1,4 +1,5 @@
 import { Type } from '@sinclair/typebox';
+import { backupNow, listBackups } from '../domain/backup.js';
 import { method, type MethodMap } from './define.js';
 
 /** system.*：启动与顶栏徽标（06 §3）。其余 system 方法随各自模块补 */
@@ -22,4 +23,12 @@ export const systemMethods: MethodMap = {
       pending_approvals: Number(pending?.n ?? 0), running_tasks: Number(running?.n ?? 0),
     };
   }, '启动与顶栏徽标'),
+  'system.backup': method(Type.Object({ reason: Type.Optional(Type.Union([Type.Literal('manual'), Type.Literal('before_reset'), Type.Literal('before_restore')])) }), async (p, ctx) => {
+    const f = await backupNow(ctx.db, ctx.platform, p.reason ?? 'manual');
+    return { path: f.path, size: f.size, created_at: f.created_at };
+  }, '立即备份（VACUUM INTO 到 app.db 旁边的 backups/）；自动备份每天一次、只轮换自动的、保留 7 份'),
+  'system.backups': method(Type.Object({}), async (_p, ctx) => {
+    const row = await ctx.db.get<{ value: string }>("SELECT value FROM settings WHERE key = 'backup.auto'");
+    return { auto: row ? JSON.parse(row.value) !== false : true, dir_supported: !!ctx.platform.backups, items: await listBackups(ctx.platform) };
+  }, '备份列表（新的在前）；恢复由壳做：停 Core → 先备份当前库 → 换文件 → 重启'),
 };

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Top } from '../components/Shell';
 import { saveProvider } from '../lib/providers';
+import { BackupItems, ExportSummaryItem } from '../settings/DataItems';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
@@ -97,7 +98,8 @@ export function Settings() {
 
           <section className="ssec" id="s-data"><h2>数据</h2><div className="group">
             <div className="item"><div><div className="t">数据库位置</div><div className="mono" style={{ marginTop: 6 }}>{status?.db_path ?? '—'}</div></div><div className="ctl"><button className="btn sm" onClick={async () => { if (!isTauri() || !status) return toast('浏览器模式不能打开'); const { invoke } = await import('@tauri-apps/api/core'); await invoke('open_path', { path: status.db_path }).catch(e => toast(String(e), { kind: 'err' })); }}>在文件夹中显示</button></div></div>
-            <div className="item"><div><div className="t">备份</div><div className="d">每天一次，保留最近 7 份。M1 起可用。</div></div><div className="ctl"><button className="btn sm" disabled>立即备份</button></div></div>
+            <BackupItems />
+            <ExportSummaryItem />
             <div className="item"><div><div className="t">同步</div><div className="d">和手机、其他电脑同步，经过你自己的 iCloud Drive 或 WebDAV 云盘。M7 起可用。</div></div><div className="ctl"><button className="btn sm" disabled>开启同步</button></div></div>
           </div></section>
 

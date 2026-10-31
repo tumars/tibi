@@ -268,7 +268,8 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 |---|---|---|---|
 | `system.status` | `{}` | `{ version: string; db_path: string; offline: boolean; models: { fast?: string; deep?: string; ok: boolean }; budget: { month_spent: number; limit: number; per_task: number }; pending_approvals: number; running_tasks: number }` | 启动与顶栏徽标 |
 | `system.undo` | `{ undo_id: Id }` | `Ok` | 所有返回 Undo 的操作统一从这里撤销 |
-| `system.backup` | `{}` | `{ path: string; size: number }` |  |
+| `system.backup` | `{ reason?: 'manual' \| 'before_reset' \| 'before_restore' }` | `{ path: string; size: number; created_at: Ts }` | 立即备份：VACUUM INTO 到 app.db 旁边的 backups/，文件名 tibi-YYYYMMDD-HHMMSS-<reason>.db。自动备份由 Core 每小时检查一次，最近一份自动备份超过一天就备（settings backup.auto 可关），只轮换自动备份、保留 7 份 |
+| `system.backups` | `{}` | `{ auto: boolean; dir_supported: boolean; items: { name: string; path: string; size: number; created_at: Ts; reason: 'auto' \| 'manual' \| 'before_reset' \| 'before_restore' }[] }` | 备份列表（新的在前）。恢复由壳的 restore_backup 做 |
 | `system.restore` | `{ path: string }` | `{ task_id: TaskId }` | 重启 Core |
 | `system.clearCache` | `{ kind: 'audio' \| 'ai' }` | `{ freed: number }` |  |
 | `system.reset` | `{ confirm: true }` | `{ task_id: TaskId }` | 先备份再清空，回到首次使用引导 |
@@ -434,7 +435,9 @@ type McpTaskStatus = { status: 'running' | 'pending_approval'; step?: string }
 | `keyring_delete` | `{ ref: string }` | `Ok` |  |
 | `secret_get` | `{ ref: string }` | `{ secret: string }` | 只给 Core：经 sidecar 通道按需取，只留内存，不写库、不写日志；WebView 不能调用 |
 | `core_status / core_restart` | `{}` | `{ pid: number; uptime_ms: number }` | sidecar 守护 |
-| `open_path` | `{ path: string }` | `Ok` | 在 Finder / 资源管理器中显示 |
+| `open_path` | `{ path: string }` | `Ok` | 在 Finder / 资源管理器中显示（白名单路径、app.db、backups/ 下的文件） |
+| `restore_backup` | `{ path: string }` | `Ok` | 从 backups/ 下的一份备份恢复：先 system.backup(before_restore)，停 Core，删 -wal / -shm，换 app.db，重启 Core；界面随后刷新 |
+| `save_text_file` | `{ default_name: string; text: string }` | `{ saved: boolean; path?: string }` | 弹保存对话框，用户选了位置才写（导出学习汇总） |
 | `pick_file` | `{ kinds: ('pdf' \| 'epub' \| 'docx' \| 'txt' \| 'image' \| 'csv' \| 'apkg')[] ; multiple?: boolean }` | `{ paths: string[] }` | 文件选择对话框；所选路径（含拖入的文件）由 Rust 登记给 Core，能力层的 path 只认登记过的 |
 | `window_set_tray_mode` | `{ keep_running: boolean }` | `Ok` | 关窗口后 Core 是否留在托盘 |
 | `deep_link（Rust → WebView 事件）` | `{ action: 'import'; url: string }` | `—` | 系统把 tibi://import?url=… 交给应用时发出（应用没开时先拉起）；其他形式的深链丢弃。WebView 调 documents.checkUrl，弹确认卡，确认后才调 documents.import（origin = deeplink） |

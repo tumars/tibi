@@ -1,9 +1,11 @@
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
-import { readFile } from 'node:fs/promises';
+import { mkdirSync } from 'node:fs';
+import { readdir, readFile, stat, unlink } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import { TibiError, type FetchedPage, type Platform, type ReadableArticle } from '@tibi/core';
+import { TibiError, type BackupStore, type FetchedPage, type Platform, type ReadableArticle } from '@tibi/core';
 import { htmlToMarkdown } from './html2md.js';
 
 /** 桌面运行时的 Platform 实现（05 §8 的网址规则在这里落地） */
@@ -39,9 +41,30 @@ export async function checkUrl(raw: string): Promise<URL> {
   return u;
 }
 
+/** 备份放在 app.db 旁边的 backups/ 目录；内存库（测试）没有 */
+export function fileBackups(dbPath: string): BackupStore | undefined {
+  if (!dbPath || dbPath === ':memory:') return undefined;
+  const dir = join(dirname(dbPath), 'backups');
+  return {
+    pathFor(name) { mkdirSync(dir, { recursive: true }); return join(dir, name); },
+    async list() {
+      let names: string[] = [];
+      try { names = await readdir(dir); } catch { return []; }
+      const out = [];
+      for (const name of names.filter(n => n.endsWith('.db'))) {
+        const path = join(dir, name); const st = await stat(path).catch(() => undefined);
+        if (st?.isFile()) out.push({ name, path, size: st.size, created_at: st.mtimeMs });
+      }
+      return out;
+    },
+    async remove(path) { if (dirname(path) === dir) await unlink(path).catch(() => undefined); },
+  };
+}
+
 export function nodePlatform(opts: NodePlatformOptions): Platform {
   const allowed = new Set<string>();
   return {
+    backups: fileBackups(opts.db_path),
     registerPaths(paths) { for (const p of paths) allowed.add(p); },
     isPathAllowed(path) { return allowed.has(path) || !!process.env.TIBI_DEV_ALLOW_ANY_PATH; },
     async fetchUrl(url, o = {}): Promise<FetchedPage> {
