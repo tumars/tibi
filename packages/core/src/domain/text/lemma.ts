@@ -95,7 +95,13 @@ export async function lemmatize(form: string, dict: Dict): Promise<string> {
     ranks.forEach((r, i) => { if (r && (best < 0 || r < ranks[best]!)) best = i; });
     return fromDict[best >= 0 ? best : 0]!;
   }
-  return ruleLemma(w);
+  const cand = ruleLemma(w);
+  // 规则去掉 -ing / -ed 后碰巧是另一个词（lexing → lex「法律」、grepping → grep）：词典里那个词既没列出这个变形、也没有动词义，就不还原
+  if (cand !== w && /(ing|ed)$/.test(w) && !IRREGULAR[w]) {
+    const e = await dict.lookup(cand);
+    if (e && !e.forms.includes(w) && !/(^|[\s;,])v[it]?\./.test(e.translation)) return w;
+  }
+  return cand;
 }
 
 /** 批量还原：先查词典一轮，剩下用规则 */
