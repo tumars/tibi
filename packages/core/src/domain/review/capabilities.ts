@@ -20,10 +20,10 @@ export const reviewCapabilities: CapabilityMap = {
       const due = await q('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND suspended = 0 AND state != 0 AND due <= ?', [t]);
       const overdue = await q('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND suspended = 0 AND state != 0 AND due < ?', [day]);
       const new_available = await q('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND suspended = 0 AND state = 0');
-      const today_reviews = await q('SELECT count(*) AS n FROM review_logs WHERE reviewed_at >= ?', [day]);
-      const logs = await ctx.db.get<{ n: number; ok: number }>('SELECT count(*) AS n, COALESCE(sum(CASE WHEN rating > 1 THEN 1 ELSE 0 END), 0) AS ok FROM review_logs WHERE reviewed_at >= ?', [t - range * 86_400_000]);
+      const today_reviews = await q('SELECT count(*) AS n FROM review_logs_valid WHERE reviewed_at >= ?', [day]);
+      const logs = await ctx.db.get<{ n: number; ok: number }>('SELECT count(*) AS n, COALESCE(sum(CASE WHEN rating > 1 THEN 1 ELSE 0 END), 0) AS ok FROM review_logs_valid WHERE reviewed_at >= ?', [t - range * 86_400_000]);
       const leeches = await q('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND lapses >= 3');
-      const days = await ctx.db.all<{ d: number }>('SELECT DISTINCT (reviewed_at / 86400000) AS d FROM review_logs ORDER BY d DESC LIMIT 400');
+      const days = await ctx.db.all<{ d: number }>('SELECT DISTINCT (reviewed_at / 86400000) AS d FROM review_logs_valid ORDER BY d DESC LIMIT 400');
       let streak = 0; let cur = Math.floor(day / 86_400_000);
       const set = new Set(days.map(r => Math.floor(Number(r.d))));
       if (!set.has(cur)) cur -= 1;

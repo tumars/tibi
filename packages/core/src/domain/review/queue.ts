@@ -63,7 +63,8 @@ export async function makeStep(db: Database, dict: Dict, cw: CardWithTerm, card_
     ...(ctx?.document_title ? { document_title: ctx.document_title } : {}), ...(ctx?.document_id ? { document_id: ctx.document_id } : {}),
   };
   const item: Omit<QueueItem, 'step'> = {
-    card_id: card.id, term: toTerm(term, card), card_type, is_new: card.state === 0, intro: !!opts.intro, retry: opts.retry ?? 0,
+    // 用户没写释义时用语境释义或词典短释义，答完（尤其答错）后答案区才有中文意思可看
+    card_id: card.id, term: { ...toTerm(term, card), meaning: term.meaning || ctx?.meaning_in_context || meaning }, card_type, is_new: card.state === 0, intro: !!opts.intro, retry: opts.retry ?? 0,
     self_rated: card_type === 'recognize', context, hint: meaning || undefined,
     ...(card.last_review ? { last_review: card.last_review } : {}), ...(term.note ? { note: term.note } : {}),
   };

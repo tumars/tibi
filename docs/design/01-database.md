@@ -262,7 +262,7 @@ learning_events        audio_cache        daily_stats
 |---|---|---|
 | id | TEXT PK | |
 | card_id | TEXT FK | |
-| rating | INTEGER | 1 Again / 2 Hard / 3 Good / 4 Easy |
+| rating | INTEGER | 1 Again / 2 Hard / 3 Good / 4 Easy；撤销记录为 0 |
 | card_type | TEXT | 本次题型：`recognize` / `choice` / `cloze`（R6：计分复习只有这三种；M1 只有 choice、cloze，M3 加 recognize）。听写、拼写、造句在练习里，记 `practice_logs` |
 | auto_graded | INTEGER | 1 = 系统评分（选义、填空）；0 = 用户自评（识别）（G1） |
 | suggested_rating | INTEGER NULL | 系统给的评分；用户"改评分"时与 rating 不同，用于校准阈值 |
@@ -273,6 +273,7 @@ learning_events        audio_cache        daily_stats
 | context_snapshot | TEXT | 本次题面的句子快照；语境或文章删除后仍可查 |
 | state / due / stability / stability_fast / difficulty / elapsed_days / last_elapsed_days / scheduled_days / learning_steps | | ts-fsrs ReviewLog 字段（FSRS-7） |
 | duration_ms | INTEGER | 作答时长 |
+| undoes_id | TEXT NULL | 撤销记录指向被撤销的那条（迁移 0003）。撤销一次作答不删原记录，而是追加一条 rating = 0 的撤销记录；统计、FSRS 历史、每日新卡数一律读视图 `review_logs_valid`（排除撤销记录和被撤销的作答） |
 | reviewed_at | INTEGER | |
 
 > review_logs 是 FSRS 参数优化的训练数据，须完整保留。**只记每张卡在一轮里的首次作答**（G3）；答错后的重练步、再练错词、练习都不写这里。
@@ -553,4 +554,4 @@ learning_events        audio_cache        daily_stats
 - 是否需要 `sections` 的版本/修订（用户编辑正文后，句子与语境如何保持关联）。
 - 书架卡片的"开头一句"直接取该文档第一个 `prose` 句子，不另存字段；若要支持用户改摘要再加 `documents.excerpt`。
 - `learning_events` 与 `reading_sessions` / `review_logs` 存在部分信息重叠，实现时确认是否由后两者派生事件即可。
-- **M0 的已知偏差**：`review.undo`（撤销上一张）会删掉刚写的那条 `review_logs`，与"只追加"不符。同步（M7）上线前改成追加一条撤销记录，FSRS 重算时跳过被撤销的作答。
+- ~~M0 的已知偏差~~（2026-10-31 已改，迁移 0003）：`review.undo` 原来会删掉刚写的那条 `review_logs`；现在追加一条撤销记录（`undoes_id`），读数据走 `review_logs_valid`，表本身只追加。

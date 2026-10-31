@@ -11,5 +11,10 @@ export const MIGRATIONS: Migration[] = [
     "version": 2,
     "name": "jobs_runtime",
     "sql": "-- 0002：任务运行时需要的几列（内核 TibiKernel，R9）。\n-- pipeline：按名字找到流水线以便重开后续跑；tainted：任务是否读过不可信内容（05 §8）；\n-- approval：挂起中的审批（JSON，重开后能恢复）；progress：当前步骤文案（JSON {label,index,total}）。\n-- status 另外允许 'paused'（tasks.pause：完成当前步后停下）。\nALTER TABLE jobs ADD COLUMN pipeline TEXT NOT NULL DEFAULT '';\nALTER TABLE jobs ADD COLUMN tainted INTEGER NOT NULL DEFAULT 0;\nALTER TABLE jobs ADD COLUMN approval TEXT;\nALTER TABLE jobs ADD COLUMN progress TEXT;\n"
+  },
+  {
+    "version": 3,
+    "name": "review_undo",
+    "sql": "-- 0003：复习记录只追加（01 §8，08 §9）。撤销一次作答不再删 review_logs，而是追加一条撤销记录：\n-- rating = 0、undoes_id = 被撤销那条的 id。统计、FSRS 历史、\"今天新卡数\"等一律读 review_logs_valid，\n-- 它排除撤销记录本身和被撤销的作答。\nALTER TABLE review_logs ADD COLUMN undoes_id TEXT;\nCREATE INDEX review_logs_undoes ON review_logs(undoes_id) WHERE undoes_id IS NOT NULL;\nCREATE VIEW review_logs_valid AS\n  SELECT * FROM review_logs l\n  WHERE l.undoes_id IS NULL\n    AND NOT EXISTS (SELECT 1 FROM review_logs u WHERE u.undoes_id = l.id);\n"
   }
 ];

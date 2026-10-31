@@ -28,7 +28,12 @@ export function Review() {
   const load = useCallback(async (opts: Parameters<typeof rpc.call<'review.start'>>[1] = { resume: true }) => {
     setErr(undefined);
     try {
-      const s = await rpc.call('review.start', opts);
+      let s = await rpc.call('review.start', opts);
+      // 续上时游标停在已经答过的步（旧版界面没调 review.next）：先推进过去
+      for (let i = 0; i < 50 && s.cursor < s.steps.length && s.steps[s.cursor]?.result && !s.steps[s.cursor]!.intro; i++) {
+        await rpc.call('review.next', { session_id: s.session_id, step: s.steps[s.cursor]!.step });
+        s = { ...s, cursor: s.cursor + 1 };
+      }
       setSession(s); setDone(s.steps.length === 0 || s.cursor >= s.steps.length); setPhase({ kind: 'ask' }); setTyped(''); setHints(0); t0.current = Date.now(); start.current = Date.now();
       const r: typeof results = {}; s.steps.forEach(st => { if (st.result) r[st.step] = { rating: st.result.rating, correct: st.result.correct, retry: st.retry > 0, intro: st.intro }; }); setResults(r);
       if (s.resumed) toast(`上次复习到一半，还剩 ${s.steps.length - s.cursor} 张`);
@@ -59,7 +64,8 @@ export function Review() {
 
   const next = useCallback(async () => {
     if (!session || !item) return;
-    if (phase.kind !== 'answered') { try { await rpc.call('review.next', { session_id: session.session_id, step: item.step }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); return; } }
+    // T15：作答不推进游标，看完评分行后都要调 review.next（漏掉的话，续上时会停在答过的那一步）
+    try { await rpc.call('review.next', { session_id: session.session_id, step: item.step }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); return; }
     advance(session);
   }, [session, item, phase, advance]);
 
@@ -172,7 +178,7 @@ export function Review() {
               <div className="sent">{sentHtml()}</div>
               {(phase.kind !== 'ask' || item.card_type !== 'recognize') && phase.kind !== 'ask' && (
                 <div className="ans">
-                  {r && <div className={`verdict ${r.correct ? 'ok' : 'bad'}`}>{item.card_type === 'recognize' ? '' : r.correct ? (r.near_miss ? '差一点' : '答对了') : '选错了'}</div>}
+                  {r && <div className={`verdict ${r.correct ? 'ok' : 'bad'}`}>{item.card_type === 'recognize' ? '' : r.correct ? (r.near_miss ? '差一点' : '答对了') : item.card_type === 'cloze' ? '没填对' : '选错了'}</div>}
                   <b>{item.term.display}</b>{item.term.ipa && <span className="ipa">/{item.term.ipa}/</span>}
                   <p>{item.term.meaning}</p>
                   {ctx.translation && <p className="zh">{ctx.translation}</p>}

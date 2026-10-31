@@ -136,7 +136,7 @@ export function builtinCapabilities(deps: BuiltinDeps): CapabilityMap {
         const ui = deps.uiContext();
         const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
         const minutes = await db.get<{ ms: number | null }>('SELECT sum(COALESCE(ended_at, started_at) - started_at) AS ms FROM reading_sessions WHERE started_at >= ?', [dayStart.getTime()]);
-        const reviewed = await db.get<{ n: number }>('SELECT count(*) AS n FROM review_logs WHERE reviewed_at >= ?', [dayStart.getTime()]);
+        const reviewed = await db.get<{ n: number }>('SELECT count(*) AS n FROM review_logs_valid WHERE reviewed_at >= ?', [dayStart.getTime()]);
         const due = await db.get<{ n: number }>('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND suspended = 0 AND due <= ?', [now()]);
         const newWords = await db.get<{ n: number }>('SELECT count(*) AS n FROM terms WHERE created_at >= ? AND deleted_at IS NULL', [dayStart.getTime()]);
         const streak = await db.get<{ n: number }>('SELECT count(*) AS n FROM daily_stats WHERE reading_ms > 0 OR reviews > 0');

@@ -88,7 +88,7 @@ export const reviewMethods: MethodMap = {
   'review.grade': method(Type.Object({ session_id: S.id, step: Type.Integer(), text: Type.String() }), async () => { throw new TibiError('model_unavailable', '造句批改在 M3 提供'); }, 'M3：造句题交给出题与批改技能'),
   'review.story': method(Type.Object({ term_ids: Type.Array(S.id) }), async () => { throw new TibiError('model_unavailable', '"读一篇用到这些词的短文"在 M2 起提供'); }, 'M2：找文章 / Tibi 写短文'),
   'review.optimize': method(Type.Object({}), async (_p, ctx) => {
-    const n = await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM review_logs');
+    const n = await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM review_logs_valid');
     if (Number(n?.n ?? 0) < 400) throw new TibiError('conflict', `复习记录不足 400 条（现在 ${n?.n ?? 0} 条），先多复习一些`);
     throw new TibiError('model_unavailable', '参数优化在 M3 提供');
   }, 'M3：按个人记录优化 FSRS 参数'),
@@ -99,7 +99,7 @@ export const reviewMethods: MethodMap = {
     let terms: TermRow[];
     if (p.source === 'document' && p.document_id) terms = await ctx.db.all<TermRow>('SELECT DISTINCT t.* FROM terms t JOIN term_contexts tc ON tc.term_id = t.id WHERE tc.document_id = ? AND t.deleted_at IS NULL AND t.status <= 5 ORDER BY random() LIMIT ?', [p.document_id, count]);
     else if (p.source === 'leech') terms = await ctx.db.all<TermRow>('SELECT t.* FROM terms t JOIN cards c ON c.term_id = t.id WHERE c.lapses >= 3 AND t.deleted_at IS NULL ORDER BY random() LIMIT ?', [count]);
-    else if (p.source === 'mistakes') terms = await ctx.db.all<TermRow>('SELECT DISTINCT t.* FROM terms t JOIN cards c ON c.term_id = t.id JOIN review_logs l ON l.card_id = c.id WHERE l.rating = 1 AND l.reviewed_at >= ? AND t.deleted_at IS NULL ORDER BY random() LIMIT ?', [now() - 7 * 86_400_000, count]);
+    else if (p.source === 'mistakes') terms = await ctx.db.all<TermRow>('SELECT DISTINCT t.* FROM terms t JOIN cards c ON c.term_id = t.id JOIN review_logs_valid l ON l.card_id = c.id WHERE l.rating = 1 AND l.reviewed_at >= ? AND t.deleted_at IS NULL ORDER BY random() LIMIT ?', [now() - 7 * 86_400_000, count]);
     else terms = await ctx.db.all<TermRow>('SELECT t.* FROM terms t WHERE t.in_wordbook = 1 AND t.deleted_at IS NULL AND t.status <= 5 ORDER BY t.last_seen_at DESC, t.created_at DESC LIMIT ?', [count]);
     const items: PracticeItem[] = [];
     for (const t of terms) {

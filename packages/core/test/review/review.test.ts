@@ -116,11 +116,14 @@ describe('复习会话', () => {
     expect(r.next?.label).toBeTruthy();
     const o = await core.call<AnswerResult>('review.override', { session_id: s.session_id, step: 0, rating: 4 });
     expect(o.rating).toBe(4); expect(o.status_change).toEqual({ from: 2, to: 4 });
-    const log = await db.get<{ rating: number; suggested_rating: number }>('SELECT rating, suggested_rating FROM review_logs WHERE card_id = ?', [a.card_id]);
+    const log = await db.get<{ rating: number; suggested_rating: number }>('SELECT rating, suggested_rating FROM review_logs_valid WHERE card_id = ?', [a.card_id]);
     expect(log).toEqual({ rating: 4, suggested_rating: 2 });
     const u = await core.call<AnswerResult>('review.undo', { session_id: s.session_id });
     expect(u.step).toBe(0);
-    expect(await db.all('SELECT id FROM review_logs WHERE card_id = ?', [a.card_id])).toHaveLength(0);
+    expect(await db.all('SELECT id FROM review_logs_valid WHERE card_id = ?', [a.card_id])).toHaveLength(0);
+    // 只追加：答 2 → 改 4（撤销 2、记 4）→ 撤销 4，原表里 2 条作答 + 2 条撤销记录
+    expect(await db.all('SELECT id FROM review_logs WHERE card_id = ? AND undoes_id IS NULL', [a.card_id])).toHaveLength(2);
+    expect(await db.all('SELECT id FROM review_logs WHERE card_id = ? AND undoes_id IS NOT NULL', [a.card_id])).toHaveLength(2);
     expect((await db.get<{ status: number }>('SELECT status FROM terms WHERE id = ?', [a.term_id]))?.status).toBe(2);
     expect((await db.get<{ reps: number }>('SELECT reps FROM cards WHERE id = ?', [a.card_id]))?.reps).toBe(1);   // 夹具里复习态卡片 reps 从 1 起
     const s2 = await core.call<ReviewSession>('review.start', {});
@@ -137,7 +140,8 @@ describe('复习会话', () => {
     const r = await core.call<AnswerResult>('review.answer', { session_id: s.session_id, step: 0, answer: { typed: 'borrow' }, hints: 0, duration_ms: 3000 });
     expect(r.rating).toBe(4);
     await core.call('system.undo', { undo_id: r.undo.undo_id });
-    expect(await db.all('SELECT id FROM review_logs WHERE card_id = ?', [a.card_id])).toHaveLength(0);
+    expect(await db.all('SELECT id FROM review_logs_valid WHERE card_id = ?', [a.card_id])).toHaveLength(0);
+    expect(await db.all('SELECT id FROM review_logs WHERE card_id = ?', [a.card_id])).toHaveLength(2);   // 作答 + 撤销记录
     expect((await db.get<{ status: number }>('SELECT status FROM terms WHERE id = ?', [a.term_id]))?.status).toBe(3);
   });
 

@@ -81,7 +81,7 @@ export const statsMethods: MethodMap = {
     const end = startOfToday() + 86_400_000;
     for (let w = weeks - 1; w >= 0; w--) {
       const to = end - w * 7 * 86_400_000, from = to - 7 * 86_400_000;
-      const rows = await ctx.db.all<{ rating: number; n: number }>('SELECT rating, count(*) AS n FROM review_logs WHERE reviewed_at >= ? AND reviewed_at < ? GROUP BY rating', [from, to]);
+      const rows = await ctx.db.all<{ rating: number; n: number }>('SELECT rating, count(*) AS n FROM review_logs_valid WHERE reviewed_at >= ? AND reviewed_at < ? GROUP BY rating', [from, to]);
       const ratings: [number, number, number, number] = [0, 0, 0, 0];
       for (const r of rows) ratings[Number(r.rating) - 1] = Number(r.n);
       const total = ratings.reduce((a, b) => a + b, 0);
@@ -106,7 +106,7 @@ export async function exportSummary(db: Database, app_version: string): Promise<
   const prof = await db.get<{ created_at: number; vocab_tested_at: number | null }>("SELECT created_at, vocab_tested_at FROM user_profile WHERE id = '1'");
   const first = Number(prof?.created_at ?? t);
   const days_since_first_use = Math.floor((t - first) / 86_400_000);
-  const reviews = Number((await db.get<{ n: number }>('SELECT count(*) AS n FROM review_logs'))?.n ?? 0);
+  const reviews = Number((await db.get<{ n: number }>('SELECT count(*) AS n FROM review_logs_valid'))?.n ?? 0);
   const docs = await db.all<{ source_type: string; n: number; finished: number }>("SELECT source_type, count(*) AS n, sum(CASE WHEN finished_at IS NOT NULL THEN 1 ELSE 0 END) AS finished FROM documents GROUP BY source_type");
   const samples = docs.filter(d => d.source_type === 'sample').reduce((s, d) => s + Number(d.n), 0);
   const self_imported = docs.filter(d => d.source_type !== 'sample' && d.source_type !== 'tibi_generated').reduce((s, d) => s + Number(d.n), 0);
@@ -131,7 +131,7 @@ export async function exportSummary(db: Database, app_version: string): Promise<
   if (firstCard?.c) {
     const nextDay = startOfToday(Number(firstCard.c)) + 86_400_000;
     if (t >= nextDay + 86_400_000) {
-      const n = Number((await db.get<{ n: number }>('SELECT count(*) AS n FROM review_logs WHERE reviewed_at >= ? AND reviewed_at < ?', [nextDay, nextDay + 86_400_000]))?.n ?? 0);
+      const n = Number((await db.get<{ n: number }>('SELECT count(*) AS n FROM review_logs_valid WHERE reviewed_at >= ? AND reviewed_at < ?', [nextDay, nextDay + 86_400_000]))?.n ?? 0);
       h3 = { has_card: true, reviewed_next_day: n > 0 };
     } else h3 = { has_card: true };
   }

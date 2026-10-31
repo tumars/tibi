@@ -100,3 +100,4 @@
 | 2026-10-31 | M1 剪藏插件：`extensions/clipper/`（Chrome / Edge MV3，只有 activeTab 权限；点按钮或 Alt+Shift+T 把当前网址经 `tibi://import?url=…` 交给 Tibi，Tibi 弹确认卡后才抓取）；`pnpm clipper:zip` 打包。桌面端 Windows / Linux 加单实例插件，深链交给已开的窗口（T19）。00 §3.1、dev README 同步 |
 | 2026-10-31 | M1 设置 → 数据：自动备份（每天一次、保留 7 份自动备份，可关）、立即备份、备份列表与恢复（先备份当前库，再由壳停 Core 换文件重启）；导出学习汇总（弹窗看全部 JSON，复制或另存为）。Core 新增 `system.backups`、`system.backup` 带 reason；Platform 加 `backups`（core-node 实现）；壳加 `restore_backup`、`save_text_file`；单实例插件（见上一条）。06、00 §3.7 同步 |
 | 2026-10-31 | 修 M0 遗留：网页导入的标题去掉站点后缀（按 og:site_name、页面标题、主机名判断，拿不准不动），正文开头与标题重复的那行去掉；抽正文前删掉导航、侧栏目录、面包屑、快捷键帮助（mdBook 的"Keyboard shortcuts"不再混进正文）；标题所在块里的导语段落被 Readability 丢掉时补回（MDN）。在 Rust Book、MDN、Python 文档、React 文档上验证 |
+| 2026-10-31 | 修 M0 遗留（复习）：撤销作答改成只追加（迁移 0003：`review_logs.undoes_id` + 视图 `review_logs_valid`，01 同步）；没写释义的词在复习里用语境释义或词典短释义，答错后答案区能看到中文意思；填空答错显示"没填对"；界面看完评分后漏调 `review.next`，续上时会停在答过的那一步（已修，续上时自动跳过答过的步） |

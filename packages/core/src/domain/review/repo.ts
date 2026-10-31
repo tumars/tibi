@@ -95,7 +95,7 @@ export async function addLearningEvent(db: Database, type: string, payload: unkn
 
 /** 今天已经出过的新卡数（review_logs 里作答前 state = 0 的条数） */
 export async function newCardsReviewedToday(db: Database, dayStart: number): Promise<number> {
-  const r = await db.get<{ n: number }>('SELECT count(DISTINCT card_id) AS n FROM review_logs WHERE state = 0 AND reviewed_at >= ?', [dayStart]);
+  const r = await db.get<{ n: number }>('SELECT count(DISTINCT card_id) AS n FROM review_logs_valid WHERE state = 0 AND reviewed_at >= ?', [dayStart]);
   return Number(r?.n ?? 0);
 }
 

@@ -36,7 +36,7 @@ export async function rollupToday(db: Database, at: number = now(), dict?: Dict)
   const day = startOfToday(at), end = day + 86_400_000;
   const read = await db.get<{ words: number; ms: number }>('SELECT COALESCE(sum(words_read), 0) AS words, COALESCE(sum(COALESCE(ended_at, ?) - started_at), 0) AS ms FROM reading_sessions WHERE started_at >= ? AND started_at < ?', [at, day, end]);
   const terms = await db.get<{ n: number }>('SELECT count(*) AS n FROM terms WHERE created_at >= ? AND created_at < ?', [day, end]);
-  const reviews = await db.get<{ n: number; ok: number }>('SELECT count(*) AS n, COALESCE(sum(CASE WHEN rating > 1 THEN 1 ELSE 0 END), 0) AS ok FROM review_logs WHERE reviewed_at >= ? AND reviewed_at < ?', [day, end]);
+  const reviews = await db.get<{ n: number; ok: number }>('SELECT count(*) AS n, COALESCE(sum(CASE WHEN rating > 1 THEN 1 ELSE 0 END), 0) AS ok FROM review_logs_valid WHERE reviewed_at >= ? AND reviewed_at < ?', [day, end]);
   const known = await knownCounts(db, dict);
   await db.run(`INSERT INTO daily_stats(date, words_read, reading_ms, new_terms, known_terms_total, known_confirmed, known_estimated, reviews, review_correct)
     VALUES (?,?,?,?,?,?,?,?,?)
