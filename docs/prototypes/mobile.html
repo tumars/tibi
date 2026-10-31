@@ -46,7 +46,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .lbl { font-size: 12px; color: var(--ink-3); }
 /* 首页 */
 .hero { display: flex; align-items: center; gap: 12px; padding: 8px 16px 0; }
-.hero .fx { width: 76px; height: 76px; flex: none; }
+.hero-art { position: relative; margin: 8px 16px 0; aspect-ratio: 16 / 9; }
+.hero-art img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 18px; box-shadow: inset 0 0 0 1px var(--line); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hero-art img { filter: brightness(.8); } }
+:root[data-theme="dark"] .hero-art img { filter: brightness(.8); }
+.hero-art .fx { position: absolute; right: 10px; bottom: -14px; width: 62px; height: 62px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); box-shadow: 0 2px 10px rgba(0,0,0,.14); }
 .hero h1 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
 .hero p { margin: 4px 0 0; font-size: 13px; color: var(--ink-3); }
 .ask { margin: 14px 16px 0; display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 8px 0 16px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); }
@@ -132,7 +136,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .rate button small { font-size: 11px; font-weight: 400; color: var(--ink-3); }
 .rate .r1 { color: var(--hard); } .rate .r2 { color: var(--mid); } .rate .r4 { color: var(--accent); }
 .rate button.sug { box-shadow: inset 0 0 0 1.5px var(--ink); background: var(--surface); }
-.done { text-align: center; padding: 24px 0 0; } .done .fx { width: 150px; height: 150px; margin: 0 auto; } .done h3 { margin: 6px 0 4px; font-size: 20px; } .done p { margin: 0; color: var(--ink-2); font-size: 14px; }
+.done { text-align: center; padding: 24px 0 0; } .done .fx { position: relative; width: 190px; height: 190px; margin: 0 auto; } .done .fx .fox-badge { position: absolute; right: 8px; bottom: 8px; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); box-shadow: 0 2px 10px rgba(0,0,0,.14); } .done .fx img { display: block; width: 100%; height: 100%; } .done h3 { margin: 6px 0 4px; font-size: 20px; } .done p { margin: 0; color: var(--ink-2); font-size: 14px; }
 .done .k3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; } .done .k3 div { background: var(--sunken); border-radius: 14px; padding: 12px; } .done .k3 b { display: block; font-size: 22px; } .done .k3 span { font-size: 11.5px; color: var(--ink-3); }
 /* 我 */
 .me .head { display: flex; align-items: center; gap: 14px; padding: 6px 16px 0; }
@@ -151,7 +155,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   <!-- 首页 -->
   <section class="screen" id="s-home">
     <header class="top"><img class="logo" src="img/logo.svg" alt=""><h1>Tibi</h1><button class="ib" id="themeBtn" title="深浅色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button></header>
-    <div class="hero"><div class="fx" id="fox"></div><div><h1 id="greet">今天想读点什么？</h1><p>粘贴网址、分享到 Tibi，或者直接问</p></div></div>
+    <div class="hero-art"><span id="heroArt"></span><div class="fx" id="fox"></div></div><div class="hero"><div><h1 id="greet">今天想读点什么？</h1><p>粘贴网址、分享到 Tibi，或者直接问</p></div></div>
     <div class="ask"><input id="askIn" placeholder="粘贴网址，或问 Tibi…"><button class="send" id="askGo" aria-label="发送"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
     <div class="chips">
       <button class="chip" data-go="review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg>复习 18 个到期的词</button>
@@ -238,7 +242,9 @@ $('#themeBtn').onclick = () => { const r = document.documentElement, dark = matc
 
 /* ---------- 吉祥物 ---------- */
 const h = new Date().getHours(); $('#greet').textContent = (h < 5 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好') + '，想读点什么？';
-const fox = Fox.mount($('#fox'), { state: h >= 23 || h < 5 ? 'sleeping' : 'idle', size: 76, interactive: true });
+const mascotImg = id => `<img src="img/mascot/${id}.webp" srcset="img/mascot/${id}.webp 1x, img/mascot/${id}@2x.webp 2x" alt="">`;
+$('#heroArt').innerHTML = mascotImg(h >= 6 && h < 12 ? 'hero-morning' : h >= 12 && h < 18 ? 'hero-day' : 'hero-night');
+const fox = Fox.mount($('#fox'), { state: h >= 23 || h < 5 ? 'sleeping' : 'idle', size: 50, interactive: true });
 $('#fab').innerHTML = FOX_FACE;
 
 /* ---------- 标签页 ---------- */
@@ -342,8 +348,8 @@ function renderRv() {
   $('#rvN').textContent = `${Math.min(qi + 1, Q.length)} / ${Q.length}`;
   const segs = `<div class="segs">${Q.map((_, i) => `<i class="${res[i] ? 'r' + res[i] : i === qi ? 'cur' : ''}"></i>`).join('')}</div>`;
   if (qi >= Q.length) {
-    $('#rv').innerHTML = segs + `<div class="done"><div class="fx" id="dfx"></div><h3>今天的复习完成了</h3><p>连续学习第 10 天。忘了的词已经补练过。</p><div class="k3"><div><b>${Q.length}</b><span>复习了</span></div><div><b>${Math.round(res.filter(r => r >= 3).length / Q.length * 100)}%</b><span>记得或轻松</span></div><div><b>1:12</b><span>用时</span></div></div><button class="btn pri full" data-go="home">读一篇新文章</button></div>`;
-    Fox.mount($('#dfx'), { state: 'happy', size: 150, interactive: true }); $('#rv [data-go]').onclick = () => show('home'); return;
+    $('#rv').innerHTML = segs + `<div class="done"><div class="fx">${mascotImg('celebrate-review')}<div class="fox-badge" id="dfx"></div></div><h3>今天的复习完成了</h3><p>连续学习第 10 天。忘了的词已经补练过。</p><div class="k3"><div><b>${Q.length}</b><span>复习了</span></div><div><b>${Math.round(res.filter(r => r >= 3).length / Q.length * 100)}%</b><span>记得或轻松</span></div><div><b>1:12</b><span>用时</span></div></div><button class="btn pri full" data-go="home">读一篇新文章</button></div>`;
+    Fox.mount($('#dfx'), { state: 'happy', size: 46, interactive: true }); $('#rv [data-go]').onclick = () => show('home'); return;
   }
   const c = Q[qi];
   $('#rv').innerHTML = segs + `<div class="card rcard"><div class="k"><span>识别</span><span>·</span><span>熟练度 <span class="stage s${c.s}">${STAGE[c.s]}</span></span></div>

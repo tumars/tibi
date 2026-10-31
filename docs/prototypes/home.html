@@ -38,7 +38,7 @@
     <div class="scroll" id="scroll">
       <div class="page">
         <section class="hero">
-          <div class="hero-fox" id="heroFox"></div>
+          <div class="hero-art"><span id="heroArt"></span><div class="hero-fox" id="heroFox"></div></div>
           <h1 id="greet">今天想读点什么？</h1>
           <div class="sub">粘贴网址或文章、拖入 PDF / EPUB / 图片，或者直接问 Tibi</div>
           <div class="composer" id="composer">
@@ -132,9 +132,10 @@ const KIND = { article: '文章', book: '书' };
 const SUGGEST = { tech: ['Rust', '内存管理'], news: ['城市', '气候'], lit: ['经典小说'], academic: ['机器学习'], general: ['随笔'] };
 /* 首页没有引入 v2-shell.js：这里放一份同样的空状态与演示开关 */
 const IS_EMPTY = location.hash === '#empty';
-function emptyState(el, { state = 'idle', title, desc, actions = [], cls = '', extra = '' } = {}) {
-  el.innerHTML = `<div class="empty ${cls}"><div class="fx"></div><h3>${title}</h3>${desc ? `<p>${desc}</p>` : ''}${extra}${actions.length ? `<div class="acts">${actions.map((a, i) => a.link ? `<a class="btn${a.pri ? ' pri' : ''}" data-link="${a.link}" href="#">${a.t}</a>` : `<button class="btn${a.pri ? ' pri' : ''}" data-ea="${i}">${a.t}</button>`).join('')}</div>` : ''}</div>`;
-  if (window.Fox) Fox.mount(el.querySelector('.fx'), { state, size: 132, interactive: true });
+const mascotImg = id => `<img src="img/mascot/${id}.webp" srcset="img/mascot/${id}.webp 1x, img/mascot/${id}@2x.webp 2x" alt="">`;
+function emptyState(el, { state = 'idle', img, title, desc, actions = [], cls = '', extra = '' } = {}) {
+  el.innerHTML = `<div class="empty ${cls}"><div class="fx${img ? ' art' : ''}">${img ? mascotImg(img) + '<div class="fox-badge"></div>' : ''}</div><h3>${title}</h3>${desc ? `<p>${desc}</p>` : ''}${extra}${actions.length ? `<div class="acts">${actions.map((a, i) => a.link ? `<a class="btn${a.pri ? ' pri' : ''}" data-link="${a.link}" href="#">${a.t}</a>` : `<button class="btn${a.pri ? ' pri' : ''}" data-ea="${i}">${a.t}</button>`).join('')}</div>` : ''}</div>`;
+  if (window.Fox) Fox.mount(el.querySelector(img ? '.fox-badge' : '.fx'), { state, size: img ? 50 : 132, interactive: true });
   el.querySelectorAll('[data-link]').forEach(a => { a.href = URLS[a.dataset.link]; ext(a); });
   el.querySelectorAll('[data-ea]').forEach(b => b.onclick = actions[+b.dataset.ea].onclick);
   anim(el.firstElementChild, { opacity: [0, 1], y: [8, 0] }, { duration: 0.4, ease: EASE });
@@ -177,7 +178,7 @@ function renderGrid(animate, newId) {
   $('#grid').classList.toggle('is-empty', !DOCS.length);
   if (!DOCS.length) {
     $('#filters').hidden = true;
-    emptyState($('#grid'), { state: 'listening', title: '书架还是空的', desc: '把你想读的英文交给 Tibi：粘贴网址或一段文字，拖入 PDF、EPUB 或截图。先试试这三篇公有领域的示例也行。', cls: 'card-like',
+    emptyState($('#grid'), { state: 'listening', img: 'empty-library', title: '书架还是空的', desc: '把你想读的英文交给 Tibi：粘贴网址或一段文字，拖入 PDF、EPUB 或截图。先试试这三篇公有领域的示例也行。', cls: 'card-like',
       extra: `<div class="samples">${SAMPLES.map((d, i) => `<button class="sample" data-sm="${i}"><span class="g">${GEN[d.g]} · 示例</span><span class="t">${esc(d.t)}</span><span class="m">约 ${d.mins} 分钟 · ${d.src}</span></button>`).join('')}</div>` });
     $('#grid').querySelectorAll('[data-sm]').forEach(b => b.onclick = () => { const d = SAMPLES[+b.dataset.sm]; runImport('sample:' + d.t); });
     return;
@@ -512,7 +513,8 @@ if (IS_EMPTY) {
 })();
 /* 吉祥物：深夜睡觉；输入时倾听；Tibi 干活时思考 / 阅读；完成时开心 */
 const NIGHT = h >= 23 || h < 5, FOX_BASE = NIGHT ? 'sleeping' : 'idle';
-const fox = Fox.mount($('#heroFox'), { state: FOX_BASE, size: 128, interactive: true });
+$('#heroArt').innerHTML = mascotImg(h >= 6 && h < 12 ? 'hero-morning' : h >= 12 && h < 18 ? 'hero-day' : 'hero-night');
+const fox = Fox.mount($('#heroFox'), { state: FOX_BASE, size: 64, interactive: true });
 let foxBusy = 0;
 function foxWork(st) { foxBusy++; fox.set(st); }
 function foxDone(ok = true) { foxBusy = Math.max(0, foxBusy - 1); if (!foxBusy) { fox.set(document.activeElement === input ? 'listening' : 'idle'); fox.pulse(ok ? 'happy' : 'surprised', 2200); } }
