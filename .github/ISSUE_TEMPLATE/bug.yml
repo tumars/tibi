@@ -1,0 +1,36 @@
+name: 问题报告 / Bug report
+description: Tibi 哪里不对
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么 / What happened
+      description: 你做了什么、期望看到什么、实际看到什么。有截图更好。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 怎么复现 / Steps to reproduce
+      placeholder: "1. 导入 …\n2. 点 …\n3. 看到 …"
+  - type: input
+    id: version
+    attributes:
+      label: Tibi 版本 / Version
+      description: 设置 → 关于
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 系统 / OS
+      options: [macOS（Apple 芯片）, macOS（Intel）, Windows, Linux]
+    validations:
+      required: true
+  - type: textarea
+    id: diag
+    attributes:
+      label: 诊断信息 / Diagnostics
+      description: 和任务有关的问题，可以在任务页打开那个任务，点"复制诊断信息"贴在这里（不含文章正文和 API Key）。
+      render: text

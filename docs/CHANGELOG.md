@@ -117,3 +117,4 @@
 | 2026-10-31 | M5 任务中心完整版：花得最多的技能、审批卡的修改后允许 / 以后自动允许、暂停 / 继续 / 取消 / 重试、按今天 / 昨天 / 更早分组、右侧详情抽屉（步骤树、过程、在对话中继续、复制诊断信息）、键盘 J / K / Enter / A / R / Esc、左栏任务徽标。M5 标为功能做完。00 §3.11 同步 |
 | 2026-10-31 | M6 CI 与安装包：`ci.yml`（内嵌文件最新、类型检查、单测、界面构建、文案漏翻检查、Rust clippy）、`release.yml`（打 tag → 四个目标的草稿 Release + 剪藏插件 zip）、`bundle-prep.mjs` / `tauri.bundle.conf.json`（T26）。本地验证 Linux .deb 带上了 sidecar、词典和 OCR 资源。`pnpm ecdict` 默认输出改为 `data/ecdict/dict.db`（和壳的开发路径一致）。修 MCP 测试从仓库根跑时找不到 tsx |
 | 2026-10-31 | M6 界面语言：界面文案全部用 `tl()` 包起来、英文 719 条（T25）；设置 → 通用加"界面语言"（中文 / English），学习与复习加"Tibi 讲解用的语言"（中文夹英文 / 只用中文 / English），系统提示里写明回答语言。00 §3.7 同步 |
+| 2026-10-31 | M6 文档与社区：README 重写（中文 / English，真实截图、安装、隐私、开发），用户指南 `docs/guide/`，PRIVACY、SECURITY、CONTRIBUTING、CODE_OF_CONDUCT，issue / PR 模板 |
