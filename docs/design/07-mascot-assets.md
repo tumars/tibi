@@ -33,9 +33,9 @@ Character reference sheet of CHARACTER on a plain light grey (#f2f2f1) backgroun
 
 | id | 用在哪 | 尺寸 | 状态 |
 |---|---|---|---|
-| hero-morning | 首页标题上方，6:00–12:00 | 1536×1024 | 待出 |
-| hero-day | 首页，12:00–18:00 | 1536×1024 | 待出 |
-| hero-night | 首页，18:00–6:00（23 点后用 sleeping） | 1536×1024 | 待出 |
+| hero-morning | 首页标题上方，6:00–12:00 | 1536×1024 | 已出 |
+| hero-day | 首页，12:00–18:00 | 1536×1024 | 已出 |
+| hero-night | 首页，18:00–6:00（23 点后用 sleeping） | 1536×1024 | 已出 |
 | empty-library | 书架为空 | 1024×1024 | 待出 |
 | empty-review | 没有到期卡片 | 1024×1024 | 待出 |
 | empty-tasks | 任务中心为空 | 1024×1024 | 待出 |
@@ -49,7 +49,7 @@ Character reference sheet of CHARACTER on a plain light grey (#f2f2f1) backgroun
 | error-offline | 模型不可用 / 离线 | 1024×1024 | 待出 |
 | error-generic | 出错了 | 1024×1024 | 待出 |
 | sticker-* | 对话里的贴纸反应（6 张：赞、笑、疑问、加油、睡、惊） | 512×512 | 待出 |
-| about | 关于页 | 1024×1024 | 待出 |
+| about | 关于页 | 1024×1024 | 已出 |
 | icon-face | 应用图标上层（Icon Composer），只有正脸 | 1024×1024 | 待出 |
 
 <!-- prompt:hero-morning -->
