@@ -140,6 +140,8 @@ function WordSheet({ card, onClose, onStatus, onAsk }: { card?: { word: string; 
   const [status, setStatus] = useState<Status>();
   const [ctxm, setCtxm] = useState<string>();
   const modelOk = useCore(s => !!s.status?.models.ok);
+  const [detail, setDetail] = useState<Result<'terms.get'>>();
+  useEffect(() => { setDetail(undefined); const tid = data?.term?.id; if (tid) rpc.call('terms.get', { id: tid }).then(setDetail, () => undefined); }, [data?.term?.id]);
   useEffect(() => {
     if (!card) return; let alive = true; setData(undefined); setCtxm(undefined);
     rpc.call('terms.lookup', { text: card.word, sentence_id: card.sentence.id }).then(r => {
@@ -164,6 +166,13 @@ function WordSheet({ card, onClose, onStatus, onAsk }: { card?: { word: string; 
       <div className="dict">{data?.term?.meaning || data?.dict?.translation || (data && !data.dict ? tl('词典里没有这个词') : '')}</div>
       <div className="stages">{([0, 1, 2, 3, 4, 5] as Status[]).map(s => <button key={s} data-s={s} className={`${status === s ? 'on' : ''}${status !== undefined && status <= 5 && s <= status ? ' fill' : ''}`} onClick={() => void setS(s)}><i />{STATUS_NAMES[s]}</button>)}</div>
       <div className="row"><button className="btn" onClick={() => void setS(98 as Status)}>{tl('忽略')}</button><button className="btn tint" onClick={() => onAsk(head)}>{tl('问 Tibi')}</button></div>
+      <div className="hint">{tl('上拉看遇到过的句子')}</div>
+      {/* 上拉全屏后（J5）：遇到过的句子和复习数据 */}
+      <div className="more">
+        <h4>{tl('遇到过的句子')}</h4>
+        {detail?.contexts.length ? detail.contexts.slice(0, 8).map(c => <div key={c.id} className="ctx">{c.sentence}<small>{c.document_title ?? ''}</small></div>) : <div className="lbl">{tl('还没有')}</div>}
+        {detail?.card && <><h4 style={{ marginTop: 14 }}>{tl('复习')}</h4><div className="lbl">{tl('复习 {reps} 次 · 忘了 {lapses} 次', { reps: detail.card.reps, lapses: detail.card.lapses })}</div></>}
+      </div>
     </Sheet>
   );
 }

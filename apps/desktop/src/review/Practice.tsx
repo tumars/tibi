@@ -11,16 +11,16 @@ import { tl } from '../lib/i18n';
  * 练习（G8 / R6，不计分，成绩记 practice_logs；00 §3.3）：听写原句、拼写、易混词辨析、造句（Tibi 批改）。
  * 句子来自最近复习 / 错词 / 难词；每轮 5 题，结束显示准确率和"再来一轮"。
  */
-type Mode = 'dictation' | 'spell' | 'confusable' | 'produce';
-type Source = 'recent' | 'mistakes' | 'leech';
-type Item = Result<'practice.start'>['items'][number];
-const MODES: { key: Mode; label: string; desc: string }[] = [
+export type Mode = 'dictation' | 'spell' | 'confusable' | 'produce';
+export type Source = 'recent' | 'mistakes' | 'leech';
+export type Item = Result<'practice.start'>['items'][number];
+export const MODES: { key: Mode; label: string; desc: string }[] = [
   { key: 'dictation', label: tl('听写原句'), desc: tl('听你读过的句子，写下整句') },
   { key: 'spell', label: tl('拼写'), desc: tl('看中文释义和字母数，拼出单词') },
   { key: 'confusable', label: tl('易混词'), desc: tl('在句子里二选一') },
   { key: 'produce', label: tl('造句'), desc: tl('用目标词写一句，Tibi 批改') },
 ];
-const SOURCES: { key: Source; label: string }[] = [{ key: 'recent', label: tl('最近的词') }, { key: 'mistakes', label: tl('这周答错的') }, { key: 'leech', label: tl('难词') }];
+export const SOURCES: { key: Source; label: string }[] = [{ key: 'recent', label: tl('最近的词') }, { key: 'mistakes', label: tl('这周答错的') }, { key: 'leech', label: tl('难词') }];
 
 /** 听写：按词对齐（LCS），返回每个原词是否写对，和准确率 */
 export function alignWords(target: string, typed: string): { words: { w: string; ok: boolean }[]; accuracy: number } {

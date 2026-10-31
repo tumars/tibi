@@ -3,6 +3,7 @@ import { RotateCcw, Volume2, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { tl } from '../lib/i18n';
 import { speak, STATUS_NAMES } from '../lib/util';
+import { Practice } from '../review/Practice';
 import { splitAnswer, useReviewSession } from '../review/useReviewSession';
 import { useCore } from '../store/core';
 import { Empty } from './ui';
@@ -15,6 +16,7 @@ export function MReview() {
   const [params, setParams] = useSearchParams();
   const due = useCore(s => s.due);
   if (params.get('run') === '1') return <Session onExit={() => setParams({}, { replace: true })} />;
+  if (params.get('practice') === '1') return <div className="screen"><div className="top"><button className="ib" aria-label={tl('返回')} onClick={() => setParams({}, { replace: true })}><X size={20} /></button></div><div className="pad mpractice"><Practice /></div></div>;
   return (
     <div className="screen">
       <div className="topgap" />
@@ -25,7 +27,8 @@ export function MReview() {
           {due > 0 && <button className="btn sm pri" onClick={() => setParams({ run: '1' })}>{tl('开始')}</button>}
         </div>
         <div className="sec"><h2>{tl('练习（不计分）')}</h2>
-          <div className="lbl">{tl('听写、拼写、易混词、造句批改在电脑上做。')}</div></div>
+          <button className="card rvc" style={{ width: '100%', textAlign: 'left', marginTop: 0 }} onClick={() => setParams({ practice: '1' })}>
+            <div><b>{tl('听写、拼写、易混词、造句')}</b><span>{tl('不影响复习排期')}</span></div><span className="btn sm tint">{tl('开始')}</span></button></div>
       </div>
     </div>
   );
