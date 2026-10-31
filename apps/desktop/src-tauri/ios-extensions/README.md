@@ -1,7 +1,7 @@
 # iOS 扩展：Safari 分享、小组件（M7，00 §3.13 J3、J7）
 
 这两个是 iOS 的扩展 target，要在 Mac 上的 Xcode 里加进 `tauri ios init` 生成的工程（`src-tauri/gen/apple/`）。
-**这里的 Swift 代码是在 Linux 上写的，还没编译验证。** 壳里和它们交换数据的部分（`src/app_group.rs`）已经有单测。
+**CI 的 `ios` 任务在 macOS runner 上对 iOS 17 SDK 做 `swiftc -typecheck`（2026-10-31 通过），但还没在真机上跑过。** 壳里和它们交换数据的部分（`src/app_group.rs`）有单测，iOS 分支（objc2 调 NSFileManager）在 CI 里 `cargo check --target aarch64-apple-ios` 通过。
 
 ## 共享目录
 

@@ -1,6 +1,6 @@
 // 小组件（00 §3.13 J7）：主屏小号（待复习数 + 连续天数）、中号（继续读的文章与进度 + 复习数）；锁屏圆环（今日分钟）与一行文字。
 // 读主应用写在 App Group 里的 widget.json（壳的 widget_write，app_group.rs），自己不同步。狐狸只有平静和开心两种状态。
-// 未在 Xcode 里编译验证（这份代码在 Linux 上写的），加 target 的步骤见 README.md。
+// CI（ios 任务）对 iOS 17 SDK 做 swiftc 类型检查；还没在真机上跑过。加 target 的步骤见 README.md。
 import SwiftUI
 import WidgetKit
 

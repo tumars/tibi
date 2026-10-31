@@ -1,6 +1,6 @@
 // Safari 分享扩展（00 §3.13 J3）：只显示网址和标题，"导入"或"稍后读"；进书架前不抓取正文。
 // 选好后写进 App Group 的 share-inbox/<时间>.json，主应用打开 / 回到前台时由壳的 share_take_pending 取走导入（app_group.rs）。
-// 未在 Xcode 里编译验证（这份代码在 Linux 上写的），加 target 的步骤见 README.md。
+// CI（ios 任务）对 iOS 17 SDK 做 swiftc 类型检查；还没在真机上跑过。加 target 的步骤见 README.md。
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
