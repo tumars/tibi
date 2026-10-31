@@ -1,0 +1,19 @@
+docs/design/07-mascot-assets.md
+  s_5f1cdd5954dca1::t_a38bc87086efeb 12,45-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "82b4e82d4e1a0672f91ebc64e27238d2f83a0178",
+  "prompts": {},
+  "sessions": {
+    "s_5f1cdd5954dca1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2f8c40b4-4724-49db-8cdc-59bc7f69ec72",
+        "model": "unknown"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
