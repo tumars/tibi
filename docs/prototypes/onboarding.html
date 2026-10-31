@@ -122,7 +122,7 @@ body { display: grid; place-items: center; padding: 24px; }
   <aside class="left">
     <div class="obbrand"><img src="img/logo.svg" alt="">Tibi</div>
     <div class="fx" id="fx"></div>
-    <div class="obsay" id="say">你好，我是 Tibi。先聊几句，我好知道该怎么帮你。</div>
+    <div class="obsay" id="say">你好，我是 Tibi。</div>
     <ol class="obsteps" id="steps">
       <li data-s="1" class="cur"><i>1</i>先认识一下</li>
       <li data-s="4"><i>2</i>读第一篇</li>
@@ -132,7 +132,7 @@ body { display: grid; place-items: center; padding: 24px; }
     <!-- 1 先认识一下 -->
     <div class="pane on" data-p="1">
       <h1>先认识一下</h1>
-      <p class="lead">这些会写进 Tibi 对你的了解，影响它挑文章、标生词和讲解的方式。可以跳过，以后在"设置"里随时能改。</p>
+      <p class="lead">用来挑文章和标生词。可以跳过，之后在设置里改。</p>
       <div class="f"><label class="t" for="nick">Tibi 怎么称呼你</label><input class="input" id="nick" placeholder="比如：小孟" maxlength="20"></div>
       <div class="f"><span class="t">你学英语是为了</span><div class="opts" id="goal"><button class="chip on" data-v="雅思 7 分">雅思 / 托福</button><button class="chip" data-v="工作阅读">工作里读文档和邮件</button><button class="chip" data-v="读原版书">读原版书</button><button class="chip" data-v="考研 / CET">考研 / CET</button><button class="chip" data-v="兴趣">就是感兴趣</button></div></div>
       <div class="f"><span class="t">你觉得自己现在的水平</span><div class="lv4" id="lv">
@@ -140,14 +140,14 @@ body { display: grid; place-items: center; padding: 24px; }
         <button data-v="B1"><b>中级</b><span>能读新闻大意，生词不少</span></button>
         <button class="on" data-v="B2"><b>中高级</b><span>能读大部分文章，偶尔查词</span></button>
         <button data-v="C1"><b>高级</b><span>读原版书和论文基本不费劲</span></button>
-      </div><span class="hint">下一步会用 2–3 分钟实际测一下，这里选个大概就行。</span></div>
+      </div></div>
       <div class="f"><span class="t">你平时常读的材料（可多选）</span><div class="opts" id="mat"><button class="chip on" data-v="tech">技术文档</button><button class="chip on" data-v="news">新闻</button><button class="chip" data-v="novel">小说</button><button class="chip" data-v="paper">论文</button><button class="chip" data-v="social">社交媒体 / 博客</button></div></div>
       <div class="f"><span class="t">Tibi 和你说话时</span><div class="opts" id="lang"><button class="chip on" data-v="mixed">中文为主，夹英文</button><button class="chip" data-v="zh">只用中文</button><button class="chip" data-v="en">English only</button></div></div>
     </div>
     <!-- 2 词汇量测试 -->
     <div class="pane" data-p="2">
       <h1>测测词汇量</h1>
-      <p class="lead" id="vtLead">按词频分了 5 组，每组 8 个词。<b>点亮你确定认识的</b>——不确定就别点，里面混了几个不存在的词。</p>
+      <p class="lead" id="vtLead"><b>点亮确定认识的词。</b>其中混了几个不存在的词。</p>
       <div id="vtest">
         <div class="vt-head"><span id="vtN">第 1 / 5 组</span><div class="bar2"><i id="vtBar" style="width:0%"></i></div><span id="vtB"></span></div>
         <div class="vt" id="vt"></div>
@@ -158,7 +158,7 @@ body { display: grid; place-items: center; padding: 24px; }
     <!-- 3 模型 -->
     <div class="pane" data-p="3">
       <h1>连接一个模型</h1>
-      <p class="lead">讲解、总结、出题这些 AI 功能需要一个模型。查词、标注、复习是本地的，不连模型也能用。</p>
+      <p class="lead">讲解、总结和出题需要模型。查词、标注和复习不需要。</p>
       <div class="seg" id="mseg"><button class="on" data-m="key">填 API Key</button><button data-m="login">用账号登录</button><button data-m="local">本地模型</button></div>
       <div class="mp on" data-m="key">
         <div class="prov" id="prov">
@@ -167,22 +167,22 @@ body { display: grid; place-items: center; padding: 24px; }
           <button data-v="anthropic"><b>Anthropic</b><span>claude-haiku / claude-sonnet</span></button>
           <button data-v="custom"><b>其他兼容 OpenAI 的服务</b><span>自己填 Base URL 和模型名</span></button>
         </div>
-        <div class="keyrow"><input class="input" id="key" type="password" placeholder="sk-…（只存在本机，不会上传）" autocomplete="off"><button class="btn" id="testBtn">测试连接</button></div>
+        <div class="keyrow"><input class="input" id="key" type="password" placeholder="sk-…（只存在本机）" autocomplete="off"><button class="btn" id="testBtn">测试连接</button></div>
         <div class="conn" id="conn"></div>
         <div class="tiers" id="tiers"><div><span>快速档 · 查词、标注、日常问答</span><span>deepseek-v4-flash</span></div><div><span>深入档 · 长难句、学习洞察、出题</span><span>deepseek-v4-pro</span></div></div>
       </div>
       <div class="mp" data-m="login">
         <div class="login"><button class="btn" data-login="ChatGPT">用 ChatGPT 账号登录</button></div>
-        <div class="note">用你已有的 ChatGPT 订阅，不另外付费。它的条款对第三方应用的限制还在核对。想用 Claude，请在“填 API Key”里选 Anthropic。</div>
+        <div class="note">使用已有的 ChatGPT 订阅。</div>
       </div>
       <div class="mp" data-m="local">
-        <div class="note">检测到本机没有在运行 Ollama。装好后（`ollama run qwen3:8b`）回到这里，Tibi 会自动找到它。本地模型适合查词和标注，讲解和洞察建议还是用云端模型。</div>
+        <div class="note">没检测到 Ollama。安装并运行后会自动识别。</div>
       </div>
     </div>
     <!-- 4 第一篇 -->
     <div class="pane" data-p="4">
       <h1>读第一篇</h1>
-      <p class="lead">示例已经备好标注、释义和总结，不用连模型就能看效果。也可以粘贴一个网址。</p>
+      <p class="lead">示例不连模型也能看完整效果。也可以粘贴网址。</p>
       <div class="samples2" id="samples"></div>
       <div class="or">或者</div>
       <div class="urlrow"><input class="input" id="url" placeholder="粘贴网址，或一段英文"><button class="btn" id="urlBtn">导入</button></div>
@@ -209,7 +209,7 @@ const SINGLE = +(location.hash.match(/step=([23])/) || [])[1] || 0;
 const BACK_TO = (location.hash.match(/from=(\w+)/) || [])[1] || (SINGLE === 2 ? 'settings' : 'home');
 const BACK_LABEL = { settings: '设置', reader: '阅读器', home: '首页' }[BACK_TO] || '首页';
 let step = SINGLE || 1;
-const SAY = { 1: '你好，我是 Tibi。先聊几句，我好知道该怎么帮你。', 2: '不用紧张，这不是考试。只点你确定认识的词就好。', 3: '连好模型，我就能讲解你自己的文章了。', 4: '先读一篇试试，我把生词标出来给你看。' };
+const SAY = { 1: '你好，我是 Tibi。', 2: '只点确定认识的词。', 3: '连接模型后才能讲解和总结。', 4: '先读一篇。' };
 function go(n) {
   step = n;
   document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', +p.dataset.p === n));
@@ -233,7 +233,7 @@ function useSelfRating() { ans.vocab = { A2: 2000, B1: 3500, B2: 6000, C1: 9000 
 $('#skip').onclick = () => {
   if (step === 1) { useSelfRating(); go(4); return; }
   if (step === 2) { location.href = URLS[BACK_TO] || URLS.home; return; }
-  if (step === 3) { toast('已跳过。查词、标注、复习照常，讲解和总结会提示你先连接模型'); setTimeout(() => { location.href = URLS[BACK_TO] || URLS.home; }, 900); return; }
+  if (step === 3) { toast('已跳过，之后可在设置里连接'); setTimeout(() => { location.href = URLS[BACK_TO] || URLS.home; }, 900); return; }
   finish();
 };
 function finish() {
@@ -274,16 +274,16 @@ function showResult() {
   est = Math.round(est * (1 - pseudo * 0.08) / 100) * 100; ans.vocab = est;
   const cefr = est < 2500 ? 'A2' : est < 4500 ? 'B1' : est < 7000 ? 'B2' : est < 10000 ? 'C1' : 'C2';
   const known = Math.min(Math.round(est * 0.65 / 500) * 500, 8000);
-  $('#vtLead').innerHTML = '测完了。这个数只是起点，之后你每读一篇、每标一个词，Tibi 对你词汇量的估计都会更准。';
+  $('#vtLead').innerHTML = '测完了。读得越多，估算越准。';
   $('#vtest').hidden = true; const r = $('#vres'); r.hidden = false;
   r.innerHTML = `<div class="vres">
     <div class="big"><div><div class="n">${est.toLocaleString()}<small>词</small></div></div><div class="d">估算词汇量，相当于 <b>CEFR ${cefr}</b>${cefr !== ans.lv ? `（你自评的是 ${ans.lv}，以测出来的为准）` : '，和你自评的一致'}。<br>认识 ${realKnown} / ${realTotal} 个真词${pseudo ? `，点亮了 ${pseudo} 个不存在的词，估算已相应下调` : '，没有被伪词骗到'}。</div></div>
-    <div class="box"><b>按词频看</b>各组认识的比例，高频组越满越好<div class="bands">${ratios.map((x, i) => `<i style="height:${Math.max(8, x * 100)}%" data-l="${BANDS[i].l}" title="${Math.round(x * 100)}%"></i>`).join('')}</div></div>
-    <div class="box"><b>Tibi 会这样用它</b>词频前 ${known.toLocaleString()} 的词先当作你已经认识，不再标注；${known.toLocaleString()}–${(known + 3000).toLocaleString()} 之间的词标为"可能不认识"，读到时点一下确认；再往上默认是生词。</div>
+    <div class="box"><b>按词频看</b>各组认识的比例<div class="bands">${ratios.map((x, i) => `<i style="height:${Math.max(8, x * 100)}%" data-l="${BANDS[i].l}" title="${Math.round(x * 100)}%"></i>`).join('')}</div></div>
+    <div class="box"><b>怎么用这个结果</b>词频前 ${known.toLocaleString()} 视为已认识，不标注；${known.toLocaleString()}–${(known + 3000).toLocaleString()} 标为待确认；更难的标为生词。</div>
   </div><div class="manual">数不对？自己填：<input class="input" id="manual" type="number" step="100" min="500" max="30000" placeholder="${est}"><span>词（以你填的为准）</span></div>`;
   $('#manual').addEventListener('change', () => { const v = +$('#manual').value; if (v >= 500) { ans.vocab = v; toast(`已改为约 ${v.toLocaleString()} 词`); } });
   anim(r.querySelectorAll('.big, .box, .manual'), { opacity: [0, 1], y: [10, 0] }, { duration: 0.4, ease: EASE, delay: stag(0.06) });
-  $('#next').disabled = false; fox.set('happy'); say(cefr >= 'B2' ? '不错，这个水平读大多数文章都够用。' : '很好，起点清楚了，剩下的交给每天的阅读。');
+  $('#next').disabled = false; fox.set('happy'); 
 }
 renderBand();
 /* ---------- 第 3 步：模型 ---------- */
@@ -293,7 +293,7 @@ $('#prov').querySelectorAll('button').forEach(b => b.onclick = () => { $('#prov'
 $('#testBtn').onclick = () => {
   const c = $('#conn'); if (!$('#key').value.trim()) { c.className = 'conn err'; c.textContent = '先填 API Key'; fox.pulse('surprised', 1200); return; }
   c.className = 'conn'; c.innerHTML = '<span class="sp"></span>正在连接…'; fox.set('thinking');
-  setTimeout(() => { c.className = 'conn ok'; c.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>连接成功 · ${TIERS[ans.model][0]} · 420 ms`; ans.connected = true; fox.set('happy'); say('连上了。以后花了多少钱，在"任务"和"设置"里都能看到。'); }, 1300);
+  setTimeout(() => { c.className = 'conn ok'; c.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>连接成功 · ${TIERS[ans.model][0]} · 420 ms`; ans.connected = true; fox.set('happy'); say('连接成功。'); }, 1300);
 };
 document.querySelectorAll('[data-login]').forEach(b => b.onclick = () => toast(`原型：会打开浏览器登录 ${b.dataset.login}，登录后两档模型都可选它的模型`));
 /* ---------- 第 4 步：第一篇 ---------- */
@@ -308,12 +308,12 @@ $('#urlBtn').onclick = () => { const v = $('#url').value.trim(); if (!v) return;
 function importFirst(d) {
   ans.first = d; const box = $('#imp'); box.className = 'imp on';
   const ST = ['获取内容', '分句、词形还原', `按你的水平（约 ${(ans.vocab || 6000).toLocaleString()} 词）标注生词`, d.sample ? 'AI 总结（示例已备好）' : 'AI 总结（没连模型，先跳过）'];
-  box.innerHTML = ST.map(s => `<div class="st"><i></i>${s}</div>`).join('') + `<div class="done">好了。《${esc(d.t)}》已经在书架上，生词率 4.5%，正好在学习区。标得不准的话，读完可以校准词汇量。</div>`;
+  box.innerHTML = ST.map(s => `<div class="st"><i></i>${s}</div>`).join('') + `<div class="done">《${esc(d.t)}》已放进书架，生词率 4.5%。</div>`;
   fox.set('reading'); $('#next').disabled = true;
   const rows = [...box.querySelectorAll('.st')]; let i = 0;
   const tick = () => {
     if (i > 0) { rows[i - 1].className = 'st ok'; rows[i - 1].querySelector('i').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>'; }
-    if (i >= rows.length) { box.classList.add('finished'); fox.set('happy'); say('第一篇准备好了。点"开始阅读"。'); $('#next').disabled = false; $('#next').textContent = d.open ? '开始阅读' : '进入 Tibi'; return; }
+    if (i >= rows.length) { box.classList.add('finished'); fox.set('happy'); say('第一篇准备好了。'); $('#next').disabled = false; $('#next').textContent = d.open ? '开始阅读' : '进入 Tibi'; return; }
     rows[i].className = 'st run'; i++; setTimeout(tick, i === 4 && !ans.connected ? 300 : 700);
   };
   tick();

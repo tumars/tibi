@@ -2,90 +2,138 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script src="v2-theme.js"></script>
 <title>Tibi 手机版</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Charis+SIL:ital,wght@0,400;0,700;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Charis+SIL:ital,wght@0,400;0,700;1,400&display=swap">
 <style>
-/* 手机端独立壳（D8）：只复用 v2 的 token 与少量组件，不复用桌面布局 */
+/* 手机端独立壳（D8，2026-10-31 按 iOS 调研改版，见 research/06）：只复用 v2 的 token，不复用桌面布局 */
 @font-face { font-family: "Alibaba PuHuiTi 3.0"; src: local("Alibaba PuHuiTi 3.0 55 Regular"), url("fonts/AlibabaPuHuiTi-3-55-Regular.subset.woff2") format("woff2"); font-weight: 400; font-display: swap; }
 @font-face { font-family: "Alibaba PuHuiTi 3.0"; src: local("Alibaba PuHuiTi 3.0 65 Medium"), url("fonts/AlibabaPuHuiTi-3-65-Medium.subset.woff2") format("woff2"); font-weight: 500 700; font-display: swap; }
-:root { --bg: #f6f6f5; --surface: #fff; --sunken: #f2f2f1; --hover: rgba(0,0,0,.04); --line: rgba(0,0,0,.07); --line-2: rgba(0,0,0,.12); --ink: #18181b; --ink-2: #55555c; --ink-3: #6b6b74; --accent: #3d52e0; --accent-wash: rgba(61,82,224,.08); --warm: #f5a043; --warm-wash: rgba(245,160,67,.14); --ok: #2f9e5f; --mid: #c98a1b; --hard: #c2452d; --hl-new: #cfe0ff; --hl-1: #f5dd9a; --hl-2: #f8e8b8; --hl-3: #fbf1d4; --hl-4: #e9e9e7; --f-ui: Geist, "Alibaba PuHuiTi 3.0", "Noto Sans SC", system-ui, sans-serif; --f-read: Charter, "Charis SIL", Georgia, serif; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0b0b0c; --surface: #141416; --sunken: #1b1b1e; --hover: rgba(255,255,255,.05); --line: rgba(255,255,255,.08); --line-2: rgba(255,255,255,.14); --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #8e8e97; --accent: #7d8cf0; --accent-wash: rgba(125,140,240,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16); --hl-new: #2a3f6e; --hl-1: #6b5a1e; --hl-2: #5a4d22; --hl-3: #4a4330; --hl-4: #2a2a2d; } }
+:root { --bg: #f2f2f7; --surface: #fff; --sunken: #f2f2f7; --fill: rgba(118,118,128,.12); --paper: #fff; --hover: rgba(0,0,0,.05); --line: rgba(60,60,67,.12); --line-2: rgba(60,60,67,.2); --ink: #000; --ink-2: #48484d; --ink-3: #8a8a8e; --accent-fill: #3d52e0; --chev: #c4c4c7; --seg-on: #fff; --accent: #3d52e0; --accent-wash: rgba(61,82,224,.08); --warm: #f5a043; --warm-wash: rgba(245,160,67,.14); --ok: #2f9e5f; --mid: #c98a1b; --hard: #c2452d; --hl-new: #cfe0ff; --hl-1: #f5dd9a; --hl-2: #f8e8b8; --hl-3: #fbf1d4; --hl-4: #e9e9e7;
+  --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+  --f-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Alibaba PuHuiTi 3.0", sans-serif; --f-read: Charter, "Charis SIL", Georgia, serif; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #000; --surface: #1c1c1e; --sunken: #2c2c2e; --fill: rgba(118,118,128,.24); --paper: #000; --hover: rgba(255,255,255,.07); --line: rgba(84,84,88,.45); --line-2: rgba(84,84,88,.75); --ink: #fff; --ink-2: #c7c7cc; --ink-3: #8d8d93; --accent-fill: #5468ec; --chev: #5a5a5f; --seg-on: #636366; --accent: #7d8cf0; --accent-wash: rgba(125,140,240,.13); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16); --hl-new: #2a3f6e; --hl-1: #6b5a1e; --hl-2: #5a4d22; --hl-3: #4a4330; --hl-4: #2a2a2d; } }
+:root[data-theme="dark"] { --bg: #000; --surface: #1c1c1e; --sunken: #2c2c2e; --fill: rgba(118,118,128,.24); --paper: #000; --hover: rgba(255,255,255,.07); --line: rgba(84,84,88,.45); --line-2: rgba(84,84,88,.75); --ink: #fff; --ink-2: #c7c7cc; --ink-3: #8d8d93; --accent-fill: #5468ec; --chev: #5a5a5f; --seg-on: #636366; --accent: #7d8cf0; --accent-wash: rgba(125,140,240,.13); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16); --hl-new: #2a3f6e; --hl-1: #6b5a1e; --hl-2: #5a4d22; --hl-3: #4a4330; --hl-4: #2a2a2d; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-ui); }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-ui); -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+input { font: inherit; }
 [hidden] { display: none !important; }
 /* 在桌面浏览器里看时放在一个手机框里；真机上铺满 */
 .phone { position: relative; max-width: 430px; margin: 0 auto; height: 100vh; height: 100dvh; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
-@media (min-width: 520px) { body { background: #e9e9e7; padding: 24px 0; } .phone { height: min(860px, 92vh); border-radius: 36px; box-shadow: 0 0 0 8px #1a1a1c, 0 24px 60px -20px rgba(0,0,0,.5); } .note { display: block; } }
-.screen { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 0 92px; }
+@media (min-width: 520px) { :root { --sat: 50px; --sab: 16px; } body { background: #e5e5ea; padding: 24px 0; } :root[data-theme="dark"] body { background: #1c1c1e; } .phone { height: min(860px, 92vh); border-radius: 54px; box-shadow: 0 0 0 10px #1a1a1c, 0 0 0 11px #3a3a3c, 0 24px 60px -20px rgba(0,0,0,.5); } body .note, .phone .sbar, .phone .hbar { display: flex; } }
+.screen { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 0 calc(110px + var(--sab)); }
 .screen::-webkit-scrollbar { display: none; }
-/* 顶部 */
-.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 16px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-.top h1 { margin: 0; font-size: 17px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.top .ib { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--ink-2); }
-.top .ib svg { width: 20px; height: 20px; }
+svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+/* 顶部：大标题（iOS 风格），滚动时收成小标题 */
+.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; height: calc(52px + var(--sat)); padding: var(--sat) 12px 0 16px; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.top h1 { margin: 0; font-size: 17px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* iOS 26 导航栏按钮：圆形玻璃 */
+.top .ib, .rvhead .x { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 0 0 .5px var(--line-2); }
+.top .ib:active, .rvhead .x:active { transform: scale(.94); }
+.big { margin: 0; padding: 2px 16px 8px; font-size: 34px; font-weight: 700; letter-spacing: -.02em; }
 .logo { width: 28px; height: 28px; border-radius: 8px; }
-/* 底部标签栏 */
-.tabs { position: absolute; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(4, 1fr); height: 78px; padding: 6px 8px calc(10px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 -1px 0 var(--line); }
-.tabs button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: var(--ink-3); border-radius: 12px; position: relative; }
-.tabs button svg { width: 24px; height: 24px; }
-.tabs button.on { color: var(--ink); }
-.tabs button .n { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; display: grid; place-items: center; }
+/* 底部标签栏：浮动胶囊（iOS 26 风格），滚动时收窄 */
+.tabs { position: absolute; left: 14px; right: 14px; bottom: calc(14px + var(--sab)); z-index: 20; display: flex; gap: 8px; height: 62px; transition: transform .3s cubic-bezier(.22,.8,.24,1); }
+.tabs .pill, .tabs .foxtab, .dock { background: color-mix(in srgb, var(--surface) 78%, transparent); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); box-shadow: 0 0 0 .5px var(--line-2); }
+.tabs .pill { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); padding: 5px; border-radius: 31px; }
+/* 左下角的狐狸就是"今天"：首页即与 Tibi 的对话（J9） */
+.tabs .foxtab { width: 62px; height: 62px; flex: none; border-radius: 50%; display: grid; place-items: center; }
+.tabs .foxtab .fx { width: 50px; height: 50px; pointer-events: none; }
+/* 狐狸按钮选中时不变色、不加框：右边胶囊里没有选中项，就说明在"今天" */
+.tabs .pill .f { display: none; } .tabs .pill .on .f { display: block; } .tabs .pill .on .o { display: none; }
+.tabs .pill button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10px; font-weight: 600; color: var(--ink); border-radius: 26px; position: relative; }
+.tabs .pill button svg { width: 23px; height: 23px; }
+.tabs .pill button.on { color: var(--accent); background: var(--fill); }
+.tabs button .n { position: absolute; top: 3px; left: calc(50% + 7px); min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: var(--hard); color: #fff; font-size: 10.5px; font-weight: 600; display: grid; place-items: center; }
 /* 通用 */
 .pad { padding: 0 16px; }
-.sec { margin-top: 22px; } .sec h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; display: flex; align-items: center; } .sec h2 a { margin-left: auto; font-size: 12.5px; font-weight: 400; color: var(--ink-3); text-decoration: none; }
-.card { background: var(--surface); border-radius: 16px; box-shadow: inset 0 0 0 1px var(--line); }
-.btn { height: 44px; padding: 0 18px; border-radius: 999px; font-size: 15px; font-weight: 500; box-shadow: inset 0 0 0 1px var(--line-2); display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--surface); }
-.btn.pri { background: var(--ink); color: var(--surface); box-shadow: none; }
+.sec { margin-top: 22px; } .sec h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; display: flex; align-items: center; } .sec h2 a, .sec h2 button { margin-left: auto; font-size: 13px; font-weight: 400; color: var(--accent); text-decoration: none; }
+.card { background: var(--surface); border-radius: 22px; }
+button.card { transition: transform .15s; } button.card:active { transform: scale(.98); }
+/* iOS 26 按钮：胶囊；主按钮用强调色填充，次按钮用系统灰填充，"开始"这类用浅强调色 */
+.btn { height: 48px; padding: 0 20px; border-radius: 999px; font-size: 16px; font-weight: 600; background: var(--fill); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn.pri { background: var(--accent-fill); color: #fff; }
+.btn.tint { background: var(--accent-wash); color: var(--accent); }
 .btn.full { width: 100%; }
-.chips { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px; margin: 10px -16px 0; scrollbar-width: none; } .chips::-webkit-scrollbar { display: none; }
-.chip { flex: none; height: 36px; padding: 0 14px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn.sm { height: 34px; padding: 0 15px; font-size: 14px; border-radius: 999px; }
+.btn:active { transform: scale(.98); }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px; margin: 0 -16px; scrollbar-width: none; } .chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; height: 34px; padding: 0 14px; border-radius: 17px; background: var(--surface); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.chip.on { background: var(--accent-fill); color: #fff; }
 .chip svg { width: 15px; height: 15px; }
-.stage { font-size: 11.5px; padding: 2px 9px; border-radius: 999px; color: var(--ink-2); }
+.stage { font-size: 11.5px; padding: 2px 9px; border-radius: 6px; color: var(--ink-2); }
 .stage.s0 { background: var(--hl-new); } .stage.s1 { background: var(--hl-1); } .stage.s2 { background: var(--hl-2); } .stage.s3 { background: var(--hl-3); } .stage.s4 { background: var(--hl-4); } .stage.s5 { background: var(--ink); color: var(--surface); }
-.lv { font-size: 12px; display: inline-flex; align-items: center; gap: 5px; } .lv::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.lv.ok { color: var(--ok); } .lv.mid { color: var(--mid); } .lv.hard { color: var(--hard); }
-.lbl { font-size: 12px; color: var(--ink-3); }
-/* 首页 */
-.hero { display: flex; align-items: center; gap: 12px; padding: 8px 16px 0; }
-.hero .fx { width: 76px; height: 76px; flex: none; }
-.hero h1 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
-.hero p { margin: 4px 0 0; font-size: 13px; color: var(--ink-3); }
-.ask { margin: 14px 16px 0; display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 8px 0 16px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); }
-.ask input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font: inherit; font-size: 15px; color: var(--ink); }
-.ask .send { width: 36px; height: 36px; border-radius: 50%; background: var(--ink); color: var(--surface); display: grid; place-items: center; }
-.ask .send svg { width: 16px; height: 16px; }
-.today { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.today .t { background: var(--sunken); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
-.today .t .k { font-size: 11.5px; color: var(--ink-2); } .today .t .v { font-size: 20px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; } .today .t .v small { font-size: 11px; font-weight: 400; color: var(--ink-3); margin-left: 2px; }
-.today .t .bar { height: 4px; border-radius: 99px; background: var(--line); margin-top: 6px; overflow: hidden; } .today .t .bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
-.doc { display: flex; gap: 12px; padding: 12px 14px; align-items: center; }
-.doc + .doc { box-shadow: 0 -1px 0 var(--line); }
-.doc .ic { width: 40px; height: 40px; border-radius: 11px; flex: none; display: grid; place-items: center; font-family: var(--f-read); font-weight: 700; font-size: 15px; color: var(--ink-2); }
-.doc .ic.tech { background: #e8f0ff; } .doc .ic.news { background: #ffeedd; } .doc .ic.novel { background: #e6f3e8; }
-.doc .b { flex: 1; min-width: 0; } .doc .b .t { display: block; font-family: var(--f-read); font-weight: 700; font-size: 15.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.doc .b .m { font-size: 12px; color: var(--ink-3); margin-top: 2px; display: flex; gap: 8px; align-items: center; }
+.lv { font-size: 12px; color: var(--ink-3); } .lv.hard { color: var(--hard); }
+.lbl { font-size: 12.5px; color: var(--ink-3); }
+.seg { display: flex; padding: 2px; border-radius: 10px; background: var(--fill); }
+.seg button { flex: 1; height: 30px; border-radius: 8px; font-size: 13.5px; font-weight: 500; color: var(--ink-2); }
+.seg button.on { background: var(--seg-on); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+/* 今天 */
+#s-home { padding-bottom: calc(160px + var(--sab)); }
+/* 首页顶部不放问候，只放一行今天的进度（像蚂小财顶部的"休市"那样的状态行）；卡片直接接在下面 */
+.todayline { display: flex; align-items: center; gap: 8px; height: 44px; padding: var(--sat) 18px 0; box-sizing: content-box; font-size: 15px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.todayline svg { width: 22px; height: 22px; flex: none; } .todayline b { color: var(--ink); font-weight: 600; } .todayline .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-3); margin: 0 2px; }
+/* 首页底部常驻的输入条：粘贴网址即导入，其他内容即问 Tibi；对话就接在今天的卡片下面 */
+.dock { position: absolute; left: 14px; right: 14px; bottom: calc(86px + var(--sab)); z-index: 19; border-radius: 25px; }
+.thread { display: flex; flex-direction: column; gap: 10px; font-size: 14.5px; line-height: 1.6; }
+.thread:empty { display: none; }
+.thread .u { align-self: flex-end; background: var(--accent-fill); color: #fff; padding: 9px 14px; border-radius: 20px 20px 6px 20px; max-width: 85%; word-break: break-all; }
+.thread .a { align-self: flex-start; max-width: 92%; background: var(--surface); padding: 11px 14px; border-radius: 20px 20px 20px 6px; }
+.thread .a a { color: var(--accent); text-decoration: none; font-weight: 500; }
+.thread .day { align-self: center; font-size: 12px; color: var(--ink-3); }
+.phone[data-tab="home"] .toast { bottom: calc(150px + var(--sab)); }
+.cont { padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.cont .k { font-size: 12.5px; color: var(--ink-3); }
+.cont .t { font-family: var(--f-read); font-size: 23px; font-weight: 700; line-height: 1.25; }
+.cont .bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-top: 6px; } .cont .bar i { display: block; height: 100%; background: var(--accent); }
+.cont .row { display: flex; align-items: center; gap: 10px; margin-top: 8px; } .cont .row .lbl { flex: 1; }
+.rvc { margin-top: 10px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+.rvc .ic { width: 40px; height: 40px; border-radius: 12px; background: var(--accent-fill); color: #fff; display: grid; place-items: center; flex: none; }
+.rvc b { display: block; font-size: 16.5px; } .rvc span { font-size: 12.5px; color: var(--ink-3); } .rvc > div { flex: 1; min-width: 0; }
+.ask { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 7px 0 18px; border-radius: 26px; }
+.ask input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font-size: 16px; color: var(--ink); }
+.ask .paste { height: 30px; padding: 0 11px; border-radius: 15px; background: var(--fill); font-size: 13px; font-weight: 500; color: var(--ink-2); display: inline-flex; align-items: center; gap: 4px; }
+/* 右侧圆钮：空着时是"+"（导入：粘贴、文件、拍书页），有字时变成发送 */
+.ask .send { width: 38px; height: 38px; border-radius: 50%; background: var(--fill); color: var(--ink); display: grid; place-items: center; transition: background .15s; }
+.ask .send svg { width: 18px; height: 18px; } .ask .send .go { display: none; }
+.dock.has .send { background: var(--accent-fill); color: #fff; } .dock.has .send .go { display: block; } .dock.has .send .p { display: none; }
+.mini { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mini > div { background: var(--surface); border-radius: 20px; padding: 12px 14px; } .mini b { font-size: 21px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; } .mini small { font-size: 11.5px; color: var(--ink-3); margin-left: 3px; } .mini span { display: block; font-size: 12px; color: var(--ink-2); }
+.mini .bar { height: 4px; border-radius: 2px; background: var(--line); margin-top: 6px; overflow: hidden; } .mini .bar i { display: block; height: 100%; background: var(--accent); }
+/* 书架 */
+/* iOS 分组列表：分隔线从文字起点开始，不到左边缘 */
+.doc { display: flex; gap: 12px; padding: 13px 16px; align-items: center; width: 100%; text-align: left; position: relative; }
+.doc + .doc::before { content: ""; position: absolute; left: 16px; right: 0; top: 0; height: .5px; background: var(--line-2); }
+.doc:first-child { border-radius: 22px 22px 0 0; } .doc:last-child { border-radius: 0 0 22px 22px; }
+.doc:active { background: var(--hover); }
+.doc .b { flex: 1; min-width: 0; } .doc .b .t { display: block; font-weight: 600; font-size: 16.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc .b .m { font-size: 13px; color: var(--ink-3); margin-top: 3px; display: flex; gap: 6px; align-items: center; }
 .doc .b .bar { height: 3px; border-radius: 99px; background: var(--line); margin-top: 7px; overflow: hidden; } .doc .b .bar i { display: block; height: 100%; background: var(--accent); }
-.doc .chev { color: var(--ink-3); }
+.doc .chev, .menu a .r { color: var(--chev); } .doc .chev { font-size: 22px; font-weight: 300; }
+.imp button.opt { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 4px; text-align: left; font-size: 15.5px; }
+.imp button.opt + button.opt { box-shadow: 0 -.5px 0 var(--line-2); }
+.imp button.opt .ic { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-fill); display: grid; place-items: center; color: #fff; }
+.imp .tip { margin-top: 12px; padding: 12px 14px; border-radius: 16px; background: var(--sunken); font-size: 13px; color: var(--ink-2); display: flex; gap: 10px; align-items: center; }
 /* 阅读器 */
-.rd { padding: 4px 20px 40px; }
-.rd .meta { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
-.rd .meta .lg { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 99px; background: var(--sunken); color: var(--ink-2); font-size: 11.5px; }
+.rdtop, .rdbar { transition: transform .28s cubic-bezier(.22,.8,.24,1), opacity .2s; }
+.phone.imm .rdtop { transform: translateY(-100%); opacity: 0; }
+.phone.imm .rdbar { transform: translateY(140%); opacity: 0; }
+.rdtop { position: absolute; top: 0; left: 0; right: 0; z-index: 6; }
+#s-read { padding-top: calc(56px + var(--sat)); background: var(--paper); }
+.rdtop.top { background: color-mix(in srgb, var(--paper) 86%, transparent); }
+.rd { padding: 4px 22px 40px; }
+.rd .meta { font-size: 12px; color: var(--ink-3); margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.rd .meta .lg { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 8px; background: var(--sunken); color: var(--ink-2); font-size: 11.5px; }
 .rd .meta .lg i { width: 9px; height: 9px; border-radius: 2px; }
-.lgs .row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: center; padding: 11px 0; border-top: 1px solid var(--line); font-size: 13.5px; line-height: 1.5; }
-.lgs .row:first-of-type { border-top: 0; }
-.lgs .row .ex { font-family: var(--f-read); font-size: 16px; }
-.lgs .row .ex .w { padding: 0 2px; }
-.lgs .row span:last-child { color: var(--ink-2); }
-.lgs h2 { margin: 2px 0 6px; font-size: 16px; font-weight: 600; }
-.lgs p { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-3); line-height: 1.55; }
-.rd h1 { font-family: var(--f-read); font-size: 26px; line-height: 1.2; margin: 0 0 18px; letter-spacing: -.01em; }
+.rd h1 { font-family: var(--f-read); font-size: 27px; line-height: 1.2; margin: 0 0 18px; letter-spacing: -.01em; }
 .rd p { font-family: var(--f-read); font-size: 19px; line-height: 1.75; margin: 0 0 18px; }
 .rd .tr { font-family: var(--f-ui); font-size: 14px; color: var(--ink-2); line-height: 1.7; margin: -10px 0 18px; }
+.rdprog { position: absolute; left: 0; right: 0; top: calc(52px + var(--sat)); height: 2px; background: var(--line); z-index: 7; } .rdprog i { display: block; height: 100%; width: 38%; background: var(--accent); transition: width .2s; }
+.phone.imm .rdprog { top: var(--sat); }
 .w { border-radius: 3px; padding: 0 1px; position: relative; }
 .w.s0 { background: linear-gradient(transparent 55%, var(--hl-new) 55%, var(--hl-new) 92%, transparent 92%); }
 .w.s1 { background: linear-gradient(transparent 55%, var(--hl-1) 55%, var(--hl-1) 92%, transparent 92%); } .w.s2 { background: linear-gradient(transparent 55%, var(--hl-2) 55%, var(--hl-2) 92%, transparent 92%); } .w.s3 { background: linear-gradient(transparent 55%, var(--hl-3) 55%, var(--hl-3) 92%, transparent 92%); }
@@ -93,140 +141,237 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .w.sel { background-image: none; background-color: var(--accent-wash); box-shadow: 0 0 0 3px var(--accent-wash); color: var(--accent); border-radius: 5px; }
 .gl .w.s0::before, .gl .w.s1::before, .gl .w.s2::before { content: attr(data-g); position: absolute; left: 0; top: -0.95em; font: 500 10.5px/1 var(--f-ui); color: var(--ink-3); white-space: nowrap; }
 .gl .rd p { line-height: 2.15; }
-.rdbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; gap: 4px; padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 -1px 0 var(--line); }
-.rdbar button { flex: 1; height: 44px; border-radius: 12px; font-size: 11.5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--ink-2); }
-.rdbar button svg { width: 20px; height: 20px; } .rdbar button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.rdbar { position: absolute; left: 14px; right: 14px; bottom: calc(14px + var(--sab)); z-index: 20; display: flex; align-items: center; gap: 2px; height: 58px; padding: 5px; border-radius: 29px; background: color-mix(in srgb, var(--surface) 78%, transparent); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); box-shadow: 0 0 0 .5px var(--line-2); }
+.rdbar button { flex: 1; height: 48px; border-radius: 24px; font-size: 10px; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--ink); }
+.rdbar button svg { width: 20px; height: 20px; } .rdbar button[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent); }
 .rdbar .tibi { color: var(--accent); }
-.prog { height: 3px; background: var(--line); } .prog i { display: block; height: 100%; width: 38%; background: var(--accent); }
-/* 底部抽屉（词卡 / Tibi） */
-.scrim { position: absolute; inset: 0; z-index: 30; background: rgba(0,0,0,.28); opacity: 0; pointer-events: none; transition: opacity .25s; }
+.endc { margin: 10px 0 0; padding: 18px; border-radius: 22px; background: color-mix(in srgb, var(--ink) 5%, var(--paper)); }
+.endc h3 { margin: 0 0 4px; font-size: 17px; } .endc p { margin: 0 0 14px; font-size: 14px; color: var(--ink-2); line-height: 1.6; font-family: var(--f-ui); }
+.endc .col { display: flex; flex-direction: column; gap: 8px; }
+.endc .next { margin-top: 14px; padding-top: 14px; box-shadow: 0 -.5px 0 var(--line-2); font-size: 13px; color: var(--ink-3); }
+.endc .next b { display: block; font-family: var(--f-read); font-size: 16px; color: var(--ink); margin-top: 3px; }
+/* 底部面板：半屏 / 全屏两档（iOS sheet detents） */
+.scrim { position: absolute; inset: 0; z-index: 30; background: rgba(0,0,0,.2); opacity: 0; pointer-events: none; transition: opacity .25s; }
 .scrim.on { opacity: 1; pointer-events: auto; }
-.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 31; background: var(--surface); border-radius: 22px 22px 0 0; padding: 8px 18px calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateY(104%); transition: transform .32s cubic-bezier(.22,.8,.24,1); max-height: 82%; display: flex; flex-direction: column; }
+.sheet { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 31; background: var(--surface); border-radius: 36px; padding: 8px 20px calc(16px + var(--sab)); transform: translateY(110%); transition: transform .34s cubic-bezier(.22,.8,.24,1), max-height .34s cubic-bezier(.22,.8,.24,1), left .3s, right .3s, bottom .3s, border-radius .3s; max-height: 56%; display: flex; flex-direction: column;  }
 .sheet.on { transform: none; }
-.sheet .grab { width: 36px; height: 4px; border-radius: 2px; background: var(--line-2); margin: 0 auto 12px; }
-.sheet .sc { overflow-y: auto; }
+.sheet.full { max-height: calc(100% - var(--sat) - 10px); left: 0; right: 0; bottom: 0; border-radius: 36px 36px 0 0; }
+.sheet.tall { max-height: 82%; }
+.sheet .grab { width: 36px; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--ink-3) 45%, transparent); margin: 0 auto 12px; flex: none; cursor: ns-resize; }
+.sheet .sc { overflow-y: auto; scrollbar-width: none; } .sheet .sc::-webkit-scrollbar { display: none; }
+.sheet h2 { margin: 2px 0 10px; font-size: 20px; font-weight: 600; }
 .wc .h { display: flex; align-items: baseline; gap: 10px; } .wc .h b { font-family: var(--f-read); font-size: 28px; } .wc .h .ipa { font-family: var(--f-read); font-style: italic; color: var(--ink-3); }
-.wc .say { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--line-2); display: grid; place-items: center; } .wc .say svg { width: 18px; height: 18px; }
-.wc .ai { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--accent-wash); font-size: 14.5px; line-height: 1.6; }
-.wc .ai .tag { font-size: 11px; color: var(--accent); font-weight: 500; display: block; margin-bottom: 3px; }
+.wc .say { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; background: var(--fill); color: var(--accent); display: grid; place-items: center; } .wc .say svg { width: 18px; height: 18px; }
+.wc .added { margin-top: 6px; font-size: 12.5px; color: var(--ink-3); display: flex; align-items: center; gap: 8px; } .wc .added button { color: var(--accent); font-size: 12.5px; }
+.wc .ai { margin-top: 12px; padding: 12px 14px; border-radius: 18px; background: var(--accent-wash); font-size: 14.5px; line-height: 1.6; }
+.wc .ai .tag { font-size: 11px; color: var(--accent); font-weight: 600; display: block; margin-bottom: 3px; }
 .wc .dict { margin-top: 10px; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
-.wc .stages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 16px; }
+.wc .stages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 14px; }
 .wc .stages button { height: 48px; border-radius: 10px; font-size: 12px; color: var(--ink-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
 .wc .stages button i { display: block; width: 100%; height: 6px; border-radius: 99px; background: var(--line); }
-.wc .stages button.on { background: var(--sunken); color: var(--ink); font-weight: 500; }
+.wc .stages button.on { background: var(--fill); color: var(--ink); font-weight: 600; }
 .wc .stages button.fill i { background: var(--hl-1); } .wc .stages button[data-s="0"].fill i { background: var(--hl-new); } .wc .stages button[data-s="5"].fill i { background: var(--ink); }
-.wc .row { display: flex; gap: 8px; margin-top: 14px; } .wc .row .btn { flex: 1; height: 42px; font-size: 14px; }
-/* Tibi 浮动按钮与对话 */
-.fab { position: absolute; right: 16px; bottom: 94px; z-index: 19; width: 52px; height: 52px; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 10px 24px -10px rgba(0,0,0,.35); display: grid; place-items: center; padding: 8px; }
-.chat .msgs { display: flex; flex-direction: column; gap: 10px; font-size: 14.5px; line-height: 1.6; min-height: 160px; }
-.chat .u { align-self: flex-end; background: var(--sunken); padding: 8px 12px; border-radius: 16px 16px 4px 16px; max-width: 85%; }
+.wc .row { display: flex; gap: 8px; margin-top: 14px; } .wc .row .btn { flex: 1; height: 44px; font-size: 14.5px; }
+.wc .more { margin-top: 18px; display: none; } .wc.full .more { display: block; }
+.wc .more h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.wc .more .ctx { font-family: var(--f-read); font-size: 15px; line-height: 1.6; padding: 10px 0; box-shadow: 0 -.5px 0 var(--line-2); }
+.wc .more .ctx small { display: block; font-family: var(--f-ui); font-size: 12px; color: var(--ink-3); }
+.wc .hint { margin-top: 12px; text-align: center; font-size: 12px; color: var(--ink-3); } .wc.full .hint { display: none; }
+.lgs .row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: center; padding: 11px 0; box-shadow: 0 -.5px 0 var(--line-2); font-size: 13.5px; line-height: 1.5; }
+.lgs .row:first-of-type { box-shadow: none; } .lgs .row .ex { font-family: var(--f-read); font-size: 16px; } .lgs .row span:last-child { color: var(--ink-2); }
+.chat .msgs { display: flex; flex-direction: column; gap: 10px; font-size: 14.5px; line-height: 1.6; min-height: 140px; }
+.chat .u { align-self: flex-end; background: var(--accent-fill); color: #fff; padding: 9px 14px; border-radius: 20px 20px 6px 20px; max-width: 85%; }
 .chat .a { max-width: 92%; }
 .chat .sug { display: flex; gap: 8px; overflow-x: auto; margin: 10px -18px 0; padding: 0 18px; scrollbar-width: none; }
-.chat .in { display: flex; gap: 8px; margin-top: 12px; } .chat .in input { flex: 1; height: 44px; border-radius: 999px; border: 0; background: var(--sunken); padding: 0 16px; font: inherit; font-size: 15px; color: var(--ink); outline: none; }
-/* 复习 */
-.rv { padding: 10px 16px 0; }
-.segs { display: flex; gap: 3px; height: 5px; margin-bottom: 14px; } .segs i { flex: 1; border-radius: 99px; background: var(--line); } .segs i.cur { background: var(--ink-3); } .segs i.r1 { background: var(--hard); } .segs i.r2 { background: var(--mid); } .segs i.r3 { background: var(--ink); } .segs i.r4 { background: var(--accent); }
-.rcard { padding: 18px 18px 16px; }
-.rcard .k { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); margin-bottom: 14px; }
-.rcard .q { font-size: 13.5px; color: var(--ink-2); margin-bottom: 8px; }
-.rcard .sent { font-family: var(--f-read); font-size: 21px; line-height: 1.55; } .rcard .sent mark { background: linear-gradient(transparent 55%, var(--hl-1) 55%, var(--hl-1) 92%, transparent 92%); color: inherit; font-weight: 700; padding: 0 2px; }
-.rcard .ans { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line-2); }
-.rcard .ans b { font-family: var(--f-read); font-size: 24px; } .rcard .ans .ipa { font-family: var(--f-read); font-style: italic; color: var(--ink-3); margin-left: 8px; }
-.rcard .ans p { margin: 6px 0 0; font-size: 14.5px; line-height: 1.6; } .rcard .ans .zh { color: var(--ink-2); }
-.rate { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; }
-.rate button { height: 60px; border-radius: 14px; background: var(--sunken); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 14px; font-weight: 500; }
-.rate button small { font-size: 11px; font-weight: 400; color: var(--ink-3); }
-.rate .r1 { color: var(--hard); } .rate .r2 { color: var(--mid); } .rate .r4 { color: var(--accent); }
-.rate button.sug { box-shadow: inset 0 0 0 1.5px var(--ink); background: var(--surface); }
-.done { text-align: center; padding: 24px 0 0; } .done .fx { width: 190px; height: 190px; margin: 0 auto; } .done .fx img { display: block; width: 100%; height: 100%; } .done h3 { margin: 6px 0 4px; font-size: 20px; } .done p { margin: 0; color: var(--ink-2); font-size: 14px; }
-.done .k3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; } .done .k3 div { background: var(--sunken); border-radius: 14px; padding: 12px; } .done .k3 b { display: block; font-size: 22px; } .done .k3 span { font-size: 11.5px; color: var(--ink-3); }
+.chat .in { display: flex; gap: 8px; margin-top: 12px; flex: none; } .chat .in input { flex: 1; height: 44px; border-radius: 22px; border: 0; background: var(--fill); padding: 0 16px; font-size: 15px; color: var(--ink); outline: none; }
+/* 复习：内容在上，所有操作在下半屏（拇指区） */
+#s-review { display: flex; flex-direction: column; padding-bottom: 0; }
+.rvhead { display: flex; align-items: center; gap: 12px; height: calc(56px + var(--sat)); padding: var(--sat) 14px 0; }
+.segs { flex: 1; display: flex; gap: 3px; height: 5px; } .segs i { flex: 1; border-radius: 99px; background: var(--line); } .segs i.cur { background: var(--ink-3); } .segs i.r1 { background: var(--hard); } .segs i.r2 { background: var(--mid); } .segs i.r3 { background: var(--ink); } .segs i.r4 { background: var(--accent); } .segs i.ri { background: var(--line-2); } .segs i.ro { background: color-mix(in srgb, var(--ok) 55%, transparent); } .segs i.rx { background: color-mix(in srgb, var(--hard) 45%, transparent); } .segs i.rt { flex: .6; }
+.rvhead .n { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; min-width: 36px; text-align: right; }
+.rvbody { flex: 1; overflow-y: auto; padding: 8px 18px 12px; }
+.rvbody .k { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-3); margin-bottom: 14px; } .rvbody .k .rt { color: var(--mid); font-weight: 500; }
+.rvbody .q { font-size: 14px; color: var(--ink-2); margin-bottom: 10px; }
+.rvbody .sent { font-family: var(--f-read); font-size: 23px; line-height: 1.55; } .rvbody .sent mark { background: linear-gradient(transparent 55%, var(--hl-1) 55%, var(--hl-1) 92%, transparent 92%); color: inherit; font-weight: 700; padding: 0 2px; }
+.rvbody .sent input { width: 5em; border: 0; border-bottom: 2px solid var(--ink-3); background: none; font: inherit; color: var(--accent); text-align: center; outline: none; padding: 0; }
+.rvbody .sent .fix { color: var(--ok); font-weight: 700; } .rvbody .sent .bad { color: var(--hard); text-decoration: line-through; }
+.rvbody .ihw { font-family: var(--f-read); font-size: 34px; font-weight: 700; } .rvbody .ihw small { font-size: 15px; font-weight: 400; font-style: italic; color: var(--ink-3); margin-left: 8px; }
+.rvbody .ans { margin-top: 16px; padding-top: 14px; box-shadow: 0 -.5px 0 var(--line-2); }
+.rvbody .ans b { font-family: var(--f-read); font-size: 24px; } .rvbody .ans .ipa { font-family: var(--f-read); font-style: italic; color: var(--ink-3); margin-left: 8px; }
+.rvbody .ans p { margin: 6px 0 0; font-size: 14.5px; line-height: 1.6; } .rvbody .ans .zh { color: var(--ink-2); }
+.verdict { font-size: 13.5px; font-weight: 600; } .verdict.ok { color: var(--ok); } .verdict.bad { color: var(--hard); }
+.rvfoot { padding: 10px 16px calc(18px + var(--sab)); display: flex; flex-direction: column; gap: 8px; background: linear-gradient(transparent, var(--bg) 18px); }
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.ropt { min-height: 54px; padding: 10px 18px; border-radius: 18px; background: var(--surface); text-align: left; font-size: 16.5px; display: flex; align-items: center; gap: 10px; }
+.ropt:active { transform: scale(.985); }
+.ropt.ok { box-shadow: inset 0 0 0 2px var(--ok); background: color-mix(in srgb, var(--ok) 8%, var(--surface)); }
+.ropt.bad { box-shadow: inset 0 0 0 2px var(--hard); background: color-mix(in srgb, var(--hard) 7%, var(--surface)); }
+.ropt.dim { opacity: .45; } .ropt .from { margin-left: auto; font-size: 11.5px; color: var(--ink-3); }
+.gline { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); } .gline .linkb { margin-left: auto; color: var(--accent); font-size: 13px; }
+.gtag { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; background: var(--fill); }
+.gtag.r1 { color: var(--hard); } .gtag.r2 { color: var(--mid); } .gtag.r4 { color: var(--accent); }
+.rates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.rates button { height: 60px; border-radius: 18px; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 14px; font-weight: 600; }
+.rates button small { font-size: 11px; font-weight: 400; color: var(--ink-3); }
+.rates .r1 { color: var(--hard); } .rates .r2 { color: var(--mid); } .rates .r4 { color: var(--accent); } .rates button.sug { box-shadow: inset 0 0 0 2px var(--accent); }
+.done { text-align: center; padding: 8px 0 0; } .done .fx { width: 180px; height: 180px; margin: 0 auto; } .done .fx img { display: block; width: 100%; height: 100%; } .done h3 { margin: 6px 0 4px; font-size: 21px; } .done p { margin: 0; color: var(--ink-2); font-size: 14px; }
+.done .k3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; } .done .k3 div { background: var(--surface); border-radius: 20px; padding: 12px; } .done .k3 b { display: block; font-size: 22px; } .done .k3 span { font-size: 11.5px; color: var(--ink-3); }
+.done .story { text-align: left; padding: 14px 16px; border-radius: 20px; background: var(--accent-wash); margin-bottom: 10px; } .done .story b { display: block; font-size: 14.5px; color: var(--accent); } .done .story span { font-size: 12.5px; color: var(--ink-2); }
 /* 我 */
-.me .head { display: flex; align-items: center; gap: 14px; padding: 6px 16px 0; }
+.me .head { display: flex; align-items: center; gap: 14px; padding: 0 16px; }
 .me .ring { width: 64px; height: 64px; flex: none; }
 .me .head b { font-size: 18px; display: block; } .me .head span { font-size: 13px; color: var(--ink-3); }
-.me .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.me .kv div { background: var(--sunken); border-radius: 14px; padding: 12px 14px; } .me .kv b { font-size: 22px; letter-spacing: -.02em; } .me .kv small { font-size: 11px; color: var(--ink-3); margin-left: 3px; } .me .kv span { display: block; font-size: 12px; color: var(--ink-2); }
 .week { display: flex; gap: 4px; align-items: flex-end; height: 44px; margin-top: 8px; } .week i { flex: 1; border-radius: 4px 4px 2px 2px; background: var(--line-2); } .week i.ok { background: var(--accent); }
-.menu a { display: flex; align-items: center; gap: 12px; padding: 14px 14px; text-decoration: none; color: var(--ink); font-size: 15px; }
-.menu a + a { box-shadow: 0 -1px 0 var(--line); } .menu a svg { width: 20px; height: 20px; color: var(--ink-2); } .menu a .r { margin-left: auto; font-size: 13px; color: var(--ink-3); display: flex; align-items: center; gap: 4px; }
-.toast { position: absolute; left: 50%; bottom: 104px; transform: translateX(-50%); z-index: 40; background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+/* 设置式列表：彩色圆角方块图标 + 17px 文字，分隔线从文字起点开始 */
+.menu a { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 0 16px; text-decoration: none; color: var(--ink); font-size: 16.5px; position: relative; }
+.menu a + a::before { content: ""; position: absolute; left: 60px; right: 0; top: 0; height: .5px; background: var(--line-2); }
+.menu a:first-child { border-radius: 22px 22px 0 0; } .menu a:last-child { border-radius: 0 0 22px 22px; } .menu a:active { background: var(--hover); }
+.menu .ti { width: 30px; height: 30px; border-radius: 8px; background: var(--c); display: grid; place-items: center; flex: none; } .menu .ti svg { width: 18px; height: 18px; color: #fff; stroke-width: 2; }
+.menu a .r { margin-left: auto; font-size: 16px; display: flex; align-items: center; gap: 4px; } .menu a .r em { font-style: normal; color: var(--ink-3); }
+/* 系统集成演示：小组件、锁屏、分享 */
+.wgs { display: grid; grid-template-columns: 158px 1fr; gap: 12px; align-items: start; }
+.wg { border-radius: 22px; padding: 14px; background: linear-gradient(160deg, #2f3fa8, #232f86); color: #fff; height: 158px; display: flex; flex-direction: column; }
+.wg .fx { width: 50px; height: 50px; margin: -4px 0 0 -4px; }
+.wg b { font-size: 30px; line-height: 1; margin-top: auto; letter-spacing: -.02em; } .wg span { font-size: 12px; opacity: .85; margin-top: 4px; }
+.wg.md { height: auto; padding: 14px 16px; gap: 10px; }
+.wg.md .r { display: flex; align-items: center; gap: 10px; } .wg.md .t { font-family: var(--f-read); font-weight: 700; font-size: 15px; line-height: 1.25; }
+.wg.md .bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.25); overflow: hidden; } .wg.md .bar i { display: block; height: 100%; width: 62%; background: #fff; }
+.lock { margin-top: 12px; border-radius: 22px; padding: 18px 16px; background: linear-gradient(170deg, #4a5a7a, #20283a); color: #fff; text-align: center; }
+.lock .time { font-size: 54px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
+.lock .ws { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+.lock .ws div { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,.16); display: grid; place-items: center; font-size: 12px; font-weight: 600; position: relative; }
+.lock .ws svg { position: absolute; inset: 3px; } .lock .ws .rect { width: auto; padding: 0 14px; border-radius: 16px; }
+.share { margin-top: 12px; border-radius: 22px; background: var(--sunken); padding: 14px; }
+.share .apps { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 6px; }
+.share .apps div { flex: none; width: 56px; text-align: center; font-size: 11px; color: var(--ink-2); } .share .apps i { display: block; width: 56px; height: 56px; border-radius: 14px; background: var(--line-2); margin-bottom: 4px; } .share .apps .tb i { background: url(img/logo.svg) center/cover; }
+.share .ext { margin-top: 10px; background: var(--surface); border-radius: 18px; padding: 14px; }
+.share .ext .u { font-size: 12px; color: var(--ink-3); } .share .ext .t { font-family: var(--f-read); font-weight: 700; font-size: 16px; margin: 3px 0 10px; }
+.share .ext .row { display: flex; gap: 8px; } .share .ext .row .btn { flex: 1; height: 40px; font-size: 14px; }
+.toast { position: absolute; left: 50%; bottom: calc(96px + var(--sab)); transform: translateX(-50%); z-index: 40; background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 22px; font-size: 13.5px; white-space: nowrap; display: flex; gap: 12px; align-items: center; }
+.toast button { color: var(--accent); font-weight: 600; filter: brightness(1.4); }
+/* 桌面浏览器里预览时模拟的状态栏与主屏指示条（真机上由系统绘制） */
+.sbar { display: none; position: absolute; top: 0; left: 0; right: 0; height: 50px; z-index: 45; align-items: center; justify-content: space-between; padding: 6px 30px 0 44px; font-size: 16px; font-weight: 600; color: var(--ink); pointer-events: none; }
+.sbar .isl { position: absolute; left: 50%; top: 11px; width: 120px; height: 35px; margin-left: -60px; border-radius: 18px; background: #000; }
+.sbar .ic { display: flex; gap: 6px; align-items: center; } .sbar svg { height: 12px; fill: currentColor; }
+.hbar { display: none; position: absolute; left: 50%; bottom: 7px; width: 136px; height: 5px; margin-left: -68px; border-radius: 3px; background: var(--ink); z-index: 45; pointer-events: none; }
 .note { display: none; position: fixed; left: 0; right: 0; bottom: 6px; z-index: 50; text-align: center; font-size: 11.5px; color: #6b6b74; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .sheet, .tabs, .rdtop, .rdbar { transition: none; } }
 </style>
 
-<div class="phone" id="phone">
-  <!-- 首页 -->
+<div class="phone" id="phone" data-tab="home">
+  <div class="sbar" aria-hidden="true"><span>9:41</span><i class="isl"></i><span class="ic"><svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="5" y="5.5" width="3" height="6.5" rx=".8"/><rect x="10" y="3" width="3" height="9" rx=".8"/><rect x="15" y="0" width="3" height="12" rx=".8"/></svg><svg viewBox="0 0 16 12"><path d="M8 2.2c2.3 0 4.4.9 5.9 2.4l1.1-1.1A9.9 9.9 0 008 .6 9.9 9.9 0 001 3.5l1.1 1.1A8.3 8.3 0 018 2.2zm0 3.3c1.4 0 2.6.5 3.6 1.4l1.1-1.1A6.7 6.7 0 008 3.9a6.7 6.7 0 00-4.7 1.9l1.1 1.1c1-.9 2.2-1.4 3.6-1.4zm0 3.3c.5 0 1 .2 1.3.5L8 10.6 6.7 9.3c.3-.3.8-.5 1.3-.5z"/></svg><svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="23" height="11" rx="3.2" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="8" rx="2"/><path d="M25 4v4c.8-.3 1.3-1.1 1.3-2S25.8 4.3 25 4z" opacity=".45"/></svg></span></div>
+  <div class="hbar" aria-hidden="true"></div>
+  <!-- 今天 -->
   <section class="screen" id="s-home">
-    <header class="top"><img class="logo" src="img/logo.svg" alt=""><h1>Tibi</h1><button class="ib" id="themeBtn" title="深浅色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button></header>
-    <div class="hero"><div class="fx" id="fox"></div><div><h1 id="greet">今天想读点什么？</h1><p>粘贴网址、分享到 Tibi，或者直接问</p></div></div>
-    <div class="ask"><input id="askIn" placeholder="粘贴网址，或问 Tibi…"><button class="send" id="askGo" aria-label="发送"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
-    <div class="chips">
-      <button class="chip" data-go="review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg>复习 18 张（到期 14 + 新词 4）</button>
-      <button class="chip" data-q="推荐一篇 10 分钟的新闻"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>推荐一篇 10 分钟的新闻</button>
-      <button class="chip" data-q="用这周的生词写个小故事"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>用生词写个小故事</button>
+    <div class="todayline"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="5"/><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="5" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="35" transform="rotate(-90 18 18)"/></svg><span>今日 <b>12</b> / 20 分钟</span><i class="dot"></i><span>连续 <b>9</b> 天</span></div>
+    <div class="pad" style="margin-top:6px">
+      <button class="card cont" id="contCard" style="width:100%;text-align:left">
+        <span class="k">继续读 · 技术</span>
+        <span class="t">Understanding Ownership in Rust</span>
+        <span class="bar"><i style="width:45%"></i></span>
+        <span class="row"><span class="lbl">读到 45% · 还剩约 3 分钟</span><span class="btn sm pri">继续</span></span>
+      </button>
+      <button class="card rvc" id="rvCard" style="width:100%;text-align:left"><span class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg></span><div><b id="rvT">复习 18 张</b><span id="rvS">到期 14 + 新词 4 · 约 6 分钟</span></div><span class="btn sm tint" id="rvGo">开始</span></button>
     </div>
-    <div class="pad sec"><h2>今天</h2><div class="today">
-      <div class="t"><span class="k">待复习</span><span class="v">18<small>张</small></span><span class="lbl">约 6 分钟</span></div>
-      <div class="t"><span class="k">今日阅读</span><span class="v">12<small>/ 20 分</small></span><div class="bar"><i style="width:60%"></i></div></div>
-      <div class="t"><span class="k">已知词</span><span class="v">6,214</span><span class="lbl">本周 +38</span></div>
+    <div class="pad sec"><div class="chips" id="hsug">
+      <button class="chip" data-q="推荐一篇 10 分钟的新闻"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>推荐一篇 10 分钟的新闻</button>
+      <button class="chip" data-q="用这周的生词写个小故事"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>用这周的生词写个小故事</button>
     </div></div>
-    <div class="pad sec"><h2>继续阅读</h2><div class="card" id="cont"></div></div>
-    <div class="pad sec"><h2>书架<a href="#" id="allDocs">全部 8 篇</a></h2><div class="card" id="shelf"></div></div>
+    <div class="pad sec"><div class="thread" id="hmsgs"></div></div>
   </section>
+  <div class="dock" id="dock"><div class="ask"><input id="askIn" placeholder="粘贴网址，或问 Tibi"><button class="paste" id="pasteBtn" title="从剪贴板粘贴"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="7" y="4" width="10" height="4" rx="1.5"/><path d="M8 6H6a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7a1 1 0 00-1-1h-2"/></svg>粘贴</button><button class="send" id="askGo" aria-label="导入"><svg class="i p" viewBox="0 0 24 24" style="stroke-width:2.2"><path d="M12 5v14M5 12h14"/></svg><svg class="i go" viewBox="0 0 24 24" style="stroke-width:2.4"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></div>
 
-  <!-- 阅读器 -->
-  <section class="screen" id="s-read" hidden>
-    <header class="top"><button class="ib" id="back" aria-label="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><h1>Understanding Ownership in Rust</h1><button class="ib" id="aa" title="字号"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 18L9 6l5 12M6 14h6M15 18l3-7 3 7M16.2 16h3.6"/></svg></button></header>
-    <div class="prog"><i></i></div>
-    <article class="rd" id="rd"></article>
+  <!-- 书架 -->
+  <section class="screen" id="s-lib" hidden>
+    <header class="top"><h1 id="libTop" style="opacity:0">书架</h1><button class="ib" id="addBtn" title="导入"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 5v14M5 12h14"/></svg></button></header>
+    <h1 class="big">书架</h1>
+    <div class="pad"><div class="seg" id="kindSeg"><button class="on" data-k="all">全部</button><button data-k="article">文章</button><button data-k="book">书</button></div></div>
+    <div class="pad" style="margin-top:10px"><div class="chips" id="tagChips"></div></div>
+    <div class="pad" style="margin-top:12px"><div class="card" id="shelf"></div></div>
   </section>
 
   <!-- 复习 -->
-  <section class="screen" id="s-review" hidden>
-    <header class="top"><h1>复习 <span class="lbl" id="rvN"></span></h1><button class="ib" id="rvUndo" title="撤销"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg></button></header>
-    <div class="rv" id="rv"></div>
-  </section>
+  <section class="screen" id="s-review" hidden></section>
 
   <!-- 我 -->
   <section class="screen me" id="s-me" hidden>
-    <header class="top"><h1>我</h1><button class="ib" data-say="原型：打开设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button></header>
-    <div class="head"><svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="35" transform="rotate(-90 18 18)"/></svg><div><b>连续 9 天</b><span>今日 12 / 20 分钟 · 再读 8 分钟就达标</span></div></div>
-    <div class="pad sec"><div class="kv"><div><b>6,214</b><small>词</small><span>已知词 · 本周 +38</span></div><div><b>33</b><small>个</small><span>生词本 · 今天到期 14</span></div></div></div>
-    <div class="pad sec"><h2>本周阅读<a href="#" data-say="原型：打开统计页">统计</a></h2><div class="card" style="padding:12px 14px"><div class="week"><i class="ok" style="height:70%"></i><i class="ok" style="height:55%"></i><i style="height:30%"></i><i class="ok" style="height:90%"></i><i class="ok" style="height:60%"></i><i style="height:20%"></i><i class="ok" style="height:40%"></i></div><div class="lbl" style="margin-top:6px">蓝色 = 达到 20 分钟目标 · 本周 5 天</div></div></div>
+    <header class="top"><h1 id="meTop" style="opacity:0">我</h1><button class="ib" id="themeBtn" title="深浅色"><svg class="i" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button><button class="ib" data-say="原型：打开设置"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button></header>
+    <h1 class="big">我</h1>
+    <div class="head"><svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="35" transform="rotate(-90 18 18)"/></svg><div><b>连续 9 天</b><span>今日 12 / 20 分钟 · 已知 6,214 词</span></div></div>
+    <div class="pad sec"><h2>本周阅读<a href="#" data-say="原型：打开统计">统计</a></h2><div class="card" style="padding:12px 14px"><div class="week"><i class="ok" style="height:70%"></i><i class="ok" style="height:55%"></i><i style="height:30%"></i><i class="ok" style="height:90%"></i><i class="ok" style="height:60%"></i><i style="height:20%"></i><i class="ok" style="height:40%"></i></div><div class="lbl" style="margin-top:6px">本周 5 天达到 20 分钟</div></div></div>
     <div class="pad sec"><div class="card menu">
-      <a href="#" data-say="原型：生词本列表"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg>生词本<span class="r">33 ›</span></a>
-      <a href="#" data-say="原型：Tibi 记忆（可编辑、删除）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 4a4 4 0 00-4 4c0 1 .3 1.8.8 2.5A4 4 0 007 18h2V4zM15 4a4 4 0 014 4c0 1-.3 1.8-.8 2.5A4 4 0 0117 18h-2V4z"/></svg>Tibi 记忆<span class="r">6 条 ›</span></a>
-      <a href="#" data-say="原型：任务（手机上只看进度与确认）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg>任务<span class="r">2 个等你确认 ›</span></a>
-      <a href="#" data-say="原型：与桌面端同步（局域网 / iCloud 文件夹）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 12a8 8 0 0114-5M20 12a8 8 0 01-14 5M18 3v4h-4M6 21v-4h4"/></svg>同步<span class="r">刚刚 ›</span></a>
+      <a href="#" data-say="原型：生词本"><i class="ti" style="--c:#3d52e0"><svg class="i" viewBox="0 0 24 24"><path d="M6 4h11a1 1 0 011 1v15l-6.5-3.5L5 20V5a1 1 0 011-1z"/></svg></i>生词本<span class="r"><em>33</em>›</span></a>
+      <a href="#" data-say="原型：以前的对话，按天归档"><i class="ti" style="--c:#34c759"><svg class="i" viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4z"/></svg></i>对话记录<span class="r">›</span></a>
+      <a href="#" data-say="原型：Tibi 记忆（可编辑、删除）"><i class="ti" style="--c:#f5a043"><svg class="i" viewBox="0 0 24 24"><path d="M9 4a4 4 0 00-4 4c0 1 .3 1.8.8 2.5A4 4 0 007 18h2V4zM15 4a4 4 0 014 4c0 1-.3 1.8-.8 2.5A4 4 0 0117 18h-2V4z"/></svg></i>Tibi 记忆<span class="r"><em>6 条</em>›</span></a>
+      <a href="#" data-say="原型：任务（手机上只看进度与确认）"><i class="ti" style="--c:#5e5ce6"><svg class="i" viewBox="0 0 24 24"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/></svg></i>任务<span class="r"><em>2 个等你确认</em>›</span></a>
+    </div></div>
+    <div class="pad sec"><div class="card menu">
+      <a href="#" id="remindRow"><i class="ti" style="--c:#ff3b30"><svg class="i" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1112 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 004 0"/></svg></i>每日提醒<span class="r" id="remindVal"><em>21:00</em>›</span></a>
+      <a href="#" data-say="原型：与桌面端同步（局域网 / iCloud 文件夹）"><i class="ti" style="--c:#30b0c7"><svg class="i" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0114-5M20 12a8 8 0 01-14 5M18 3v4h-4M6 21v-4h4"/></svg></i>同步<span class="r"><em>刚刚</em>›</span></a>
+      <a href="#" id="sysRow"><i class="ti" style="--c:#8e8e93"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/></svg></i>小组件与分享<span class="r"><em>演示</em>›</span></a>
     </div></div>
   </section>
 
-  <nav class="tabs" id="tabs">
-    <button class="on" data-t="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11l8-6 8 6v8a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1z"/></svg>首页</button>
-    <button data-t="read"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6c3-1 6-1 8 1 2-2 5-2 8-1v12c-3-1-6-1-8 1-2-2-5-2-8-1z"/><path d="M12 7v12"/></svg>阅读</button>
-    <button data-t="review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg>复习<span class="n">18</span></button>
-    <button data-t="me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-3.5 4-5 7-5s6 1.5 7 5"/></svg>我</button>
-  </nav>
+  <!-- 阅读器：全屏，不显示标签栏 -->
+  <header class="top rdtop" id="rdtop" hidden><button class="ib" id="back" aria-label="返回"><svg class="i" viewBox="0 0 24 24" style="stroke-width:2.2;width:22px;height:22px"><path d="M15 5l-7 7 7 7"/></svg></button><h1>Understanding Ownership in Rust</h1><button class="ib" id="lgTop" title="标注说明"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8h.01"/></svg></button></header>
+  <div class="rdprog" id="rdprog" hidden><i></i></div>
+  <section class="screen" id="s-read" hidden><article class="rd" id="rd"></article></section>
   <div class="rdbar" id="rdbar" hidden>
-    <button id="trTog" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h8M8 5v2c0 4-2 7-5 8M6 9c1 3 3 5 6 6M13 19l4-10 4 10M14.5 15h5"/></svg>译文</button>
-    <button id="glTog" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h10M4 14h16M4 20h12M15 5h5"/></svg>行间释义</button>
-    <button id="playTog"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg>朗读</button>
-    <button id="markDone" data-say="剩余 7 个生词已标为已知（可撤销）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>读完了</button>
-    <button class="tibi" id="rdTibi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>Tibi</button>
+    <button id="trTog" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><path d="M4 5h8M8 5v2c0 4-2 7-5 8M6 9c1 3 3 5 6 6M13 19l4-10 4 10M14.5 15h5"/></svg>译文</button>
+    <button id="glTog" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h10M4 14h16M4 20h12M15 5h5"/></svg>释义</button>
+    <button id="playTog"><svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px"><path d="M8 5.5v13l10.5-6.5z"/></svg>朗读</button>
+    <button id="aa"><svg class="i" viewBox="0 0 24 24"><path d="M4 18L9 6l5 12M6 14h6M15 18l3-7 3 7M16.2 16h3.6"/></svg>外观</button>
+    <button class="tibi" id="rdTibi"><svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>Tibi</button>
   </div>
-  <button class="fab" id="fab" aria-label="问 Tibi"></button>
+
+  <nav class="tabs" id="tabs">
+    <button class="foxtab on" data-t="home" aria-label="今天"><span class="fx" id="fox"></span></button>
+    <div class="pill">
+    <button data-t="lib"><svg class="i o" viewBox="0 0 24 24"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.8-1 3 15.5-3.8 1z"/></svg><svg class="f" viewBox="0 0 24 24" fill="currentColor"><rect x="3.6" y="3.4" width="5.4" height="17.2" rx="1.3"/><rect x="10" y="3.4" width="5" height="17.2" rx="1.3"/><path d="M15.9 5.4a1.2 1.2 0 01.9-1.4l2-.5a1.2 1.2 0 011.5.9l3 14.2a1.2 1.2 0 01-.9 1.4l-2 .5a1.2 1.2 0 01-1.5-.9z"/></svg>书架</button>
+    <button data-t="review"><svg class="i o" viewBox="0 0 24 24"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg><svg class="f" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M16.6 12a4.6 4.6 0 11-1.35-3.25M16.6 6.6v2.7h-2.7" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>复习<span class="n" id="tabN">18</span></button>
+    <button data-t="me"><svg class="i o" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-3.5 4-5 7-5s6 1.5 7 5"/></svg><svg class="f" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7.8" r="4.3"/><path d="M3.8 20.2c.9-4.4 4.2-6.6 8.2-6.6s7.3 2.2 8.2 6.6a.9.9 0 01-.9 1.1H4.7a.9.9 0 01-.9-1.1z"/></svg>我</button>
+    </div>
+  </nav>
 
   <div class="scrim" id="scrim"></div>
-  <div class="sheet wc" id="wsheet"><div class="grab"></div><div class="sc" id="wbody"></div></div>
+  <div class="sheet wc" id="wsheet"><div class="grab" id="wgrab"></div><div class="sc" id="wbody"></div></div>
   <div class="sheet lgs" id="lsheet"><div class="grab"></div><div class="sc">
     <h2>标注说明</h2>
-    <div class="row"><span class="ex"><span class="w s0">upshot</span></span><span>生词：Tibi 猜你不认识，点开看释义</span></div>
-    <div class="row"><span class="ex"><span class="w s1">overhead</span></span><span>学习中：你标过的词，颜色越浅越接近掌握（见过 → 熟悉）</span></div>
-    <div class="row"><span class="ex"><span class="w s99">binding</span></span><span>待确认：可能不认识，点一下告诉 Tibi 认不认识</span></div>
+    <div class="row"><span class="ex"><span class="w s0">upshot</span></span><span>生词：可能不认识，点开看释义</span></div>
+    <div class="row"><span class="ex"><span class="w s1">overhead</span></span><span>学习中：越浅越熟（见过 → 熟悉）</span></div>
+    <div class="row"><span class="ex"><span class="w s99">binding</span></span><span>待确认：点一下确认认不认识</span></div>
     <div class="row"><span class="ex"><span class="w sel">borrow</span></span><span>选中：正在看它的词卡</span></div>
-    <div class="row"><span class="ex">enforces</span><span>没有标注：已知词，或已忽略的专有名词、代码</span></div>
-    <p>掌握了的词不再标注。可以在"我 → 设置"里把着色改成"只显示生词"或"纯净阅读"。</p>
+    <div class="row"><span class="ex">enforces</span><span>没有标注：已知词、专有名词和代码</span></div>
   </div></div>
-  <div class="sheet chat" id="csheet"><div class="grab"></div><div class="sc"><div class="msgs" id="msgs"></div><div class="sug" id="sug"></div></div><div class="in"><input id="cin" placeholder="问 Tibi…"><button class="btn pri" id="csend" style="height:44px;padding:0 16px">发送</button></div></div>
+  <div class="sheet imp" id="isheet"><div class="grab"></div><div class="sc">
+    <h2>导入</h2>
+    <button class="opt" id="impPaste"><span class="ic"><svg class="i" viewBox="0 0 24 24"><rect x="7" y="4" width="10" height="4" rx="1.5"/><path d="M8 6H6a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7a1 1 0 00-1-1h-2"/></svg></span>粘贴网址或文字</button>
+    <button class="opt" data-say="原型：打开「文件」选择 PDF / EPUB"><span class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/></svg></span>从"文件"选择</button>
+    <button class="opt" data-say="原型：打开相机，拍书页识别文字"><span class="ic"><svg class="i" viewBox="0 0 24 24"><path d="M4 8a2 2 0 012-2h2l1.5-2h5L16 6h2a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg></span>拍书页</button>
+    <div class="tip"><img src="img/logo.svg" alt="" style="width:24px;height:24px;border-radius:6px">在 Safari 里点"分享"，选 Tibi</div>
+  </div></div>
+  <div class="sheet chat" id="csheet"><div class="grab"></div><div class="sc"><div class="msgs" id="msgs"></div><div class="sug" id="sug"></div></div><div class="in"><input id="cin" placeholder="问 Tibi"><button class="btn pri" id="csend" style="height:44px;padding:0 16px;border-radius:22px">发送</button></div></div>
+  <div class="sheet" id="tsheet"><div class="grab"></div><div class="sc">
+    <h2>每日提醒</h2>
+    <div class="lbl" style="margin-bottom:12px">每天一条，内容是当天的待复习数。</div>
+    <div class="seg" id="remSeg"><button data-v="关闭">关闭</button><button data-v="08:30">早上</button><button data-v="12:30">中午</button><button class="on" data-v="21:00">晚上</button></div>
+  </div></div>
+  <div class="sheet full" id="ssheet"><div class="grab"></div><div class="sc">
+    <h2>小组件与分享</h2>
+    <div class="lbl" style="margin-bottom:12px">原型演示 · 正式版是系统小组件和分享扩展</div>
+    <div class="wgs">
+      <div class="wg" id="wgS"><div class="fx" id="wgFox"></div><b>18</b><span>张待复习 · 连续 9 天</span></div>
+      <div class="wg md"><div class="r"><img src="img/logo.svg" alt="" style="width:22px;height:22px;border-radius:6px"><span style="margin:0;font-size:12px">继续读 · 还剩 3 分钟</span></div><div class="t">Understanding Ownership in Rust</div><div class="bar"><i></i></div><span style="margin:0">复习 18 张 · 今日 12 / 20 分钟</span></div>
+    </div>
+    <div class="seg" id="wgSeg" style="margin-top:10px"><button class="on" data-v="todo">还没复习</button><button data-v="done">今天已完成</button></div>
+    <div class="lock"><div style="font-size:14px;opacity:.85">10月31日 星期五</div><div class="time">9:41</div>
+      <div class="ws"><div><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="3"/><circle cx="18" cy="18" r="15" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="37.7" transform="rotate(-90 18 18)"/></svg>12</div><div class="rect">复习 18 · 连续 9 天</div></div>
+    </div>
+    <div class="share"><div class="lbl" style="margin-bottom:10px">Safari 分享面板</div>
+      <div class="apps"><div class="tb"><i></i>Tibi</div><div><i></i>信息</div><div><i></i>邮件</div><div><i></i>备忘录</div></div>
+      <div class="ext"><div class="u">blog.rust-lang.org</div><div class="t">Announcing Rust 1.90</div><div class="row"><button class="btn" id="shLater">稍后读</button><button class="btn pri" id="shNow">导入</button></div></div>
+    </div>
+  </div></div>
   <div class="toast" id="toast" hidden></div>
 </div>
 <div class="note">手机版原型 · 桌面版见 home.html</div>
@@ -238,145 +383,270 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 const $ = s => document.querySelector(s), esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const M = window.Motion, REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const anim = (el, kf, o) => { if (!M || REDUCE || !el) return; try { M.animate(el, kf, o); } catch (e) {} };
-let tt; function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(tt); tt = setTimeout(() => el.hidden = true, 2200); }
-document.querySelectorAll('[data-say]').forEach(b => b.addEventListener('click', e => { e.preventDefault(); toast(b.dataset.say); }));
+const haptic = () => { try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} };   // 正式版：UIImpactFeedbackGenerator
+let tt; function toast(t, undo) { const el = $('#toast'); el.innerHTML = `<span>${esc(t)}</span>${undo ? '<button>撤销</button>' : ''}`; if (undo) el.querySelector('button').onclick = () => { undo(); el.hidden = true; }; el.hidden = false; clearTimeout(tt); tt = setTimeout(() => el.hidden = true, 2600); }
+const bindSay = root => root.querySelectorAll('[data-say]').forEach(b => b.onclick = e => { e.preventDefault(); toast(b.dataset.say); });
+bindSay(document);
 $('#themeBtn').onclick = () => { const r = document.documentElement, dark = matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = (r.dataset.theme || (dark ? 'dark' : 'light')) === 'dark' ? 'light' : 'dark'; };
-
-/* ---------- 吉祥物 ---------- */
-const h = new Date().getHours(); $('#greet').textContent = (h < 5 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好') + '，想读点什么？';
 const mascotImg = id => `<img src="img/mascot/${id}.webp" srcset="img/mascot/${id}.webp 1x, img/mascot/${id}@2x.webp 2x" alt="">`;
-const fox = Fox.mount($('#fox'), { state: h >= 23 || h < 5 ? 'sleeping' : 'idle', size: 76, interactive: true });
-$('#fab').innerHTML = FOX_FACE;
 
-/* ---------- 标签页 ---------- */
+/* ---------- 今天 ---------- */
+const now = new Date(), hr = now.getHours();
+const fox = Fox.mount($('#fox'), { state: hr >= 23 || hr < 5 ? 'sleeping' : 'idle', size: 50 });
+
+/* ---------- 标签页与全屏阅读器 ---------- */
 let tab = 'home';
 function show(t) {
-  tab = t; ['home', 'read', 'review', 'me'].forEach(k => $('#s-' + k).hidden = k !== t);
+  tab = t; $('#phone').dataset.tab = t; ['home', 'lib', 'review', 'me'].forEach(k => $('#s-' + k).hidden = k !== t); $('#dock').hidden = t !== 'home';
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  $('#rdbar').hidden = t !== 'read'; $('#tabs').hidden = t === 'read'; $('#fab').hidden = t === 'read' || t === 'review';
-  anim($('#s-' + t), { opacity: [0, 1], y: [6, 0] }, { duration: 0.25 });
+  ['#s-read', '#rdtop', '#rdbar', '#rdprog'].forEach(s => $(s).hidden = true); $('#tabs').hidden = t === 'review' && rv.active;
+  $('#phone').classList.remove('imm');
+  if (t === 'review') renderRv();
+  anim($('#s-' + t), { opacity: [0, 1] }, { duration: 0.2 });
 }
-document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => show(b.dataset.t));
-$('#back').onclick = () => show('home');
-document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
+function openReader() {
+  ['home', 'lib', 'review', 'me'].forEach(k => $('#s-' + k).hidden = true);
+  ['#s-read', '#rdtop', '#rdbar', '#rdprog'].forEach(s => $(s).hidden = false); $('#tabs').hidden = true; $('#dock').hidden = true; $('#phone').dataset.tab = 'read';
+  $('#s-read').scrollTop = 0; anim($('#s-read'), { x: [40, 0], opacity: [0, 1] }, { duration: 0.28 });
+}
+// 已在首页时再点狐狸：直接开始输入（相当于其他标签"再点一下回到顶部"）
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { haptic(); if (b.dataset.t === 'home' && tab === 'home' && !$('#s-home').hidden) { $('#askIn').focus(); return; } show(b.dataset.t); });
+$('#back').onclick = () => show(tab);
+$('#contCard').onclick = openReader;
+$('#rvCard').onclick = () => { show('review'); rvGo(); };
+// 大标题滚过后，小标题淡入（iOS 导航栏行为）
+[['#s-lib', '#libTop'], ['#s-me', '#meTop']].forEach(([s, h]) => $(s).addEventListener('scroll', e => { $(h).style.opacity = e.target.scrollTop > 30 ? 1 : 0; }));
 
-/* ---------- 首页：输入 / 书架 ---------- */
-const DOCS = [
-  { g: 'tech', t: 'Understanding Ownership in Rust', p: 45, mins: 4, ratio: 7.2, lv: ['偏难', 'hard'], open: true },
-  { g: 'novel', t: 'Pride and Prejudice', p: 8, mins: 2, ratio: 2.6, lv: ['学习区', 'mid'] },
-  { g: 'news', t: 'Cities Turn to Sponge Design as Floods Intensify', p: 0, mins: 3, ratio: 9.8, lv: ['偏难', 'hard'] },
-  { g: 'tech', t: 'The Rust Programming Language', p: 15, mins: 9, ratio: 3.4, lv: ['学习区', 'mid'] },
-  { g: 'tech', t: 'A Gentle Introduction to Async Rust', p: 0, mins: 9, ratio: 3.1, lv: ['学习区', 'mid'] },
-  { g: 'novel', t: 'A Scandal in Bohemia', p: 12, mins: 38, ratio: 4.4, lv: ['学习区', 'mid'] },
-  { g: 'news', t: 'The Quiet Return of Night Trains in Europe', p: 100, mins: 5, ratio: 1.6, lv: ['舒适', 'ok'] },
-  { g: 'tech', t: 'How Transformers Handle Long Context', p: 0, mins: 12, ratio: 6.3, lv: ['偏难', 'hard'] },
-];
-const GEN = { tech: '技术', news: '新闻', novel: '书 · 文学' }, INI = { tech: '{ }', news: 'N', novel: 'Aa' };
-const docRow = d => `<button class="doc" data-open="${d.open ? 1 : 0}" style="width:100%;text-align:left"><span class="ic ${d.g}">${INI[d.g]}</span><span class="b"><span class="t">${esc(d.t)}</span><span class="m"><span>${GEN[d.g]}</span><span class="lv ${d.lv[1]}">${d.lv[0]} · 生词率 ${d.ratio}%</span></span>${d.p ? `<span class="bar"><i style="width:${d.p}%"></i></span>` : `<span class="m">约 ${d.mins} 分钟</span>`}</span><span class="chev">›</span></button>`;
-$('#cont').innerHTML = DOCS.filter(d => d.p > 0).slice(0, 2).map(docRow).join('');
-$('#shelf').innerHTML = DOCS.map(docRow).join('');
-document.querySelectorAll('.doc').forEach(b => b.onclick = () => +b.dataset.open ? show('read') : toast('原型里只有第一篇可以打开'));
-$('#allDocs').onclick = e => { e.preventDefault(); toast('原型：书架全部文章（按类型筛选）'); };
-$('#askGo').onclick = () => { const v = $('#askIn').value.trim(); if (!v) return; $('#askIn').value = ''; if (/^https?:\/\//i.test(v)) { fox.set('reading'); toast('Tibi 正在导入…完成后会出现在书架'); setTimeout(() => { fox.pulse('happy', 1800); toast('导入好了：' + v.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]); }, 2200); } else openChat(v); };
+/* ---------- 输入、粘贴、对话 ---------- */
+// 首页对话：今天的对话接在卡片下面，第二天换新的一页，以前的在"我 › 对话记录"
+function homeSay(q, reply, ms = 900) {
+  const m = $('#hmsgs'); $('#hsug').hidden = true;
+  if (!m.children.length) m.insertAdjacentHTML('beforeend', `<div class="day">${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}</div>`);
+  m.insertAdjacentHTML('beforeend', `<div class="u">${esc(q)}</div>`);
+  const a = document.createElement('div'); a.className = 'a'; a.textContent = '…'; m.appendChild(a);
+  const sc = () => { const s = $('#s-home'); s.scrollTop = s.scrollHeight; }; sc();
+  setTimeout(() => { a.innerHTML = reply; a.querySelectorAll('[data-go]').forEach(x => x.onclick = e => { e.preventDefault(); show(x.dataset.go); }); sc(); fox.pulse('happy', 1500); }, ms);
+}
+function importUrl(v) { fox.set('reading'); homeSay(v, '已放进书架：<b>Rust 1.90.0</b> · blog.rust-lang.org · 约 6 分钟，生词率 4.2%。<a href="#" data-go="lib">去书架</a>', 1600); setTimeout(() => fox.set('idle'), 1600); }
+function askHome(q) { fox.set('thinking'); homeSay(q, /推荐|找/.test(q) ? '找到一篇：<b>A Gentle Introduction to Async Rust</b>，生词率 3.1%，约 9 分钟。已放进书架。<br><span class="lbl">Tibi · 找文章 · 查看过程</span>' : /故事/.test(q) ? '用这周的 6 个生词写了一段，已放进书架。<br><span class="lbl">Tibi · 查看过程</span>' : '（原型）正式版会结合你的书架、水平和记忆来回答。<br><span class="lbl">Tibi · 查看过程</span>'); setTimeout(() => fox.set('idle'), 900); }
+$('#askGo').onclick = () => { const v = $('#askIn').value.trim(); if (!v) { openSheet('#isheet'); return; } $('#askIn').value = ''; syncPaste(); $('#askIn').blur(); if (/^https?:\/\//i.test(v)) importUrl(v); else askHome(v); };
 $('#askIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('#askGo').click(); });
 $('#askIn').addEventListener('focus', () => fox.set('listening')); $('#askIn').addEventListener('blur', () => fox.set('idle'));
-document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => openChat(b.dataset.q));
-
-/* ---------- 阅读器 ---------- */
-const TERMS = { distinctive: [3, '独特的'], upshot: [0, '最终结果'], overhead: [2, '开销'], reclaimed: [0, '回收'], deterministically: [0, '确定性地'], binding: [99, '绑定'], enforces: [99, '强制执行'], verifies: [3, '验证'], outlives: [0, '比…存在更久'], notoriously: [0, '出了名地'] };
-const DICT = { distinctive: ['/dɪˈstɪŋktɪv/', 'adj. 独特的，与众不同的', '这里指所有权是 Rust 区别于其他系统语言的标志性特征。'], upshot: ['/ˈʌpʃɒt/', 'n. 最终结果', '"The upshot is…" 是口语里常见的总结句式：说了一堆之后，结论是…'], overhead: ['/ˈəʊvəhed/', 'n. 开销', '技术语境里指为了完成某事额外付出的时间或资源，这里指垃圾回收带来的运行时代价。'], reclaimed: ['/rɪˈkleɪm/', 'v. 回收；收回', '内存被"收回"给系统。'], deterministically: ['/dɪˌtɜːmɪˈnɪstɪkli/', 'adv. 确定性地', '每次运行都在同一时刻发生，不像垃圾回收那样时机不定。'], verifies: ['/ˈverɪfaɪ/', 'v. 核实，验证', '借用检查器"验证"引用不会比它指向的值活得更久。'], outlives: ['/ˌaʊtˈlɪv/', 'v. 比…存在更久', '引用的生命期不能超过被引用的值。'], notoriously: ['/nəʊˈtɔːriəsli/', 'adv. 出了名地（贬义）', '悬垂指针在 C/C++ 里是"出了名"难查的问题。'], binding: ['/ˈbaɪndɪŋ/', 'n. 绑定', '变量名和值之间的绑定关系。'], enforces: ['/ɪnˈfɔːs/', 'v. 强制执行', '编译器"强制执行"一组规则。'] };
-const PARAS = [
-  ['Ownership is the feature that makes Rust distinctive among systems languages. Instead of relying on a garbage collector, the compiler enforces a small set of rules at compile time, and a program that violates them simply won\'t compile. The upshot is memory safety without the runtime overhead that usually comes with it.', '所有权是 Rust 区别于其他系统语言的特性。它不依赖垃圾回收器，而是由编译器在编译期强制执行一小组规则，违反规则的程序根本无法通过编译。结果是：既有内存安全，又没有通常随之而来的运行时开销。'],
-  ['Each value has exactly one owner. When the owner goes out of scope, the value is dropped and its memory is reclaimed deterministically. Passing a value to a function moves it, which means the original binding can no longer be used.', '每个值恰好有一个所有者。所有者离开作用域时，值被丢弃，内存被确定性地回收。把值传给函数会移动它，原来的绑定就不能再用了。'],
-  ['If you only need to read the data, you can borrow it instead. The borrow checker verifies that no reference outlives the value it points to, which rules out dangling pointers that are notoriously hard to track down in C and C++.', '如果只需要读数据，可以借用它。借用检查器会验证没有任何引用比它指向的值活得更久，从而排除了在 C 和 C++ 中出了名难查的悬垂指针。'],
-];
-const STAGE = ['生词', '见过', '眼熟', '认得', '熟悉', '掌握'];
-function renderRd() {
-  const cnt = s => Object.values(TERMS).filter(t => s(t[0])).length;
-  $('#rd').innerHTML = `<div class="meta"><span>技术 · 约 4 分钟 · 生词率 7.2% · 偏难</span><button class="lg" id="lgBtn" aria-label="标注说明"><i style="background:var(--hl-new)"></i>生词 ${cnt(x => x === 0)}<i style="background:var(--hl-1)"></i>学习中 ${cnt(x => x >= 1 && x <= 4)}<i style="background:none;box-shadow:inset 0 0 0 1.5px var(--ink-3)"></i>待确认 ${cnt(x => x === 99)}</button></div><h1>Understanding Ownership in Rust</h1>` + PARAS.map(([en, zh]) => `<p>${en.replace(/[A-Za-z']+/g, w => { const k = w.toLowerCase(), t = TERMS[k]; return t ? `<span class="w s${t[0]}" data-w="${k}" data-g="${t[1]}">${w}</span>` : w; })}</p><div class="tr" hidden>${zh}</div>`).join('');
-  document.querySelectorAll('#rd .w').forEach(w => w.onclick = () => openWord(w));
-  $('#lgBtn').onclick = () => openSheet('#lsheet');
-}
-renderRd();
-$('#trTog').onclick = () => { const on = $('#trTog').getAttribute('aria-pressed') !== 'true'; $('#trTog').setAttribute('aria-pressed', on); document.querySelectorAll('.tr').forEach(t => t.hidden = !on); };
-$('#glTog').onclick = () => { const on = $('#glTog').getAttribute('aria-pressed') !== 'true'; $('#glTog').setAttribute('aria-pressed', on); $('#s-read').classList.toggle('gl', on); };
-$('#playTog').onclick = () => toast('原型：逐句朗读并高亮（系统语音 / Kokoro）');
-$('#aa').onclick = () => toast('原型：字号 / 行距 / 字体');
-$('#rdTibi').onclick = () => openChat('', '正在读《Understanding Ownership in Rust》');
-let selW = null;
-function openWord(el) {
-  if (selW) selW.classList.remove('sel'); selW = el; el.classList.add('sel');
-  const k = el.dataset.w, [s] = TERMS[k], d = DICT[k] || ['', '', ''];
-  $('#wbody').innerHTML = `<div class="h"><b>${esc(k)}</b><span class="ipa">${d[0]}</span><button class="say" data-say="播放发音"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6"/></svg></button></div>
-    ${s === 99 ? '<div class="lbl" style="margin-top:4px">Tibi 猜你认识它，点一下熟练度确认</div>' : ''}
-    <div class="ai"><span class="tag">✦ 在这句里</span>${esc(d[2])}</div><div class="dict">${esc(d[1])}</div>
-    <div class="stages">${STAGE.map((n, i) => `<button data-s="${i}" class="${s === i ? 'on' : ''}${s !== 99 && s >= i ? ' fill' : ''}"><i></i>${n}</button>`).join('')}</div>
-    <div class="row"><button class="btn" data-say="已忽略：以后不再标注">忽略</button><button class="btn pri" data-say="已加入生词本，会进入复习">加入生词本</button><button class="btn" id="askW">问 Tibi</button></div>`;
-  $('#wbody').querySelectorAll('[data-say]').forEach(b => b.onclick = () => toast(b.dataset.say));
-  $('#wbody').querySelectorAll('[data-s]').forEach(b => b.onclick = () => { TERMS[k][0] = +b.dataset.s; renderRd(); closeSheets(); toast(`${k}：${STAGE[+b.dataset.s]}`); });
-  $('#askW').onclick = () => { closeSheets(); setTimeout(() => openChat(`${k} 在这里为什么是这个意思？`), 200); };
-  openSheet('#wsheet');
-}
-function openSheet(sel) { $('#scrim').classList.add('on'); $(sel).classList.add('on'); }
-function closeSheets() { $('#scrim').classList.remove('on'); document.querySelectorAll('.sheet').forEach(s => s.classList.remove('on')); if (selW) { selW.classList.remove('sel'); selW = null; } }
-$('#scrim').onclick = closeSheets;
-
-/* ---------- Tibi 对话（底部抽屉） ---------- */
+const syncPaste = () => { const has = !!$('#askIn').value; $('#pasteBtn').hidden = has; $('#dock').classList.toggle('has', has); $('#askGo').setAttribute('aria-label', has ? '发送' : '导入'); };
+$('#askIn').addEventListener('input', syncPaste);
+// 正式版用系统的粘贴控件（UIPasteControl），点一下才读剪贴板，不弹权限提示
+$('#pasteBtn').onclick = () => { $('#askIn').value = 'https://blog.rust-lang.org/2026/10/30/Rust-1.90.0.html'; syncPaste(); $('#askIn').focus(); };
+document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => askHome(b.dataset.q));
 function openChat(q, ctx) {
   const m = $('#msgs');
-  if (!m.children.length) m.innerHTML = `<div class="a">我是 Tibi。${ctx ? ctx + '，' : ''}有什么想问的？</div>`;
-  $('#sug').innerHTML = ['讲讲最难的那句', '出 3 道理解题', '我最近的薄弱点'].map(s => `<button class="chip" data-s="${s}">${s}</button>`).join('');
+  if (!m.children.length) m.innerHTML = `<div class="a">${ctx ? ctx + '，' : ''}想问什么？</div>`;
+  $('#sug').innerHTML = (ctx ? ['讲讲最难的那句', '出 3 道理解题'] : ['我最近的薄弱点', '推荐一篇 10 分钟的新闻']).map(s => `<button class="chip" data-s="${s}">${s}</button>`).join('');
   $('#sug').querySelectorAll('[data-s]').forEach(b => b.onclick = () => send(b.dataset.s));
-  openSheet('#csheet'); fox.set('thinking');
+  openSheet('#csheet', 'tall'); fox.set('thinking');
   if (q) send(q);
 }
 function send(q) {
   const m = $('#msgs'); m.insertAdjacentHTML('beforeend', `<div class="u">${esc(q)}</div>`);
   const a = document.createElement('div'); a.className = 'a'; a.textContent = '…'; m.appendChild(a); m.parentElement.scrollTop = 9999;
-  setTimeout(() => { a.innerHTML = /推荐|找/.test(q) ? '按你的水平挑了一篇：<b>A Gentle Introduction to Async Rust</b>，生词率 3.1%，约 9 分钟，复现 6 个你正在学的词。<br><span class="lbl">Tibi · 找文章 · 查看过程</span>' : /故事/.test(q) ? '用了你这周的 6 个生词写了一段，长按可以保存到书架。<br><span class="lbl">Tibi · 查看过程</span>' : '（原型）正式版会结合这篇文章、你的水平和记忆来回答。<br><span class="lbl">Tibi · 讲解 · 查看过程</span>'; m.parentElement.scrollTop = 9999; fox.pulse('happy', 1500); }, 900);
+  setTimeout(() => { a.innerHTML = /推荐|找/.test(q) ? '找到一篇：<b>A Gentle Introduction to Async Rust</b>，生词率 3.1%，约 9 分钟。<br><span class="lbl">Tibi · 找文章 · 查看过程</span>' : /故事/.test(q) ? '用这周的 6 个生词写了一段，可以放进书架。<br><span class="lbl">Tibi · 查看过程</span>' : '（原型）正式版会结合这篇文章、你的水平和记忆来回答。<br><span class="lbl">Tibi · 讲解 · 查看过程</span>'; m.parentElement.scrollTop = 9999; fox.pulse('happy', 1500); }, 900);
 }
-$('#fab').onclick = () => openChat('');
 $('#csend').onclick = () => { const v = $('#cin').value.trim(); if (!v) return; $('#cin').value = ''; send(v); };
 $('#cin').addEventListener('keydown', e => { if (e.key === 'Enter') $('#csend').click(); });
 
-/* ---------- 复习 ---------- */
-const Q = [
-  { w: 'affect', ipa: '/əˈfekt/', zh: 'v. 影响', s: 1, sent: 'Delays affect fewer than one in ten journeys.', tr: '延误影响的行程不到十分之一。', note: '易与名词 effect（效果）混淆。' },
-  { w: 'notoriously', ipa: '/nəʊˈtɔːriəsli/', zh: 'adv. 出了名地（贬义）', s: 0, sent: '…dangling pointers that are notoriously hard to track down in C and C++.', tr: '…在 C 和 C++ 中出了名难查的悬垂指针。' },
-  { w: 'overhead', ipa: '/ˈəʊvəhed/', zh: 'n. 开销', s: 2, sent: 'The upshot is memory safety without the runtime overhead.', tr: '结果是内存安全且没有运行时开销。' },
-  { w: 'habitat', ipa: '/ˈhæbɪtæt/', zh: 'n. 栖息地', s: 2, sent: '…from cooler streets to new habitats for wildlife.', tr: '…从更凉爽的街道到野生动物的新栖息地。' },
-  { w: 'acknowledge', ipa: '/əkˈnɒlɪdʒ/', zh: 'v. 承认', s: 3, sent: 'It is a truth universally acknowledged…', tr: '这是一条举世公认的真理……' },
-  { w: 'verify', ipa: '/ˈverɪfaɪ/', zh: 'v. 核实，验证', s: 4, sent: '…the borrow checker verifies that no reference outlives its value.', tr: '……借用检查器会确保引用不会比值活得更久。' },
-  { w: 'objection', ipa: '/əbˈdʒekʃn/', zh: 'n. 反对；异议', s: 4, sent: 'I have no objection to hearing it.', tr: '我不反对听一听。' },
-  { w: 'grapple with', ipa: '', zh: '努力应对；与…较劲', s: 0, sent: 'Newcomers often grapple with the borrow checker…', tr: '新手常常和借用检查器较劲……' },
-  { w: 'upshot', ipa: '/ˈʌpʃɒt/', zh: 'n. 最终结果', s: 1, sent: 'The upshot is memory safety without the runtime overhead.', tr: '最终结果是内存安全且没有运行时开销。' },
-  { w: 'deterministically', ipa: '/dɪˌtɜːmɪˈnɪstɪkli/', zh: 'adv. 确定性地', s: 1, sent: '…its memory is reclaimed deterministically.', tr: '……它的内存被确定性地回收。' },
-  { w: 'reclaim', ipa: '/rɪˈkleɪm/', zh: 'v. 回收；收回', s: 1, sent: '…the value is dropped and its memory is reclaimed.', tr: '……值被丢弃，内存被回收。' },
-  { w: 'intuitive', ipa: '/ɪnˈtjuːɪtɪv/', zh: 'adj. 直观的；易懂的', s: 1, sent: '…the constraints become intuitive after a few weeks.', tr: '……几周之后，这些约束就变得直观了。' },
-  { w: 'permeable', ipa: '/ˈpɜːmiəbl/', zh: 'adj. 可渗透的', s: 1, sent: 'The approach relies on permeable pavements.', tr: '这种做法依靠透水路面。' },
-  { w: 'retrofit', ipa: '/ˈretrəʊfɪt/', zh: 'v. 改造，翻新', s: 1, sent: '…retrofitting existing neighborhoods can be slow.', tr: '……改造现有街区可能很慢。' },
-  { w: 'ascertain', ipa: '/ˌæsəˈteɪn/', zh: 'v. 查明，弄清', s: 1, sent: 'I was anxious to ascertain what my friend had been doing.', tr: '我急于弄清我的朋友一直在做什么。' },
-  { w: 'make a dent in', ipa: '', zh: '对…产生明显影响', s: 1, sent: '…not enough open land to make a dent in peak runoff.', tr: '……没有足够的空地来明显削减径流峰值。' },
-  { w: 'meticulous', ipa: '/məˈtɪkjələs/', zh: 'adj. 一丝不苟的', s: 0, sent: 'She keeps meticulous records of every experiment.', tr: '她把每次实验都记录得一丝不苟。' },
-  { w: 'ubiquitous', ipa: '/juːˈbɪkwɪtəs/', zh: 'adj. 无处不在的', s: 0, sent: 'Smartphones have become ubiquitous in daily life.', tr: '智能手机在日常生活中已无处不在。' },
+/* ---------- 书架 ---------- */
+const DOCS = [
+  { k: 'article', g: '技术', t: 'Understanding Ownership in Rust', p: 45, mins: 4, ratio: 7.2, hard: true, tags: ['Rust', '内存管理'], open: true },
+  { k: 'book', g: '文学', t: 'Pride and Prejudice', p: 8, mins: 12, ratio: 2.6, tags: ['经典小说'], ch: '第 1 / 61 章' },
+  { k: 'article', g: '新闻', t: 'Cities Turn to Sponge Design as Floods Intensify', p: 0, mins: 3, ratio: 9.8, hard: true, tags: ['城市', '气候'] },
+  { k: 'book', g: '技术', t: 'The Rust Programming Language', p: 15, mins: 9, ratio: 3.4, tags: ['Rust'], ch: '第 4 / 21 章' },
+  { k: 'article', g: '技术', t: 'A Gentle Introduction to Async Rust', p: 0, mins: 9, ratio: 3.1, tags: ['Rust', '异步'] },
+  { k: 'article', g: '文学', t: 'A Scandal in Bohemia', p: 12, mins: 38, ratio: 4.4, tags: ['经典小说'] },
+  { k: 'article', g: '新闻', t: 'The Quiet Return of Night Trains in Europe', p: 100, mins: 5, ratio: 1.6, tags: ['旅行'] },
+  { k: 'article', g: '学术', t: 'How Transformers Handle Long Context', p: 0, mins: 12, ratio: 6.3, hard: true, tags: ['机器学习'] },
 ];
-let qi = 0, shown = false, res = [];
-const IV = ['10 分钟后', '3 天', '5 天', '12 天'];
-function renderRv() {
-  $('#rvN').textContent = qi < Q.length ? `还剩 ${Q.length - qi} 张` : '';
-  const segs = `<div class="segs">${Q.map((_, i) => `<i class="${res[i] ? 'r' + res[i] : i === qi ? 'cur' : ''}"></i>`).join('')}</div>`;
-  if (qi >= Q.length) {
-    $('#rv').innerHTML = segs + `<div class="done"><div class="fx">${mascotImg('celebrate-review')}</div><h3>今天的复习完成了</h3><p>连续学习第 10 天。忘了的词已经补练过。</p><div class="k3"><div><b>${Q.length}</b><span>复习了</span></div><div><b>${Math.round(res.filter(r => r >= 3).length / Q.length * 100)}%</b><span>记得或轻松</span></div><div><b>1:12</b><span>用时</span></div></div><button class="btn pri full" data-go="home">读一篇新文章</button></div>`;
-    $('#rv [data-go]').onclick = () => show('home'); return;
-  }
-  const c = Q[qi];
-  $('#rv').innerHTML = segs + `<div class="card rcard"><div class="k"><span>识别</span><span>·</span><span>熟练度 <span class="stage s${c.s}">${STAGE[c.s]}</span></span></div>
-    <div class="q">这个词在句子里是什么意思？</div><div class="sent">${esc(c.sent).replace(new RegExp('\\b' + c.w + '\\w*\\b', 'i'), m => `<mark>${m}</mark>`)}</div>
-    ${shown ? `<div class="ans"><b>${c.w}</b><span class="ipa">${c.ipa}</span><p>${esc(c.zh)}</p><p class="zh">${esc(c.tr)}</p>${c.note ? `<p class="zh">✦ ${esc(c.note)}</p>` : ''}</div>` : ''}</div>
-    ${shown ? `<div class="rate">${['忘了', '模糊', '记得', '轻松'].map((n, i) => `<button class="r${i + 1}${i === 2 ? ' sug' : ''}" data-r="${i + 1}">${n}<small>${IV[i]}</small></button>`).join('')}</div>` : `<button class="btn pri full" id="showA" style="margin-top:16px;height:52px">显示答案</button>`}`;
-  if (!shown) $('#showA').onclick = () => { shown = true; renderRv(); };
-  $('#rv').querySelectorAll('[data-r]').forEach(b => b.onclick = () => { res[qi] = +b.dataset.r; qi++; shown = false; renderRv(); anim($('#rv .rcard'), { x: [40, 0], opacity: [0, 1] }, { duration: 0.3 }); });
+let kind = 'all', tag = '';
+function renderShelf() {
+  const tags = [...new Set(DOCS.flatMap(d => d.tags))];
+  $('#tagChips').innerHTML = tags.map(t => `<button class="chip${t === tag ? ' on' : ''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
+  $('#tagChips').querySelectorAll('[data-tag]').forEach(b => b.onclick = () => { tag = tag === b.dataset.tag ? '' : b.dataset.tag; renderShelf(); });
+  const list = DOCS.filter(d => (kind === 'all' || d.k === kind) && (!tag || d.tags.includes(tag)));
+  $('#shelf').innerHTML = list.map(d => `<button class="doc" data-open="${d.open ? 1 : 0}"><span class="b"><span class="t">${esc(d.t)}</span><span class="m"><span>${d.k === 'book' ? '书 · ' : ''}${d.g}</span><span>·</span><span>${d.ch || (d.p >= 100 ? '已读完' : `约 ${d.mins} 分钟`)}</span><span class="lv${d.hard ? ' hard' : ''}">· 生词率 ${d.ratio}%</span></span>${d.p && d.p < 100 ? `<span class="bar"><i style="width:${d.p}%"></i></span>` : ''}</span><span class="chev">›</span></button>`).join('') || '<div class="lbl" style="padding:20px;text-align:center">没有符合的文章</div>';
+  $('#shelf').querySelectorAll('.doc').forEach(b => b.onclick = () => +b.dataset.open ? openReader() : toast('原型里只有第一篇可以打开'));
 }
-$('#rvUndo').onclick = () => { if (qi > 0) { qi--; res[qi] = 0; shown = false; renderRv(); toast('已撤销上一张'); } };
+document.querySelectorAll('#kindSeg button').forEach(b => b.onclick = () => { kind = b.dataset.k; document.querySelectorAll('#kindSeg button').forEach(x => x.classList.toggle('on', x === b)); renderShelf(); });
+renderShelf();
+$('#addBtn').onclick = () => openSheet('#isheet');
+$('#impPaste').onclick = () => { closeSheets(); show('home'); setTimeout(() => $('#pasteBtn').click(), 250); };
+
+/* ---------- 阅读器 ---------- */
+const TERMS = { distinctive: [3, '独特的'], upshot: [0, '最终结果'], overhead: [2, '开销'], reclaimed: [0, '回收'], deterministically: [0, '确定性地'], binding: [99, '绑定'], enforces: [99, '强制执行'], verifies: [3, '验证'], outlives: [0, '比…存在更久'], notoriously: [0, '出了名地'] };
+const DICT = { distinctive: ['/dɪˈstɪŋktɪv/', 'adj. 独特的，与众不同的', '这里指所有权是 Rust 区别于其他系统语言的标志性特征。'], upshot: ['/ˈʌpʃɒt/', 'n. 最终结果', '"The upshot is…" 是常见的总结句式：说了一堆之后，结论是…'], overhead: ['/ˈəʊvəhed/', 'n. 开销', '技术语境里指为完成某事额外付出的时间或资源，这里指垃圾回收的运行时代价。'], reclaimed: ['/rɪˈkleɪm/', 'v. 回收；收回', '内存被"收回"给系统。'], deterministically: ['/dɪˌtɜːmɪˈnɪstɪkli/', 'adv. 确定性地', '每次都在同一时刻发生，不像垃圾回收那样时机不定。'], verifies: ['/ˈverɪfaɪ/', 'v. 核实，验证', '借用检查器"验证"引用不会比它指向的值活得更久。'], outlives: ['/ˌaʊtˈlɪv/', 'v. 比…存在更久', '引用的生命期不能超过被引用的值。'], notoriously: ['/nəʊˈtɔːriəsli/', 'adv. 出了名地（贬义）', '悬垂指针在 C/C++ 里是"出了名"难查的问题。'], binding: ['/ˈbaɪndɪŋ/', 'n. 绑定', '变量名和值之间的绑定关系。'], enforces: ['/ɪnˈfɔːs/', 'v. 强制执行', '编译器"强制执行"一组规则。'] };
+const CTX = { upshot: [['The upshot of the storm was clear: the old drains could not cope.', 'Cities Turn to Sponge Design · 新闻']], overhead: [['…without the runtime overhead that usually comes with it.', '本文'], ['Every sensor added a little overhead to the network.', 'Tibi 写的短文']] };
+const PARAS = [
+  ['Ownership is the feature that makes Rust distinctive among systems languages. Instead of relying on a garbage collector, the compiler enforces a small set of rules at compile time, and a program that violates them simply won\'t compile. The upshot is memory safety without the runtime overhead that usually comes with it.', '所有权是 Rust 区别于其他系统语言的特性。它不依赖垃圾回收器，而是由编译器在编译期强制执行一小组规则，违反规则的程序根本无法通过编译。结果是：既有内存安全，又没有通常随之而来的运行时开销。'],
+  ['Each value has exactly one owner. When the owner goes out of scope, the value is dropped and its memory is reclaimed deterministically. Passing a value to a function moves it, which means the original binding can no longer be used.', '每个值恰好有一个所有者。所有者离开作用域时，值被丢弃，内存被确定性地回收。把值传给函数会移动它，原来的绑定就不能再用了。'],
+  ['If you only need to read the data, you can borrow it instead. The borrow checker verifies that no reference outlives the value it points to, which rules out dangling pointers that are notoriously hard to track down in C and C++.', '如果只需要读数据，可以借用它。借用检查器会验证没有任何引用比它指向的值活得更久，从而排除了在 C 和 C++ 中出了名难查的悬垂指针。'],
+  ['The rules feel strict at first, and many newcomers grapple with the borrow checker for a few weeks. After that, the constraints tend to become intuitive, and the compiler starts to feel like a careful reviewer rather than an obstacle.', '这些规则一开始显得很严格，很多新手要和借用检查器较劲几周。之后这些约束往往会变得直观，编译器也更像一位细心的审阅者，而不是障碍。'],
+];
+const STAGE = ['生词', '见过', '眼熟', '认得', '熟悉', '掌握'];
+let restKnown = false;
+function renderRd() {
+  const cnt = s => Object.values(TERMS).filter(t => s(t[0])).length, left = cnt(x => x === 0);
+  $('#rd').innerHTML = `<div class="meta"><span>技术 · 约 4 分钟 · 生词率 7.2%</span><button class="lg" id="lgBtn" aria-label="标注说明"><i style="background:var(--hl-new)"></i>生词 ${left}<i style="background:var(--hl-1)"></i>学习中 ${cnt(x => x >= 1 && x <= 4)}<i style="background:none;box-shadow:inset 0 0 0 1.5px var(--ink-3)"></i>待确认 ${cnt(x => x === 99)}</button></div><h1>Understanding Ownership in Rust</h1>` + PARAS.map(([en, zh]) => `<p>${en.replace(/[A-Za-z']+/g, w => { const k = w.toLowerCase(), t = TERMS[k]; return t && t[0] !== 97 ? `<span class="w s${t[0]}" data-w="${k}" data-g="${t[1]}">${w}</span>` : w; })}</p><div class="tr" hidden>${zh}</div>`).join('')
+    + `<div class="endc"><h3>读完了</h3><p>${left ? `还有 ${left} 个生词没处理。标为已知后不进复习，可随时改回。` : '生词都处理过了。'}</p><div class="col">${left ? `<button class="btn pri full" id="markRest">把 ${left} 个生词标为已知</button>` : ''}<button class="btn full" id="quiz">出 3 道理解题</button></div><div class="next">下一篇<b>A Gentle Introduction to Async Rust</b>生词率 3.1% · 约 9 分钟</div></div>`;
+  document.querySelectorAll('#rd .w').forEach(w => w.onclick = e => { e.stopPropagation(); openWord(w); });
+  $('#lgBtn').onclick = e => { e.stopPropagation(); openSheet('#lsheet'); };
+  if ($('#markRest')) $('#markRest').onclick = e => { e.stopPropagation(); const ks = Object.keys(TERMS).filter(k => TERMS[k][0] === 0); ks.forEach(k => TERMS[k][0] = 97); renderRd(); haptic(); toast(`已将 ${ks.length} 个词标为已知`, () => { ks.forEach(k => TERMS[k][0] = 0); renderRd(); }); };
+  $('#quiz').onclick = e => { e.stopPropagation(); openChat('出 3 道理解题', '正在读《Understanding Ownership in Rust》'); };
+  $('#rd .next').onclick = e => { e.stopPropagation(); toast('原型里只有这一篇可以打开'); };
+}
+renderRd();
+// 沉浸：向下滚动收起工具栏，向上滚动或轻点正文空白处再出现（iOS 阅读器常见做法）
+let lastY = 0;
+$('#s-read').addEventListener('scroll', e => {
+  const y = e.target.scrollTop, max = e.target.scrollHeight - e.target.clientHeight;
+  $('#rdprog i').style.width = Math.max(4, Math.round(y / Math.max(1, max) * 100)) + '%';
+  if (y > lastY + 6 && y > 80) $('#phone').classList.add('imm'); else if (y < lastY - 6 || y >= max - 4) $('#phone').classList.remove('imm');
+  lastY = y;
+});
+$('#rd').addEventListener('click', e => { if (!e.target.closest('.w, button, .endc')) $('#phone').classList.toggle('imm'); });
+const toggle = (btn, fn) => { const on = btn.getAttribute('aria-pressed') !== 'true'; btn.setAttribute('aria-pressed', on); fn(on); haptic(); };
+$('#trTog').onclick = () => toggle($('#trTog'), on => document.querySelectorAll('.tr').forEach(t => t.hidden = !on));
+$('#glTog').onclick = () => toggle($('#glTog'), on => $('#s-read').classList.toggle('gl', on));
+$('#playTog').onclick = () => toast('原型：逐句朗读并高亮，锁屏后继续');
+$('#aa').onclick = () => toast('原型：字号 / 行距 / 字体 / 纸面');
+$('#lgTop').onclick = () => openSheet('#lsheet');
+$('#rdTibi').onclick = () => openChat('', '正在读《Understanding Ownership in Rust》');
+let selW = null;
+function openWord(el) {
+  if (selW) selW.classList.remove('sel'); selW = el; el.classList.add('sel');
+  const k = el.dataset.w, d = DICT[k] || ['', '', ''];
+  let s = TERMS[k][0], auto = false;
+  if (s === 0) { TERMS[k][0] = s = 1; auto = true; el.className = 'w s1 sel'; }   // R5：点开生词即进"见过"并建卡（受每日新卡上限约束）
+  const ctx = CTX[k] || [];
+  $('#wbody').innerHTML = `<div class="h"><b>${esc(k)}</b><span class="ipa">${d[0]}</span><button class="say" data-say="播放发音"><svg class="i" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6"/></svg></button></div>
+    ${auto ? '<div class="added">已加入复习<button id="knowIt">其实认识</button></div>' : s === 99 ? '<div class="added">可能认识，选一个熟练度确认</div>' : ''}
+    <div class="ai"><span class="tag">✦ 在这句里</span>${esc(d[2])}</div><div class="dict">${esc(d[1])}</div>
+    <div class="stages">${STAGE.map((n, i) => `<button data-s="${i}" class="${s === i ? 'on' : ''}${s !== 99 && s >= i ? ' fill' : ''}"><i></i>${n}</button>`).join('')}</div>
+    <div class="row"><button class="btn" data-say="已忽略，不再标注">忽略</button><button class="btn" id="askW">问 Tibi</button></div>
+    <div class="hint">上拉查看更多</div>
+    <div class="more"><h4>遇到过的句子</h4>${(ctx.length ? ctx : [[PARAS.map(p => p[0]).find(p => p.toLowerCase().includes(k)) || '', '本文']]).map(([s, src]) => `<div class="ctx">${esc(s)}<small>${esc(src)}</small></div>`).join('')}<h4 style="margin-top:14px">复习</h4><div class="lbl">${auto ? '明天第一次复习' : '下次复习：3 天后 · 记得率 86%'}</div></div>`;
+  bindSay($('#wbody'));
+  $('#wbody').querySelectorAll('[data-s]').forEach(b => b.onclick = () => { TERMS[k][0] = +b.dataset.s; renderRd(); closeSheets(); haptic(); toast(`${k}：${STAGE[+b.dataset.s]}`); });
+  if ($('#knowIt')) $('#knowIt').onclick = () => { TERMS[k][0] = 97; renderRd(); closeSheets(); haptic(); toast(`${k} 已标为已知`, () => { TERMS[k][0] = 0; renderRd(); }); };
+  $('#askW').onclick = () => { closeSheets(); setTimeout(() => openChat(`${k} 在这里为什么是这个意思？`, '正在读《Understanding Ownership in Rust》'), 200); };
+  openSheet('#wsheet');
+}
+/* 面板：两档高度。拖动把手或在面板内上拉切换到全屏 */
+function openSheet(sel, size) { const s = $(sel); s.classList.remove('full', 'tall'); if (size) s.classList.add(size); if (sel === '#ssheet') s.classList.add('full'); $('#scrim').classList.add('on'); s.classList.add('on'); s.querySelector('.sc').scrollTop = 0; }
+function closeSheets() { $('#scrim').classList.remove('on'); document.querySelectorAll('.sheet').forEach(s => s.classList.remove('on')); if (selW) { selW.classList.remove('sel'); selW = null; } }
+$('#scrim').onclick = closeSheets;
+document.querySelectorAll('.sheet').forEach(sh => {
+  let y0 = null;
+  const start = y => { y0 = y; }, end = y => { if (y0 === null) return; const dy = y - y0; y0 = null; if (dy < -40) sh.classList.add('full'); else if (dy > 60) { if (sh.classList.contains('full') && sh.id === 'wsheet') sh.classList.remove('full'); else closeSheets(); } };
+  sh.addEventListener('touchstart', e => { if (e.target.closest('.grab') || sh.querySelector('.sc').scrollTop <= 0) start(e.touches[0].clientY); }, { passive: true });
+  sh.addEventListener('touchend', e => end(e.changedTouches[0].clientY));
+  sh.querySelector('.grab').addEventListener('mousedown', e => { start(e.clientY); const up = ev => { end(ev.clientY); removeEventListener('mouseup', up); }; addEventListener('mouseup', up); });
+  sh.querySelector('.grab').addEventListener('click', () => { if (sh.id === 'wsheet') sh.classList.toggle('full'); });
+});
+
+/* ---------- 复习（G1–G7 的手机版：系统评分、选义、重练、初见；操作都在下半屏） ---------- */
+const RL = ['忘了', '模糊', '记得', '轻松'];
+const BASE = [
+  { w: 'affect', ipa: '/əˈfekt/', zh: 'v. 影响', s: 1, type: 'choice', sent: 'Delays affect fewer than one in ten journeys.', tr: '延误影响的行程不到十分之一。', note: '易与名词 effect（效果）混淆。', opts: [['v. 影响', 1], ['n. 效果；作用', 0, '易混词 effect'], ['v. 负担得起', 0, '同篇生词 afford'], ['v. 分配；拨给', 0, '生词本 allocate']] },
+  { w: 'overhead', ipa: '/ˈəʊvəhed/', zh: 'n. 开销', s: 2, type: 'cloze', sent: 'The upshot is memory safety without the runtime overhead.', tr: '结果是内存安全且没有运行时开销。', hint: '运行时开销' },
+  { w: 'notoriously', ipa: '/nəʊˈtɔːriəsli/', zh: 'adv. 出了名地（贬义）', s: 0, type: 'recognize', sent: '…dangling pointers that are notoriously hard to track down in C and C++.', tr: '…在 C 和 C++ 中出了名难查的悬垂指针。' },
+  { w: 'grapple', ipa: '/ˈɡræpl/', zh: '努力应对；与…较劲', s: 0, type: 'choice', sent: 'Newcomers often grapple with the borrow checker.', tr: '新手常常和借用检查器较劲。', opts: [['努力应对；与…较劲', 1], ['抓住（机会）', 0, '形近 grab at'], ['逐渐习惯', 0, '生词本 get used to'], ['回避；绕开', 0, '同篇 steer clear of']] },
+  { w: 'habitat', ipa: '/ˈhæbɪtæt/', zh: 'n. 栖息地', s: 2, type: 'cloze', ans: ['habitats', 'habitat'], sent: '…from cooler streets to new habitats for wildlife.', tr: '…从更凉爽的街道到野生动物的新栖息地。', hint: '栖息地（复数）' },
+  { w: 'meticulous', ipa: '/məˈtɪkjələs/', zh: 'adj. 一丝不苟的', s: 0, type: 'intro', sent: 'She keeps meticulous records of every experiment.', tr: '她把每次实验都记录得一丝不苟。', src: '词典例句（你在生词本里添加的）' },
+  { w: 'meticulous', ipa: '/məˈtɪkjələs/', zh: 'adj. 一丝不苟的', s: 0, type: 'choice', isNew: 1, sent: 'She keeps meticulous records of every experiment.', tr: '她把每次实验都记录得一丝不苟。', opts: [['adj. 一丝不苟的', 1], ['adj. 无处不在的', 0, '生词本 ubiquitous'], ['adj. 吝啬的', 0, '生词本 stingy'], ['adj. 胆怯的', 0, '生词本 timid']] },
+];
+const rv = { Q: [], i: 0, phase: 'ask', pend: null, res: [], t0: 0, active: false, showRates: false };
+const IV = { 1: '10 分钟后', 2: '2 天后', 3: '5 天后', 4: '12 天后' };
+const hsh = s => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+function rvGo() { if (rv.Q.length && rv.i < rv.Q.length) { rv.active = true; renderRv(); } else rvStart(); }
+function rvStart() { rv.Q = BASE.map(c => ({ ...c })); rv.i = 0; rv.phase = 'ask'; rv.res = []; rv.active = true; renderRv(); }
+function retryOf(c) { const type = c.type === 'choice' || c.type === 'recognize' ? 'cloze' : 'choice'; return { ...c, type, retry: (c.retry || 0) + 1, res: undefined, hint: c.hint || c.zh, opts: c.opts || [[c.zh, 1], ...BASE.filter(b => b.w !== c.w).slice(0, 3).map(b => [b.zh, 0, '生词本 ' + b.w])] }; }
+function grade(c, ok, ms) { if (!ok) return [1, c.type === 'choice' ? '选错了' : '答错']; const sec = Math.round(ms / 1000); if (ms > (c.type === 'choice' ? 9000 : 15000)) return [2, `答对，用了 ${sec} 秒`]; return [3, `答对，用时 ${Math.max(1, sec)} 秒`]; }
+function renderRv() {
+  const s = $('#s-review');
+  if (!rv.active) {   // 入口：今天的复习概况
+    s.innerHTML = `<header class="top"><h1 style="opacity:0">复习</h1></header><h1 class="big">复习</h1><div class="pad"><div class="card" style="padding:18px;text-align:center"><div style="font-size:44px;font-weight:700;letter-spacing:-.02em">18</div><div class="lbl">张待复习 · 到期 14 + 新词 4 · 约 6 分钟</div><button class="btn pri full" id="rvBegin" style="margin-top:16px">开始复习</button></div></div><div class="pad sec"><h2>练习</h2><div class="card menu"><a href="#" data-say="原型：听写你读过的句子，不计分"><svg class="i" viewBox="0 0 24 24"><path d="M4 12h2l3-6 4 12 3-6h4"/></svg>听写原句<span class="r">›</span></a><a href="#" data-say="原型：affect / effect 这类在句子里二选一，不计分"><svg class="i" viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>易混词辨析<span class="r">›</span></a></div></div>`;
+    bindSay(s); $('#rvBegin').onclick = rvGo; if (rv.Q.length && rv.i < rv.Q.length) $('#rvBegin').textContent = `接着复习 · 还剩 ${rv.Q.length - rv.i} 张`; $('#tabs').hidden = false; return;
+  }
+  $('#tabs').hidden = true;
+  const c = rv.Q[rv.i], n = rv.Q.length;
+  const segs = `<div class="segs">${rv.Q.map((q, k) => `<i class="${q.res === 'i' ? 'ri' : q.res === 'o' ? 'ro' : q.res === 'x' ? 'rx' : q.res ? 'r' + q.res : k === rv.i ? 'cur' : ''}${q.retry ? ' rt' : ''}"></i>`).join('')}</div>`;
+  const head = `<div class="rvhead"><button class="x" id="rvX" aria-label="稍后继续"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M6 6l12 12M18 6L6 18"/></svg></button>${segs}<span class="n">${Math.min(rv.i + 1, n)}/${n}</span></div>`;
+  if (!c) {   // 完成页
+    const ok = rv.res.filter(r => r.g >= 2).length, wrong = rv.res.filter(r => r.g === 1).length;
+    s.innerHTML = head + `<div class="rvbody"><div class="done"><div class="fx">${mascotImg('celebrate-review')}</div><h3>今天的复习完成了</h3><p>连续学习第 10 天。</p><div class="k3"><div><b>${rv.res.length}</b><span>个词</span></div><div><b>${rv.res.length ? Math.round(ok / rv.res.length * 100) : 0}%</b><span>首次就答对</span></div><div><b>1:12</b><span>用时</span></div></div><button class="story" id="story" style="width:100%"><b>读一篇用到这些词的短文</b><span>Tibi 先找现成文章，找不到就写一篇。</span></button></div></div>
+      <div class="rvfoot">${wrong ? `<button class="btn full" id="drill">再练 ${wrong} 个错词（不计分）</button>` : ''}<button class="btn pri full" id="rvEnd">完成</button></div>`;
+    $('#rvX').onclick = $('#rvEnd').onclick = () => { rv.active = false; renderRv(); };
+    $('#story').onclick = () => openChat('用今天复习的词写一篇短文');
+    if ($('#drill')) $('#drill').onclick = () => toast('原型：错词换个题型再练一轮，不计分');
+    return;
+  }
+  const opts = c.type === 'choice' ? c.opts.map((o, k) => ({ t: o[0], ok: o[1], from: o[2], k })).sort((a, b) => hsh(c.w + a.t) - hsh(c.w + b.t)) : [];
+  const shown = rv.phase === 'shown';
+  const sentShow = esc(c.sent).replace(new RegExp('\\b' + c.w + '\\w*', 'i'), m => `<mark>${m}</mark>`);
+  let body = '', foot = '';
+  const meta = c.type === 'intro' ? '<span>初见 · 新词</span>' : c.retry ? '<span class="rt">重练 · 不计分</span>' : `<span>${{ choice: '选义', cloze: '填空', recognize: '识别' }[c.type]}</span><span>·</span><span>熟练度 <span class="stage s${c.s}">${STAGE[c.s]}</span></span>`;
+  if (c.type === 'intro') {
+    body = `<div class="ihw">${esc(c.w)}<small>${c.ipa}</small></div><div style="font-size:16px;margin:6px 0 14px">${esc(c.zh)}</div><div class="sent" style="font-size:20px">${sentShow}</div><div class="lbl" style="margin-top:8px">${esc(c.tr)}</div><div class="lbl" style="margin-top:8px">${esc(c.src)}</div>`;
+    foot = '<button class="btn pri full" id="next" style="height:52px">认识了</button>';
+  } else if (c.type === 'choice') {
+    body = `<div class="q">它在这句话里是什么意思？</div><div class="sent">${sentShow}</div>`;
+    foot = `<div class="opts">${opts.map((o, k) => `<button class="ropt${shown ? (o.ok ? ' ok' : k === rv.pick ? ' bad' : ' dim') : ''}" data-k="${k}" ${shown ? 'disabled' : ''}>${esc(o.t)}${shown && k === rv.pick && !o.ok && o.from ? `<span class="from">${esc(o.from)}</span>` : ''}</button>`).join('')}</div>`;
+  } else if (c.type === 'cloze') {
+    const re = new RegExp('\\b' + c.w + '\\w*', 'i'), word = (c.sent.match(re) || [c.w])[0];
+    body = `<div class="q">根据上下文填空 · 提示：${esc(c.hint || c.zh)}</div><div class="sent">${esc(c.sent).replace(re, () => shown ? (rv.pend.ok ? `<span class="fix">${word}</span>` : `<span class="bad">${esc(rv.typed || '　')}</span> <span class="fix">${word}</span>`) : '<input id="blank" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">')}</div>`;
+    if (!shown) foot = '<button class="btn pri full" id="check" style="height:52px">检查</button><button class="btn full" id="giveup" style="background:none;height:36px;font-weight:500;color:var(--ink-3)">不会，看答案</button>';
+  } else {
+    body = `<div class="q">这个词在句子里是什么意思？</div><div class="sent">${sentShow}</div>`;
+    if (!shown) foot = '<button class="btn pri full" id="reveal" style="height:52px">显示答案</button>';
+  }
+  if (shown) {
+    body += `<div class="ans">${c.type === 'choice' ? `<div class="verdict ${rv.pend.ok ? 'ok' : 'bad'}">${rv.pend.ok ? '✓ 选对了' : '✕ 选错了'}</div>` : c.type === 'cloze' ? `<div class="verdict ${rv.pend.ok ? 'ok' : 'bad'}">${rv.pend.ok ? '✓ 正确' : '✕ 不对'}</div>` : ''}<b>${esc(c.w)}</b><span class="ipa">${c.ipa}</span><p>${esc(c.zh)}</p><p class="zh">${esc(c.tr)}</p>${c.note ? `<p class="zh">${esc(c.note)}</p>` : ''}</div>`;
+    if (c.type === 'recognize' && !c.retry) foot = `<div class="rates">${[1, 2, 3, 4].map(g => `<button class="r${g}${g === 3 ? ' sug' : ''}" data-r="${g}">${RL[g - 1]}<small>${IV[g]}</small></button>`).join('')}</div>`;
+    else {
+      const g = rv.pend.g;
+      foot = (c.retry ? `<div class="gline"><span class="gtag">不计分</span><span>${rv.pend.ok ? '这次记住了' : '过几张再出一次'}</span></div>` : `<div class="gline"><span class="gtag r${g}">${RL[g - 1]}</span><span>${rv.pend.reason} · ${g === 1 ? '3 张后换个题型重练' : IV[g] + '再见'}</span><button class="linkb" id="chg">${rv.showRates ? '收起' : '改评分'}</button></div>`)
+        + (rv.showRates && !c.retry ? `<div class="rates">${[1, 2, 3, 4].map(k => `<button class="r${k}${k === g ? ' sug' : ''}" data-r="${k}">${RL[k - 1]}<small>${IV[k]}</small></button>`).join('')}</div>` : '')
+        + '<button class="btn pri full" id="cont" style="height:52px">继续</button>';
+    }
+  }
+  s.innerHTML = head + `<div class="rvbody"><div class="k">${meta}</div>${body}</div><div class="rvfoot">${foot}</div>`;
+  if (rv.phase === 'ask') rv.t0 = Date.now();
+  $('#rvX').onclick = () => { rv.active = false; renderRv(); toast('进度已保存，下次接着做'); updateRvCard(); };
+  const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  on('#next', () => { c.res = 'i'; rv.i++; renderRv(); });
+  on('#reveal', () => { rv.phase = 'shown'; renderRv(); });
+  on('#check', () => { rv.typed = $('#blank').value; judge((c.ans || [c.w]).includes(rv.typed.trim().toLowerCase())); });
+  on('#giveup', () => { rv.typed = ''; judge(false); });
+  on('#chg', () => { rv.showRates = !rv.showRates; renderRv(); });
+  on('#cont', () => commit(rv.pend.g));
+  s.querySelectorAll('.ropt').forEach(b => b.onclick = () => { rv.pick = +b.dataset.k; judge(!!opts[rv.pick].ok); });
+  s.querySelectorAll('[data-r]').forEach(b => b.onclick = () => commit(+b.dataset.r));
+  const bl = $('#blank'); if (bl) { setTimeout(() => bl.focus(), 80); bl.addEventListener('keydown', e => { if (e.key === 'Enter') $('#check').click(); }); }
+}
+function judge(ok) { const c = rv.Q[rv.i], [g, reason] = grade(c, ok, Date.now() - rv.t0); rv.pend = { ok, g, reason }; rv.phase = 'shown'; rv.showRates = false; try { navigator.vibrate && navigator.vibrate(ok ? 8 : [12, 40, 12]); } catch (e) {} renderRv(); }
+function commit(g) {
+  const c = rv.Q[rv.i];
+  if (c.retry) { c.res = rv.pend.ok ? 'o' : 'x'; if (!rv.pend.ok && c.retry < 2) rv.Q.splice(Math.min(rv.Q.length, rv.i + 4), 0, retryOf(c)); }
+  else { c.res = g; rv.res.push({ w: c.w, g }); if (g === 1) rv.Q.splice(Math.min(rv.Q.length, rv.i + 4), 0, retryOf(c)); }
+  rv.i++; rv.phase = 'ask'; rv.pend = null; rv.pick = -1; haptic(); renderRv();
+  anim(document.querySelector('.rvbody'), { x: [36, 0], opacity: [0, 1] }, { duration: 0.28 });
+}
+function updateRvCard() { const left = rv.Q.length - rv.i; if (rv.i > 0 && left > 0) { $('#rvT').textContent = '复习做到一半'; $('#rvS').textContent = `还剩 ${left} 张`; $('#rvGo').textContent = '接着复习'; $('#tabN').textContent = left; } }
 renderRv();
+
+/* ---------- 我：提醒、小组件与分享演示 ---------- */
+$('#remindRow').onclick = e => { e.preventDefault(); openSheet('#tsheet'); };
+document.querySelectorAll('#remSeg button').forEach(b => b.onclick = () => { document.querySelectorAll('#remSeg button').forEach(x => x.classList.toggle('on', x === b)); $('#remindVal').innerHTML = `<em>${b.dataset.v}</em>›`; haptic(); });
+let wgFox = null;
+$('#sysRow').onclick = e => { e.preventDefault(); openSheet('#ssheet'); if (!wgFox) wgFox = Fox.mount($('#wgFox'), { state: 'idle', size: 50 }); };
+document.querySelectorAll('#wgSeg button').forEach(b => b.onclick = () => { document.querySelectorAll('#wgSeg button').forEach(x => x.classList.toggle('on', x === b)); const done = b.dataset.v === 'done'; $('#wgS b').textContent = done ? '✓' : '18'; $('#wgS span').textContent = done ? '今天复习完了 · 连续 10 天' : '张待复习 · 连续 9 天'; wgFox && wgFox.set(done ? 'happy' : 'idle'); });
+$('#shNow').onclick = () => { closeSheets(); importUrl('https://blog.rust-lang.org'); };
+$('#shLater').onclick = () => toast('已放进书架，稍后读');
 </script>

@@ -215,13 +215,13 @@ input[type=range] { accent-color: var(--ink); width: 100%; }
       <div class="prog"><i id="progBar"></i></div><span id="progTxt">0%</span>
       <div class="counts" id="counts" role="button" tabindex="0" title="标注说明"><span><i class="sw new"></i>生词 <b id="cNew">0</b></span><span><i class="sw learn"></i>学习中 <b id="cLearn">0</b></span><span><span class="unc-ex">待确认</span> <b id="cUnc">0</b></span><span class="q">?</span></div>
       <div class="legend" id="legend" hidden>
-        <div class="lh">标注说明<span class="lbl-i">点一个词可以改熟练度</span></div>
-        <div class="lr"><span class="ex"><span class="w s0">upshot</span></span><div><b>生词</b><small>不认识，点开词卡看释义；加入生词本后会进入复习</small></div></div>
-        <div class="lr"><span class="ex"><span class="w s1">verify</span> <span class="w s2">habit</span> <span class="w s3">scope</span> <span class="w s4">rule</span></span><div><b>学习中</b><small>见过 → 眼熟 → 认得 → 熟悉，越熟颜色越淡；到"掌握"就不再标注</small></div></div>
-        <div class="lr"><span class="ex"><span class="w s99">binding</span></span><div><b>待确认</b><small>Tibi 猜你认识它；点一下确认，或标为生词</small></div></div>
-        <div class="lr"><span class="ex"><span class="ph">goes out of scope</span></span><div><b>短语</b><small>你标过或 Tibi 建议学的搭配；选中几个词可以标为短语</small></div></div>
+        <div class="lh">标注说明</div>
+        <div class="lr"><span class="ex"><span class="w s0">upshot</span></span><div><b>生词</b><small>可能不认识，点开看释义</small></div></div>
+        <div class="lr"><span class="ex"><span class="w s1">verify</span> <span class="w s2">habit</span> <span class="w s3">scope</span> <span class="w s4">rule</span></span><div><b>学习中</b><small>见过 → 熟悉，越熟越淡；掌握后不再标注</small></div></div>
+        <div class="lr"><span class="ex"><span class="w s99">binding</span></span><div><b>待确认</b><small>可能认识，点一下确认</small></div></div>
+        <div class="lr"><span class="ex"><span class="ph">goes out of scope</span></span><div><b>短语</b><small>值得学的搭配；选中几个词可标为短语</small></div></div>
         <div class="lr"><span class="ex"><span class="w sel">upshot</span></span><div><b>选中</b><small>正在看它的词卡</small></div></div>
-        <div class="lf">没标注的词 = 已知 · 代码和专有名词不参与 · 设置里可改为"仅生词"或"纯净阅读"</div>
+        <div class="lf">没标注的是已知词。代码和专有名词不标注。</div>
       </div>
       <span class="sp"></span><span class="ratio-w" id="ratio"></span><span class="eta" id="eta"></span>
     </footer>
@@ -235,7 +235,7 @@ input[type=range] { accent-color: var(--ink); width: 100%; }
       <button class="ibtn" id="closeDrawer" title="关闭（Esc）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </header>
     <div class="scroll" id="pbody"><div class="dbody"><div class="pane" id="pane-sum"></div><div class="pane" id="pane-vocab" hidden></div><div class="pane" id="pane-asst" hidden></div></div></div>
-    <div class="dfoot" id="composer" hidden><div class="dcomp"><textarea id="askInput" placeholder="问 Tibi，比如：这句话为什么用 had been？" aria-label="向助手提问"></textarea><button class="send" id="askSend" aria-label="发送"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></div>
+    <div class="dfoot" id="composer" hidden><div class="dcomp"><textarea id="askInput" placeholder="问 Tibi" aria-label="向助手提问"></textarea><button class="send" id="askSend" aria-label="发送"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></div>
   </aside>
 </div>
 
@@ -392,7 +392,7 @@ const DOCS = [
     sum:'小说以一句著名的反讽格言开篇：有钱的单身汉总得娶个妻子。班纳特太太兴冲冲地告诉丈夫，附近的内瑟菲尔德庄园终于租出去了；班纳特先生却漫不经心，夫妻性格的反差由此展开。',
     extraTitle:'人物表', extra:[['Mr. Bennet','班纳特先生：冷淡、爱讽刺的父亲'],['Mrs. Bennet','班纳特太太：一心想把女儿嫁出去'],['Mrs. Long','朗太太：邻居，本章的消息来源']],
     hard:{s:'However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered the rightful property of some one or other of their daughters.', a:'However + 形容词引导让步状语从句：无论（他的感情和想法）多么不为人知。on his first entering = 当他刚搬进来时（动名词作介词宾语）。主句是 so well fixed … that … 结构，表示结果。'},
-    advice:'本章有两个“熟词僻义”：let（出租）和 single（单身的），我已用 AI 标出。古典小说对话多，长句多用让步、倒装，可以配合“长难句”一起读。',
+    advice:'本章有两个“熟词僻义”：let（出租）和 single（单身的），已标出。长句多用让步和倒装，可以对照“长难句”一起读。',
     quiz:['What news does Mrs. Bennet bring?','How does Mr. Bennet react to the news?','What is ironic about the first sentence?'] },
 ];
 
@@ -638,8 +638,8 @@ function refresh() {
   $('#ratio').innerHTML = `生词率 <b>${(st.ratio * 100).toFixed(1)}%</b> &nbsp;<span class="lvl ${cls}">${lv}</span>`;
   const left = st.nNew.size, unc = st.nU.size;
   $('#endcard').innerHTML = `<h3>读完本篇</h3>
-    <p>本篇还有 ${left} 个没处理的生词。标为已知后不进复习，也不算掌握，下一篇的自动标注会更准；之后在任何文章里都能改回来。${unc ? `另有 ${unc} 个待确认的词，还等你在词卡上确认。` : ''}</p>
-    <div class="row"><button class="btn pri" id="markRest"${left ? '' : ' disabled'}>把 ${left} 个生词标为已知</button><button class="btn" id="review">回顾本篇重点</button><button class="btn" id="toAsst">让 Tibi 出 3 道理解题</button><a class="btn" id="calib" href="${URLS.onboarding}#step=2&from=reader">标得不准？校准词汇量</a></div>`;
+    <p>还有 ${left} 个生词没处理。标为已知后不进复习，可随时改回。${unc ? `另有 ${unc} 个待确认。` : ''}</p>
+    <div class="row"><button class="btn pri" id="markRest"${left ? '' : ' disabled'}>把 ${left} 个生词标为已知</button><button class="btn" id="review">回顾本篇重点</button><button class="btn" id="toAsst">出 3 道理解题</button><a class="btn" id="calib" href="${URLS.onboarding}#step=2&from=reader">标得不准？校准词汇量</a></div>`;
   $('#markRest').onclick = markRestKnown;
   $('#toAsst').onclick = () => { switchTab('asst'); runPreset('quiz'); };
   $('#review').onclick = roughReview;
@@ -675,7 +675,7 @@ const drawerOpen = () => $('#app').classList.contains('drawer-open');
 const TAB_BTN = { sum: 'sumBtn', vocab: 'vocabBtn', asst: 'lexiBtn' };
 let activeTab = 'sum';
 /* 抽屉头部：当前页签的标题 + 一个专属动作；页签切换靠顶栏的三个按钮 */
-const DHEAD = { sum: ['总结', '重新生成', () => showToast('原型：会用当前模型档重新生成总结、短语与长难句')], vocab: ['本篇生词', '剩余全部标为已知', () => markRestKnown()], asst: ['✦ Tibi', '新对话', () => { renderAsst(); showToast('已开始新对话，这篇文章仍作为上下文'); }] };
+const DHEAD = { sum: ['总结', '重新生成', () => showToast('原型：会用当前模型档重新生成总结、短语与长难句')], vocab: ['本篇生词', '剩余全部标为已知', () => markRestKnown()], asst: ['✦ Tibi', '新对话', () => { renderAsst(); showToast('已开始新对话'); }] };
 function renderDhead() { const [t, a, fn] = DHEAD[activeTab]; $('#dTitle').textContent = t; const b = $('#dAct'); b.hidden = false; b.textContent = a; b.onclick = fn; }
 function markTopBtns(t) { Object.entries(TAB_BTN).forEach(([k, id]) => $('#' + id).classList.toggle('on', drawerOpen() && k === t)); }
 function openDrawer() { if (drawerOpen()) return; $('#app').classList.add('drawer-open'); setTimeout(() => { moveTabDot(false); rr(); placePop(); }, 380); }
@@ -731,7 +731,7 @@ const STAGES = [
   ['掌握', '已经会了，不再标注'],
 ];
 function statusButtons(s) {
-  const desc = s >= 0 && s <= 5 ? `<b>${STAGES[s][0]}</b>：${STAGES[s][1]}` : (s === 97 ? '<b>已知</b>：你标过认识，不进复习，也不算掌握' : s === -2 ? '已忽略，不再标注' : '还没有设定，点上面的格子选择你对它的熟悉程度');
+  const desc = s >= 0 && s <= 5 ? `<b>${STAGES[s][0]}</b>：${STAGES[s][1]}` : (s === 97 ? '<b>已知</b>：不进复习' : s === -2 ? '已忽略，不再标注' : '选一个熟练度');
   return `<div class="pips" role="group" aria-label="熟练度">${STAGES.map(([n, dsc], v) =>
     `<button class="pip${s === v ? ' on' : ''}${s >= v && s <= 5 ? ' fill' : ''}" data-s="${v}" title="${n}：${dsc}（快捷键 ${v === 5 ? 'K' : v}）"><i></i>${n}</button>`).join('')}</div>
     <div class="stagedesc">${desc}</div>`;
@@ -742,7 +742,7 @@ function renderCard() {
   if (!selected) {
     const st = docStats(); const [lv, c] = levelOf(st.ratio);
     p.innerHTML = `<div class="icard">
-      <div class="sec"><h5>词卡</h5><div class="empty">点文中任意单词，这里会出现它的释义、读音和你的学习状态。<br>选中几个连续的词，可以标为短语。按 <span class="kbd">J</span> 跳到下一个生词。</div></div>
+      <div class="sec"><h5>词卡</h5><div class="empty">点一个词查看释义。按 <span class="kbd">J</span> 跳到下一个生词。</div></div>
       <div class="sec"><h5>本篇难度</h5>
         <div class="meter" aria-hidden="true"><i style="width:${Math.min(100, st.ratio * 100 * 8)}%"></i></div>
         <div class="subrow"><span>生词率 ${(st.ratio * 100).toFixed(1)}% &nbsp;<span class="lvl ${c}">${lv}</span></span><span class="lbl-i">2–5% 最适合学习</span></div></div></div>`;

@@ -181,7 +181,7 @@ body.bulk-on .toast { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
             <div class="addpop" id="addPop" hidden>
               <div style="font-size:13px;font-weight:500">添加到生词本</div>
               <textarea id="addIn" placeholder="一个词，或粘贴一列（每行一个，也可以 词,释义）&#10;例如：&#10;ubiquitous&#10;tenet, n. 信条"></textarea>
-              <div class="r"><span>没有原句的词先用词典例句做复习卡，读到时再换成你的原句</span></div>
+              <div class="r"><span>先用词典例句做卡，读到时换成原句</span></div>
               <div class="r"><span class="sp"></span><button class="btn sm" id="addCancel">取消</button><button class="btn sm pri" id="addOk">加入</button></div>
             </div>
             <div class="menu" id="ioMenu" hidden>
@@ -310,10 +310,10 @@ const VIEWS = [
   ['ignored', '已忽略', x => x.s === 98, 'M3 3l18 18M10 6a7 7 0 018 8M6.5 8.5A7 7 0 0012 19c1.5 0 2.9-.5 4-1.3'],
   ['mastered', '已掌握', x => x.s === 5, 'M5 12l5 5 9-10'],
 ];
-const VIEW_TIP = { leech: ['这些词反复忘记（3 次以上）。', '继续按原排期只会一直回流，换个办法：让 Tibi 讲讲、换一种题型，或者先暂停。'], stuck: ['遇见了很多次，熟练度还停在前两档。', '可能是在原句里"看懂了"但没真正记住，建议今天先复习它们。'], stale: ['超过一周没在文章里遇见。', '让 Tibi 找几篇包含它们的文章，比单独背更有效。'], ignored: ['你让 Tibi 不再标注的词（专有名词、代码等）。', '恢复后会重新按熟练度处理。'], mastered: ['已经会了，不再标注、不进复习。', '统计里的"已知词"包含它们。'], unsure: ['Tibi 猜你可能不认识、但还没确认的词。', '读到时点一下就能确认。'] };
+const VIEW_TIP = { leech: ['复习时忘了 3 次以上的词。', ''], stuck: ['遇见很多次，熟练度还在前两档。', ''], stale: ['一周以上没在文章里遇见。', ''], ignored: ['不标注、不复习的词。', ''], mastered: ['已掌握，不再标注和复习。', ''], unsure: ['可能不认识、还没确认的词。', ''] };
 const COLS = [
   ['w', '单词 / 短语', 'minmax(170px, 1.3fr)', true, true], ['zh', '释义', 'minmax(0, 1.6fr)', true, true], ['stage', '熟练度', '72px', true], ['star', '词频', '58px', false], ['exam', '考试', '96px', false],
-  ['tags', '标签', '120px', false], ['enc', '遇见', '88px', true], ['ret', '记忆保持率', '92px', false], ['due', '下次复习', '82px', true],
+  ['tags', '标签', '120px', false], ['enc', '遇见', '88px', true], ['ret', '记得率', '92px', false], ['due', '下次复习', '82px', true],
 ];
 let view = 'all', fStage = null, fKind = 'all', fSrc = 'all', fQ = '', sortBy = 'due', selId = null, kbId = null, showCtx = false; const fTags = new Set();   // 标签多选 = 同时满足，与书架页一致
 let cols = new Set(['w', 'zh', 'stage', 'enc', 'due']);
@@ -350,7 +350,7 @@ function renderTop() {
   $('#distlab').innerHTML = counts.map((c, i) => `<button data-s="${i}" title="${STAGES[i][1]}" style="${fStage !== null && fStage !== i ? 'opacity:.4' : ''}"><i class="c${i}"></i>${STAGES[i][0]} <b>${c}</b></button>`).join('') + (fStage !== null ? `<button data-s="clear" style="color:var(--accent)">清除筛选</button>` : '');
   document.querySelectorAll('#distbar button, #distlab button').forEach(b => b.onclick = () => { const s = b.dataset.s === 'clear' ? null : +b.dataset.s; if (s === 5) { setView('mastered'); return; } if (view === 'mastered' || view === 'ignored') view = 'all'; fStage = s === fStage ? null : s; render(true); });
   const tip = VIEW_TIP[view], vt = $('#viewtip'); vt.hidden = !tip;
-  if (tip) { vt.innerHTML = `<b>${tip[0]}</b><span>${tip[1]}</span><span class="sp"></span>${view === 'stale' ? '<button class="btn sm" id="vtAct">让 Tibi 找文章</button>' : view === 'stuck' || view === 'leech' ? '<button class="btn sm" id="vtAct">先复习这些</button>' : ''}`; const b = $('#vtAct'); if (b) b.onclick = () => toast(view === 'stale' ? '原型：Tibi 用「找文章」按这些词检索' : `原型：开始一轮只含这 ${filtered().length} 个词的复习，不影响排期`); }
+  if (tip) { vt.innerHTML = `<b>${tip[0]}</b><span>${tip[1]}</span><span class="sp"></span>${view === 'stale' ? '<button class="btn sm" id="vtAct">找相关文章</button>' : view === 'stuck' || view === 'leech' ? '<button class="btn sm" id="vtAct">先复习这些</button>' : ''}`; const b = $('#vtAct'); if (b) b.onclick = () => toast(view === 'stale' ? '原型：Tibi 用「找文章」按这些词检索' : `原型：开始一轮只含这 ${filtered().length} 个词的复习，不影响排期`); }
 }
 const OPTIONAL = ['tags', 'exam', 'star', 'ret', 'enc'];
 function visCols() { const w = $('#wl').clientWidth || 1000; let drop = w < 640 ? 5 : w < 900 ? 4 : 0; return COLS.filter(c => cols.has(c[0])).filter(c => { if (drop && OPTIONAL.includes(c[0]) && OPTIONAL.indexOf(c[0]) < drop) return false; return true; }); }   // 抽屉打开、列表变窄时自动收起次要列，用户的勾选不变
@@ -380,7 +380,7 @@ function renderRows(animate) {
       <span class="ckc"><button class="ck${checked.has(x.id) ? ' on' : ''}" data-ck="${x.id}" aria-label="选择 ${esc(x.w)}">${checked.has(x.id) ? '✓' : ''}</button></span>
       ${visCols().map(c => cell(x, c[0])).join('')}<span></span>
       <span class="ra">${x.kind === 'word' && x.s !== 98 ? `<button data-ra="say" title="发音">${IC.say}</button>` : ''}<button data-ra="ask" title="问 Tibi">${IC.ask}</button><button data-ra="more" title="更多">${IC.more}</button></span></div>`).join('')
-    : `<div class="nores">${mascotImg('empty-words')}${view === 'all' ? '没有符合条件的词，换个筛选条件试试。' : '这个视图现在是空的。'}</div>`;
+    : `<div class="nores">${mascotImg('empty-words')}${view === 'all' ? '没有符合的词。' : '这里还没有词。'}</div>`;
   document.querySelectorAll('.wr').forEach(r => { r.onclick = e => { if (e.target.closest('.ck, .ra')) return; select(+r.dataset.id); }; r.onkeydown = e => { if (e.key === 'Enter') select(+r.dataset.id); }; });
   document.querySelectorAll('[data-ck]').forEach(c => c.onclick = () => { const id = +c.dataset.ck; checked.has(id) ? checked.delete(id) : checked.add(id); renderRows(false); renderBulk(); });
   document.querySelectorAll('[data-ra]').forEach(b => b.onclick = e => { e.stopPropagation(); const id = +b.closest('.wr').dataset.id, x = WORDS.find(w => w.id === id); if (b.dataset.ra === 'say') speakW(x.w); else if (b.dataset.ra === 'ask') { selId = id; switchTab('asst'); openDrawer(); } else openRowMenu(b, x); });
@@ -443,15 +443,15 @@ function renderDetail() {
     <div class="whead"><div><div class="hw">${esc(x.w)}</div><div class="pron">${x.ipa ? `<span class="ipa">${x.ipa}</span>` : x.kind === 'phrase' ? '<span class="tags">短语</span>' : ''}<span>遇见 ${x.enc} 次 · ${x.docs.length} 篇 · 加入于${fmtAgo(x.added)}</span></div>
       <div class="dmeta">${x.star ? `<span class="stars" title="柯林斯星级">${'★'.repeat(x.star)}</span>` : ''}${x.exam.map(e => `<span class="tagc sys">${EXAM[e]}</span>`).join('')}${x.tags.map(t => `<span class="tagc">${esc(t)}</span>`).join('')}</div></div>
       ${x.kind === 'word' ? '<button class="say" title="发音" id="sayBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6M18.5 6.5a8 8 0 010 11"/></svg></button>' : ''}</div>
-    ${x.lapses >= 3 ? `<div class="leechbox"><div><b>难词</b> · 复习时忘了 ${x.lapses} 次，照常排期只会一直回流</div><div class="row"><button class="btn sm" data-la="explain">✦ 让 Tibi 讲讲</button><button class="btn sm" data-la="retype">换一种题型</button><button class="btn sm" data-la="pause">暂停 2 周</button></div></div>` : ''}
+    ${x.lapses >= 3 ? `<div class="leechbox"><div><b>难词</b> · 复习时忘了 ${x.lapses} 次</div><div class="row"><button class="btn sm" data-la="explain">讲讲为什么老忘</button><button class="btn sm" data-la="retype">换一种题型</button><button class="btn sm" data-la="pause">暂停 2 周</button></div></div>` : ''}
     ${x.s < 6 ? `<div class="sec"><h5>熟练度</h5>${ladder(x.s)}</div>` : `<div class="sec"><h5>状态</h5><div class="stagedesc">${x.s === 98 ? '<b>已忽略</b>：不再标注，也不进复习' : '<b>待确认</b>'}</div></div>`}
-    ${x.forms.length ? `<div class="sec"><h5>词族 <span class="lbl-i">同一条记录，遇见次数和复习合并计算</span></h5><div class="formrow"><span class="f main">${esc(x.w)}</span>${x.forms.map(f => `<span class="f">${esc(f)}</span>`).join('')}</div></div>` : ''}
+    ${x.forms.length ? `<div class="sec"><h5>词族</h5><div class="formrow"><span class="f main">${esc(x.w)}</span>${x.forms.map(f => `<span class="f">${esc(f)}</span>`).join('')}</div></div>` : ''}
     ${x.zh ? `<div class="sec"><h5>释义</h5><div class="gloss">${esc(x.zh)}</div>${x.en ? `<details><summary>英英释义</summary><div class="en">${esc(x.en)}</div></details>` : ''}</div>` : ''}
     <div class="sec"><h5>遇到过的原句 · ${x.ctx.length}</h5><div class="ctxs">${x.ctx.map(([d, s], i) => {
       const q = esc(s).replace(new RegExp(`\\b(${x.w.split(' ')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\w*)`, 'i'), '<mark>$1</mark>'); const sc = ctxScore(x, s), isBest = best && best.i === i;
-      return `<div class="ctx${isBest ? ' best' : ''}">${isBest ? '<span class="best-tag">复习卡用这句</span>' : ''}<div class="from"><span>${DOCS[d].g}</span>${DOCS[d].open ? `<a href="${URLS.reader}" ${LOCAL ? '' : 'target="_blank" rel="noopener"'}>${esc(DOCS[d].t)} →</a>` : `<span>${esc(DOCS[d].t)}</span>`}</div><div class="quote">${q}</div><div class="why">${sc.others === 0 ? '句子里其它词你都认识' : `还有 ${sc.others} 个生词，先不用它做卡`}</div></div>`; }).join('')}</div>
-      <div class="memref">优先用"只有这一个生词"的句子做复习卡；有多句时会轮换，避免只记住某一句。</div><div class="row"><button class="btn sm" id="moreCtx">✦ 让 Tibi 找包含它的新文章</button></div></div>
-    ${x.s < 5 ? `<div class="sec"><h5>复习</h5><div class="kpis"><div><b>${dueTxt(x.due)}</b><span>下次复习</span></div><div><b>${retention(x)}%</b><span>记忆保持率</span></div><div><b>${reps}</b><span>复习次数${x.lapses ? ` · 忘了 ${x.lapses}` : ''}</span></div></div>
+      return `<div class="ctx${isBest ? ' best' : ''}">${isBest ? '<span class="best-tag">复习卡用这句</span>' : ''}<div class="from"><span>${DOCS[d].g}</span>${DOCS[d].open ? `<a href="${URLS.reader}" ${LOCAL ? '' : 'target="_blank" rel="noopener"'}>${esc(DOCS[d].t)} →</a>` : `<span>${esc(DOCS[d].t)}</span>`}</div><div class="quote">${q}</div><div class="why">${sc.others === 0 ? '其他词都认识' : `还有 ${sc.others} 个生词`}</div></div>`; }).join('')}</div>
+      <div class="row"><button class="btn sm" id="moreCtx">找包含它的文章</button></div></div>
+    ${x.s < 5 ? `<div class="sec"><h5>复习</h5><div class="kpis"><div><b>${dueTxt(x.due)}</b><span>下次复习</span></div><div><b>${retention(x)}%</b><span>记得率</span></div><div><b>${reps}</b><span>复习次数${x.lapses ? ` · 忘了 ${x.lapses}` : ''}</span></div></div>
       ${reps ? `<div class="revs">${revs.reverse().map(v => `<span class="rev"><i class="r${v.r}">${R[v.r - 1]}</i>${fmtAgo(v.d)}</span>`).join('')}</div>` : '<div class="lbl-i">还没有复习过</div>'}</div>` : ''}
     ${x.s < 6 ? `<div class="sec"><h5>熟练度变化</h5><div class="tl">${history(x).reverse().map(([t, d], i) => `<div class="${i === 0 ? 'now' : ''}"><span>${t}</span><span>${fmtAgo(d)}</span></div>`).join('')}</div></div>` : ''}
     <div class="row" style="flex-wrap:wrap"><button class="btn sm" id="askLexi">✦ 和近义词有什么区别</button>${x.s === 98 ? '<button class="btn sm" id="restoreOne">恢复标注</button>' : x.s < 5 ? '<button class="btn sm" id="ignoreOne">忽略</button>' : ''}<button class="btn sm" id="rmOne">移出生词本</button></div></div>`;
@@ -529,7 +529,7 @@ $('#q').addEventListener('input', e => { fQ = e.target.value.trim(); renderRows(
 document.querySelectorAll('#kindSeg button').forEach(b => b.onclick = () => { fKind = b.dataset.k; document.querySelectorAll('#kindSeg button').forEach(x => x.classList.toggle('on', x === b)); moveThumb($('#kindSeg'), true); render(true); });
 
 /* ---------- Tibi ---------- */
-const thread = [{ r: 'a', h: '<p>我可以帮你整理生词本：辨析近义词、用你的生词出题，或者找出一直没进步的词。</p>' }];
+const thread = [];
 function renderAsst() {
   const x = WORDS.find(w => w.id === selId);
   $('#pane-asst').innerHTML = `<div class="msgs"><div class="ctxline">正在看 <b>生词本 · ${VIEWS.find(v => v[0] === view)[1]}</b>${x ? ` · 选中 <b>${esc(x.w)}</b>` : ''}</div>${thread.map(m => `<div class="msg ${m.r}">${m.h}</div>`).join('')}
@@ -547,7 +547,7 @@ function preset(q) {
     ? '<p><b>overhead</b> 强调"做一件事时额外付出的代价"，常见于技术语境：<i>runtime overhead</i>。</p><ul><li><b>cost</b>：泛指成本，不一定是"额外"的。</li><li><b>expense</b>：偏指花钱的开支。</li><li><b>burden</b>：带"负担"的感情色彩。</li></ul><p>记住 <i>the overhead of doing sth</i> 这个搭配就够用了。</p>'
     : `<p>（原型）正式版会结合你遇到 <b>${esc(x.w)}</b> 的 ${x.ctx.length} 个原句，对比 2–3 个近义词的语义和常见搭配。</p>`);
   if (q === 'why') say(`为什么我老忘 ${x.w}？`, x.w === 'affect' ? '<div class="tool"><div class="row"><code>get_review_stats</code><span>4 次忘记都发生在"识别题"上</span></div></div><p>你每次看到 <b>affect</b> 都能猜出"影响"，但一到自己用就和 <b>effect</b> 混。问题不在"认不认识"，在"分不分得清"。</p><p>建议：下次改成<b>填空题</b>，并把 effect 一起放进同一张卡里对比。要我现在就改吗？</p>' : `<p>（原型）正式版会分析 <b>${esc(x.w)}</b> 的 ${x.lapses} 次忘记发生在哪种题型、相隔多久，给出针对性的办法。</p>`);
-  if (q === 'quiz') { const pick = filtered().filter(w => w.kind === 'word' && w.s <= 2).slice(0, 3); say('用这几个词出题', `<div class="tool"><div class="row"><code>create_quiz</code><span>临时练习，不影响复习排期</span></div><span>${pick.map(w => w.w).join('、')}</span></div><ol>${pick.map(w => `<li>${esc(w.ctx[0][1].replace(new RegExp(w.w.split(' ')[0] + '\\w*', 'i'), '_____'))}</li>`).join('')}</ol><p>在空格处填入合适的词，回答后我来批改。</p>`); }
+  if (q === 'quiz') { const pick = filtered().filter(w => w.kind === 'word' && w.s <= 2).slice(0, 3); say('用这几个词出题', `<div class="tool"><div class="row"><code>create_quiz</code><span>临时练习，不影响复习排期</span></div><span>${pick.map(w => w.w).join('、')}</span></div><ol>${pick.map(w => `<li>${esc(w.ctx[0][1].replace(new RegExp(w.w.split(' ')[0] + '\\w*', 'i'), '_____'))}</li>`).join('')}</ol><p>填空，答完再批改。</p>`); }
   if (q === 'stuck') say('哪些词一直没进步？', '<div class="tool"><div class="row"><code>list_terms</code><code>get_review_stats</code></div><span>按"遇见次数多但熟练度低"筛选</span></div><ul><li><b>affect</b>：遇见 11 次仍是"见过"，复习忘了 4 次，常和 effect 混淆。</li><li><b>notoriously</b>：遇见 4 次，复习已逾期 1 天。</li><li><b>intuitive</b>：从"认得"退回"见过"。</li></ul><p>左栏的"遇见多但没进步"视图里能看到全部，建议今天先复习这三个。</p>');
 }
 $('#askSend').onclick = () => { const v = $('#askInput').value.trim(); if (!v) return; $('#askInput').value = ''; say(v, '<p>（原型）正式版会结合你的生词本、复习记录和记忆来回答。</p>'); };

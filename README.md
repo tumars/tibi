@@ -19,6 +19,7 @@
 - [03 技术选型](docs/research/03-tech-survey.md)
 - [04 mac 原生感与吉祥物素材](docs/research/04-mac-native-and-mascot.md)
 - [05 词光（Word Atlas）的复习设计与参考](docs/research/05-word-atlas-review.md)
+- [06 iOS 英语学习与阅读产品，对手机版的参考](docs/research/06-ios-apps.md)
 
 ### 设计
 - [总体设计方案（可视化一页）](docs/design/overview.html)：架构、数据库、数据结构、接口（含参数与返回值）、技能，供 review
@@ -37,7 +38,7 @@
 - [首次启动引导](docs/prototypes/onboarding.html)（两步：认识一下、读第一篇；校准词汇量 `#step=2`、连接模型 `#step=3` 按需进入）
 - [书架页：现在 vs mac 原生化对照](docs/prototypes/native-mac.html)（调研 [research/04](docs/research/04-mac-native-and-mascot.md)）
 - [吉祥物：藏狐](docs/prototypes/mascot.html)（SVG 动画，7 种状态，组件 `v2-fox.js`）
-- [手机版](docs/prototypes/mobile.html)（独立的壳：底部标签栏、浮动 Tibi、底部抽屉；D8）
+- [手机版](docs/prototypes/mobile.html)（独立的壳：今天 / 书架 / 复习 / 我、全屏阅读器、两档底部面板、小组件与分享演示；D8、J1–J10）
 - 空状态：首页 / 书架 / 复习 / 任务 / 统计页左下角的"原型演示"开关，或网址加 `#empty`
 - 归档：[v1 原型](docs/prototypes/v1/)
 
