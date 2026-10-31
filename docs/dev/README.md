@@ -82,6 +82,33 @@ pnpm --filter @tibi/desktop bundle           # tauri build，带上 src-tauri/ta
 - 改完跑 `pnpm --filter @tibi/desktop i18n:sync`：把新键补进 `src/locales/en.json`（值为空）、删掉不用的；再填上英文。`i18n:check` 在 CI 里检查没有漏翻。
 - 详见 T25。
 
-## 6. M0 的技术决定（T 组）
+## 6. 手机端（M7）
+
+手机壳是 `apps/desktop` 的第二个入口 `mobile.html`（`src/mobile/`）。手机上没有 sidecar：Core 跑在 WebView 里，SQLite 由壳的 `local_db.rs`（rusqlite）提供（T28）。
+
+**在电脑上看**
+
+```bash
+pnpm --filter @tibi/desktop web            # 浏览器打开 http://localhost:1420/mobile.html，连 pnpm core:dev 的开发桥（最快）
+pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式跑：Core 在 WebView 里、自己的 app.db（--features mobile-preview）
+```
+
+**iOS**（要 macOS + Xcode 15 以上，这台 Linux 机器上做不了）
+
+1. `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`
+2. `cd apps/desktop && pnpm tauri ios init`，生成 `src-tauri/gen/apple/`（提交进仓库；`.gitignore` 只忽略 `gen/schemas`）
+3. 在 `src-tauri/tauri.ios.conf.json` 的 `bundle.iOS` 里填 `developmentTeam`（Apple 开发者账号的 Team ID）
+4. 词典：`node apps/desktop/scripts/bundle-prep.mjs --skip-sidecar`（没有词典时先跑 `pnpm ecdict`，再拷到 `src-tauri/resources/dict.db`；`tauri.ios.conf.json` 会把它带进包）
+5. `pnpm tauri ios dev`（模拟器或真机）/ `pnpm tauri ios build`
+
+**Android**（要 Android Studio、SDK、NDK，设好 `JAVA_HOME`、`ANDROID_HOME`、`NDK_HOME`）
+
+1. `rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android`
+2. `cd apps/desktop && pnpm tauri android init`（生成 `src-tauri/gen/android/`，提交）
+3. 词典同上；`pnpm tauri android dev` / `pnpm tauri android build`
+
+**还没做（要原生代码或真机验证）**：iCloud Drive 同步（Swift 小插件：取容器路径、`startDownloadingUbiquitousItem`、`NSMetadataQuery`，08 §8；现在手机上同步只能用 WebDAV）；Android 上 API Key 的安全存储（`keyring` 在 Android 上没有后端，要接 Keystore 插件）；从"文件"导入 EPUB / PDF / 图片（fs 插件 + iOS 安全作用域）；Safari 分享扩展、小组件、每日提醒；手机上的 OCR。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
+
+## 7. M0 的技术决定（T 组）
 
 见 [`docs/DECISIONS.md`](../DECISIONS.md#m0-技术决定t-组)。

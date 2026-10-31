@@ -6,6 +6,7 @@ import { tl } from '../lib/i18n';
  * - Tauri 里：invoke('core_call') + listen('core_event')
  * - 浏览器里（pnpm web）：WebSocket 连 `pnpm core:dev`（ws://127.0.0.1:3456），协议与 stdio 一致
  * - ?mock=1：内存假数据，页面不依赖 Core 也能渲染（截图、样式调试）
+ * - 手机（Tauri 移动端 / mobile-preview）：Core 跑在 WebView 里，直接调（mobile/local/runtime.ts）
  */
 export class RpcError extends Error {
   constructor(message: string, public readonly code: string, public readonly rpcCode: number, public readonly detail?: unknown) { super(message); this.name = 'RpcError'; }
@@ -81,7 +82,7 @@ class Rpc {
   private get t(): Promise<Transport> {
     if (!this.transport) {
       const mock = new URLSearchParams(location.search).get('mock');
-      this.transport = mock ? import('../mock').then(m => m.mockTransport()) : isTauri() ? tauriTransport() : Promise.resolve(wsTransport(import.meta.env.VITE_CORE_WS ?? 'ws://127.0.0.1:3456'));
+      this.transport = mock ? import('../mock').then(m => m.mockTransport()) : (window as { __TIBI_LOCAL_CORE__?: boolean }).__TIBI_LOCAL_CORE__ ? import('../mobile/local/runtime').then(m => m.localTransport()) : isTauri() ? tauriTransport() : Promise.resolve(wsTransport(import.meta.env.VITE_CORE_WS ?? 'ws://127.0.0.1:3456'));
       void this.transport.then(tr => { this.kind = tr.kind; if (!this.bound) { this.bound = true; tr.onEvent((e, d) => this.listeners.get(e)?.forEach(fn => fn(d))); } });
     }
     return this.transport;

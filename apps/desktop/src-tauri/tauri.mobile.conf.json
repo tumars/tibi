@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Tibi",
+        "url": "mobile.html",
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "security": {
+      "capabilities": [
+        {
+          "identifier": "mobile",
+          "description": "手机（M7）：Core 在 WebView 里，只开 SQLite、钥匙串、文件选择、深链和 http（抓网页、调模型、WebDAV，不受 CORS 限制）",
+          "windows": [
+            "main"
+          ],
+          "permissions": [
+            "core:default",
+            "core:event:default",
+            "dialog:allow-open",
+            "dialog:allow-save",
+            "deep-link:default",
+            {
+              "identifier": "http:default",
+              "allow": [
+                {
+                  "url": "https://*"
+                },
+                {
+                  "url": "http://*"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "bundle": {
+    "externalBin": [],
+    "resources": {
+      "binaries/ocr/*": null,
+      "resources/dict.db": "dict.db"
+    },
+    "iOS": {
+      "minimumSystemVersion": "16.0"
+    },
+    "android": {
+      "minSdkVersion": 26
+    }
+  }
+}

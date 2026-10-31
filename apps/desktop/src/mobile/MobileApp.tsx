@@ -12,6 +12,7 @@ import { MReader } from './Reader';
 import { MReview } from './Review';
 import { Today } from './Today';
 import { MToasts } from './ui';
+import { Welcome } from './Welcome';
 
 /**
  * 手机端独立的壳（00 §3.13，D8，M7）：今天 / 书架 / 复习 / 我 + 全屏阅读器。和桌面共用 Core 方法、rpc、i18n、复习与对话的逻辑，界面单独画。
@@ -39,6 +40,7 @@ export function MobileApp() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {tab !== 'read' && !(tab === 'review' && loc.search.includes('run=1')) && <Tabs tab={tab} />}
+      <Welcome />
       <MToasts />
     </div>
   );

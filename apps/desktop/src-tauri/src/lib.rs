@@ -3,6 +3,8 @@
 
 mod core;
 mod keys;
+#[cfg(any(mobile, feature = "mobile-preview"))]
+mod local_db;
 
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -118,8 +120,6 @@ fn mcp_command(app: AppHandle) -> Result<Value, String> {
     Ok(json!({ "program": dir.join(name).to_string_lossy(), "data_dir": data.to_string_lossy() }))
 }
 
-/// 文件选择：所选路径登记到白名单，并告诉 Core（system.registerPaths）
-
 /// 选一个文件夹（同步：任意本地文件夹，08 §13）；不登记给 Core 的文件白名单，Core 只在里面建 Tibi Sync/
 #[tauri::command]
 async fn pick_folder(app: AppHandle) -> Result<Value, String> {
@@ -127,6 +127,7 @@ async fn pick_folder(app: AppHandle) -> Result<Value, String> {
     Ok(json!({ "path": path }))
 }
 
+/// 文件选择：所选路径登记到白名单，并告诉 Core（system.registerPaths）
 #[tauri::command]
 async fn pick_file(app: AppHandle, kinds: Vec<String>, multiple: Option<bool>) -> Result<Value, String> {
     let mut exts: Vec<&str> = Vec::new();
@@ -160,7 +161,8 @@ async fn register_paths(app: &AppHandle, paths: &[String]) {
         return;
     }
     app.state::<Allowed>().0.lock().unwrap().extend(paths.iter().cloned());
-    let core = app.state::<Arc<core::CoreProcess>>().inner().clone();
+    // 手机上 Core 在 WebView 里，没有 sidecar：路径由界面自己交给 Core
+    let Some(core) = app.try_state::<Arc<core::CoreProcess>>().map(|c| c.inner().clone()) else { return };
     let p = paths.to_vec();
     let _ = tauri::async_runtime::spawn_blocking(move || core.call("system.registerPaths", json!({ "paths": p }), Duration::from_secs(5))).await;
 }
@@ -190,6 +192,49 @@ fn handle_deep_link(app: &AppHandle, urls: &[tauri::Url]) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    #[cfg(any(mobile, feature = "mobile-preview"))]
+    run_mobile();
+    #[cfg(not(any(mobile, feature = "mobile-preview")))]
+    run_desktop();
+}
+
+/// 手机（M7，00 §3.13）：没有 sidecar，Core 跑在 WebView 里（mobile.html），这里只给 SQLite、钥匙串、文件选择、深链。
+/// 桌面上加 --features mobile-preview 也走这里，用来在电脑上预览手机版、检查这段能编译。
+#[cfg(any(mobile, feature = "mobile-preview"))]
+fn run_mobile() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_http::init())
+        .manage(Allowed::default())
+        .manage(local_db::Dbs::default())
+        .setup(|app| {
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Ok(Some(urls)) = app.deep_link().get_current() {
+                    handle_deep_link(app.handle(), &urls);
+                }
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| handle_deep_link(&handle, &event.urls()));
+            }
+            // 桌面预览：窗口配置里是 index.html，换成手机壳
+            #[cfg(desktop)]
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.eval("if (!location.pathname.endsWith('mobile.html')) location.replace('mobile.html' + location.hash)");
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            local_db::db_open, local_db::db_exec, local_db::db_run, local_db::db_all, local_db::keyring_get,
+            keyring_set, keyring_delete, pick_file, save_text_file
+        ])
+        .run(tauri::generate_context!())
+        .expect("Tibi 启动失败");
+}
+
+#[cfg(not(any(mobile, feature = "mobile-preview")))]
+fn run_desktop() {
     let builder = tauri::Builder::default();
     // 单实例要最先注册（插件文档要求）；第二个进程带来的深链由 deep-link 特性转发给 on_open_url
     #[cfg(any(target_os = "windows", target_os = "linux"))]

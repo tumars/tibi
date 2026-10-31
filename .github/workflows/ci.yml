@@ -52,3 +52,5 @@ jobs:
       - name: 占位 sidecar（externalBin 要求文件存在）
         run: node apps/desktop/scripts/sidecar-dev.mjs
       - run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings
+      - name: 手机那条路（Core 在 WebView 里、local_db）也能编译
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --features mobile-preview
