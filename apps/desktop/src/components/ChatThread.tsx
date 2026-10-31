@@ -1,10 +1,10 @@
-import type { Approval, Conversation, Message } from '@tibi/core';
+import type { Conversation } from '@tibi/core';
 import { ArrowUp, Square } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Markdown } from '../lib/md';
-import { errorInfo, rpc, type Params } from '../rpc';
-import { useCore } from '../store/core';
+import { useChat, type ChatContext } from '../lib/useChat';
+import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
 
@@ -13,8 +13,7 @@ import { tl } from '../lib/i18n';
  * 回答流式出现（chat.delta）；工具调用显示成一行"Tibi 正在…"（chat.tool）；写操作按权限模式弹审批卡（approval.requested）。
  * pending：外面要发的一句（如首页带来的问题、阅读器里"问 Tibi"），按 key 只发一次。
  */
-type Live = { id: string; text: string; tools: { tool: string; summary: string; done: boolean }[]; error?: string; done: boolean };
-export type ChatContext = NonNullable<Params<'chat.send'>['context']>;
+export type { ChatContext } from '../lib/useChat';
 export interface Pending { key: string; text: string; context?: ChatContext; skill?: string; tier?: 'fast' | 'deep' }
 
 export function ChatThread({ conversationId, skill, context, pending, placeholder = tl('继续问 Tibi…'), empty, back, onConv }: {
@@ -22,56 +21,16 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
   /** 去连接模型后回到哪里 */ back: string; onConv?: (c: Conversation) => void;
 }) {
   const nav = useNavigate();
-  const [msgs, setMsgs] = useState<Message[]>([]);
-  const [live, setLive] = useState<Live[]>([]);
-  const [approvals, setApprovals] = useState<Approval[]>([]);
   const [text, setText] = useState('');
-  const [ready, setReady] = useState(false);
   const scroll = useRef<HTMLDivElement>(null);
   const sent = useRef(new Set<string>());
-  const mine = useRef(new Set<string>());
-
-  const reload = useCallback(async () => {
-    try { const c = await rpc.call('chat.open', { conversation_id: conversationId }); setMsgs(c.messages); onConv?.(c); setReady(true); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId]);
-  useEffect(() => { setLive([]); setApprovals([]); mine.current.clear(); setReady(false); void reload(); }, [reload]);
+  const { msgs, live, approvals, ready, send: sendRaw, decide, running, cancel } = useChat(conversationId, { skill, context, onConv });
+  const send = useCallback(async (t: string, ctx?: ChatContext, sk?: string, tier?: 'fast' | 'deep') => { setText(''); await sendRaw(t, ctx, sk, tier); }, [sendRaw]);
   useEffect(() => { requestAnimationFrame(() => { const el = scroll.current; if (el) el.scrollTop = el.scrollHeight; }); }, [msgs, live, approvals]);
-
-  const send = useCallback(async (t: string, ctx?: ChatContext, sk?: string, tier?: 'fast' | 'deep') => {
-    const q = t.trim(); if (!q) return;
-    setText('');
-    setMsgs(m => [...m, { id: `local-${Date.now()}`, role: 'user', text: q, created_at: Date.now() }]);
-    try {
-      const { submission_id } = await rpc.call('chat.send', { conversation_id: conversationId, text: q, context: ctx ?? context, skill: sk ?? skill, tier });
-      mine.current.add(submission_id);
-      setLive(l => [...l, { id: submission_id, text: '', tools: [], done: false }]);
-    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  }, [conversationId, context, skill]);
-
   useEffect(() => {
     if (!ready || !pending || sent.current.has(pending.key)) return;
     sent.current.add(pending.key); void send(pending.text, pending.context, pending.skill, pending.tier);
   }, [ready, pending, send]);
-
-  useEffect(() => {
-    const patch = (sid: string, f: (l: Live) => Live) => setLive(ls => ls.map(l => (l.id === sid ? f(l) : l)));
-    const offs = [
-      rpc.on('chat.delta', d => { if (d.conversation_id === conversationId) patch(d.submission_id, l => ({ ...l, text: l.text + d.delta, done: l.done || !!d.done })); }),
-      rpc.on('chat.tool', d => { if (!mine.current.has(d.task_id)) return; patch(d.task_id, l => d.phase === 'start' ? { ...l, tools: [...l.tools, { tool: d.tool, summary: d.summary, done: false }] } : { ...l, tools: l.tools.map(t => (t.tool === d.tool && !t.done ? { ...t, done: true } : t)) }); }),
-      rpc.on('task.update', d => { if (mine.current.has(d.task.id) && (d.task.state === 'err' || d.task.state === 'cancel')) patch(d.task.id, l => ({ ...l, done: true, error: d.task.state === 'cancel' ? tl('已停止') : d.task.error || tl('出错了') })); }),
-      rpc.on('task.done', d => { if (!mine.current.has(d.task.id)) return; patch(d.task.id, l => ({ ...l, done: true })); void reload().then(() => setLive(ls => ls.filter(l => l.id !== d.task.id || !!l.error))); void useCore.getState().refresh(); }),
-      rpc.on('approval.requested', d => { if (mine.current.has(d.approval.task_id)) setApprovals(a => [...a.filter(x => x.task_id !== d.approval.task_id), d.approval]); }),
-      rpc.on('approval.resolved', d => setApprovals(a => a.filter(x => x.task_id !== d.task_id))),
-    ];
-    return () => offs.forEach(o => o());
-  }, [conversationId, reload]);
-
-  const decide = async (a: Approval, decision: 'allow' | 'deny', always = false) => {
-    try { await rpc.call('tasks.approve', { id: a.task_id, decision, always }); setApprovals(x => x.filter(y => y.task_id !== a.task_id)); }
-    catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  };
-  const running = live.find(l => !l.done);
 
   return (
     <div className="chatwrap">
@@ -102,7 +61,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
       <div className="dfoot"><div className="dcomp">
         <textarea value={text} onChange={e => setText(e.target.value)} placeholder={placeholder} aria-label={tl('提问')}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); if (!running) void send(text); } }} />
-        {running ? <button className="send" aria-label={tl('停止')} title={tl('停止')} onClick={() => void rpc.call('chat.cancel', { submission_id: running.id })}><Square size={13} fill="currentColor" /></button>
+        {running ? <button className="send" aria-label={tl('停止')} title={tl('停止')} onClick={cancel}><Square size={13} fill="currentColor" /></button>
           : <button className="send" aria-label={tl('发送')} disabled={!text.trim()} onClick={() => void send(text)}><ArrowUp size={15} /></button>}
       </div></div>
     </div>

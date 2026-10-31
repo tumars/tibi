@@ -1,7 +1,8 @@
-import type { AnswerResult, QueueItem, Rating, ReviewSession } from '@tibi/core';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Rating } from '@tibi/core';
+import { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Practice } from '../review/Practice';
+import { splitAnswer, useReviewSession } from '../review/useReviewSession';
 import { Empty } from '../components/Empty';
 import { Top } from '../components/Shell';
 import { speak, STATUS_NAMES } from '../lib/util';
@@ -11,75 +12,12 @@ import { tl } from '../lib/i18n';
 
 const RATING = { 1: tl('忘了'), 2: tl('模糊'), 3: tl('记得'), 4: tl('轻松') } as const;
 
-type Phase = { kind: 'ask' } | { kind: 'reveal' } | { kind: 'answered'; result: AnswerResult; chosen?: string; typed?: string };
-
-/** 复习（00 §3.3，G1–G8）：题目在卡片里，所有操作固定在底部 */
+/** 复习（00 §3.3，G1–G8）：题目在卡片里，所有操作固定在底部；状态和动作在 useReviewSession（手机复习页共用） */
 function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
   const nav = useNavigate();
-  const [session, setSession] = useState<ReviewSession>();
-  const [err, setErr] = useState<string>();
-  const [phase, setPhase] = useState<Phase>({ kind: 'ask' });
-  const [typed, setTyped] = useState('');
-  const [hints, setHints] = useState(0);
-  const [results, setResults] = useState<Record<number, { rating?: Rating; correct: boolean; retry: boolean; intro: boolean }>>({});
-  const [done, setDone] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const t0 = useRef(Date.now()); const start = useRef(Date.now());
+  const { session, err, phase, setPhase, typed, setTyped, hints, setHints, done, item, load, answer, next, override, undo, pause: pauseSession, drill, story, summary, segClass } = useReviewSession();
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const load = useCallback(async (opts: Parameters<typeof rpc.call<'review.start'>>[1] = { resume: true }) => {
-    setErr(undefined);
-    try {
-      let s = await rpc.call('review.start', opts);
-      // 续上时游标停在已经答过的步（旧版界面没调 review.next）：先推进过去
-      for (let i = 0; i < 50 && s.cursor < s.steps.length && s.steps[s.cursor]?.result && !s.steps[s.cursor]!.intro; i++) {
-        await rpc.call('review.next', { session_id: s.session_id, step: s.steps[s.cursor]!.step });
-        s = { ...s, cursor: s.cursor + 1 };
-      }
-      setSession(s); setDone(s.steps.length === 0 || s.cursor >= s.steps.length); setPhase({ kind: 'ask' }); setTyped(''); setHints(0); t0.current = Date.now(); start.current = Date.now();
-      const r: typeof results = {}; s.steps.forEach(st => { if (st.result) r[st.step] = { rating: st.result.rating, correct: st.result.correct, retry: st.retry > 0, intro: st.intro }; }); setResults(r);
-      if (s.resumed) toast(tl('上次复习到一半，还剩 {v0} 张', { v0: s.steps.length - s.cursor }));
-    } catch (e) { setErr(errorInfo(e).message); }
-  }, []);
-  useEffect(() => { void load(); }, [load]);
-
-  const item: QueueItem | undefined = session?.steps[session.cursor];
-
-  const advance = useCallback((s: ReviewSession) => {
-    const next = s.cursor + 1;
-    if (next >= s.steps.length) { setDone(true); setElapsed(Date.now() - start.current); }
-    setSession({ ...s, cursor: next }); setPhase({ kind: 'ask' }); setTyped(''); setHints(0); t0.current = Date.now();
-  }, []);
-
-  const answer = useCallback(async (a: { choice?: string; typed?: string; self_rating?: Rating }) => {
-    if (!session || !item) return;
-    try {
-      const r = await rpc.call('review.answer', { session_id: session.session_id, step: item.step, answer: a, hints, duration_ms: Date.now() - t0.current });
-      setResults(p => ({ ...p, [item.step]: { rating: r.rating, correct: r.correct, retry: item.retry > 0, intro: false } }));
-      if (r.retry_step !== undefined && !session.steps.some(s => s.step === r.retry_step)) {
-        // 答错插入的重练步：重新拉会话拿到完整步骤
-        const s2 = await rpc.call('review.start', { resume: true }); setSession({ ...s2, cursor: session.cursor });
-      }
-      setPhase({ kind: 'answered', result: r, chosen: a.choice, typed: a.typed });
-    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  }, [session, item, hints]);
-
-  const next = useCallback(async () => {
-    if (!session || !item) return;
-    // T15：作答不推进游标，看完评分行后都要调 review.next（漏掉的话，续上时会停在答过的那一步）
-    try { await rpc.call('review.next', { session_id: session.session_id, step: item.step }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); return; }
-    advance(session);
-  }, [session, item, phase, advance]);
-
-  const override = async (rating: Rating) => {
-    if (!session || !item || phase.kind !== 'answered') return;
-    try { const r = await rpc.call('review.override', { session_id: session.session_id, step: item.step, rating }); setResults(p => ({ ...p, [item.step]: { ...p[item.step]!, rating } })); setPhase({ ...phase, result: r }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  };
-  const undo = async () => {
-    if (!session || session.cursor === 0) return;
-    try { await rpc.call('review.undo', { session_id: session.session_id }); await load(); toast(tl('已撤销上一张')); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  };
-  const pause = async () => { if (session) { try { await rpc.call('review.pause', { session_id: session.session_id }); } catch { /* */ } } nav('/'); };
+  const pause = async () => { await pauseSession(); nav('/'); };
 
   // 键盘：空格显示答案、Enter 检查 / 继续、1–4 选项或评分、Z 撤销、P 播放
   useEffect(() => {
@@ -113,9 +51,7 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
   if (err) return <><Top crumbs={[{ label: tl('复习') }]} right={tabs} /><Empty title={tl('复习还没准备好')} text={err} action={<button className="btn" onClick={() => load()}>{tl('重试')}</button>} /></>;
   if (!session) return <><Top crumbs={[{ label: tl('复习') }]} right={tabs} /><div className="scroll" /></>;
   if (done || !item) {
-    const graded = Object.entries(results).filter(([, r]) => !r.retry && !r.intro);
-    const correct = graded.filter(([, r]) => r.correct).length;
-    const wrong = session.steps.filter(s => results[s.step] && !results[s.step]!.correct && !s.retry && !s.intro).map(s => s.term.id);
+    const { graded, correctPct, minutes, wrong } = summary();
     return <>
       <Top crumbs={[{ label: tl('复习') }]} right={tabs} />
       <div className="scroll"><div className="rv">
@@ -124,16 +60,13 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
             <img src="/logo.svg" alt="" style={{ width: 96, height: 96, borderRadius: 24 }} />
             <h3>{session.kind === 'drill' ? tl('练完了') : tl('今天的复习完成了')}</h3>
             <div className="k3">
-              <div><b>{graded.length}</b><span>{tl('张卡')}</span></div>
-              <div><b>{graded.length ? Math.round(correct / graded.length * 100) : 0}%</b><span>{tl('首次就答对')}</span></div>
-              <div><b>{Math.max(1, Math.round(elapsed / 60000))}</b><span>{tl('分钟')}</span></div>
+              <div><b>{graded}</b><span>{tl('张卡')}</span></div>
+              <div><b>{correctPct}%</b><span>{tl('首次就答对')}</span></div>
+              <div><b>{minutes}</b><span>{tl('分钟')}</span></div>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-              {wrong.length > 0 && <button className="btn" onClick={() => load({}).then(() => rpc.call('review.quiz', { term_ids: wrong }).then(s => { setSession(s); setDone(false); setResults({}); setPhase({ kind: 'ask' }); }, e => toast(errorInfo(e).message, { kind: 'err' })))}>{tl('再练 {length} 个错词（不计分）', { length: wrong.length })}</button>}
-              {session.kind !== 'drill' && session.steps.length > 0 && <button className="btn" onClick={async () => {
-                const ids = [...new Set(session.steps.filter(s => !s.intro).map(s => s.term.id))].slice(0, 12);
-                try { await rpc.call('review.story', { term_ids: ids }); toast(tl('Tibi 正在写一篇用到这些词的短文，写好会放进书架')); } catch (e) { const i = errorInfo(e); toast(i.code === 'model_unavailable' ? tl('要连接模型才能写短文') : i.message, { kind: 'err' }); }
-              }}>{tl('读一篇用到这些词的短文')}</button>}
+              {wrong.length > 0 && <button className="btn" onClick={() => void drill(wrong)}>{tl('再练 {length} 个错词（不计分）', { length: wrong.length })}</button>}
+              {session.kind !== 'drill' && session.steps.length > 0 && <button className="btn" onClick={() => void story()}>{tl('读一篇用到这些词的短文')}</button>}
               <button className="btn" onClick={() => nav('/review?tab=practice')}>{tl('去练习')}</button>
               <button className="btn pri" onClick={() => nav('/')}>{tl('回首页')}</button>
             </div>
@@ -145,9 +78,8 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
 
   const ctx = item.context;
   const sentHtml = () => {
-    const sent = ctx.sentence; const ans = ctx.answer[0] ?? item.term.display;
-    const i = sent.toLowerCase().indexOf(ans.toLowerCase());
-    const before = i >= 0 ? sent.slice(0, i) : sent, mid = i >= 0 ? sent.slice(i, i + ans.length) : '', after = i >= 0 ? sent.slice(i + ans.length) : '';
+    const ans = ctx.answer[0] ?? item.term.display;
+    const { before, mid, after } = splitAnswer(ctx.sentence, ans);
     if (item.card_type === 'cloze' && phase.kind === 'ask') return <>{before}<input ref={inputRef} value={typed} onChange={e => setTyped(e.target.value)} placeholder={hints ? ans.slice(0, hints) : undefined} aria-label={tl('填空')} />{after}</>;
     if (item.card_type === 'cloze' && phase.kind === 'answered') return <>{before}{phase.result.correct ? <span className="fix">{mid || ans}</span> : <><span className="bad">{phase.typed || '—'}</span> <span className="fix">{mid || ans}</span></>}{after}</>;
     return <>{before}<mark>{mid || ans}</mark>{after}</>;
@@ -160,7 +92,7 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
       <Top crumbs={[{ label: tl('复习') }]} right={<>{tabs}<button className="btn sm" onClick={pause}>{tl('稍后继续')}</button></>} />
       <div className="scroll"><div className="rv">
         <div className="rvhead">
-          <div className="segs">{session.steps.map(s => { const res = results[s.step]; const cls = s.step === item.step ? 'cur' : res ? (s.intro ? 'ri' : res.retry ? (res.correct ? 'ro' : 'rx') : `r${res.rating ?? (res.correct ? 3 : 1)}`) : ''; return <i key={s.step} className={`${cls}${s.retry ? ' rt' : ''}`} />; })}</div>
+          <div className="segs">{session.steps.map(s => <i key={s.step} className={segClass(s)} />)}</div>
           <span className="lbl" style={{ fontVariantNumeric: 'tabular-nums' }}>{tl('第 {v0} / {length} 步 · 还剩约 {v2} 分钟', { v0: session.cursor + 1, length: session.steps.length, v2: Math.max(1, Math.round(stepLeft * 20 / 60)) })}</span>
         </div>
         <div className="rvcard">

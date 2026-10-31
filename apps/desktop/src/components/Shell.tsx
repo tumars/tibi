@@ -5,6 +5,7 @@ import { isTauri } from '../rpc';
 import { useCore } from '../store/core';
 import { useUi } from '../store/ui';
 import { tl } from '../lib/i18n';
+import { fmtDate } from '../lib/util';
 import { SearchPalette } from './SearchPalette';
 
 const NAV = [
@@ -55,7 +56,7 @@ export function Shell() {
         </nav>
         <div className="sideh hide-c">{tl('最近')}</div>
         <div className="recent hide-c">
-          {recentChats.map(c => <NavLink key={c.id} to={`/chat/${c.id}`} title={c.title} className={({ isActive }) => (isActive ? 'cur' : '')}><MessageSquare /><span>{c.kind === 'document' ? tl('讲解 · {title}', { title: c.title }) : c.title || tl('对话')}</span></NavLink>)}
+          {recentChats.map(c => <NavLink key={c.id} to={`/chat/${c.id}`} title={c.title} className={({ isActive }) => (isActive ? 'cur' : '')}><MessageSquare /><span>{c.kind === 'document' ? tl('讲解 · {title}', { title: c.title }) : c.kind === 'day' && c.day ? (c.device === 'mobile' ? tl('{d} · 手机', { d: fmtDate(Date.parse(c.day)) }) : fmtDate(Date.parse(c.day))) : c.title || tl('对话')}</span></NavLink>)}
           {recentDocs.map(d => <NavLink key={d.id} to={`/read/${d.id}`} title={d.title} className={loc.pathname.startsWith(`/read/${d.id}`) ? 'cur' : ''}><FileText /><span>{d.title}</span></NavLink>)}
           {!recentChats.length && !recentDocs.length && <div className="none">{tl('还没有对话和文章')}</div>}
         </div>
