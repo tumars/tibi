@@ -27,11 +27,12 @@ describe('语境释义（M1：固定的模型调用）', () => {
   it('没有缓存时调用快速档模型，写回 term_contexts，第二次直接用缓存', async () => {
     const { core, db, stream, sentence } = await setup([{ text: '“v. 强制执行”。' }]);
     await core.call('terms.lookup', { text: 'enforces', sentence_id: sentence.id });   // 点词：建词条与语境
+    const before = stream!.calls;   // 导入时的 AI 分析也会调用假模型
     const a = await core.call<{ meaning: string; cached: boolean }>('terms.context_meaning', { text: 'enforces', sentence_id: sentence.id });
     expect(a).toEqual({ meaning: 'v. 强制执行', cached: false });
     const b = await core.call<{ meaning: string; cached: boolean }>('terms.context_meaning', { text: 'enforces', sentence_id: sentence.id });
     expect(b.cached).toBe(true);
-    expect(stream!.calls).toBe(1);
+    expect(stream!.calls - before).toBe(1);
     const look = await core.call<{ context_meaning?: string }>('terms.lookup', { text: 'enforces', sentence_id: sentence.id });
     expect(look.context_meaning).toBe('v. 强制执行');
     const usage = await db.get<{ n: number }>("SELECT count(*) AS n FROM usage_records WHERE skill_id = 'tutor'");

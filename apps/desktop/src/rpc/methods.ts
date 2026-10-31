@@ -21,6 +21,8 @@ export interface MethodTable {
   'documents.update': { params: { id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean } }; result: Document };
   'documents.delete': { params: { id: Id }; result: Undo };
   'sections.get': { params: { id: Id; with?: ('translations' | 'ai')[] }; result: SectionContent };
+  'sections.translate': { params: { id: Id; sentence_ids?: Id[] }; result: { task_id: TaskId } };
+  'documents.analyze': { params: { id: Id }; result: { task_id: TaskId } };
   'sections.progress': { params: { id: Id; sentence_id: Id; progress: number }; result: Ok };
   'sections.finish': { params: { id: Id; mark_rest_known: boolean }; result: { marked: number; undo?: Undo } };
   'terms.lookup': { params: { text: string; sentence_id?: Id }; result: { dict?: DictEntry; term?: Term; context_meaning?: string; status_change?: { from: Status; to: Status }; card_created?: boolean } };
@@ -63,7 +65,7 @@ export interface EventTable {
   'task.done': { task: TaskSummary; result?: { document_id?: Id; summary: string; action?: { label: string; route: string } } };
   'approval.requested': { approval: Approval };
   'approval.resolved': { task_id: TaskId; decision: 'allow' | 'deny' | 'edit' };
-  'data.changed': { table: 'documents' | 'terms' | 'cards' | 'memories' | 'skills' | 'settings'; ids?: Id[] };
+  'data.changed': { table: 'documents' | 'terms' | 'cards' | 'memories' | 'skills' | 'settings' | 'sentences'; ids?: Id[] };
   'usage.updated': { skill_id: string; month_cost: number; total: number };
   'model.status': { ok: boolean; reason?: 'offline' | 'unauthorized' | 'budget' };
   'chat.delta': { conversation_id: Id; submission_id: TaskId; delta: string; done?: boolean };

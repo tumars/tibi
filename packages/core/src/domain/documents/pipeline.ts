@@ -13,6 +13,7 @@ import { countWords, segmentMarkdown, splitSentences, type Segmented } from '../
 import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, insertTerm, logStatus, readProfile, upsertForm } from '../terms/repo.js';
 import { shortGloss } from '../terms/views.js';
 import { getSample, sampleUri, writeSampleAi } from './samples.js';
+import { analyzeDocument, translateSection } from './analyze.js';
 import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSentence, listSections, listSentences, setDocumentTags, TOKENIZER_VERSION, WPM } from './repo.js';
 
 /**
@@ -207,14 +208,14 @@ export async function runImport(job: JobContext, ctx: Ctx, input: ImportInput): 
     ctx.events.emit('data.changed', { table: 'terms' });
     return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, unknown_ratio: ann.unknown_ratio, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
   }
-  // AI 子步骤：M0 没有模型，记 deferred；M2 在这里接 summary / phrases / hard_sentences
-  job.progress('整理总结');
-  await job.parallel({
-    summary: () => job.step('ai:summary', async () => ({ deferred: true })),
-    phrases: () => job.step('ai:phrases', async () => ({ deferred: true })),
-    hard_sentences: () => job.step('ai:hard_sentences', async () => ({ deferred: true })),
-  });
-  await markDeferred(ctx.db, saved.document_id);
+  // AI 分析（M2）另起一个任务：正文好了就能读，总结稍后出现（00 §3.5"可先读后分析"）。没连模型或离线直接记 deferred，之后补做
+  await job.step('ai:queue', async () => {
+    const has = await ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM providers WHERE kind = 'llm' AND deleted_at IS NULL");
+    if (!ctx.ai || !Number(has?.n ?? 0) || !ctx.platform.isOnline()) { await markDeferred(ctx.db, saved.document_id); return { queued: false }; }
+    await ctx.db.run("UPDATE documents SET ai_status = 'running', updated_at = ? WHERE id = ?", [now(), saved.document_id]);
+    const { task_id } = await ctx.jobs.submit('analyze', { kind: 'import', title: `总结 ${fetched.title}`, trigger: 'auto', input: { document_id: saved.document_id } });
+    return { queued: true, task_id };
+  }, { kind: 'pipeline', label: '排队做总结' });
   ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
   ctx.events.emit('data.changed', { table: 'terms' });
   return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, unknown_ratio: ann.unknown_ratio, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
@@ -237,6 +238,14 @@ export async function runReanalyze(job: JobContext, ctx: Ctx, input: { document_
 
 export function registerImportPipeline(jobs: JobRunner, core: Core) {
   jobs.register('import', (job: JobContext, input: ImportInput) => runImport(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input));
+  jobs.register('analyze', async (job: JobContext, input: { document_id: string }) => {
+    const r = await analyzeDocument(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input.document_id);
+    return { summary: r.ai_status === 'done' ? '总结好了' : r.ai_status === 'deferred' ? '模型暂时用不了，稍后补做' : '总结没有生成', ai_status: r.ai_status };   // 不带 document_id：后台补做不弹"开始阅读"
+  });
+  jobs.register('translate', async (job: JobContext, input: { section_id: string; sentence_ids?: string[] }) => {
+    const r = await translateSection(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input.section_id, input.sentence_ids);
+    return { summary: `翻译了 ${r.translated} 句`, ...r };
+  });
   jobs.register('reanalyze', (job: JobContext, input: { document_id: string; ai?: boolean }) => runReanalyze(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input));
 }
 

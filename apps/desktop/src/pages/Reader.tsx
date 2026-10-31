@@ -10,6 +10,7 @@ import { SectionView, type Mode } from '../reader/Section';
 import { SummaryPanel } from '../reader/SummaryPanel';
 import { WordCard } from '../reader/WordCard';
 import { errorInfo, rpc } from '../rpc';
+import { useCore } from '../store/core';
 import { toast } from '../store/ui';
 
 export function Reader() {
@@ -27,6 +28,8 @@ export function Reader() {
   const [overrides, setOverrides] = useState<Map<string, Status>>(new Map());
   const [showTop, setShowTop] = useState(false);
   const [panel, setPanel] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const modelOk = useCore(st => !!st.status?.models.ok);
   const scrollRef = useRef<HTMLDivElement>(null);
   const restored = useRef(false);
 
@@ -34,14 +37,19 @@ export function Reader() {
 
   useEffect(() => {
     let alive = true; setErr(undefined); restored.current = false;
-    rpc.call('documents.get', { id: id! }).then(d => { if (alive) setDoc(d); }, e => { if (alive) setErr(errorInfo(e).message); });
-    return () => { alive = false; };
+    const get = () => rpc.call('documents.get', { id: id! }).then(d => { if (alive) setDoc(d); }, e => { if (alive) setErr(errorInfo(e).message); });
+    void get();
+    // 后台生成的总结（导入时、补做、重新生成）好了就刷新
+    const off = rpc.on('data.changed', d => { if (d.table === 'documents' && (!d.ids || d.ids.includes(id!))) void get(); });
+    return () => { alive = false; off(); };
   }, [id]);
   useEffect(() => {
     if (!sectionId) return;
     let alive = true;
     rpc.call('sections.get', { id: sectionId, with: ['translations'] }).then(c => { if (alive) { setContent(c); setOverrides(new Map()); } }, e => { if (alive) setErr(errorInfo(e).message); });
-    return () => { alive = false; };
+    // 译文写好后重新取（只换句子，不重置覆盖状态）
+    const off = rpc.on('data.changed', d => { if (d.table === 'sentences' && d.ids?.includes(sectionId)) { setTranslating(false); void rpc.call('sections.get', { id: sectionId, with: ['translations'] }).then(c => { if (alive) setContent(c); }); } });
+    return () => { alive = false; off(); };
   }, [sectionId]);
 
   // R16：打开直接回到上次位置；"回到开头"常驻
@@ -121,7 +129,12 @@ export function Reader() {
           </div>
         </div>
         <div className="rdbar">
-          <button className={translations ? 'on' : ''} onClick={() => { setTranslations(!translations); if (!translations && !content.sentences.some(s => s.translation)) toast('译文从 M2 起生成'); }}><Languages />译文</button>
+          <button className={translations ? 'on' : ''} onClick={async () => {
+            const on = !translations; setTranslations(on);
+            if (!on || translating || content.sentences.every(s => s.translation)) return;
+            if (!modelOk) { toast('要连接模型才能生成译文', { action: { label: '去连接', run: () => nav(`/welcome?step=3&back=${encodeURIComponent(location.hash.slice(1))}`) } }); return; }
+            try { setTranslating(true); await rpc.call('sections.translate', { id: content.id }); toast('正在翻译这一章，好了会自动显示'); } catch (e) { setTranslating(false); toast(errorInfo(e).message, { kind: 'err' }); }
+          }}><Languages />{translating ? '翻译中…' : '译文'}</button>
           <button className={gloss ? 'on' : ''} onClick={() => setGloss(!gloss)}><Type />释义</button>
           <span className="vsep" />
           <button onClick={() => setMode(mode === 'all' ? 'new' : mode === 'new' ? 'clean' : 'all')}>{{ all: '全部标注', new: '仅生词', clean: '纯净阅读' }[mode]}</button>

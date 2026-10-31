@@ -42,7 +42,7 @@ type Page<T> = { items: T[]; total: number; cursor?: string };
 type Undo = { undo_id: Id; expires_at: Ts };       // 写操作的撤销凭据；system.undo 用
 type Ok = { ok: true };
 type AiStatus = 'none' | 'deferred' | 'running' | 'done' | 'failed';   // deferred = 离线、没配模型或超预算，"稍后补做"
-type AiTask = 'summary' | 'phrases' | 'hard_sentences' | 'advice' | 'glossary' | 'characters' | 'recap' | 'background' | 'translate' | 'explain' | 'grade_sentence' | 'context_meanings';   // 与 ai_results.task 一致；context_meanings = 内置示例预生成的语境释义
+type AiTask = 'summary' | 'phrases' | 'hard_sentences' | 'advice' | 'keywords' | 'glossary' | 'characters' | 'recap' | 'background' | 'translate' | 'explain' | 'grade_sentence' | 'context_meanings';   // 与 ai_results.task 一致；context_meanings = 内置示例预生成的语境释义
 type LearningEventType = 'document_imported' | 'section_finished' | 'term_marked' | 'review_session' | 'vocab_test' | 'quiz_done';   // 与 learning_events.type 一致
 
 // 文档
@@ -134,12 +134,14 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `documents.get` | `{ id: Id }` | `Document` | 含章节列表与文档级 AI 结果 |
 | `documents.update` | `{ id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean } }` | `Document` | 改 genre 会让相关 ai_results 失效 |
 | `documents.delete` | `{ id: Id }` | `Undo` | 软删（documents.deleted_at），书架不再显示，可撤销；原始文件副本一并移入回收区 |
-| `documents.reanalyze` | `{ id: Id; ai?: boolean }` | `{ task_id: TaskId }` | 按当前词库重新标注；ai=true 时重新生成总结等，也用于"稍后补做"（ai_status = deferred） |
+| `documents.reanalyze` | `{ id: Id; ai?: boolean }` | `{ task_id: TaskId }` | 按当前词库重新标注；ai=true 时把 AI 状态置回 deferred |
+| `documents.analyze` | `{ id: Id }` | `{ task_id: TaskId }` | M2：（重新）生成总结 + 学习建议 + 关键词、短语、长难句（三个子任务并行，各一次固定提示的快速档调用，JSON 输出，写 ai_results）。导入完成后流水线自动排一个（trigger = auto），"稍后补做"和"重新生成"也走这里；内置示例不适用 |
+| `documents.analyze_deferred` | `{ limit?: number }` | `{ queued: number }` | 内部：把 ai_status = deferred 的文章排进 analyze 任务（最近打开的优先）。连上模型（providers.upsert）后与 Core 每小时节拍时调用 |
 | `documents.export` | `{ id: Id; format: 'markdown' }` | `{ path: string }` | 含标注与笔记 |
 | `sections.get` | `{ id: Id; with?: ('translations' \| 'ai')[] }` | `SectionContent` | 阅读器一次取齐：句子、tokens、词状态、短语、计数 |
 | `sections.progress` | `{ id: Id; sentence_id: Id; progress: number }` | `Ok` | 阅读位置；节流后调用 |
 | `sections.finish` | `{ id: Id; mark_rest_known: boolean }` | `{ marked: number; undo?: Undo }` | 读完：mark_rest_known 只把 status = 0 的词（含规则判为生词、还没有行的词）设为 97；不动待确认词（99），不设为 5（R5） |
-| `sections.translate` | `{ id: Id; sentence_ids?: Id[] }` | `{ task_id: TaskId }` | 译文开关首次打开时整节批量生成 |
+| `sections.translate` | `{ id: Id; sentence_ids?: Id[] }` | `{ task_id: TaskId }` | 译文开关首次打开时整节批量生成：30 句一批、快速档、JSON 数组输出，写 sentences.translation，完成后发 data.changed(sentences, ids = [section_id])；没连模型 → model_unavailable |
 
 ### terms · 词汇与生词本
 

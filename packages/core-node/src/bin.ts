@@ -31,7 +31,11 @@ async function main() {
   }
   if (useStdio) attachStdio(core, host);
   // 自动备份：启动后一分钟查一次，之后每小时查一次；最近一份自动备份超过一天就备份（00 §3.7 数据）
-  const tick = () => { void maybeAutoBackup(core.db, core.platform).catch(e => console.error('[tibi-core] 自动备份失败', e)); };
+  // 同一个节拍顺便把"稍后补做"的 AI 分析排进任务（之前离线或没连模型的文章）
+  const tick = () => {
+    void maybeAutoBackup(core.db, core.platform).catch(e => console.error('[tibi-core] 自动备份失败', e));
+    void core.call('documents.analyze_deferred', {}).catch(() => undefined);
+  };
   setTimeout(tick, 60_000).unref?.();
   setInterval(tick, 3600_000).unref?.();
 }
