@@ -13,7 +13,7 @@ export interface MethodTable {
   'documents.import': { params: { source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' }; result: { task_id: TaskId } };
   'documents.samples': { params: Record<string, never>; result: { id: string; title: string; genre: Genre; minutes: number; is_default: boolean }[] };
   'documents.checkUrl': { params: { url: string }; result: { ok: boolean; url?: string; host?: string; error?: string } };
-  'documents.list': { params: { kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; cursor?: string; limit?: number }; result: Page<DocumentSummary> };
+  'documents.list': { params: { kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; status?: 'unread' | 'reading' | 'done'; cursor?: string; limit?: number }; result: Page<DocumentSummary> };
   'documents.get': { params: { id: Id }; result: Document };
   'documents.update': { params: { id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean } }; result: Document };
   'documents.delete': { params: { id: Id }; result: Undo };
@@ -34,6 +34,7 @@ export interface MethodTable {
   'review.pause': { params: { session_id: Id }; result: Ok };
   'review.quiz': { params: { term_ids?: Id[]; count?: number; from?: 'session_mistakes' }; result: ReviewSession };
   'stats.summary': { params: { range: 30 | 90 | 180 }; result: { known: number; known_delta: number; prev_delta: number; minutes: number; words: number; study_days: number; streak: number; longest_streak: number; reviews: number; retention: number } };
+  'stats.series': { params: { metrics: ('known' | 'minutes' | 'words' | 'reviews')[]; days: number }; result: { dates: number[]; series: Record<string, number[]> } };
   'profile.get': { params: Record<string, never>; result: Profile };
   'profile.update': { params: { patch: Partial<Profile> }; result: Profile };
   'settings.get': { params: { keys?: string[] }; result: Record<string, unknown> };

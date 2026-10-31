@@ -15,12 +15,14 @@ describe('统计', () => {
     const t = Date.now();
     await db.run('INSERT INTO reading_sessions(id, document_id, section_id, started_at, ended_at, words_read, terms_marked, updated_at) VALUES (?,?,?,?,?,300,2,?)', [uuidv7(), doc.document_id, doc.section_id, t - 600_000, t, t]);
     await db.run("INSERT INTO review_logs(id, card_id, rating, card_type, reviewed_at) VALUES (?,?,3,'cloze',?), (?,?,1,'choice',?)", [uuidv7(), 'c1', t, uuidv7(), 'c2', t]);
+    // 已知词（00 §3.1）：词汇量 N 以内的常见词默认已知；没有词典时库里的行都算在 N 以内
+    await db.run("UPDATE user_profile SET vocab_estimate = 10 WHERE id = '1'");
     const s = await core.call<Record<string, number>>('stats.summary', { range: 30 });
-    expect(s.known).toBe(3); expect(s.known_delta).toBe(3); expect(s.minutes).toBe(10); expect(s.words).toBe(300); expect(s.reviews).toBe(2); expect(s.retention).toBe(0.5);
+    expect(s.known).toBe(10); expect(s.known_delta).toBe(0);   // 第一天：实测 1 + 估算 9；之前没有记录，增量从 0 起 expect(s.minutes).toBe(10); expect(s.words).toBe(300); expect(s.reviews).toBe(2); expect(s.retention).toBe(0.5);
     expect(s.streak).toBe(1); expect(s.study_days).toBe(1);
     const se = await core.call<{ dates: number[]; series: Record<string, number[]> }>('stats.series', { metrics: ['known', 'reviews'], days: 7 });
     expect(se.dates).toHaveLength(7);
-    expect(se.series.known!.at(-1)).toBe(3); expect(se.series.known_confirmed!.at(-1)).toBe(1); expect(se.series.known_estimated!.at(-1)).toBe(2);
+    expect(se.series.known!.at(-1)).toBe(10); expect(se.series.known_confirmed!.at(-1)).toBe(1); expect(se.series.known_estimated!.at(-1)).toBe(9);
     expect(se.series.reviews!.at(-1)).toBe(2);
     const r = await core.call<{ weeks: { ratings: number[]; retention: number }[]; leeches: number }>('stats.retention', { weeks: 2 });
     expect(r.weeks).toHaveLength(2); expect(r.weeks[1]!.ratings).toEqual([1, 0, 1, 0]); expect(r.weeks[1]!.retention).toBe(0.5);
@@ -48,5 +50,21 @@ describe('统计', () => {
     expect(u.h2).toEqual({ window_closed: true, self_imports_7d: 1, passed: true });
     expect(u.h3).toEqual({ has_card: true, reviewed_next_day: true });
     expect(JSON.stringify(u)).not.toContain('h3 ');
+  });
+});
+
+describe('已知词：有词典时按词频判断是否在词汇量以内', () => {
+  it('N 以内的生词从估算里减掉，N 以外的确认词与待确认词加上', async () => {
+    const { knownCounts } = await import('../../src/domain/stats/rollup.js');
+    const { db } = await makeReviewCore();
+    await db.run("UPDATE user_profile SET vocab_estimate = 100 WHERE id = '1'");
+    const ins = (text: string, status: number, src: string) => db.run('INSERT INTO terms(id, kind, text, text_display, status, status_source, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)', [uuidv7(), 'word', text, text, status, src, Date.now(), Date.now()]);
+    await ins('common', 0, 'user');     // rank 10：N 以内却被标成生词 → 估算 −1
+    await ins('known', 5, 'user');      // rank 50：N 以内的实测 → 实测 +1、估算 −1
+    await ins('rare', 97, 'user');      // rank 500：N 以外的实测 → 实测 +1
+    await ins('band', 99, 'auto_rule'); // rank 300：中间带待确认 → 估算 +1
+    const ranks = new Map([['common', 10], ['known', 50], ['rare', 500], ['band', 300]]);
+    const dict = { lookup: async () => undefined, lemmas: async () => [], frequencyRank: async (l: string) => ranks.get(l), frequencyRanks: async (ls: string[]) => new Map(ls.filter(l => ranks.has(l)).map(l => [l, ranks.get(l)!])) };
+    expect(await knownCounts(db, dict)).toEqual({ confirmed: 2, estimated: 99, total: 101 });
   });
 });

@@ -1,13 +1,14 @@
 import { Type } from '@sinclair/typebox';
 import { j, now, type Database } from '../../db/driver.js';
 import { capability, method, type CapabilityMap, type MethodMap } from '../../rpc/define.js';
+import type { Dict } from '../../dict/types.js';
 import type { Genre, UsageSummary } from '../../types.js';
 import { startOfToday } from '../shared/cards.js';
 import { dateKey, rollupToday } from './rollup.js';
 
 /** 统计（00 §3.6、06）：读 daily_stats（先懒汇总今天）、review_logs、documents */
 
-async function ensureToday(db: Database) { await rollupToday(db); }
+async function ensureToday(db: Database, dict?: Dict) { await rollupToday(db, undefined, dict); }
 
 async function dailyRows(db: Database, days: number): Promise<Map<string, Record<string, number>>> {
   const from = dateKey(now() - (days - 1) * 86_400_000);
@@ -38,22 +39,23 @@ async function streaks(db: Database): Promise<{ streak: number; longest: number;
   return { streak, longest, study_days: active.size };
 }
 
-export async function summary(db: Database, range: number) {
-  await ensureToday(db);
+export async function summary(db: Database, range: number, dict?: Dict) {
+  await ensureToday(db, dict);
   const days = dayList(range); const rows = await dailyRows(db, range * 2);
   const sum = (keys: { key: string }[], f: string) => keys.reduce((s, d) => s + (rows.get(d.key)?.[f] ?? 0), 0);
   const prevDays = dayList(range * 2).slice(0, range);
   const known = rows.get(dateKey())?.known_terms_total ?? 0;
   const firstKey = days[0]!.key;
-  const before = [...rows.entries()].filter(([k]) => k < firstKey).map(([, v]) => v.known_terms_total ?? 0).pop() ?? 0;
+  const inRange = [...rows.entries()].filter(([k]) => k >= firstKey).map(([, v]) => v.known_terms_total ?? 0);
+  const before = [...rows.entries()].filter(([k]) => k < firstKey).map(([, v]) => v.known_terms_total ?? 0).pop() ?? inRange[0] ?? known;
   const prevBefore = [...rows.entries()].filter(([k]) => k < prevDays[0]!.key).map(([, v]) => v.known_terms_total ?? 0).pop() ?? 0;
   const reviews = sum(days, 'reviews'), correct = sum(days, 'review_correct');
   const st = await streaks(db);
   return { known, known_delta: known - before, prev_delta: before - prevBefore, minutes: Math.round(sum(days, 'reading_ms') / 60_000), words: sum(days, 'words_read'), study_days: st.study_days, streak: st.streak, longest_streak: st.longest, reviews, retention: reviews ? correct / reviews : 0 };
 }
 
-export async function series(db: Database, metrics: string[], days: number) {
-  await ensureToday(db);
+export async function series(db: Database, metrics: string[], days: number, dict?: Dict) {
+  await ensureToday(db, dict);
   const list = dayList(days); const rows = await dailyRows(db, days);
   const map: Record<string, (r: Record<string, number> | undefined) => number> = {
     known: r => r?.known_terms_total ?? 0, known_confirmed: r => r?.known_confirmed ?? 0, known_estimated: r => r?.known_estimated ?? 0,
@@ -72,8 +74,8 @@ export async function series(db: Database, metrics: string[], days: number) {
 }
 
 export const statsMethods: MethodMap = {
-  'stats.summary': method(Type.Object({ range: Type.Union([Type.Literal(30), Type.Literal(90), Type.Literal(180)], { default: 30 }) }), async (p, ctx) => summary(ctx.db, p.range ?? 30), '四张指标卡'),
-  'stats.series': method(Type.Object({ metrics: Type.Array(Type.String()), days: Type.Integer({ minimum: 1, maximum: 730, default: 30 }) }), async (p, ctx) => series(ctx.db, p.metrics, p.days ?? 30), '折线、柱状、热力图共用'),
+  'stats.summary': method(Type.Object({ range: Type.Union([Type.Literal(30), Type.Literal(90), Type.Literal(180)], { default: 30 }) }), async (p, ctx) => summary(ctx.db, p.range ?? 30, ctx.dict), '四张指标卡'),
+  'stats.series': method(Type.Object({ metrics: Type.Array(Type.String()), days: Type.Integer({ minimum: 1, maximum: 730, default: 30 }) }), async (p, ctx) => series(ctx.db, p.metrics, p.days ?? 30, ctx.dict), '折线、柱状、热力图共用'),
   'stats.retention': method(Type.Object({ weeks: Type.Integer({ minimum: 1, maximum: 52, default: 8 }) }), async (p, ctx) => {
     const weeks = p.weeks ?? 8; const out = [];
     const end = startOfToday() + 86_400_000;
@@ -137,6 +139,6 @@ export async function exportSummary(db: Database, app_version: string): Promise<
 }
 
 export const statsCapabilities: CapabilityMap = {
-  get_learning_stats: capability({ name: 'get_learning_stats', description: '学习概况（stats.summary 的返回）', perm: 'read', params: Type.Object({ range: Type.Union([Type.Literal(30), Type.Literal(90), Type.Literal(180)], { default: 30 }) }), run: (p, ctx) => summary(ctx.db, p.range ?? 30) }),
-  get_stats_series: capability({ name: 'get_stats_series', description: '按天的序列（已知词、分钟、词数、复习）', perm: 'read', params: Type.Object({ metrics: Type.Array(Type.String()), days: Type.Integer({ minimum: 1, maximum: 730, default: 30 }) }), run: (p, ctx) => series(ctx.db, p.metrics, p.days ?? 30) }),
+  get_learning_stats: capability({ name: 'get_learning_stats', description: '学习概况（stats.summary 的返回）', perm: 'read', params: Type.Object({ range: Type.Union([Type.Literal(30), Type.Literal(90), Type.Literal(180)], { default: 30 }) }), run: (p, ctx) => summary(ctx.db, p.range ?? 30, ctx.dict) }),
+  get_stats_series: capability({ name: 'get_stats_series', description: '按天的序列（已知词、分钟、词数、复习）', perm: 'read', params: Type.Object({ metrics: Type.Array(Type.String()), days: Type.Integer({ minimum: 1, maximum: 730, default: 30 }) }), run: (p, ctx) => series(ctx.db, p.metrics, p.days ?? 30, ctx.dict) }),
 };

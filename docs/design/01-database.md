@@ -338,7 +338,7 @@ learning_events        audio_cache        daily_stats
 | new_terms | INTEGER | |
 | known_terms_total | INTEGER | 当天结束时已知词总数；含标为已知（97） |
 | known_confirmed | INTEGER | 其中**实测**的部分（R8）：用户亲手标过、测试里点亮、或在复习里答对过的词 |
-| known_estimated | INTEGER | 其中**估算**的部分（R8）：按词汇量与词频规则推断、用户没碰过的词。统计页的已知词曲线拆成实测（实线）和估算（虚线）两条 |
+| known_estimated | INTEGER | 其中**估算**的部分（R8）：按词汇量与词频规则推断、用户没碰过的词。算法（2026-10-31 实现时定）：词频排在词汇量估算 N 以内的常见词默认已知、不入库，所以估算 = N − 其中被标成 0–2 的 − 其中已算进实测的 + N 以外的待确认（99）与 auto_rule 已知行；没有词典时把库里的行都当作在 N 以内。统计页的已知词曲线拆成实测（实线）和估算（虚线）两条 |
 | reviews | INTEGER | |
 | review_correct | INTEGER | |
 

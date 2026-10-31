@@ -45,13 +45,14 @@ svg { flex: none; }
 .nav a.cur { background: var(--accent-wash); color: var(--accent); font-weight: 500; }
 .nav a svg { width: 17px; height: 17px; }
 .nav a .n { margin-left: auto; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.nav a .n.badge { font-weight: 500; color: var(--ink-2); }   /* 到期计数：只加粗，不做实心徽标（与原型一致） */
 .nav a.cur .n { color: var(--accent); opacity: .8; }
 .sidefoot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .streak { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; }
 .streak .ring { width: 34px; height: 34px; }
 .streak .t { font-size: 13px; font-weight: 500; } .streak .s { font-size: 11.5px; color: var(--ink-3); }
 .user { display: flex; align-items: center; gap: 8px; padding: 0 4px 0 8px; }
-.user .av { width: 28px; height: 28px; border-radius: 50%; background: var(--warm-wash); color: var(--warm); display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+.user .av { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 12px; font-weight: 600; }
 .main { margin: 12px 12px 12px 0; background: var(--surface); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .app.collapsed .main, .main { }
 .top { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 14px 0 16px; }
@@ -95,26 +96,69 @@ h1.pt { margin: 14px 0 18px; font-size: 22px; font-weight: 600; letter-spacing: 
 h2.st { margin: 26px 0 10px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 h2.st .sp { flex: 1; }
 
-/* 首页 */
-.cont { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 18px 20px; border-radius: 14px; background: var(--sunken); }
-.cont .k { font-size: 12px; color: var(--ink-3); }
-.cont .t { font-family: var(--f-read); font-size: 20px; font-weight: 700; margin: 2px 0 6px; line-height: 1.25; }
-.cont .ex { font-family: var(--f-read); font-size: 14px; color: var(--ink-2); font-style: italic; margin-bottom: 10px; }
+/* 首页（与原型 docs/prototypes/home.html + v2.css 对齐：居中窄栏、继续读主卡、狐狸在输入框外侧、今天三张卡） */
+.page.home { max-width: 1040px; padding: 36px 40px 80px; display: flex; flex-direction: column; gap: 44px; }
 .bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; } .bar i { display: block; height: 100%; background: var(--accent); }
-.ask { margin-top: 18px; border-radius: 16px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); padding: 12px 12px 10px 14px; display: flex; gap: 12px; align-items: flex-start; transition: box-shadow .15s; }
-.ask:focus-within { box-shadow: inset 0 0 0 1.5px var(--accent), 0 0 0 6px var(--accent-wash); }
-.ask.drop { background: var(--accent-wash); }
-.ask textarea { flex: 1; border: 0; outline: 0; background: none; resize: none; min-height: 56px; max-height: 240px; font-size: 15px; line-height: 1.5; color: var(--ink); user-select: text; }
-.ask .foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-.ask .send { width: 32px; height: 32px; border-radius: 50%; background: var(--ink); color: var(--surface); display: grid; place-items: center; }
-.ask .send:disabled { opacity: .35; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.chip { height: 30px; padding: 0 12px; border-radius: 15px; box-shadow: inset 0 0 0 1px var(--line-2); font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
-.chip:hover { background: var(--hover); }
-.today { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.today .k { padding: 14px 16px; border-radius: 12px; background: var(--sunken); }
-.today .k b { display: block; font-size: 24px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.today .k span { font-size: 12px; color: var(--ink-3); }
+.lead-wrap { max-width: 760px; width: 100%; margin: 20px auto 0; }
+.lead { display: block; padding: 22px 24px 20px; border-radius: 20px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); color: inherit; cursor: pointer; transition: box-shadow .15s; }
+.lead:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
+.lead .k { font-size: 12.5px; color: var(--ink-3); }
+.lead .t { font-family: var(--f-read); font-size: 26px; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; margin: 6px 0 8px; }
+.lead .x { font-family: var(--f-read); font-style: italic; font-size: 15px; line-height: 1.6; color: var(--ink-2); margin: 0 0 18px; }
+.lead .m { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--ink-3); }
+.lead .m .bar2 { flex: 0 0 180px; margin: 0; }
+.lead .m .btn { margin-left: auto; height: 34px; padding: 0 18px; }
+.also { margin-top: 10px; padding: 0 4px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--ink-3); }
+.also a { color: var(--ink-2); } .also a:hover { color: var(--ink); }
+.hero { max-width: 760px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.hero h1 { margin: 0; text-align: center; font-size: 34px; font-weight: 600; letter-spacing: -.025em; line-height: 1.15; }
+.askrow { display: flex; gap: 14px; align-items: flex-start; } .askrow .composer { flex: 1; min-width: 0; }
+.askrow .hero-fox { width: 64px; height: 64px; flex: none; margin: 4px 0 0; }
+.composer { position: relative; border-radius: 24px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 1px 2px rgba(0,0,0,.03); padding: 16px 14px 12px 18px; display: flex; flex-direction: column; gap: 10px; transition: box-shadow .2s, background .2s; }
+.composer:focus-within { box-shadow: 0 0 0 1.5px var(--accent), 0 0 0 6px var(--accent-wash); }
+.composer.over { box-shadow: 0 0 0 1.5px var(--accent), 0 0 0 8px var(--accent-wash); background: var(--accent-wash); }
+.composer textarea { width: 100%; min-height: 56px; max-height: 220px; border: 0; outline: none; resize: none; background: transparent; font: inherit; font-size: 15.5px; line-height: 1.6; color: var(--ink); user-select: text; }
+.composer textarea::placeholder { color: var(--ink-3); }
+.cbar { display: flex; align-items: center; gap: 6px; }
+.cbar .hint { font-size: 12px; color: var(--ink-3); margin-left: 6px; }
+.tier { height: 30px; padding: 0 10px; border-radius: 999px; font-size: 12.5px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 4px; }
+.tier:hover { background: var(--hover); }
+.send { width: 36px; height: 36px; border-radius: 50%; background: var(--ink); color: var(--surface); display: grid; place-items: center; transition: transform .15s, opacity .2s; }
+.send:disabled { opacity: .25; cursor: default; }
+.send:not(:disabled):hover { transform: scale(1.06); }
+.attach { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+.attach:hover { color: var(--ink); background: var(--hover); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.chip { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 14px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; color: var(--ink-2); transition: background .15s, color .15s, box-shadow .15s; }
+.chip:hover { background: var(--hover); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-2); }
+.chip svg { width: 15px; height: 15px; color: var(--ink-3); }
+.importing { max-width: 760px; width: 100%; margin: -26px auto 0; padding: 10px 14px; border-radius: 12px; background: var(--sunken); display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.sech { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.sech h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.sech .more { font-size: 13px; color: var(--ink-3); } .sech .more:hover { color: var(--ink); }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.tile { border-radius: 16px; background: var(--sunken); padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; position: relative; overflow: hidden; }
+.tile .k { font-size: 12.5px; color: var(--ink-2); }
+.tile .v { font-size: 30px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.tile .v small { font-size: 13px; font-weight: 400; color: var(--ink-3); margin-left: 3px; }
+.tile .d { font-size: 12.5px; color: var(--ink-3); }
+.tile .go { position: absolute; right: 14px; bottom: 14px; height: 32px; padding: 0 14px; border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 12.5px; font-weight: 500; }
+.tile .go:hover { opacity: .88; }
+.bar2 { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 8px; }
+.bar2 i { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+.week { display: flex; gap: 6px; margin-top: 8px; }
+.week i { flex: 1; height: 6px; border-radius: 99px; background: var(--line-2); }
+.week i.on { background: var(--ink); } .week i.now { background: var(--accent); }
+@media (max-width: 1100px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 左栏"最近" */
+.sideh { font-size: 11.5px; color: var(--ink-3); padding: 16px 12px 6px; white-space: nowrap; }
+.recent { min-height: 0; overflow-y: auto; }
+.recent a { display: flex; align-items: center; padding: 6px 10px; border-radius: 8px; font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; }
+.recent a span { overflow: hidden; text-overflow: ellipsis; }
+.recent a svg { width: 14px; height: 14px; flex: none; color: var(--ink-3); margin-right: 7px; }
+.recent a.cur { background: var(--accent-wash); color: var(--accent); }
+.recent a:hover { background: var(--hover); color: var(--ink); }
+.recent .none { padding: 4px 12px; font-size: 12px; color: var(--ink-3); }
 .docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .doc { display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; transition: background .15s; min-width: 0; }
 .doc:hover { background: var(--hover); }

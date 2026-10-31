@@ -175,7 +175,7 @@ export async function nextStep(ctx: Ctx, session_id: string, stepIndex: number):
       await saveSession(tx, s.id, steps, cursor, 'finished');
       const first = steps.filter(x => x.result?.first);
       await addLearningEvent(tx, 'review_session', { session_id: s.id, kind: s.kind, steps: steps.length, graded: first.length, first_correct: first.filter(x => x.result!.correct).length });
-      await rollupToday(tx);
+      await rollupToday(tx, undefined, ctx.dict);
       return { ok: true as const, finished: true };
     }
     await saveSession(tx, s.id, steps, cursor, s.status === 'paused' ? 'active' : undefined);
