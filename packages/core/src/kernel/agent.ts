@@ -1,5 +1,8 @@
 import { Agent, type AgentTool, type StreamFn } from '@earendil-works/pi-agent-core';
 import { calculateCost, createModels, createProvider, type Api, type AssistantMessage, type Message, type Model, type Usage } from '@earendil-works/pi-ai';
+// 静态导入：打成单文件 sidecar 时，动态导入会让 esbuild 把 pi-ai 的模块包成惰性初始化，静态那条路径就漏了初始化（createModels 报 "not a constructor"）
+import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy';
+import { deepseekProvider } from '@earendil-works/pi-ai/providers/deepseek';
 import { j, now, type Database } from '../db/driver.js';
 import type { Ctx } from '../rpc/define.js';
 import { TibiError, type SkillId, type Tier } from '../types.js';
@@ -49,12 +52,10 @@ export async function resolveModelFromProviders(ctx: Ctx, tier: Tier, provider_i
   const models = createModels();
   let model: Model<Api> | undefined;
   if (isDeepseek) {
-    const { deepseekProvider } = await import('@earendil-works/pi-ai/providers/deepseek');
     const p = deepseekProvider(); models.setProvider(p);
     model = p.getModels().find(m => m.id === row.model) ?? { ...(p.getModels()[0] as Model<Api>), id: row.model, name: row.model };
-    if (!p.getModels().some(m => m.id === row.model)) models.setProvider(createProvider({ id: 'deepseek', name: 'DeepSeek', baseUrl: p.baseUrl, auth: p.auth, models: [model], api: (await import('@earendil-works/pi-ai/api/openai-completions.lazy')).openAICompletionsApi() }));
+    if (!p.getModels().some(m => m.id === row.model)) models.setProvider(createProvider({ id: 'deepseek', name: 'DeepSeek', baseUrl: p.baseUrl, auth: p.auth, models: [model], api: openAICompletionsApi() }));
   } else {
-    const { openAICompletionsApi } = await import('@earendil-works/pi-ai/api/openai-completions.lazy');
     const baseUrl = row.base_url ?? 'http://127.0.0.1:11434/v1';
     model = { id: row.model, name: row.model, api: 'openai-completions', provider: row.id, baseUrl, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128_000, maxTokens: 8192 } as unknown as Model<Api>;
     models.setProvider(createProvider({ id: row.id, name: row.name, baseUrl, auth: { apiKey: { name: row.name, resolve: async () => ({ auth: { type: 'api_key', apiKey: apiKey ?? 'ollama' } }) } } as never, models: [model] as never, api: openAICompletionsApi() }));
