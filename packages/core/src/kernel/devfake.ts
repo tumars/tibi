@@ -14,6 +14,7 @@ function reply(all: string, last: string): string {
   if (all.includes('"hard_sentences"')) return JSON.stringify({ hard_sentences: [] });
   if (all.includes('JSON 字符串数组')) { try { const arr = JSON.parse(last.slice(last.indexOf('['), last.lastIndexOf(']') + 1)) as string[]; return JSON.stringify(arr.map((_, i) => `（假译文 ${i + 1}）`)); } catch { return '[]'; } }
   if (all.includes('只输出这个词在这句话里的中文意思')) return '（假释义）';
+  if (all.includes('英语学习教练')) return JSON.stringify({ text: '（假模型）最近两周阅读时间比上两周少，复习保持得不错。可以每天先读 10 分钟再复习。', actions: ['library', 'review'] });
   if (/Reply with exactly: OK/.test(all)) return 'OK';
   return `（开发用的假模型，没有真的调用 AI）\n\n你问的是：**${last.slice(0, 200)}**\n\n- 连上真实模型后，这里是 Tibi 的回答\n- 回答支持 *Markdown*、\`代码\` 和列表`;
 }

@@ -1,0 +1,65 @@
+import { useState } from 'react';
+
+/**
+ * 统计页的小图表（00 §3.6）：只用强调色与灰色，SVG 按容器宽度缩放（viewBox），深浅色跟着 CSS 变量走。
+ */
+const W = 640;
+
+/** 面积折线：主线实线（强调色），可选第二条虚线（估算） */
+export function AreaChart({ dates, main, dashed, height = 160, fmt = (n: number) => n.toLocaleString() }: { dates: number[]; main: number[]; dashed?: number[]; height?: number; fmt?: (n: number) => string }) {
+  const [hover, setHover] = useState<number>();
+  const H = height, pad = 6;
+  const max = Math.max(1, ...main, ...(dashed ?? []));
+  const min = Math.min(...main.filter(v => v > 0), ...(dashed ?? []).filter(v => v > 0), max) * 0.9;
+  const x = (i: number) => (main.length <= 1 ? W / 2 : (i / (main.length - 1)) * W);
+  const y = (v: number) => H - pad - ((v - min) / Math.max(1, max - min)) * (H - pad * 2);
+  const line = (arr: number[]) => arr.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  return (
+    <div className="chart" onMouseLeave={() => setHover(undefined)}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: H }} onMouseMove={e => { const r = (e.currentTarget as SVGElement).getBoundingClientRect(); setHover(Math.round(((e.clientX - r.left) / r.width) * (main.length - 1))); }}>
+        <path d={`${line(main)} L${W},${H} L0,${H} Z`} fill="var(--accent-wash)" />
+        <path d={line(main)} fill="none" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        {dashed && <path d={line(dashed)} fill="none" stroke="var(--ink-3)" strokeWidth="1.5" strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />}
+        {hover !== undefined && <line x1={x(hover)} x2={x(hover)} y1="0" y2={H} stroke="var(--line-2)" vectorEffect="non-scaling-stroke" />}
+      </svg>
+      {hover !== undefined && main[hover] !== undefined && <div className="tip" style={{ left: `${(x(hover) / W) * 100}%` }}>{new Date(dates[hover]!).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })} · {fmt(main[hover]!)}{dashed ? ` · 估算 ${fmt(dashed[hover] ?? 0)}` : ''}</div>}
+    </div>
+  );
+}
+
+/** 柱状：hi(i) 为真的柱子用强调色；goal 画一条虚线 */
+export function Bars({ values, labels, hi, goal, height = 120, title }: { values: number[]; labels?: string[]; hi?: (v: number, i: number) => boolean; goal?: number; height?: number; title?: (v: number, i: number) => string }) {
+  const H = height; const max = Math.max(1, goal ?? 0, ...values); const bw = W / Math.max(1, values.length);
+  return (
+    <div className="chart">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: H }}>
+        {values.map((v, i) => { const h = (v / max) * (H - 4); return <rect key={i} x={i * bw + bw * 0.15} y={H - h} width={bw * 0.7} height={Math.max(v ? 2 : 0, h)} rx="2" fill={hi?.(v, i) ? 'var(--accent)' : 'var(--line-2)'}><title>{title?.(v, i) ?? String(v)}</title></rect>; })}
+        {goal !== undefined && <line x1="0" x2={W} y1={H - (goal / max) * (H - 4)} y2={H - (goal / max) * (H - 4)} stroke="var(--ink-3)" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />}
+      </svg>
+      {labels && <div className="xl">{labels.map((l, i) => <span key={i}>{l}</span>)}</div>}
+    </div>
+  );
+}
+
+/** 四档评分堆叠柱（忘了 / 模糊 / 记得 / 轻松），灰到强调色 */
+export function StackBars({ weeks, height = 120 }: { weeks: { ratings: [number, number, number, number]; retention: number }[]; height?: number }) {
+  const H = height; const max = Math.max(1, ...weeks.map(w => w.ratings.reduce((a, b) => a + b, 0))); const bw = W / Math.max(1, weeks.length);
+  const fills = ['var(--hard)', 'var(--line-2)', 'color-mix(in srgb, var(--accent) 55%, transparent)', 'var(--accent)'];
+  return (
+    <div className="chart">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: H }}>
+        {weeks.map((w, i) => { let y = H; return w.ratings.map((n, k) => { const h = (n / max) * (H - 4); y -= h; return <rect key={`${i}-${k}`} x={i * bw + bw * 0.2} y={y} width={bw * 0.6} height={h} fill={fills[k]}><title>{['忘了', '模糊', '记得', '轻松'][k]} {n}</title></rect>; }); })}
+      </svg>
+    </div>
+  );
+}
+
+/** 学习日历：按周一列，五档深浅 */
+export function Heatmap({ dates, values }: { dates: number[]; values: number[] }) {
+  const max = Math.max(1, ...values);
+  const level = (v: number) => (v <= 0 ? 0 : Math.min(4, Math.ceil((v / max) * 4)));
+  const first = new Date(dates[0] ?? Date.now()); const offset = (first.getDay() + 6) % 7;
+  const cells = [...Array(offset).fill(undefined), ...values.map((v, i) => ({ v, d: dates[i]! }))];
+  const cols: (typeof cells)[] = []; for (let i = 0; i < cells.length; i += 7) cols.push(cells.slice(i, i + 7));
+  return <div className="heat">{cols.map((c, i) => <div key={i} className="hcol">{c.map((x, k) => x ? <i key={k} className={`l${level(x.v)}`} title={`${new Date(x.d).toLocaleDateString('zh-CN')} · ${x.v} 分钟`} /> : <i key={k} className="pad" />)}</div>)}</div>;
+}

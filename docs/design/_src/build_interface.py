@@ -155,7 +155,9 @@ API = [
     ('stats.series', "{ metrics: ('known' | 'minutes' | 'words' | 'reviews')[]; days: number }", '{ dates: Ts[]; series: Record<string, number[]> }', '折线、柱状、热力图共用'),
     ('stats.retention', '{ weeks: number }', '{ weeks: { ratings: [number, number, number, number]; retention: number }[]; lapses: number; leeches: number }', '"复习表现"面板'),
     ('stats.genres', '{ range: number }', '{ genre: Genre; words: number; unknown_ratio: number }[]', ''),
-    ('stats.insight', '{ regenerate?: boolean }', "{ insight?: { text: string; actions: { label: string; route: string }[]; generated_at: Ts; cost: number }; task_id?: TaskId }", '有缓存直接返回；否则起学习洞察技能'),
+    ('stats.insight', '{ regenerate?: boolean }', '{ insight?: { text: string; actions: { label: string; route: string }[]; generated_at: Ts; cost: number } }', 'M3：当天有缓存（settings stats.insight）直接返回；否则用快速档按固定提示写 2–3 句观察 + 1–3 个动作（只能从复习 / 难词 / 书架 / 校准词汇量 / 生词本里挑），同步返回。输入只有计数。没连模型 → model_unavailable'),
+    ('stats.forecast', '{ days?: number }', '{ days: number[]; target_retention: number }', '"接下来要复习"：未来 N 天（默认 14）每天到期的卡数，今天含逾期'),
+    ('stats.stages', '{}', '{ stages: number[] }', '"生词本熟练度"：生词本里 0–5 六档的词数'),
     ('stats.export_summary', '{}', 'UsageSummary', '只读。M1 成功标准的脱敏汇总，只有计数，不含词和正文；界面先展示全部内容，用户复制或另存后自己发给作者，不做上报。数据来自 learning_events、term_status_log、cards、review_logs（01 §6）'),
   ]),
   ('chat', '对话（Tibi 主对话与各页面板）', [

@@ -43,6 +43,11 @@ export interface MethodTable {
   'review.quiz': { params: { term_ids?: Id[]; count?: number; from?: 'session_mistakes' }; result: ReviewSession };
   'stats.summary': { params: { range: 30 | 90 | 180 }; result: { known: number; known_delta: number; prev_delta: number; minutes: number; words: number; study_days: number; streak: number; longest_streak: number; reviews: number; retention: number } };
   'stats.series': { params: { metrics: ('known' | 'minutes' | 'words' | 'reviews')[]; days: number }; result: { dates: number[]; series: Record<string, number[]> } };
+  'stats.retention': { params: { weeks: number }; result: { weeks: { ratings: [number, number, number, number]; retention: number }[]; lapses: number; leeches: number } };
+  'stats.genres': { params: { range: number }; result: { genre: Genre; words: number; unknown_ratio: number }[] };
+  'stats.insight': { params: { regenerate?: boolean }; result: { insight?: { text: string; actions: { label: string; route: string }[]; generated_at: number; cost: number } } };
+  'stats.forecast': { params: { days?: number }; result: { days: number[]; target_retention: number } };
+  'stats.stages': { params: Record<string, never>; result: { stages: number[] } };
   'profile.get': { params: Record<string, never>; result: Profile };
   'profile.update': { params: { patch: Omit<Partial<Profile>, 'assistant_prefs'> & { assistant_prefs?: Partial<Profile['assistant_prefs']> } }; result: Profile };
   'vocab.start': { params: Record<string, never>; result: { bands: { label: string; words: string[] }[] } };

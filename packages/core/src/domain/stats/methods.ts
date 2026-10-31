@@ -1,8 +1,8 @@
 import { Type } from '@sinclair/typebox';
 import { j, now, type Database } from '../../db/driver.js';
-import { capability, method, type CapabilityMap, type MethodMap } from '../../rpc/define.js';
+import { capability, method, type CapabilityMap, type Ctx, type MethodMap } from '../../rpc/define.js';
 import type { Dict } from '../../dict/types.js';
-import type { Genre, UsageSummary } from '../../types.js';
+import { TibiError, type Genre, type UsageSummary } from '../../types.js';
 import { startOfToday } from '../shared/cards.js';
 import { dateKey, rollupToday } from './rollup.js';
 
@@ -48,7 +48,9 @@ export async function summary(db: Database, range: number, dict?: Dict) {
   const firstKey = days[0]!.key;
   const inRange = [...rows.entries()].filter(([k]) => k >= firstKey).map(([, v]) => v.known_terms_total ?? 0);
   const before = [...rows.entries()].filter(([k]) => k < firstKey).map(([, v]) => v.known_terms_total ?? 0).pop() ?? inRange[0] ?? known;
-  const prevBefore = [...rows.entries()].filter(([k]) => k < prevDays[0]!.key).map(([, v]) => v.known_terms_total ?? 0).pop() ?? 0;
+  // 上一周期的起点：没有更早的数据时用上一周期里的第一天（再没有就等于本期起点，增长记 0）
+  const prevIn = [...rows.entries()].filter(([k]) => k >= prevDays[0]!.key && k < firstKey).map(([, v]) => v.known_terms_total ?? 0);
+  const prevBefore = [...rows.entries()].filter(([k]) => k < prevDays[0]!.key).map(([, v]) => v.known_terms_total ?? 0).pop() ?? prevIn[0] ?? before;
   const reviews = sum(days, 'reviews'), correct = sum(days, 'review_correct');
   const st = await streaks(db);
   return { known, known_delta: known - before, prev_delta: before - prevBefore, minutes: Math.round(sum(days, 'reading_ms') / 60_000), words: sum(days, 'words_read'), study_days: st.study_days, streak: st.streak, longest_streak: st.longest, reviews, retention: reviews ? correct / reviews : 0 };
@@ -64,10 +66,14 @@ export async function series(db: Database, metrics: string[], days: number, dict
   const out: Record<string, number[]> = {};
   let lastKnown = 0;
   for (const m of metrics) {
+    // 已知词：没有记录的天沿用前一天；最早一条之前的天用最早那天的值（曲线不从 0 起跳）
+    if (m.startsWith('known')) { const firstRow = list.map(d => rows.get(d.key)).find(Boolean); lastKnown = firstRow ? (map[m] ?? (() => 0))(firstRow) : 0; }
     out[m] = list.map(d => { const r = rows.get(d.key); const v = (map[m] ?? (() => 0))(r); if (m.startsWith('known')) { if (r) lastKnown = v; return r ? v : lastKnown; } return v; });
     if (m === 'known') { // 实测 / 估算两条线一并给（R8）
-      out.known_confirmed = list.map(d => rows.get(d.key)?.known_confirmed ?? 0);
-      out.known_estimated = list.map(d => rows.get(d.key)?.known_estimated ?? 0);
+      for (const k of ['known_confirmed', 'known_estimated'] as const) {
+        const first = list.map(d => rows.get(d.key)?.[k]).find(v => v !== undefined) ?? 0; let last = first;
+        out[k] = list.map(d => { const v = rows.get(d.key)?.[k]; if (v !== undefined) last = v; return last; });
+      }
     }
   }
   return { dates: list.map(d => d.ts), series: out };
@@ -96,7 +102,19 @@ export const statsMethods: MethodMap = {
     const rows = await ctx.db.all<{ genre: string; words: number; ur: number }>('SELECT genre, COALESCE(sum(word_count * progress), 0) AS words, COALESCE(avg(unknown_ratio), 0) AS ur FROM documents WHERE deleted_at IS NULL AND last_read_at >= ? GROUP BY genre ORDER BY words DESC', [from]);
     return rows.map(r => ({ genre: r.genre as Genre, words: Math.round(Number(r.words)), unknown_ratio: Number(r.ur) }));
   }, ''),
-  'stats.insight': method(Type.Object({ regenerate: Type.Optional(Type.Boolean()) }), async () => ({}), 'M2 起：学习洞察技能'),
+  'stats.insight': method(Type.Object({ regenerate: Type.Optional(Type.Boolean()) }), async (p, ctx) => insight(ctx, !!p.regenerate),
+    '学习洞察（M3）：当天有缓存就直接返回；否则用快速档按固定提示写一段话 + 1–3 个动作（只能从固定的几个里挑）。没连模型 → model_unavailable'),
+  'stats.forecast': method(Type.Object({ days: Type.Optional(Type.Integer({ minimum: 1, maximum: 60 })) }), async (p, ctx) => {
+    const { forecast } = await import('../review/queue.js');
+    const days = await forecast(ctx.db, p.days ?? 14);
+    const r = await ctx.db.get<{ v: string }>("SELECT value AS v FROM settings WHERE key = 'review.retention'");
+    return { days, target_retention: r ? Number(JSON.parse(r.v)) : 0.9 };
+  }, '"接下来要复习"：未来 N 天每天到期的卡数（今天含逾期）'),
+  'stats.stages': method(Type.Object({}), async (_p, ctx) => {
+    const rows = await ctx.db.all<{ status: number; n: number }>('SELECT status, count(*) AS n FROM terms WHERE deleted_at IS NULL AND in_wordbook = 1 AND status BETWEEN 0 AND 5 GROUP BY status');
+    const out = [0, 0, 0, 0, 0, 0]; for (const r of rows) out[Number(r.status)] = Number(r.n);
+    return { stages: out };
+  }, '"生词本熟练度"：0–5 六档的词数'),
   'stats.export_summary': method(Type.Object({}), async (_p, ctx) => exportSummary(ctx.db, ctx.platform.info().app_version), 'M1 成功标准的脱敏汇总'),
 };
 
@@ -142,3 +160,34 @@ export const statsCapabilities: CapabilityMap = {
   get_learning_stats: capability({ name: 'get_learning_stats', description: '学习概况（stats.summary 的返回）', perm: 'read', params: Type.Object({ range: Type.Union([Type.Literal(30), Type.Literal(90), Type.Literal(180)], { default: 30 }) }), run: (p, ctx) => summary(ctx.db, p.range ?? 30, ctx.dict) }),
   get_stats_series: capability({ name: 'get_stats_series', description: '按天的序列（已知词、分钟、词数、复习）', perm: 'read', params: Type.Object({ metrics: Type.Array(Type.String()), days: Type.Integer({ minimum: 1, maximum: 730, default: 30 }) }), run: (p, ctx) => series(ctx.db, p.metrics, p.days ?? 30, ctx.dict) }),
 };
+
+/* ---------- 学习洞察（M3） ---------- */
+const INSIGHT_ACTIONS: Record<string, { label: string; route: string }> = {
+  review: { label: '复习到期的词', route: '/review' }, leech: { label: '看看难词', route: '/words?view=leech' },
+  library: { label: '挑一篇来读', route: '/library' }, calibrate: { label: '校准词汇量', route: '/welcome?step=2&from=settings' }, words: { label: '整理生词本', route: '/words' },
+};
+interface Insight { text: string; actions: { label: string; route: string }[]; generated_at: number; cost: number; day: string }
+
+async function insight(ctx: Ctx, regenerate: boolean) {
+  const today = dateKey();
+  const cached = await ctx.db.get<{ value: string }>("SELECT value FROM settings WHERE key = 'stats.insight'");
+  const c = cached ? j.parse<Insight | null>(cached.value, null) : null;
+  if (c && c.day === today && !regenerate) return { insight: c };
+  if (!ctx.ai) throw new TibiError('model_unavailable', '还没有连接模型');
+  const s30 = await summary(ctx.db, 30, ctx.dict);
+  const ser = await series(ctx.db, ['minutes', 'reviews'], 14, ctx.dict);
+  const genres = await ctx.call<{ genre: string; words: number; unknown_ratio: number }[]>('stats.genres', { range: 30 });
+  const { forecast } = await import('../review/queue.js');
+  const due = (await forecast(ctx.db, 1))[0] ?? 0;
+  const leeches = Number((await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND lapses >= 3'))?.n ?? 0);
+  const data = { last_30_days: s30, last_14_days_minutes: ser.series.minutes, last_14_days_reviews: ser.series.reviews, genres, due_today: due, leeches };
+  const r = await ctx.ai.complete({ tier: 'fast', skill_id: 'insight',
+    system: `你是英语学习教练 Tibi。根据用户最近的学习数据（JSON，只有计数），用中文写 2–3 句观察：说清一个变化或现象，再给一个具体建议。不要客套、不要打气、不要编造数据里没有的东西。再从这些动作里挑 1–3 个最相关的：${Object.keys(INSIGHT_ACTIONS).join(', ')}。只输出 JSON：{"text": "...", "actions": ["review"]}`,
+    prompt: JSON.stringify(data) });
+  const { parseJsonLoose } = await import('../documents/analyze.js');
+  const out = parseJsonLoose<{ text?: string; actions?: string[] }>(r.text);
+  if (!out?.text) throw new TibiError('model_unavailable', '模型没有给出洞察');
+  const ins: Insight = { text: out.text.trim().slice(0, 400), actions: (out.actions ?? []).filter(a => a in INSIGHT_ACTIONS).slice(0, 3).map(a => INSIGHT_ACTIONS[a]!), generated_at: now(), cost: r.cost, day: today };
+  await ctx.db.run("INSERT INTO settings(key, value, updated_at) VALUES ('stats.insight', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", [j.str(ins), now()]);
+  return { insight: ins };
+}

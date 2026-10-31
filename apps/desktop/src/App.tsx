@@ -6,10 +6,10 @@ import { Chat } from './pages/Chat';
 import { Home } from './pages/Home';
 import { Library } from './pages/Library';
 import { Onboarding, ONBOARDING_KEY } from './pages/Onboarding';
-import { Placeholder } from './pages/Placeholder';
 import { Reader } from './pages/Reader';
 import { Review } from './pages/Review';
 import { Settings } from './pages/Settings';
+import { Stats } from './pages/Stats';
 import { Tasks } from './pages/Tasks';
 import { Words } from './pages/Words';
 import { isTauri, rpc } from './rpc';
@@ -58,7 +58,7 @@ export function App() {
           <Route path="read/:id/:section" element={<Reader />} />
           <Route path="words" element={<Words />} />
           <Route path="review" element={<Review />} />
-          <Route path="stats" element={<Placeholder title="统计" text="M3 起提供。" />} />
+          <Route path="stats" element={<Stats />} />
           <Route path="tasks" element={<Tasks />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />

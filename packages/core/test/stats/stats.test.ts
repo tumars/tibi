@@ -68,3 +68,22 @@ describe('已知词：有词典时按词频判断是否在词汇量以内', () =
     expect(await knownCounts(db, dict)).toEqual({ confirmed: 2, estimated: 99, total: 101 });
   });
 });
+
+describe('学习洞察 / 预测 / 熟练度（M3）', () => {
+  it('stats.insight 用模型写一段话，动作只从固定列表里挑；当天缓存', async () => {
+    const { openAppDb } = await import('@tibi/core-node');
+    const { assembleCore, fakePlatform } = await import('../../src/index.js');
+    const { FAKE_MODEL, scriptedStream } = await import('../kernel/helpers.js');
+    const db = await openAppDb(':memory:'); const t = Date.now();
+    await db.run("INSERT INTO user_profile(id, created_at, updated_at) VALUES ('1', ?, ?)", [t, t]);
+    const stream = scriptedStream([{ text: '{"text":"这两周阅读时间少了一半。","actions":["review","hack"]}' }]);
+    const { core } = await assembleCore({ db, platform: fakePlatform({ isOnline: () => true }), resolveModel: async () => ({ model: FAKE_MODEL, apiKey: 'k', streamFn: stream }), resume: false });
+    const a = await core.call<{ insight: { text: string; actions: { route: string }[] } }>('stats.insight', {});
+    expect(a.insight.text).toBe('这两周阅读时间少了一半。');
+    expect(a.insight.actions.map(x => x.route)).toEqual(['/review']);
+    await core.call('stats.insight', {});
+    expect(stream.calls).toBe(1);
+    expect((await core.call<{ days: number[] }>('stats.forecast', {})).days).toHaveLength(14);
+    expect((await core.call<{ stages: number[] }>('stats.stages', {})).stages).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+});

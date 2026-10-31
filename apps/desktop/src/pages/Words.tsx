@@ -1,6 +1,7 @@
 import type { Status, Term, TermDetail } from '@tibi/core';
 import { Volume2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { Empty } from '../components/Empty';
 import { Menu } from '../components/Menu';
 import { Top } from '../components/Shell';
@@ -20,7 +21,8 @@ function dueLabel(due?: number) {
 }
 
 export function Words() {
-  const [view, setView] = useState<View>('all');
+  const [params] = useSearchParams();
+  const [view, setView] = useState<View>((VIEWS.find(v => v.key === params.get('view'))?.key) ?? 'all');
   const [sub, setSub] = useState<View>('known');
   const [q, setQ] = useState('');
   const [items, setItems] = useState<Term[]>();
