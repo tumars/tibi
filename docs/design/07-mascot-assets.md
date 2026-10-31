@@ -140,7 +140,7 @@ CHARACTER sitting in a tiny cosy reading nook: a round cushion, a short stack of
 <!-- /prompt -->
 
 <!-- prompt:icon-face -->
-Only the head of CHARACTER, front view, perfectly centred, filling 80% of the square, calm default expression with half-lowered eyelids and a small confident smile, slight soft 3D volume, even frontal lighting, transparent background. Designed to sit on a flat blue (#3b5bfd) rounded square app icon. No text, no body, no accessories.
+Only the head of CHARACTER, front view, perfectly centred, filling 80% of the square, calm default expression with half-lowered eyelids and a small confident smile, slight soft 3D volume, even frontal lighting, transparent background. Designed to sit on a flat deep indigo (#2f3fa8) rounded square app icon. No text, no body, no accessories.
 <!-- /prompt -->
 
 ## 4. 3D（F3，排在 M5 后）
@@ -148,7 +148,7 @@ Only the head of CHARACTER, front view, perfectly centred, filling 80% of the sq
 1. 用 `ref-sheet` 里的正面图（裁出、纯色背景）喂给 Meshy 的"卡通角色"模式或 Tripo 图生 3D，导出 GLB（带贴图，≤ 3 MB）。
 2. 在 Blender 里只做三件事：修正脸部比例、给尾巴白尖补色、加一个 2 秒的待机呼吸动画（可选）。
 3. 存 `docs/prototypes/img/mascot/tibi.glb`；引导页"认识一下"与关于页用 `<model-viewer auto-rotate camera-controls>` 懒加载；其他地方不用。
-4. macOS 26 应用图标：Icon Composer，底层电光蓝圆角方块，上层 `icon-face`（或 3D 渲染的正脸），系统负责玻璃质感。
+4. macOS 26 应用图标：Icon Composer，底层深靛蓝（`#2f3fa8`，与 logo 一致）圆角方块，上层 `icon-face`（或 3D 渲染的正脸），系统负责玻璃质感。
 
 ## 5. 落地到原型
 
