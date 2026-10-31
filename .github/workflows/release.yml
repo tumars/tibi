@@ -174,6 +174,62 @@ jobs:
           path: out/*.apk
           retention-days: 7
 
+  # Android 冒烟测试：x86_64 APK（临时密钥签名）装进带 KVM 的模拟器，打开、点「开始」，看进程活着、没有崩溃；屏幕文字打进日志
+  android-smoke:
+    needs: dict
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 打开 KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: android-x86_64
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: dict
+          path: data/ecdict
+      - run: node apps/desktop/scripts/bundle-prep.mjs --skip-sidecar
+      - name: tauri android build（x86_64）
+        working-directory: apps/desktop
+        run: NDK_HOME=$ANDROID_NDK_LATEST_HOME pnpm tauri android build --apk --target x86_64 --ci
+      - name: 临时密钥签名
+        run: |
+          BT=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
+          keytool -genkeypair -keystore smoke.keystore -storepass android -keypass android -alias smoke -keyalg RSA -keysize 2048 -validity 30 -dname "CN=Tibi Smoke"
+          ${BT}zipalign -f -p 4 apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk aligned.apk
+          ${BT}apksigner sign --ks smoke.keystore --ks-pass pass:android --out tibi-x86_64.apk aligned.apk
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash .github/scripts/android-smoke.sh tibi-x86_64.apk smoke
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-smoke
+          path: smoke/
+          retention-days: 7
+
   # 剪藏插件 zip 和 Android APK 也挂到同一个 Release（等桌面包把草稿 Release 建好）
   clipper:
     needs: [build, android]

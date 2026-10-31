@@ -138,3 +138,4 @@
 | 2026-10-31 | CI 加 `ios` 任务（macOS runner：iOS 目标 `cargo check`，分享扩展与小组件 Swift 类型检查）；发布流程加 `android` 任务（APK 留作构建产物，打 tag 时挂到草稿 Release）；推到开发分支 `m0-scaffold` 时 CI 和发布流程都跑（不建 Release），在打 tag 之前验证打包。开发说明 §4 同步 |
 | 2026-10-31 | 发布流程第一次在 GitHub 上跑：词典生成通过；macOS 两个目标编译通过、打包时因为没配签名密钥却传了空值去导入证书而失败（改成配了才传）；Windows 在 `pnpm install` 编 better-sqlite3 时找不到 VS（runner 换成 `windows-2022`）。开发说明 §4 同步 |
 | 2026-10-31 | GitHub 上 CI 与发布流程全部跑通（开发分支，只出构建产物）：macOS ×2、Linux、Windows 安装包与 Android APK。修 Windows 上打包脚本的路径（`fileURLToPath`）。开发说明 §4 同步 |
+| 2026-10-31 | 发布流程加 `android-smoke`：在 GitHub 带 KVM 的模拟器里装 x86_64 APK、打开、点「开始」，检查不崩溃并把屏幕文字打进日志（本机没有 KVM，软件模拟下 system_server 反复重启，装不上）。开发说明 §6 同步 |
