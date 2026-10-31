@@ -50,12 +50,25 @@ async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise
   }
   if (s.type === 'file') {
     if (!ctx.platform.isPathAllowed(s.path)) throw new TibiError('permission_denied', '这个文件没有经过选择或拖入');
-    if (!ctx.platform.readFile) throw new TibiError('invalid_source', '这里不能读文件');
     const ext = s.path.toLowerCase().split('.').pop() ?? '';
-    if (!['txt', 'md', 'markdown'].includes(ext)) throw new TibiError('invalid_source', `还不支持 .${ext} 文件，先支持 txt 和 Markdown`);
+    const name = s.path.split(/[\\/]/).pop()!.replace(/\.[^.]+$/, '');
+    if (['epub', 'pdf', 'docx'].includes(ext)) {
+      if (!ctx.platform.extractFile) throw new TibiError('invalid_source', `这里不能读 .${ext} 文件`);
+      job.progress(ext === 'epub' ? '正在拆开这本书' : `正在读取 ${ext.toUpperCase()}`);
+      const f = await ctx.platform.extractFile(s.path).catch(e => { throw new TibiError('invalid_source', `这个文件打不开：${e instanceof Error ? e.message : String(e)}`); });
+      if (f.needs_ocr) {
+        if (!ctx.platform.ocr) throw new TibiError('invalid_source', '这是扫描版 PDF，要先识别文字（OCR）。这里还不能识别');
+        job.progress('扫描版：正在识别文字');
+        const o = await ctx.platform.ocr({ pdf: s.path }, { signal: job.signal, onProgress: (d, t) => job.progress(`正在识别文字：第 ${d} / ${t} 页`, { index: d, total: t }) });
+        return { title: f.title || name, author: f.author, markdown: o.text, source_type: 'file', source_uri: name, kind: f.kind };
+      }
+      if (countWords(f.markdown) < 5) throw new TibiError('invalid_source', '这个文件里没有找到正文');
+      return { title: f.title || (/^#\s/.test(f.markdown.trimStart()) ? titleFromMarkdown(f.markdown) : name), author: f.author, markdown: f.markdown, source_type: 'file', source_uri: name, kind: f.kind };
+    }
+    if (!ctx.platform.readFile) throw new TibiError('invalid_source', '这里不能读文件');
+    if (!['txt', 'md', 'markdown'].includes(ext)) throw new TibiError('invalid_source', `还不支持 .${ext} 文件。支持 EPUB、PDF、DOCX、TXT 和 Markdown`);
     const text = new TextDecoder('utf-8').decode(await ctx.platform.readFile(s.path)).trim();
     if (!text) throw new TibiError('invalid_source', '文件是空的');
-    const name = s.path.split(/[\\/]/).pop()!.replace(/\.[^.]+$/, '');
     return { title: /^#\s/.test(text) ? titleFromMarkdown(text) : name, markdown: text, source_type: 'file', source_uri: name };
   }
   if (s.type === 'images') throw new TibiError('invalid_source', '图片识别还没做好（M4）');
@@ -164,12 +177,29 @@ export async function annotateSection(db: Database, ctx: Ctx, section_id: string
 }
 
 /** 整篇标注 + 难度；reanalyze 也走这里 */
+const LAZY_EAGER = 2;
+
+/** 打开一章时如果还没标注（书的后面几章），现在标；返回是否做了标注 */
+export async function ensureAnnotated(ctx: Ctx, section_id: string): Promise<boolean> {
+  const sec = await ctx.db.get<{ status: string; document_id: string }>('SELECT status, document_id FROM sections WHERE id = ? AND deleted_at IS NULL', [section_id]);
+  if (!sec || sec.status !== 'pending') return false;
+  const doc = await getDocument(ctx.db, sec.document_id); if (!doc || doc.status !== 'ready') return false;
+  const inflight = ANNOTATING.get(section_id); if (inflight) { await inflight; return true; }
+  const p = (async () => { const profile = await readProfile(ctx.db); await annotateSection(ctx.db, ctx, section_id, { document_id: doc.id, genre: doc.genre, vocab_estimate: profile.vocab_estimate }); })().finally(() => ANNOTATING.delete(section_id));
+  ANNOTATING.set(section_id, p); await p;
+  ctx.events.emit('data.changed', { table: 'terms' });
+  return true;
+}
+const ANNOTATING = new Map<string, Promise<void>>();
+
 async function annotateDocument(job: JobContext, ctx: Ctx, document_id: string, section_ids: string[]): Promise<{ unknown_ratio: number; prelabel_total: number; counts: { total: number; new: number; learning: number; unsure: number } }> {
   const doc = await getDocument(ctx.db, document_id); if (!doc) throw new TibiError('not_found', '文章不在了');
   const profile = await readProfile(ctx.db);
   const total = { total: 0, new: 0, learning: 0, unsure: 0 }; let prelabel_total = 0;
-  for (let i = 0; i < section_ids.length; i++) {
-    job.progress(section_ids.length > 1 ? `正在分析第 ${i + 1} / ${section_ids.length} 章` : '正在标注生词', { index: i, total: section_ids.length });
+  // 书按章懒处理（00 §3.1）：导入时只标前两章，其余在打开那一章时再标（sections.get → ensureAnnotated）
+  const eager = doc.kind === 'book' ? section_ids.slice(0, LAZY_EAGER) : section_ids;
+  for (let i = 0; i < eager.length; i++) {
+    job.progress(eager.length > 1 ? `正在分析第 ${i + 1} / ${eager.length} 章` : '正在标注生词', { index: i, total: eager.length });
     const r = await job.step(`annotate:${section_ids[i]}`, () => annotateSection(ctx.db, ctx, section_ids[i]!, { document_id, genre: doc.genre, vocab_estimate: profile.vocab_estimate }));
     total.total += r.counts.total; total.new += r.counts.new; total.learning += r.counts.learning; total.unsure += r.counts.unsure; prelabel_total += r.prelabel_total;
   }

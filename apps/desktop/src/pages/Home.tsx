@@ -49,10 +49,10 @@ export function Home() {
   // 深链：先确认再导入
   useEffect(() => { const u = params.get('import'); if (u) { setConfirmUrl(u); setParams({}, { replace: true }); } }, [params, setParams]);
 
-  const importSource = async (source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string }, origin: 'user' | 'deeplink' = 'user') => {
+  const importSource = async (source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] }, origin: 'user' | 'deeplink' = 'user') => {
     try {
       const { task_id } = await rpc.call('documents.import', { source, origin });
-      setTask({ id: task_id, state: 'run', skill_id: 'importer', title: source.type === 'url' ? source.url : '正在导入', trigger: origin, model: '', step: { index: 0, total: 0, label: '开始' }, started_at: Date.now(), duration_ms: 0, cost: 0 });
+      setTask({ id: task_id, state: 'run', skill_id: 'importer', title: source.type === 'url' ? source.url : source.type === 'file' ? source.path.split(/[\\/]/).pop()! : source.type === 'images' ? `${source.paths.length} 张图片` : '正在导入', trigger: origin, model: '', step: { index: 0, total: 0, label: '开始' }, started_at: Date.now(), duration_ms: 0, cost: 0 });
       setText('');
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
@@ -75,15 +75,34 @@ export function Home() {
     e.preventDefault(); setOver(false);
     const f = e.dataTransfer.files[0];
     if (f && /\.(txt|md)$/i.test(f.name)) { await importSource({ type: 'text', text: await f.text() }); return; }
-    if (f) { toast('M4 起支持 PDF、EPUB'); return; }
+    if (f) { if (!isTauri()) toast('浏览器开发模式只能拖入 .txt / .md；PDF、EPUB、DOCX 请在桌面端里拖入或点 +'); return; }   // 桌面端的文件拖入走下面的 Tauri 事件（拿得到路径）
     const t = e.dataTransfer.getData('text'); if (t) setText(t);
   };
+  // 桌面端：系统把拖进窗口的文件路径交给壳；登记给 Core 后按文件导入（M4：PDF / EPUB / DOCX / 图片）
+  useEffect(() => {
+    if (!isTauri()) return;
+    let off: (() => void) | undefined;
+    void import('@tauri-apps/api/webview').then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent(async ev => {
+      if (ev.payload.type !== 'drop') return;
+      const paths = ev.payload.paths.filter(p => /\.(pdf|epub|docx|txt|md|markdown|png|jpe?g|webp|heic|tiff?)$/i.test(p));
+      if (!paths.length) return;
+      await rpc.call('system.registerPaths', { paths });
+      const images = paths.filter(p => /\.(png|jpe?g|webp|heic|tiff?)$/i.test(p));
+      if (images.length) await importSource({ type: 'images', paths: images });
+      for (const p of paths.filter(x => !images.includes(x))) await importSource({ type: 'file', path: p });
+    })).then(f => { off = f; });
+    return () => off?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const pickFile = async () => {
     if (!isTauri()) { toast('浏览器里不能选文件，可以把 .txt / .md 拖进输入框'); return; }
     const { invoke } = await import('@tauri-apps/api/core');
-    const r = await invoke<{ paths: string[] }>('pick_file', { kinds: ['txt'], multiple: false }).catch(e => { toast(String(e), { kind: 'err' }); return undefined; });
-    if (r?.paths[0]) await importSource({ type: 'file', path: r.paths[0] });
+    const r = await invoke<{ paths: string[] }>('pick_file', { kinds: ['txt', 'pdf', 'epub', 'docx', 'image'], multiple: true }).catch(e => { toast(String(e), { kind: 'err' }); return undefined; });
+    if (!r?.paths.length) return;
+    const images = r.paths.filter(p => /\.(png|jpe?g|webp|heic|tiff?)$/i.test(p));
+    if (images.length) await importSource({ type: 'images', paths: images });
+    for (const p of r.paths.filter(x => !images.includes(x))) await importSource({ type: 'file', path: p });
   };
 
   const reading = docs.filter(d => d.progress > 0 && d.progress < 1);

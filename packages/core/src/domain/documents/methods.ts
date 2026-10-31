@@ -4,7 +4,7 @@ import { method, S, type Ctx, type MethodMap } from '../../rpc/define.js';
 import { TibiError, type DocumentSummary, type Genre } from '../../types.js';
 import { recordUndo, registerUndo } from '../shared/undo.js';
 import { difficultyOfRatio } from '../text/prelabel.js';
-import type { ImportInput } from './pipeline.js';
+import { ensureAnnotated, type ImportInput } from './pipeline.js';
 import { DOC_COLS, getDocument, listSections, listSentences, setDocumentTags, toDocument, toSummary, type DocumentRow } from './repo.js';
 import { finishSection, sectionContent, setProgress, softDeleteDocument } from './sections.js';
 import { getSample, listSamples } from './samples.js';
@@ -118,7 +118,7 @@ export const documentsMethods: MethodMap = {
     return { path: '', markdown: parts.join('\n') };
   }, 'M0 先返回 markdown 文本，写文件经壳再做'),
 
-  'sections.get': method(Type.Object({ id: S.id, with: Type.Optional(Type.Array(Type.Union([Type.Literal('translations'), Type.Literal('ai')]))) }), async (p, ctx) => sectionContent(ctx.db, p.id, { translations: p.with?.includes('translations'), ai: p.with?.includes('ai') }), '阅读器一次取齐'),
+  'sections.get': method(Type.Object({ id: S.id, with: Type.Optional(Type.Array(Type.Union([Type.Literal('translations'), Type.Literal('ai')]))) }), async (p, ctx) => { await ensureAnnotated(ctx, p.id); return sectionContent(ctx.db, p.id, { translations: p.with?.includes('translations'), ai: p.with?.includes('ai') }); }, '阅读器一次取齐；书的后面几章第一次打开时现标注（按章懒处理）'),
   'sections.progress': method(Type.Object({ id: S.id, sentence_id: S.id, progress: Type.Number({ minimum: 0, maximum: 1 }) }), async (p, ctx) => { await setProgress(ctx.db, p.id, p.sentence_id, p.progress); return { ok: true as const }; }, '阅读位置'),
   'sections.finish': method(Type.Object({ id: S.id, mark_rest_known: Type.Boolean() }), async (p, ctx) => finishSection(ctx, p.id, p.mark_rest_known), '读完：只把 status = 0 的词设为 97'),
   'sections.translate': method(Type.Object({ id: S.id, sentence_ids: Type.Optional(Type.Array(S.id)) }), async (p, ctx) => {

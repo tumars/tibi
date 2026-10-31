@@ -7,6 +7,7 @@ import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { TibiError, type BackupStore, type FetchedPage, type Platform, type ReadableArticle } from '@tibi/core';
 import { htmlToMarkdown } from './html2md.js';
+import { extractFile } from './extract.js';
 
 /** 桌面运行时的 Platform 实现（05 §8 的网址规则在这里落地） */
 export interface NodePlatformOptions {
@@ -73,6 +74,7 @@ export function nodePlatform(opts: NodePlatformOptions): Platform {
   const allowed = new Set<string>();
   return {
     backups: fileBackups(opts.db_path),
+    extractFile: (path) => extractFile(path),
     registerPaths(paths) { for (const p of paths) allowed.add(p); },
     isPathAllowed(path) { return allowed.has(path) || !!process.env.TIBI_DEV_ALLOW_ANY_PATH; },
     async fetchUrl(url, o = {}): Promise<FetchedPage> {

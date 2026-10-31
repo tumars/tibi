@@ -6,11 +6,18 @@
 export interface FetchedPage { status: number; final_url: string; content_type: string; body: string }
 export interface ReadableArticle { title: string; /** 站点名（og:site_name），用来去掉标题里的站点后缀 */ site_name?: string; /** 页面第一个 h1 */ h1?: string; byline?: string; excerpt?: string; lang?: string; /** 清洗后的正文 Markdown（代码块保留围栏） */ markdown: string; images: string[]; published_at?: number }
 
+/** 文件抽取的结果（EPUB / PDF / DOCX → Markdown，M4） */
+export interface ExtractedFile { title?: string; author?: string; markdown: string; kind: 'article' | 'book'; needs_ocr?: boolean; pages?: number }
+
 export interface Platform {
   /** 抓取网页；只在 Core 校验过 URL 之后调用。重定向每跳由实现方重查 */
   fetchUrl(url: string, opts?: { signal?: AbortSignal; timeout_ms?: number }): Promise<FetchedPage>;
   /** 可读性算法抽正文并转成 Markdown */
   extractReadable(html: string, url: string): Promise<ReadableArticle>;
+  /** EPUB / PDF / DOCX 抽成 Markdown（path 已由壳登记）；没有时只支持 txt / md */
+  extractFile?(path: string): Promise<ExtractedFile>;
+  /** OCR（M4，D4：本地 Tesseract）：图片或扫描版 PDF → 文字；没有时导入图片 / 扫描版会失败并提示 */
+  ocr?(input: { images?: string[]; pdf?: string }, opts?: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void }): Promise<{ text: string; pages: number; confidence: number }>;
   /** 读本地文件（path 已由壳登记）；手机上是沙盒内路径 */
   readFile?(path: string): Promise<Uint8Array>;
   /** 密钥：经壳按需取，只留内存（05 §8） */
