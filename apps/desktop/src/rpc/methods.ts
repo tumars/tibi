@@ -36,7 +36,9 @@ export interface MethodTable {
   'stats.summary': { params: { range: 30 | 90 | 180 }; result: { known: number; known_delta: number; prev_delta: number; minutes: number; words: number; study_days: number; streak: number; longest_streak: number; reviews: number; retention: number } };
   'stats.series': { params: { metrics: ('known' | 'minutes' | 'words' | 'reviews')[]; days: number }; result: { dates: number[]; series: Record<string, number[]> } };
   'profile.get': { params: Record<string, never>; result: Profile };
-  'profile.update': { params: { patch: Partial<Profile> }; result: Profile };
+  'profile.update': { params: { patch: Omit<Partial<Profile>, 'assistant_prefs'> & { assistant_prefs?: Partial<Profile['assistant_prefs']> } }; result: Profile };
+  'vocab.start': { params: Record<string, never>; result: { bands: { label: string; words: string[] }[] } };
+  'vocab.submit': { params: { picks: string[][] }; result: { estimate: number; cefr: string; bands: number[]; pseudo_hits: number } };
   'settings.get': { params: { keys?: string[] }; result: Record<string, unknown> };
   'settings.set': { params: { patch: Record<string, unknown> }; result: Record<string, unknown> };
   'providers.list': { params: Record<string, never>; result: Provider[] };

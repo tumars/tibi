@@ -1,11 +1,11 @@
 import type { DocumentSummary, TaskSummary } from '@tibi/core';
-import { ArrowUp, ChevronDown, Plus, Search, Sparkles } from 'lucide-react';
+import { ArrowUp, ChevronDown, Play, Plus, Search, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Empty } from '../components/Empty';
 import { Fox } from '../components/Fox';
 import { Modal } from '../components/Modal';
-import { Samples } from '../components/Samples';
+import { openSample, Samples } from '../components/Samples';
 import { Top } from '../components/Shell';
 import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
 import { errorInfo, isTauri, rpc, type Result } from '../rpc';
@@ -116,10 +116,14 @@ export function Home() {
                 <button className="send" disabled={!text.trim()} onClick={submit} aria-label="发送"><ArrowUp size={17} /></button>
               </div>
           </div>
-          <div className="chips">
+          {/* 书架是空的：建议换成"读示例 / 测词汇量"（原型 home.html#empty） */}
+          {docs.length === 0 && (connected || status) ? <div className="chips">
+            <button className="chip" onClick={async () => { const list = await rpc.call('documents.samples', {}).catch(() => []); const s = list.find(x => x.is_default) ?? list[0]; if (s) void openSample(s, nav); }}><Play />读一篇示例文章</button>
+            <button className="chip" onClick={() => nav('/welcome?step=2&from=home')}><Sparkles />先测一下我的词汇量</button>
+          </div> : <div className="chips">
             <button className="chip" onClick={() => toast('找文章从 M5 起可用')}><Search />推荐一篇 10 分钟的科技新闻</button>
             <button className="chip" onClick={() => toast('M2 起可用')}><Sparkles />用这周的生词写个小故事</button>
-          </div>
+          </div>}
         </section>
         {lead && (
           <section className="lead-wrap">

@@ -46,7 +46,9 @@ export const profileMethods: MethodMap = {
     if (patch.level_self && patch.vocab_estimate === undefined && (patch.vocab_source ?? cur.vocab_source) === 'self') put('vocab_estimate', LEVEL_ESTIMATE[patch.level_self] ?? cur.vocab_estimate);
     if (sets.length) { put('updated_at', t); await ctx.db.run(`UPDATE user_profile SET ${sets.join(', ')} WHERE id = '1'`, vals as never); }
     ctx.events.emit('data.changed', { table: 'settings' });
-    return getProfile(ctx.db);
+    const next = await getProfile(ctx.db);
+    if (next.vocab_estimate !== cur.vocab_estimate) await reannotateAll(ctx);
+    return next;
   }, '自动保存；vocab_source = self 时改自评水平会重算 vocab_estimate'),
 
   'settings.get': method(Type.Object({ keys: Type.Optional(Type.Array(Type.String())) }), async (p, ctx) => {
@@ -180,7 +182,14 @@ async function vocabSubmit(ctx: Ctx, picks: string[][]) {
   });
   ctx.events.emit('data.changed', { table: 'settings' });
   ctx.events.emit('data.changed', { table: 'terms' });
+  await reannotateAll(ctx);
   return { estimate, cefr: cefrOf(estimate), bands: ratios, pseudo_hits };
+}
+
+/** 词汇量变了：按新估算重新标注全部文章（00 §3.9：不重新调用 AI），每篇一个后台任务 */
+export async function reannotateAll(ctx: Ctx) {
+  const docs = await ctx.db.all<{ id: string; title: string }>("SELECT id, title FROM documents WHERE deleted_at IS NULL AND status = 'ready'");
+  for (const d of docs) await ctx.jobs.submit('reanalyze', { kind: 'import', title: `重新标注 ${d.title}`, input: { document_id: d.id } }).catch(() => undefined);
 }
 
 function shuffle<T>(arr: T[]): T[] { for (let i = arr.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [arr[i], arr[k]] = [arr[k]!, arr[i]!]; } return arr; }

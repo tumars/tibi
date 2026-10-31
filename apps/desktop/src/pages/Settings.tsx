@@ -1,7 +1,9 @@
 import type { Profile, Provider } from '@tibi/core';
 import { ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Top } from '../components/Shell';
+import { saveProvider } from '../lib/providers';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
@@ -9,6 +11,7 @@ import { toast, useUi } from '../store/ui';
 const SECTIONS = [['general', '通用'], ['learning', '学习与复习'], ['advanced', '高级'], ['data', '数据'], ['about', '关于']] as const;
 
 export function Settings() {
+  const nav = useNavigate();
   const theme = useUi(s => s.theme); const setTheme = useUi(s => s.setTheme);
   const status = useCore(s => s.status);
   const [sec, setSec] = useState<string>('general');
@@ -27,15 +30,11 @@ export function Settings() {
   const patch = async (p: Partial<Profile>) => { try { setProfile(await rpc.call('profile.update', { patch: p })); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
   const setBudgetKey = async (k: 'month' | 'task', v: number) => { setBudget(b => ({ ...b, [k]: v })); try { await rpc.call('settings.set', { patch: { [`budget.${k}`]: v } }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
 
-  const saveProvider = async () => {
+  const onSaveProvider = async () => {
     if (!editing) return;
-    const ref = `provider.${(editing.name || 'llm').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.${editing.kind ?? 'llm'}`;
     try {
-      if (editing.key) {
-        if (!isTauri()) { toast('浏览器模式不能写钥匙串。dev 下用环境变量 TIBI_SECRET_<REF>'); }
-        else { const { invoke } = await import('@tauri-apps/api/core'); await invoke('keyring_set', { ref, secret: editing.key }); }
-      }
-      const p = await rpc.call('providers.upsert', { provider: { id: editing.id, kind: editing.kind ?? 'llm', name: editing.name ?? 'DeepSeek', protocol: editing.protocol ?? 'openai_compatible', base_url: editing.base_url, auth: 'api_key', tier: editing.tier ?? 'fast', model: editing.model ?? 'deepseek-flash', is_default: editing.is_default ?? true }, secret_ref: editing.key ? ref : undefined });
+      const { provider: p, keyStored } = await saveProvider(editing);
+      if (editing.key && !keyStored) toast('浏览器模式不能写钥匙串。dev 下用环境变量 TIBI_SECRET_<REF>');
       setProviders(ps => ps.some(x => x.id === p.id) ? ps.map(x => x.id === p.id ? p : x) : [...ps, p]); setEditing(undefined); toast('已保存');
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
@@ -59,8 +58,9 @@ export function Settings() {
             <div className="item"><div><div className="t">英语水平与目标</div><div className="d">影响生词标注和难度判断</div></div><div className="ctl">
               <select className="input" value={profile?.level_self ?? 'intermediate'} onChange={e => patch({ level_self: e.target.value })} aria-label="水平"><option value="beginner">入门</option><option value="intermediate">中级</option><option value="upper">中高级</option><option value="advanced">高级</option></select>
               <select className="input" value={profile?.goal ?? 'work'} onChange={e => patch({ goal: e.target.value })} aria-label="目标"><option value="work">工作阅读</option><option value="novel">读原版书</option><option value="ielts">雅思 / 托福</option><option value="cet">考研 / CET</option><option value="interest">兴趣</option></select>
-              <span className="lbl">估算 {profile?.vocab_estimate?.toLocaleString() ?? '—'} 词{profile?.vocab_source === 'self' ? '（按自评）' : ''}</span>
+              <span className="lbl">估算 {profile?.vocab_estimate?.toLocaleString() ?? '—'} 词{profile?.vocab_source === 'self' ? '（按自评）' : profile?.vocab_source === 'test' ? '（测试）' : ''}</span>
             </div></div>
+            <div className="item"><div><div className="t">校准词汇量</div><div className="d">7 组词，点亮认识的，约 3–4 分钟。测完按新结果标注生词</div></div><div className="ctl"><button className="btn sm" onClick={() => nav('/welcome?step=2&from=settings')}>开始</button></div></div>
           </div></section>
 
           <section className="ssec" id="s-learning"><h2>学习与复习</h2><div className="group">
@@ -83,7 +83,7 @@ export function Settings() {
                   <span>模型</span><input className="input" value={editing.model ?? ''} onChange={e => setEditing({ ...editing, model: e.target.value })} placeholder="deepseek-flash" />
                   <span>档位</span><select className="input" value={editing.tier ?? 'fast'} onChange={e => setEditing({ ...editing, tier: e.target.value as 'fast' | 'deep' })}><option value="fast">快速</option><option value="deep">深入</option></select>
                   <span>API Key</span><input className="input" type="password" value={editing.key ?? ''} onChange={e => setEditing({ ...editing, key: e.target.value })} placeholder={editing.has_secret ? '已保存，留空不改' : 'sk-…'} />
-                  <div className="row"><button className="btn sm pri" onClick={saveProvider}>保存</button><button className="btn sm" onClick={() => setEditing(undefined)}>取消</button><span className="lbl" style={{ alignSelf: 'center' }}>Key 只存在这台电脑的钥匙串里</span></div>
+                  <div className="row"><button className="btn sm pri" onClick={onSaveProvider}>保存</button><button className="btn sm" onClick={() => setEditing(undefined)}>取消</button><span className="lbl" style={{ alignSelf: 'center' }}>Key 只存在这台电脑的钥匙串里</span></div>
                 </div>}
                 {providers.length > 0 && !editing && <div className="item"><div className="lbl">添加其他 OpenAI 兼容服务</div><div className="ctl"><button className="btn sm" onClick={() => setEditing({ name: '', kind: 'llm', protocol: 'openai_compatible', base_url: '', model: '', tier: 'deep', is_default: false })}>添加</button></div></div>}
               </div>

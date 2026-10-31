@@ -240,14 +240,14 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
 | `profile.get` | `{}` | `Profile` |  |
-| `profile.update` | `{ patch: Partial<Profile> }` | `Profile` | 自动保存；vocab_source = self 时改自评水平会重算 vocab_estimate（00 §3.9） |
+| `profile.update` | `{ patch: Partial<Profile> }` | `Profile` | 自动保存；vocab_source = self 时改自评水平会重算 vocab_estimate（00 §3.9）；词汇量估算变了就按新估算重新标注全部文章（每篇一个 reanalyze 任务，不调 AI） |
 | `settings.get` | `{ keys?: string[] }` | `Record<string, unknown>` | reader.*、tts.*、ui.* 等键值 |
 | `settings.set` | `{ patch: Record<string, unknown> }` | `Record<string, unknown>` |  |
 | `providers.list` | `{}` | `Provider[]` | 密钥不返回，只有 has_secret |
 | `providers.upsert` | `{ provider: Omit<Provider, 'id' \| 'has_secret' \| 'month_cost'> & { id?: Id }; secret_ref?: string }` | `Provider` | 密钥先由 Rust 写入钥匙串，这里只传引用 |
 | `providers.test` | `{ id: Id }` | `{ ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string }` | 连接测试 |
-| `vocab.start` | `{}` | `{ bands: { label: string; words: string[] }[] }` | 词汇量测试：5 组 × 8 词，含伪词（不标出） |
-| `vocab.submit` | `{ picks: string[][] }` | `{ estimate: number; cefr: string; bands: number[]; pseudo_hits: number }` | 估算并初始化已知词库（terms.status 99 / 推断已知）；vocab_source 记为 test，并按新估算重新标注 |
+| `vocab.start` | `{}` | `{ bands: { label: string; words: string[] }[] }` | 词汇量测试：7 组（前 1k / 1–2k / 2–4k / 4–6k / 6–8k / 8–10k / 10k+；4k–10k 每组 10 个真词，其余 8 个），每组再混 2 个伪词（不标出）；有完整词典时按词频随机取词 |
+| `vocab.submit` | `{ picks: string[][] }` | `{ estimate: number; cefr: string; bands: number[]; pseudo_hits: number }` | 估算并初始化已知词库（terms.status 99 / 推断已知）；vocab_source 记为 test，并按新估算重新标注全部文章（每篇一个 reanalyze 任务） |
 
 ### sync · 同步（M7，见 08）
 
