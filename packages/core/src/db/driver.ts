@@ -21,35 +21,34 @@ export interface Driver {
 }
 
 /**
- * 带事务与互斥的数据库句柄。Core 是唯一写入者（B2），所以用一把锁串行化事务：
- * 事务体可以是 async 函数，期间其他写入排队等候。
+ * 带事务与互斥的数据库句柄。Core 是唯一写入者（B2），所以用一把锁串行化事务（T3）：
+ * 事务体可以是 async 函数，期间其他事务排队等候。
+ * 嵌套按调用链判断：事务体拿到的 tx 是一个"事务内句柄"，在它上面再开事务直接复用；
+ * 在外层句柄上开事务一律排队（并发的两个流程不会被误当成嵌套）。
+ * 注意：事务体里要用 tx，不要再用外层的 db.transaction()，否则会等自己而卡住。
  */
 export class Database {
   private chain: Promise<unknown> = Promise.resolve();
-  private depth = 0;
 
-  constructor(public readonly driver: Driver) {}
+  constructor(public readonly driver: Driver, private readonly inTx = false) {}
 
   exec(sql: string) { return this.driver.exec(sql); }
   run(sql: string, params?: SqlParams) { return this.driver.run(sql, params); }
   all<T extends Row = Row>(sql: string, params?: SqlParams) { return this.driver.all<T>(sql, params); }
   get<T extends Row = Row>(sql: string, params?: SqlParams) { return this.driver.get<T>(sql, params); }
 
-  /** 串行执行一个事务；嵌套调用时直接复用外层事务 */
   async transaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {
-    if (this.depth > 0) return fn(this);
+    if (this.inTx) return fn(this);
+    const tx = new Database(this.driver, true);
     const run = async () => {
-      this.depth++;
       await this.driver.exec('BEGIN IMMEDIATE');
       try {
-        const out = await fn(this);
+        const out = await fn(tx);
         await this.driver.exec('COMMIT');
         return out;
       } catch (e) {
         try { await this.driver.exec('ROLLBACK'); } catch { /* 已回滚 */ }
         throw e;
-      } finally {
-        this.depth--;
       }
     };
     const p = this.chain.then(run, run);

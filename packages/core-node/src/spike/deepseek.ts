@@ -3,10 +3,9 @@
  *   DEEPSEEK_API_KEY=sk-… pnpm --filter @tibi/core-node exec tsx src/spike/deepseek.ts
  * 没有 Key 时只打印说明。模型名可用 TIBI_MODEL 覆盖（默认 deepseek-flash）。
  */
-import { Type } from '@sinclair/typebox';
 import { capability, Core, EventBus, fakePlatform, undoMethods } from '@tibi/core';
-// 主线接好 index.ts 的导出后可改为 from '@tibi/core'
-import { createKernel, skillDef } from '../../../core/src/kernel/index.js';
+// 主线把 kernel 从 @tibi/core 导出后改成正常 import；现在用运行时路径绕开 core-node 的 rootDir
+const { createKernel, skillDef } = (await import(/* @vite-ignore */ new URL('../../../core/src/kernel/index.js', import.meta.url).href)) as { createKernel: (db: unknown, events: unknown) => any; skillDef: (id: string) => { allowed_tools: string[] } | undefined };
 import { openAppDb } from '../sqlite.js';
 
 const key = process.env['DEEPSEEK_API_KEY'];
@@ -23,12 +22,13 @@ await db.run("INSERT INTO providers(id, kind, name, protocol, base_url, tier, mo
 
 const kernel = createKernel(db, new EventBus());
 const core = new Core({ db, platform: fakePlatform({ isOnline: () => true, getSecret: async ref => (ref === 'deepseek' ? key : undefined) }), jobs: kernel.jobs });
-kernel.bind(caller => core.ctx(caller), core.events);
+kernel.bind((caller: Parameters<typeof core.ctx>[0]) => core.ctx(caller), core.events);
 core.use(kernel.methods); core.use(undoMethods);
 kernel.registerCapabilities({
-  lookup_word: capability({ name: 'lookup_word', description: '查词典', perm: 'read', params: Type.Object({ word: Type.String() }), async run(p) { return { word: p.word, phonetic: '/ˈʌpʃɒt/', translation: 'n. 结果，结局', examples: [{ en: 'The upshot is that we lost.' }] }; } }),
-  mark_term: capability({ name: 'mark_term', description: '标记一个词的熟练度', perm: 'confirm', undoable: true, params: Type.Object({ term: Type.String(), status: Type.Integer() }), async run(p) { console.log(`\n[能力] mark_term 执行：${p.term} → ${p.status}`); return { term_id: 'fake', previous: 0 }; } }),
-});
+  lookup_word: capability({ name: 'lookup_word', description: '查词典', perm: 'read', params: { type: 'object', properties: { word: { type: 'string' } }, required: ['word'] } as never, async run(p: { word: string }) { return { word: p.word, phonetic: '/ˈʌpʃɒt/', translation: 'n. 结果，结局', examples: [{ en: 'The upshot is that we lost.' }] }; } }),
+  mark_term: capability({ name: 'mark_term', description: '标记一个词的熟练度', perm: 'confirm', undoable: true, params: { type: 'object', properties: { term: { type: 'string' }, status: { type: 'integer' } }, required: ['term', 'status'] } as never, async run(p: { term: string; status: number }) { console.log(`\n[能力] mark_term 执行：${p.term} → ${p.status}`); return { term_id: 'fake', previous: 0 }; } }),
+} as never);
+
 skillDef('tutor')!.allowed_tools.push('mark_term');
 
 core.events.on((event, data: any) => {

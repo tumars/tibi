@@ -182,7 +182,10 @@ export class JobRunnerImpl implements JobRunner {
     const summary = await this.summary(id);
     if (status === 'done') {
       const o = output as Record<string, unknown> | undefined;
-      const result = o && typeof o === 'object' && typeof o['summary'] === 'string' ? o : { summary: `${row.title}完成` };
+      // task.done 的 result（06 §4）：{ document_id?, summary, action? }；流水线没给 summary 时用默认文案
+      const result = o && typeof o === 'object'
+        ? { ...o, summary: typeof o['summary'] === 'string' ? o['summary'] : `${row.title}完成` }
+        : { summary: `${row.title}完成` };
       this.events.emit('task.done', { task: summary, result });
     } else {
       this.events.emit('task.update', { task: summary });

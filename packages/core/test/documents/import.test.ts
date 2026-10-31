@@ -58,7 +58,7 @@ describe('导入文本', () => {
     const st2 = Object.fromEntries(last.tokens.map(t => [t.l, t.status]));
     expect(st2['reclaim']).toBe(0);
     expect(st2['deterministically']).toBe(0);
-    expect(sec.counts).toEqual({ new: 5, learning: 0, unsure: 3 });   // upshot runtime reclaim deterministically overhead(7500→unsure)… 见下
+    expect(sec.counts).toEqual({ new: 5, learning: 0, unsure: 5 });   // 生词：ownership upshot runtime reclaim deterministically；待确认：distinctive collector enforce overhead scope
     expect(out.unknown_ratio).toBeGreaterThan(0);
     // 词表：新词有行，已知词没有
     const terms = await ctx.db.all<{ text: string; status: number; encounter_count: number }>('SELECT text, status, encounter_count FROM terms ORDER BY text');
@@ -97,7 +97,7 @@ describe('导入文本', () => {
 
   it('网址导入走平台抓取并标记不可信', async () => {
     const m = await makeCore({ dict, platform: {
-      async fetchUrl(url) { return { status: 200, final_url: url, content_type: 'text/html', body: '<html><body><article><h1>Web Title</h1><p>Ownership is the feature that makes the compiler happy. The upshot is memory safety without overhead, which is nice for everyone who writes programs at compile time.</p></article></body></html>' }; },
+      async fetchUrl(url) { return { status: 200, final_url: url, content_type: 'text/html', body: '<html><body><article><h1>Web Title</h1><p>Ownership is the feature that makes the compiler happy. The upshot is memory safety without overhead, which is nice for everyone who writes programs at compile time. Every value has one owner and the rules are simple to follow once you know them well.</p></article></body></html>' }; },
       async extractReadable(html) { const m2 = html.match(/<p>(.*?)<\/p>/)!; return { title: 'Web Title', markdown: m2[1]!, images: [] }; },
     } });
     m.core.use(documentsMethods).use(termsMethods); registerImportPipeline(m.jobs, m.core);

@@ -187,7 +187,7 @@ export async function runImport(job: JobContext, ctx: Ctx, input: ImportInput): 
   const saved = await job.step('save', () => saveStep(job, ctx, fetched, seg, input), { kind: 'pipeline', label: '入库' });
   if (saved.duplicate) {
     const d = (await getDocument(ctx.db, saved.document_id))!;
-    return { document_id: saved.document_id, duplicate: true, title: d.title, unknown_ratio: Number(d.unknown_ratio ?? 0), minutes: Math.max(1, Math.round(Number(d.word_count) / WPM)) };
+    return { summary: '这篇已经在书架里', action: { label: '打开', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: true, title: d.title, unknown_ratio: Number(d.unknown_ratio ?? 0), minutes: Math.max(1, Math.round(Number(d.word_count) / WPM)) };
   }
   const ann = await annotateDocument(job, ctx, saved.document_id, saved.section_ids);
   await job.step('event', async () => {
@@ -204,7 +204,7 @@ export async function runImport(job: JobContext, ctx: Ctx, input: ImportInput): 
   await markDeferred(ctx.db, saved.document_id);
   ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
   ctx.events.emit('data.changed', { table: 'terms' });
-  return { document_id: saved.document_id, duplicate: false, title: fetched.title, unknown_ratio: ann.unknown_ratio, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
+  return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, unknown_ratio: ann.unknown_ratio, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
 }
 
 /** documents.reanalyze：按当前词库重新标注（词汇量变了、分词升级）；ai=true 时把 AI 状态重新置为 deferred 等补做 */
