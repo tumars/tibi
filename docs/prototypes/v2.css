@@ -418,6 +418,20 @@ select.input { cursor: pointer; padding-right: 8px; }
 /* 首页插画（img/）：logo、hero、按类型的封面 */
 .mark-img { width: 26px; height: 26px; border-radius: 7px; object-fit: cover; display: block; flex: none; }
 .hero .hero-fox { width: 128px; height: 128px; margin: 0 auto -14px; }
+/* 首页（R13）：最上面是"继续读"主卡；输入框不分模式，由内容判断（网址或整段英文 = 导入，"推荐 / 找一篇…" = 找文章，其余 = 问 Tibi） */
+.lead-wrap { max-width: 760px; width: 100%; margin: 20px auto 0; }
+.lead { display: block; padding: 22px 24px 20px; border-radius: 20px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); text-decoration: none; color: inherit; transition: box-shadow .15s; }
+.lead:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
+.lead .k { font-size: 12.5px; color: var(--ink-3); }
+.lead .t { font-family: var(--f-read); font-size: 26px; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; margin: 6px 0 8px; }
+.lead .x { font-family: var(--f-read); font-style: italic; font-size: 15px; line-height: 1.6; color: var(--ink-2); margin: 0 0 18px; }
+.lead .m { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--ink-3); }
+.lead .m .bar2 { flex: 0 0 180px; margin: 0; }
+.lead .m .btn { margin-left: auto; height: 34px; padding: 0 18px; }
+.also { margin-top: 10px; padding: 0 4px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--ink-3); }
+.also a { color: var(--ink-2); text-decoration: none; } .also a:hover { color: var(--ink); }
+.askrow { display: flex; gap: 14px; align-items: flex-start; } .askrow .composer { flex: 1; min-width: 0; }
+.hero .askrow .hero-fox { width: 64px; height: 64px; flex: none; margin: 4px 0 0; }
 /* 无封面的书架卡片（默认） */
 .card .ex, .ccard .ex { display: none; }
 .card.nocv { padding: 16px 16px 14px; gap: 8px; box-shadow: inset 0 0 0 1px var(--line); min-height: 196px; }

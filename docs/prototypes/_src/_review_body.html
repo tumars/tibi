@@ -188,13 +188,14 @@ function schedule(c, g) { // c: {S, D, t(距上次天数), isNew}；g: 1 忘了 
 const ivTxt = (days, g) => g === 1 ? '10 分钟后' : days < 30 ? `${days} 天` : days < 365 ? `${(days / 30).toFixed(days < 60 ? 1 : 0)} 个月` : `${(days / 365).toFixed(1)} 年`;
 
 /* ============ 题型与评分规则（2026-10-30 参考词光 Word Atlas，决策 G1–G7） ============
-   G1 只有"识别"自评；选义、填空、听写、拼写答完由系统按"对错 + 用时 + 提示 + 拼写距离"给分，可改。
+   R6（2026-10-31）计分复习只排三种题：识别（自评）、选义、语境填空；听写、拼写、造句移到不计分的"练习"，不进记忆算法。
+   G1 只有"识别"自评；选义、语境填空答完由系统按"对错 + 用时 + 提示 + 拼写距离"给分，可改。
    G2 生词 / 见过 → 识别或选义（四选一，干扰项来自同一篇文章、生词本、易混词）。
    G3 每个词只有第一次作答算数；答错的词 3 张后换一种题型重练，最多两次，不计分。
    G4 没在文章里见过的新词（手动添加、词表导入）先"初见"，再打乱顺序回忆；读文章时标的词直接进题。
    G5 提示由用户要：一次露一个字母，用了提示最多"模糊"。 */
 const STAGES = ['生词', '见过', '眼熟', '认得', '熟悉', '掌握'];
-const TYPE = { recognize: '识别', choice: '选义', cloze: '填空', listen: '听写', spell: '拼写', produce: '造句', intro: '初见' };
+const TYPE = { recognize: '识别', choice: '选义', cloze: '语境填空', listen: '听写', spell: '拼写', produce: '造句', intro: '初见' };
 const TYPE_ICON = { recognize: '◎', choice: '◇', cloze: '▁', listen: '♪', spell: 'Aa', produce: '✎', intro: '○' };
 const RATE_LAB = ['忘了', '模糊', '记得', '轻松'];
 const SELF_RATED = new Set(['recognize']);
@@ -204,9 +205,9 @@ const BASE = [
     opts: [{ t: 'v. 影响', ok: 1 }, { t: 'n. 效果；作用', from: '易混词 effect' }, { t: 'v. 负担得起', from: '同一篇文章里的生词 afford' }, { t: 'v. 分配；拨给', from: '生词本里同词性的 allocate' }] },
   { w: 'overhead', ipa: '/ˈəʊvəhed/', zh: 'n. 开销', s: 2, type: 'cloze', S: 4.2, D: 5.6, t: 4, src: 'Understanding Ownership in Rust', sent: 'The upshot is memory safety without the runtime {overhead} that usually comes with it.', tr: '由此得到的结果是：内存安全，而且没有通常随之而来的运行时开销。', hint: '运行时开销' },
   { w: 'habitat', ipa: '/ˈhæbɪtæt/', zh: 'n. 栖息地', s: 2, type: 'cloze', S: 3.6, D: 5.9, t: 3, ans: ['habitats', 'habitat'], src: 'Cities Turn to Sponge Design as Floods Intensify', sent: '…brings ancillary benefits, from cooler streets to new {habitats} for wildlife.', tr: '……带来附带的好处，从更凉爽的街道到野生动物的新栖息地。', hint: '栖息地（复数）' },
-  { w: 'acknowledge', ipa: '/əkˈnɒlɪdʒ/', zh: 'v. 承认', s: 3, type: 'listen', S: 11, D: 4.8, t: 11, ans: ['acknowledged'], src: 'Pride and Prejudice', sent: 'It is a truth universally {acknowledged}, that a single man in possession of a good fortune, must be in want of a wife.', tr: '一个有钱的单身男子必定想要娶一位妻子，这是一条举世公认的真理。', hint: '公认的' },
-  { w: 'verify', ipa: '/ˈverɪfaɪ/', zh: 'v. 核实，验证', s: 4, type: 'spell', S: 26, D: 4.1, t: 24, src: 'Understanding Ownership in Rust', sent: '…the borrow checker {verifies} that no reference outlives the value it points to.', tr: '……借用检查器会确保任何引用都不会比它指向的值活得更久。', hint: '核实' },
-  { w: 'objection', ipa: '/əbˈdʒekʃn/', zh: 'n. 反对；异议', s: 4, type: 'produce', S: 32, D: 3.9, t: 30, src: 'Pride and Prejudice', sent: '“You want to tell me, and I have no {objection} to hearing it.”', tr: '“你想告诉我，我也不反对听一听。”', task: '用 <b>have no objection to (doing) sth</b> 造一个句子' },
+  { w: 'acknowledge', ipa: '/əkˈnɒlɪdʒ/', zh: 'v. 承认', s: 3, type: 'cloze', S: 11, D: 4.8, t: 11, ans: ['acknowledged'], src: 'Pride and Prejudice', sent: 'It is a truth universally {acknowledged}, that a single man in possession of a good fortune, must be in want of a wife.', tr: '一个有钱的单身男子必定想要娶一位妻子，这是一条举世公认的真理。', hint: '公认的' },
+  { w: 'verify', ipa: '/ˈverɪfaɪ/', zh: 'v. 核实，验证', s: 4, type: 'cloze', S: 26, D: 4.1, t: 24, ans: ['verifies', 'verify'], src: 'Understanding Ownership in Rust', sent: '…the borrow checker {verifies} that no reference outlives the value it points to.', tr: '……借用检查器会确保任何引用都不会比它指向的值活得更久。', hint: '核实' },
+  { w: 'objection', ipa: '/əbˈdʒekʃn/', zh: 'n. 反对；异议', s: 4, type: 'cloze', S: 32, D: 3.9, t: 30, src: 'Pride and Prejudice', sent: '“You want to tell me, and I have no {objection} to hearing it.”', tr: '“你想告诉我，我也不反对听一听。”', task: '用 <b>have no objection to (doing) sth</b> 造一个句子' },
   { w: 'notoriously', ipa: '/nəʊˈtɔːriəsli/', zh: 'adv. 出了名地（多含贬义）', s: 0, type: 'recognize', isNew: true, src: 'Understanding Ownership in Rust', sent: '…dangling pointers, that are {notoriously} hard to track down in C and C++.', tr: '……悬垂指针，这类问题在 C 和 C++ 中出了名地难以排查。', hint: '出了名地' },
   { w: 'grapple with', ipa: '', zh: '努力应对；与…较劲', s: 0, type: 'choice', isNew: true, phrase: true, src: 'Understanding Ownership in Rust', sent: 'Newcomers often find themselves {grappling with} the borrow checker…', tr: '新手常常发现自己在和借用检查器较劲……', hint: '较劲',
     opts: [{ t: '努力应对；与…较劲', ok: 1 }, { t: '抓住（机会）', from: '形近短语 grab at' }, { t: '逐渐习惯', from: '生词本里的短语 get used to' }, { t: '回避；绕开', from: '同一篇文章里的短语 steer clear of' }] },
@@ -546,7 +547,14 @@ function story() {   // G7：用今天的词读一篇（选文技能先找，找
 
 /* ============ 练习（G8：不计分，成绩单独记录） ============ */
 const PSRC = ['最近复习', '错词', '难词', '《Understanding Ownership in Rust》'];
-const PMODES = { dict: ['听写原句', '听你读过的句子，写下整句', '♪'], conf: ['易混词辨析', '在句子里选对的那个', '⇄'] };
+/* R6：听写、拼写、造句从计分复习移到这里，和易混词辨析一起，共四种；成绩只记在 practice_logs，不影响复习排期 */
+const PMODES = { dict: ['听写原句', '听你读过的句子，写下整句', '♪'], spell: ['拼写', '听发音、看释义，拼出这个词', 'Aa'], conf: ['易混词辨析', '在句子里选对的那个', '⇄'], prod: ['造句', '用一个词造句，Tibi 批改', '✎'] };
+const SPELL = [{ w: 'verify', zh: 'v. 核实，验证' }, { w: 'acknowledge', zh: 'v. 承认' }, { w: 'overhead', zh: 'n. 开销' }, { w: 'habitat', zh: 'n. 栖息地' }, { w: 'deterministic', zh: 'adj. 确定性的' }];
+const PROD = [
+  { w: 'objection', zh: 'n. 反对；异议', task: '用 <b>have no objection to (doing) sth</b> 造一个句子', fb: '用法对。have no objection to 后面接名词或动名词，你写的符合。更自然一点可以说：<i style="font-family:var(--f-read)">I have no objection to working late this week.</i>' },
+  { w: 'grapple with', zh: '努力应对；与…较劲', task: '用 <b>grapple with</b> 造一个句子', fb: '用法对。grapple with 多用于难题、复杂的问题，主语通常是人或团队。' },
+  { w: 'overhead', zh: 'n. 开销', task: '用 <b>overhead</b> 写一句和编程有关的话', fb: '用法对。技术语境里 overhead 常和 runtime、memory、performance 搭配。' },
+];
 const DICT = ['Delays affect fewer than one in ten journeys.', 'Newcomers often find themselves grappling with the borrow checker.', 'The upshot is memory safety without the runtime overhead.', 'The borrow checker verifies that no reference outlives its value.', 'Cities are turning to sponge design as floods intensify.'];
 const CONF = [
   { s: 'Delays {} fewer than one in ten journeys.', a: 'affect', b: 'effect', why: '这里需要谓语动词。affect 是动词"影响"；effect 多作名词"效果"。' },
@@ -569,9 +577,9 @@ function renderPractice(dir) {
   if (!prun) {
     $('#rv').innerHTML = `<div class="phead"><h2>练习</h2><p>不计分，不影响复习排期。</p></div>
       <div class="pmodes">${Object.entries(PMODES).map(([k, v]) => `<button class="pmode${k === pm ? ' on' : ''}" data-m="${k}"><span class="pic">${v[2]}</span><b>${v[0]}</b><small>${v[1]}</small></button>`).join('')}</div>
-      <div class="prow"><span class="lbl-i">${pm === 'conf' ? '词来自' : '句子来自'}</span><div class="rvseg wrap">${PSRC.map((s, i) => `<button class="${i === psrc ? 'on' : ''}" data-s="${i}">${esc(s)}</button>`).join('')}</div></div>
-      <div class="kpis3 two"><div><b>92%</b><span>听写准确率（最近 5 轮）</span></div><div><b>4</b><span>完成轮次</span></div></div>
-      <div class="rvfoot"><div class="actions"><button class="reveal" id="pStart">开始一轮 · 5 ${pm === 'conf' ? '题' : '句'} <span class="kbd">Enter</span></button></div></div>`;
+      <div class="prow"><span class="lbl-i">${pm === 'dict' ? '句子来自' : '词来自'}</span><div class="rvseg wrap">${PSRC.map((s, i) => `<button class="${i === psrc ? 'on' : ''}" data-s="${i}">${esc(s)}</button>`).join('')}</div></div>
+      <div class="kpis3 two"><div><b>${{ dict: '92%', spell: '88%', conf: '80%', prod: '—' }[pm]}</b><span>${PMODES[pm][0]}${pm === 'prod' ? '（Tibi 批改，不算准确率）' : '准确率（最近 5 轮）'}</span></div><div><b>${{ dict: 4, spell: 2, conf: 3, prod: 0 }[pm]}</b><span>完成轮次</span></div></div>
+      <div class="rvfoot"><div class="actions"><button class="reveal" id="pStart">开始一轮 · ${pm === 'prod' ? '3 句' : pm === 'dict' ? '5 句' : pm === 'spell' ? '5 个词' : '5 题'} <span class="kbd">Enter</span></button></div></div>`;
     document.querySelectorAll('.pmode').forEach(b => b.onclick = () => { pm = b.dataset.m; renderPractice(); });
     document.querySelectorAll('.prow button').forEach(b => b.onclick = () => { psrc = +b.dataset.s; renderPractice(); });
     $('#pStart').onclick = startPractice;
@@ -588,6 +596,14 @@ function renderPractice(dir) {
     else { const t = it.split(' '), hit = lcsMatch(words(it), words(r.val)); let k = 0;
       body += `<div class="sentence pdiff">${t.map(w => { const ok = words(w).length ? hit[k++] : true; return ok ? esc(w) : `<span class="miss">${esc(w)}</span>`; }).join(' ')}</div><div class="hint">你写的：${esc(r.val || '（空）')}</div>`;
       foot = `<div class="gline"><span class="gtag">${r.acc}%</span><span>写对了 ${r.acc}% 的词${r.acc === 100 ? '，一个不差' : '；红色是漏掉或写错的'}</span></div><button class="reveal" id="pNext">继续 <span class="kbd">Enter</span></button>`; }
+  } else if (r.m === 'spell') {
+    body = `<div class="prompt">听发音、看释义，拼出这个词</div><div class="listen"><button class="play" id="playS"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg></button><button class="play small" id="playSlow">0.7×</button><span class="hint" style="margin:0">${esc(it.zh)}</span></div>`;
+    if (!r.shown) { body += `<div class="spellrow"><input class="spellin" id="pIn" placeholder="${'·'.repeat(it.w.length)}" autocomplete="off" spellcheck="false"></div>`; foot = `<button class="reveal" id="pCheck">检查 <span class="kbd">Enter</span></button><div class="footrow"><button class="linkbtn" id="pGive">拼不出来，看答案</button></div>`; }
+    else { body += `<div class="sentence" style="font-size:26px">${r.acc ? `<span style="color:var(--ok)">${esc(it.w)}</span>` : `<span class="fix">${esc(it.w)}</span>`}</div>${r.acc ? '' : `<div class="hint">你写的：${esc(r.val || '（空）')}</div>`}`; foot = `<div class="gline"><span class="gtag">${r.acc ? '对' : '错'}</span><span>${r.acc ? '拼对了' : '对照一下哪几个字母不一样'}</span></div><button class="reveal" id="pNext">继续 <span class="kbd">Enter</span></button>`; }
+  } else if (r.m === 'prod') {
+    body = `<div class="prompt">${it.task}</div><div class="hint" style="margin-top:-4px">${esc(it.w)} · ${esc(it.zh)}</div>`;
+    if (!r.shown) { body += `<textarea class="produce" id="pIn" placeholder="写一个英文句子"></textarea>`; foot = `<button class="reveal" id="pCheck">✦ 交给 Tibi 批改 <span class="kbd">⌘ Enter</span></button><div class="footrow"><button class="linkbtn" id="pGive">跳过，看例句</button></div>`; }
+    else { body += `<div class="sentence" style="font-size:18px">${esc(r.val || '（没有写）')}</div><div class="answer"><div class="gloss">${r.acc ? it.fb : `句子里没有用到 <b>${esc(it.w)}</b>。${it.fb.split('。').slice(1).join('。')}`}</div></div>`; foot = `<div class="prov-line" style="margin:0 0 6px">Tibi · 批改 · 查看过程</div><button class="reveal" id="pNext">继续 <span class="kbd">Enter</span></button>`; }
   } else {
     const [x, y] = hash(it.s) % 2 ? [it.a, it.b] : [it.b, it.a];
     body = `<div class="prompt">选出放在空里正确的那个词</div><div class="sentence">${esc(it.s).replace('{}', r.shown ? `<span class="tw s0">${it.a}</span>` : '<span style="border-bottom:2px solid var(--ink-3);padding:0 2.2em"></span>')}</div>
@@ -598,23 +614,25 @@ function renderPractice(dir) {
   $('#rv').innerHTML = `<div class="rvbar"><div class="segs">${r.items.map((_, i) => `<i class="${i < r.i ? (r.score[i] >= 80 ? 'ro' : 'rx') : i === r.i ? 'cur' : ''}"></i>`).join('')}</div><span>练习 · 不计分</span><button class="linkbtn" id="pQuit">结束练习</button></div>
     <section class="card" id="card">${head}${body}</section><div class="rvfoot"><div class="actions">${foot}</div></div>`;
   const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
-  on('#playS', () => speak(it, 0.95)); on('#playSlow', () => speak(it, 0.7));
+  const sayIt = r.m === 'spell' ? it.w : it; on('#playS', () => speak(sayIt, 0.95)); on('#playSlow', () => speak(sayIt, 0.7));
   on('#pQuit', () => { prun = null; renderPractice('enter'); });
   on('#pCheck', pCheck); on('#pGive', () => { $('#pIn').value = ''; pCheck(); }); on('#pNext', pNext);
   document.querySelectorAll('.opts.two .opt').forEach(b => b.onclick = () => pConf(b.dataset.o));
   const inp = $('#pIn');
   if (inp && !r.shown) setTimeout(() => inp.focus(), 60);
-  if (r.m === 'dict' && !r.shown && dir === 'next') setTimeout(() => speak(it, 0.95), 400);
+  if ((r.m === 'dict' || r.m === 'spell') && !r.shown && dir === 'next') setTimeout(() => speak(sayIt, 0.95), 400);
   if (dir === 'next') anim($('#card'), { opacity: [0, 1], x: [24, 0] }, { type: 'spring', bounce: 0.15, duration: 0.45 });
 }
 function startPractice() {
-  const items = pm === 'conf' ? CONF.slice() : DICT.slice();
+  const items = { conf: CONF, spell: SPELL, prod: PROD, dict: DICT }[pm].slice();
   prun = { m: pm, items, i: 0, shown: false, val: '', acc: 0, score: [], t0: Date.now() };
   renderPractice('next');
 }
 function pCheck() {
   const r = prun, it = r.items[r.i]; r.val = ($('#pIn') || {}).value || '';
-  const hit = lcsMatch(words(it), words(r.val)); r.acc = Math.round(hit.filter(Boolean).length / hit.length * 100);
+  if (r.m === 'spell') r.acc = r.val.trim().toLowerCase() === it.w ? 100 : 0;
+  else if (r.m === 'prod') r.acc = r.val.toLowerCase().includes(it.w.split(' ')[0].slice(0, -1)) ? 100 : 0;
+  else { const hit = lcsMatch(words(it), words(r.val)); r.acc = Math.round(hit.filter(Boolean).length / hit.length * 100); }
   r.score[r.i] = r.acc; r.shown = true; renderPractice();
 }
 function pConf(o) { const r = prun; if (r.shown) return; r.val = o; r.shown = true; r.score[r.i] = o === r.items[r.i].a ? 100 : 0; renderPractice(); }
@@ -667,7 +685,7 @@ addEventListener('keydown', e => {
     const r = prun;
     if (!r) { if (e.key === 'Enter' && !inField) { e.preventDefault(); startPractice(); } return; }
     if (r.done) { if (e.key === 'Enter') { e.preventDefault(); startPractice(); } return; }
-    if (e.key === 'Enter' && e.target.id === 'pIn' && r.m === 'dict' && !e.shiftKey) { e.preventDefault(); pCheck(); return; }
+    if (e.key === 'Enter' && e.target.id === 'pIn' && (r.m === 'dict' || r.m === 'spell' || (r.m === 'prod' && (e.metaKey || e.ctrlKey))) && !e.shiftKey) { e.preventDefault(); pCheck(); return; }
     if (inField) return;
     if (e.key === 'Enter' && r.shown) { e.preventDefault(); pNext(); return; }
     if (r.m === 'conf' && !r.shown && /^[12]$/.test(e.key)) { const b = document.querySelectorAll('.opts.two .opt')[+e.key - 1]; b && pConf(b.dataset.o); return; }

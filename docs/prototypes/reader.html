@@ -112,9 +112,8 @@
 .app.focus .side { opacity: 0; transition: opacity .25s; } .app.focus .side:hover { opacity: 1; }
 .top, .foot { transition: opacity .25s; }
 .page { max-width: var(--measure, 680px); }
-.resume { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 6; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 6px 0 14px; border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
-.resume button { color: inherit; opacity: .7; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; } .resume button:hover { opacity: 1; background: rgba(255,255,255,.12); }
-.resume .go { opacity: 1; width: auto; padding: 0 10px; font-weight: 500; }
+.resume { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 6; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 4px; border-radius: 999px; background: var(--surface); color: var(--ink-2); box-shadow: 0 0 0 1px var(--line-2); font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.resume button { color: inherit; height: 26px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; font-size: 12.5px; } .resume button:hover { color: var(--ink); background: var(--hover); }
 .settings .sw { display: flex; justify-content: space-between; align-items: center; }
 
 /* 词卡浮层：贴着单词出现（AI 就地出现） */
@@ -774,7 +773,7 @@ function renderCard() {
       </div><button class="say" title="发音" data-say="${esc(L)}">${ICON_SPK}</button></div>
     ${s === 99 ? `<div class="ask">按你约 6,200 的词汇量，我猜你认识这个词。对吗？<div class="row"><button class="btn" data-set="5">认识</button><button class="btn" data-set="0">不认识，标为生词</button></div></div>` : ''}
     ${d ? `<div class="sec"><h5><span class="note">✦ AI</span>语境释义</h5><div class="gloss">${esc(d.ctx)}</div></div>
-    <div class="sec"><h5>词典释义 <span style="opacity:.7;font-weight:400">ECDICT</span></h5><ol class="defs">${d.zh.map(z => `<li>${esc(z)}</li>`).join('')}</ol>
+    <div class="sec"><h5>词典释义</h5><ol class="defs">${d.zh.map(z => `<li>${esc(z)}</li>`).join('')}</ol>
       <details><summary>英英释义</summary><div class="en">${esc(d.en)}</div></details></div>` : ''}
     ${inPh >= 0 ? `<div class="subrow"><span class="lbl-i">属于短语</span><button class="linkbtn" id="toPh">${esc(PHRASES[inPh].show || PHRASES[inPh].k)} →</button></div>` : ''}
     <div class="divider"></div>
@@ -1098,19 +1097,24 @@ try { const mw = localStorage.getItem('tibi-measure'); if (mw) { document.docume
 function setFocus(on) { $('#app').classList.toggle('focus', on); $('#focusSw').setAttribute('aria-checked', on); if (on) { $('#settings').hidden = true; showToast('专注模式：鼠标移到上下边缘或按 Esc 退出'); } }
 $('#focusSw').onclick = () => setFocus(!$('#app').classList.contains('focus'));
 let peekT; addEventListener('mousemove', e => { if (!$('#app').classList.contains('focus')) return; const near = e.clientY < 60 || e.clientY > innerHeight - 56; $('#app').classList.toggle('peek', near); });
-/* 上次读到的位置：打开有进度的文章时，底部给一个"继续"胶囊 */
-function offerResume() { const old = $('#resumePill'); if (old) old.remove(); const p = cur.progress || 0; if (!p || p >= 100) return;
-  const el = document.createElement('div'); el.className = 'resume'; el.id = 'resumePill'; el.innerHTML = `上次读到 ${p}%<button class="go" id="resumeGo">继续</button><button id="resumeX" title="从头开始"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
-  $('#reader').appendChild(el); anim(el, { opacity: [0, 1], y: [8, 0] }, { duration: 0.3, ease: EASE });
-  $('#resumeGo').onclick = () => { READER.scrollTo({ top: (READER.scrollHeight - READER.clientHeight) * p / 100, behavior: REDUCE ? 'auto' : 'smooth' }); el.remove(); };
-  $('#resumeX').onclick = () => el.remove();
-  setTimeout(() => { if (el.isConnected) anim(el, { opacity: [1, 0] }, { duration: 0.4 }); setTimeout(() => el.remove(), 450); }, 8000); }
+/* 上次读到的位置（R16）：打开有进度的文章时直接回到上次的位置，底栏进度随之显示；底部一个安静的"回到开头"，往回读或点过就收起，不定时消失 */
+let resumeP = 0, userScrolled = false;
+function offerResume() { const old = $('#resumePill'); if (old) old.remove(); const p = cur.progress || 0; resumeP = p; userScrolled = false; if (!p || p >= 100) return;
+  const jump = () => { if (userScrolled) return; READER.scrollTop = (READER.scrollHeight - READER.clientHeight) * p / 100; READER.dispatchEvent(new Event('scroll')); };
+  jump(); setTimeout(jump, 300);
+  const el = document.createElement('div'); el.className = 'resume'; el.id = 'resumePill';
+  el.innerHTML = `<button class="go" id="resumeTop"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>回到开头</button>`;
+  $('#reader').appendChild(el); anim(el, { opacity: [0, 1], y: [8, 0] }, { duration: 0.3, ease: EASE, delay: 0.4 });
+  $('#resumeTop').onclick = () => { userScrolled = true; READER.scrollTo({ top: 0, behavior: REDUCE ? 'auto' : 'smooth' }); el.remove(); };
+}
 $('#lh').oninput = e => { document.documentElement.style.setProperty('--read-lh', e.target.value); $('#lhv').textContent = e.target.value; rr(); };
 // 主题切换后墨色变了，重绘手绘标注
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTimeout(roughRefresh, 50));
+READER.addEventListener('wheel', () => { userScrolled = true; }, { passive: true }); READER.addEventListener('touchmove', () => { userScrolled = true; }, { passive: true });
 READER.addEventListener('scroll', () => {
   placePop();
   const r = READER; const p = r.scrollHeight > r.clientHeight ? r.scrollTop / (r.scrollHeight - r.clientHeight) : 1;
+  const pill = $('#resumePill'); if (pill && userScrolled && p * 100 < 3) pill.remove();
   $('#progBar').style.width = (p * 100).toFixed(0) + '%'; $('#progTxt').textContent = (p * 100).toFixed(0) + '%';
   $('#eta').textContent = `还剩约 ${Math.max(0, Math.round(cur.mins * (1 - p)))} 分钟`;
 });

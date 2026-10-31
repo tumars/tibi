@@ -1,11 +1,15 @@
 # 数据库设计 v0.1（草案）
 
-> 状态：**草案**（2026-10-29 复审：智能体表改为技能表，providers 去掉本地 harness；2026-10-31：去掉跟打、自定义技能、例行任务的字段，新增 97 标为已知与 M1 统计字段）。
+> 状态：**草案**（2026-10-29 复审：智能体表改为技能表，providers 去掉本地 harness；2026-10-31：去掉跟打、自定义技能、例行任务的字段，新增 97 标为已知与 M1 统计字段；同日按 R9 / R11 / R6 改为自建对话与任务表、主键改 UUIDv7、复习题型收为三种）。
 > 数据库：SQLite。分两个文件：
 > - `app.db`：用户数据（读写）
 > - `dict.db`：ECDICT 词典（只读，随应用分发/升级）
 >
-> 约定：主键 `id INTEGER PRIMARY KEY`；时间统一存 Unix 毫秒时间戳（INTEGER）；JSON 字段存 TEXT（SQLite JSON1 可查询）。
+> 约定（R11，2026-10-31）：
+> - **主键用 UUIDv7**（`id TEXT PRIMARY KEY`，按时间有序，手机和电脑各自生成也不会冲突），外键同为 TEXT。只在本机、可重建的表例外：`audio_cache`（按内容哈希）、`daily_stats`（按日期，从其他表重算）、各 `_fts` 全文索引。
+> - **要同步的表**（除上面的例外，几乎所有表）都有 `updated_at`，删除一律先写**墓碑**（`deleted_at`），回收期满再硬删；下文各表不再逐一列出这两个字段。
+> - `review_logs` 与 `learning_events` **只追加、不修改**，同步时按 `id` 合并。
+> - 时间统一存 Unix 毫秒时间戳（INTEGER）；JSON 字段存 TEXT（SQLite JSON1 可查询）。
 
 ## ER 概览
 
@@ -20,7 +24,8 @@ documents ──< sections ──< sentences ─ ─< term_contexts >── term
     ├──< document_tags >── tags
     └──< reading_sessions
 
-skills（技能配置）    thread_links ──> pi_*（对话、任务，由 pi-durable 管理）
+skills（技能配置）    conversations ──< messages        jobs ──< job_steps
+                      └── thread_links（对话与文章）    usage_records（用量）
 skill_audit（写操作审计与撤销）
 memories（来源可指向 thread / document / learning_event / task）
 learning_events        audio_cache        daily_stats
@@ -31,7 +36,7 @@ learning_events        audio_cache        daily_stats
 ### user_profile（单行表）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | 固定为 1 |
+| id | TEXT PK | 固定为 1 |
 | level_self | TEXT | 自评水平：cet4 / cet6 / ielts6 / ... |
 | display_name | TEXT | 称呼（助手使用） |
 | goal | TEXT | 学习目标：exam / work / interest |
@@ -55,12 +60,12 @@ learning_events        audio_cache        daily_stats
 ### providers（模型/服务引擎）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
+| id | TEXT PK | |
 | kind | TEXT | `llm` / `vision` / `image` / `tts` |
 | name | TEXT | 显示名，如 "DeepSeek" |
 | protocol | TEXT | `openai_compatible` / `anthropic` / `ollama` / `kokoro_local` / `web_speech` …（pi-ai 支持的 provider 类型） |
 | base_url | TEXT | HTTP 类 provider 的地址 |
-| auth | TEXT | `api_key` / `oauth`（ChatGPT 账号登录，条款待核实，令牌同样存钥匙串；Claude 订阅登录不做，见 05 §10） |
+| auth | TEXT | `api_key`（账号登录不做：ChatGPT 条款未核实，Claude 订阅登录被条款禁止，见 05 §10） |
 | tier | TEXT NULL | 作为哪一档的默认：`fast` / `deep`（只对 `llm`） |
 | model | TEXT | 如 `deepseek-v4-flash`；模型名是配置项，不写死 |
 | secret_ref | TEXT | **密钥不入库**，存系统钥匙串中的引用名 |
@@ -76,7 +81,7 @@ learning_events        audio_cache        daily_stats
 ### documents
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
+| id | TEXT PK | |
 | title | TEXT | |
 | author | TEXT | |
 | kind | TEXT | `article` 文章 / `book` 书（D10：形态，导入时由来源决定，不可改；书的章节存 `sections`，文章只有一个 section） |
@@ -96,7 +101,7 @@ learning_events        audio_cache        daily_stats
 | difficulty_cefr | TEXT | 预估 CEFR：A2…C2 |
 | unknown_ratio | REAL | 导入时对该用户的生词率（快照；实时值可计算） |
 | progress | REAL | 全书阅读进度 0–1 |
-| last_section_id | INTEGER | 上次阅读的章节 |
+| last_section_id | TEXT | 上次阅读的章节 |
 | is_favorite / is_archived | INTEGER | |
 | created_at / last_read_at / finished_at | INTEGER | |
 | deleted_at | INTEGER NULL | 软删；书架不显示，撤销时清空 |
@@ -104,8 +109,8 @@ learning_events        audio_cache        daily_stats
 ### sections
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
-| document_id | INTEGER FK | |
+| id | TEXT PK | |
+| document_id | TEXT FK | |
 | idx | INTEGER | 章节序号 |
 | title | TEXT | 章节标题 |
 | content_md | TEXT | 清洗后的正文（Markdown；代码块以围栏形式保留） |
@@ -115,7 +120,7 @@ learning_events        audio_cache        daily_stats
 | tokenizer_version | TEXT | 分词结果的版本；分词库升级后据此重新分词 |
 | unknown_ratio | REAL | |
 | progress | REAL | 本章进度 0–1 |
-| last_sentence_id | INTEGER | |
+| last_sentence_id | TEXT | |
 | finished_at | INTEGER | |
 
 > 全文搜索：`sections_fts`（FTS5，title + content_md）。
@@ -123,8 +128,8 @@ learning_events        audio_cache        daily_stats
 ### sentences
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
-| section_id | INTEGER FK | |
+| id | TEXT PK | |
+| section_id | TEXT FK | |
 | paragraph_idx | INTEGER | 所在段落序号 |
 | block_type | TEXT | `prose` / `heading` / `list_item` / `quote`（代码块不拆句、不入此表，渲染时直接取自 content_md） |
 | idx | INTEGER | 文章内句子序号 |
@@ -137,14 +142,14 @@ learning_events        audio_cache        daily_stats
 ### tags
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
+| id | TEXT PK | |
 | name | TEXT UNIQUE | 自由文本，不分层级（D10）；大小写不敏感去重 |
 | created_at | INTEGER | |
 
 ### document_tags
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| document_id / tag_id | INTEGER FK | 联合主键 |
+| document_id / tag_id | TEXT FK | 联合主键 |
 | source | TEXT | `user` 用户自己加的 / `tibi` 导入时 Tibi 建议且被采纳的（用于评估建议质量） |
 | created_at | INTEGER | |
 
@@ -157,7 +162,7 @@ learning_events        audio_cache        daily_stats
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
+| id | TEXT PK | |
 | kind | TEXT | `word` / `phrase` |
 | text | TEXT | 规范形式（单词为 lemma 小写；短语为小写、空格规范化）；词族（D11）只有原形一条，词形存 `term_forms` |
 | paused_until | INTEGER NULL | 难词"暂停复习 2 周"：到期前不进复习队列 |
@@ -169,7 +174,7 @@ learning_events        audio_cache        daily_stats
 | short_gloss | TEXT | 简短释义（2–6 个字），用于"行间释义"；默认取词典首义或 AI 语境释义的缩写 |
 | note | TEXT | 用户笔记 |
 | in_wordbook | INTEGER | 是否加入生词本（生成复习卡片）；点词自动建卡时置 1（R5），标为已知（97）不置 |
-| encounter_count | INTEGER | 遇见次数（冗余计数，便于展示） |
+| encounter_count | INTEGER | 遇见次数（冗余计数）。R7：阅读中再次遇见只作弱信号，**不更新 FSRS 排期**；用于"遇见多但一直没进步"视图、挑复习语境和统计 |
 | first_seen_at / last_seen_at / status_changed_at / created_at | INTEGER | `last_seen_at` 供"很久没遇见"视图 |
 
 唯一约束：`UNIQUE(kind, text)`。
@@ -178,7 +183,7 @@ learning_events        audio_cache        daily_stats
 ### term_forms（词族里出现过的词形）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| term_id | INTEGER FK | 指向原形条目 |
+| term_id | TEXT FK | 指向原形条目 |
 | form | TEXT | 词形小写（verifies） |
 | encounter_count | INTEGER | |
 | first_seen_at | INTEGER | |
@@ -188,22 +193,22 @@ learning_events        audio_cache        daily_stats
 ### term_status_log（熟练度变化时间线）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
-| term_id | INTEGER FK | |
+| id | TEXT PK | |
+| term_id | TEXT FK | |
 | status | INTEGER | 变化后的值 |
 | source | TEXT | 同 `terms.status_source` |
 | prelabel | TEXT NULL | 这次改动前，这个词还是预标注判断时记 `known` / `unsure` / `new`；用户碰过之后为空（H1 用） |
-| document_id | INTEGER NULL | 改动时正在读的文章；不设外键，文章硬删后仍可统计（H1 用） |
+| document_id | TEXT NULL | 改动时正在读的文章；不设外键，文章硬删后仍可统计（H1 用） |
 | created_at | INTEGER | |
 
 ### term_contexts
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
-| term_id | INTEGER FK | |
+| id | TEXT PK | |
+| term_id | TEXT FK | |
 | source | TEXT | `article` / `dictionary`（词典例句）/ `manual` |
-| document_id | INTEGER FK NULL | 冗余，便于按文档统计；非 `article` 为空 |
-| sentence_id | INTEGER FK NULL | 非 `article` 为空；文档硬删时置空 |
+| document_id | TEXT FK NULL | 冗余，便于按文档统计；非 `article` 为空 |
+| sentence_id | TEXT FK NULL | 非 `article` 为空；文档硬删时置空 |
 | text | TEXT NULL | 没有 `sentence_id` 时的句子文本 |
 | surface | TEXT NULL | 原文中的实际形式（如 went） |
 | meaning_in_context | TEXT | AI 语境释义（缓存） |
@@ -213,21 +218,22 @@ learning_events        audio_cache        daily_stats
 ## 4. 复习（FSRS）
 
 ### cards
-字段对应 `ts-fsrs` 的 `Card` 结构。
+字段对应 `ts-fsrs` 6 的 FSRS-7 卡片结构（2026-10-31 定：跟随库的默认 FSRS-7，不再显式指定 FSRS-6）。实现时以库的类型为准。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
-| term_id | INTEGER FK UNIQUE | 一词一卡（D3 已确认） |
+| id | TEXT PK | |
+| term_id | TEXT FK UNIQUE | 一词一卡（D3 已确认） |
 | due | INTEGER | 到期时间 |
 | stability | REAL | |
+| stability_fast | REAL | FSRS-7 新增的短期稳定度 |
 | difficulty | REAL | |
-| elapsed_days | INTEGER | |
-| scheduled_days | INTEGER | |
+| elapsed_days | REAL | FSRS-7 按小数天计算 |
+| scheduled_days | REAL | |
 | learning_steps | INTEGER | ts-fsrs 6 需要：当前学习步（新调度器 API 名为 `learningStep`，实现时映射） |
 | reps | INTEGER | |
 | lapses | INTEGER | 忘记次数；≥ 3 视为难词（leech），生词本"难词"视图与详情提示据此判断 |
-| forced_type | TEXT NULL | 用户或 Tibi 为难词指定的题型（如 `cloze`），覆盖按熟练度的默认题型 |
+| forced_type | TEXT NULL | 用户或 Tibi 为难词指定的题型（`recognize` / `choice` / `cloze`），覆盖按熟练度的默认题型 |
 | state | INTEGER | 0 New / 1 Learning / 2 Review / 3 Relearning |
 | last_review | INTEGER | |
 | suspended | INTEGER | 暂停 |
@@ -241,7 +247,7 @@ learning_events        audio_cache        daily_stats
 ### review_sessions（进行中的复习会话，支持"稍后继续"，G6）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
+| id | TEXT PK | |
 | kind | TEXT | `review` / `drill`（再练错词等不计分会话） |
 | graded | INTEGER | 是否计分（drill 为 0） |
 | steps_json | TEXT | 步骤列表：`[{ card_id, card_type, intro, retry, options?, result? }]`；答错时插入的重练步也写在这里 |
@@ -254,18 +260,18 @@ learning_events        audio_cache        daily_stats
 ### review_logs
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
-| card_id | INTEGER FK | |
+| id | TEXT PK | |
+| card_id | TEXT FK | |
 | rating | INTEGER | 1 Again / 2 Hard / 3 Good / 4 Easy |
-| card_type | TEXT | 本次题型：recognize / choice / cloze / listen / spell / produce（M1 只有 choice、cloze，M3 补齐） |
-| auto_graded | INTEGER | 1 = 系统评分（选义、填空、听写、拼写、造句由 Tibi 批改）；0 = 用户自评（识别）（G1） |
+| card_type | TEXT | 本次题型：`recognize` / `choice` / `cloze`（R6：计分复习只有这三种；M1 只有 choice、cloze，M3 加 recognize）。听写、拼写、造句在练习里，记 `practice_logs` |
+| auto_graded | INTEGER | 1 = 系统评分（选义、填空）；0 = 用户自评（识别）（G1） |
 | suggested_rating | INTEGER NULL | 系统给的评分；用户"改评分"时与 rating 不同，用于校准阈值 |
 | hints | INTEGER | 用了几次逐字母提示（G5）；> 0 时系统评分最高为 Hard |
 | correct | INTEGER NULL | 客观题对错；自评题为空 |
-| session_id | INTEGER NULL | 所属复习会话 |
-| context_id | INTEGER NULL | 本次使用的语境 |
+| session_id | TEXT NULL | 所属复习会话 |
+| context_id | TEXT NULL | 本次使用的语境 |
 | context_snapshot | TEXT | 本次题面的句子快照；语境或文章删除后仍可查 |
-| state / due / stability / difficulty / elapsed_days / last_elapsed_days / scheduled_days / learning_steps | | ts-fsrs ReviewLog 字段 |
+| state / due / stability / stability_fast / difficulty / elapsed_days / last_elapsed_days / scheduled_days / learning_steps | | ts-fsrs ReviewLog 字段（FSRS-7） |
 | duration_ms | INTEGER | 作答时长 |
 | reviewed_at | INTEGER | |
 
@@ -274,10 +280,10 @@ learning_events        audio_cache        daily_stats
 ### practice_logs（练习成绩，不影响复习排期，G8）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
-| mode | TEXT | `dictation` 听写原句 / `confusable` 易混词辨析 |
+| id | TEXT PK | |
+| mode | TEXT | `dictation` 听写原句 / `spell` 拼写 / `confusable` 易混词辨析 / `produce` 造句（Tibi 批改）（R6：拼写、造句从计分复习移到这里） |
 | source | TEXT | `recent` / `mistakes` / `leech` / `document` |
-| document_id | INTEGER NULL | 来源文章 |
+| document_id | TEXT NULL | 来源文章 |
 | items | INTEGER | 题数 |
 | accuracy | REAL | 0–100 |
 | duration_ms | INTEGER | |
@@ -288,12 +294,12 @@ learning_events        audio_cache        daily_stats
 ### ai_results
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
+| id | TEXT PK | |
 | scope | TEXT | `document` / `section` / `sentence` / `term_context` |
-| target_id | INTEGER | 对应对象 id |
+| target_id | TEXT | 对应对象 id |
 | task | TEXT | `summary` / `phrases` / `hard_sentences` / `advice` / `glossary`（技术术语表）/ `characters`（小说人物表）/ `recap`（前情提要）/ `background`（新闻背景知识）/ `translate` / `explain` / `grade_sentence` / `context_meanings`（内置示例预生成的语境释义，按句存，`terms.lookup` 先查它） |
 | prompt_version | TEXT | prompt 版本号，升级 prompt 后可识别旧结果 |
-| provider_id | INTEGER NULL | 内置示例的预生成结果为空 |
+| provider_id | TEXT NULL | 内置示例的预生成结果为空 |
 | model | TEXT | 内置示例的预生成结果为 `bundled` |
 | output | TEXT(JSON) | 结构化结果 |
 | tokens_in / tokens_out | INTEGER | 用量统计 |
@@ -316,9 +322,9 @@ learning_events        audio_cache        daily_stats
 ### reading_sessions
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
-| document_id | INTEGER FK | |
-| section_id | INTEGER FK | |
+| id | TEXT PK | |
+| document_id | TEXT FK | |
+| section_id | TEXT FK | |
 | started_at / ended_at | INTEGER | |
 | words_read | INTEGER | |
 | terms_marked | INTEGER | |
@@ -330,7 +336,9 @@ learning_events        audio_cache        daily_stats
 | words_read | INTEGER | |
 | reading_ms | INTEGER | |
 | new_terms | INTEGER | |
-| known_terms_total | INTEGER | 当天结束时已知词总数（成长曲线）；含标为已知（97） |
+| known_terms_total | INTEGER | 当天结束时已知词总数；含标为已知（97） |
+| known_confirmed | INTEGER | 其中**实测**的部分（R8）：用户亲手标过、测试里点亮、或在复习里答对过的词 |
+| known_estimated | INTEGER | 其中**估算**的部分（R8）：按词汇量与词频规则推断、用户没碰过的词。统计页的已知词曲线拆成实测（实线）和估算（虚线）两条 |
 | reviews | INTEGER | |
 | review_correct | INTEGER | |
 
@@ -351,7 +359,7 @@ learning_events        audio_cache        daily_stats
 
 > 设计说明见 [`05-agent-architecture.md`](./05-agent-architecture.md) 与 [`02-ai-assistant.md`](./02-ai-assistant.md)。
 >
-> **对话、模型轮次、工具调用、任务、子对话、用量**都由 pi-durable 存在 `app.db` 里以 `pi_` 为前缀的表中（同一个文件、同一个连接，由 Tibi Core 独占）。这些表的结构归 pi-durable 管，我们不直接改，只通过它的 API 读写。下面只列我们自己的表。
+> **对话、消息、任务、步骤、用量**都是我们自己的表（R9，2026-10-31：不再用 pi-durable 的 `pi_` 表），和领域表在同一个 `app.db`，由 Tibi Core 独占，按同样的规则迁移和同步。
 
 ### skills（技能配置）
 技能的定义来自随应用分发的 `SKILL.md`，这里只存用户的改动。
@@ -365,14 +373,74 @@ learning_events        audio_cache        daily_stats
 | enabled | INTEGER | |
 | created_at / updated_at | INTEGER | |
 
-> 花费不单独存：从 pi-durable 的用量文档按技能汇总；每月预算、单个任务上限存在 `settings`。
+> 花费从 `usage_records` 按技能汇总；每月预算（默认 ¥20）、单个任务上限（默认 ¥1）存在 `settings`。
+
+### conversations（对话）
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | TEXT PK | |
+| kind | TEXT | `chat`（桌面首页发起的一次对话）/ `day`（手机首页"今天"的对话，一天一条，J9）/ `document`（某篇文章里的 Tibi 面板）/ `skill`（技能运行时的子对话） |
+| day | TEXT NULL | `kind = day` 时的本地日期 `YYYY-MM-DD`；`UNIQUE(day) WHERE kind = 'day'` |
+| device | TEXT | `desktop` / `mobile`，在哪一端发起（桌面"最近"里手机的对话显示为"10 月 31 日 · 手机"） |
+| title | TEXT | 第一句话或文章名，可改 |
+| summary | TEXT NULL | 过长时的压缩摘要（之前的消息仍保留） |
+| last_message_at / created_at | INTEGER | |
+
+### messages（消息，先写库再显示）
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | TEXT PK | |
+| conversation_id | TEXT FK | |
+| role | TEXT | `user` / `assistant` / `tool` |
+| content | TEXT(JSON) | 文本、结果卡片、工具调用与结果 |
+| job_id | TEXT NULL | 这条消息触发或展示的任务 |
+| created_at | INTEGER | |
+
+### jobs（任务：一次导入、一次技能运行）
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | TEXT PK | |
+| kind | TEXT | `import`（固定流水线，R10）/ `skill` |
+| skill_id | TEXT NULL | `kind = skill` 时 |
+| parent_job_id | TEXT NULL | 子任务（导入里并行的总结、短语等；主对话运行的技能） |
+| conversation_id | TEXT NULL | 结果写回哪次对话 |
+| status | TEXT | `queued` / `running` / `waiting_approval` / `done` / `failed` / `cancelled` / `deferred`（稍后补做） |
+| trigger | TEXT | `user` / `auto` / `mcp` / `share`（手机分享或剪藏） |
+| input / output | TEXT(JSON) | |
+| error | TEXT NULL | |
+| created_at / started_at / finished_at | INTEGER | |
+
+### job_steps（步骤检查点）
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | TEXT PK | |
+| job_id | TEXT FK | |
+| idx | INTEGER | 顺序 |
+| kind | TEXT | `model`（一轮模型调用）/ `tool`（一次能力调用）/ `pipeline`（流水线固定步骤） |
+| name | TEXT | 步骤名或能力名 |
+| status | TEXT | `running` / `done` / `failed` / `skipped` |
+| input / output | TEXT(JSON) | |
+| started_at / finished_at | INTEGER | |
+
+> 续跑：重新打开时，`running` 的任务从最后一个 `done` 的步骤之后接着做；写能力靠 `skill_audit.idempotency_key` 不重复写。
+
+### usage_records（用量与花费）
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | TEXT PK | |
+| job_id / job_step_id | TEXT NULL | |
+| skill_id | TEXT NULL | |
+| model | TEXT | |
+| input_tokens / cached_tokens / output_tokens | INTEGER | |
+| cost | REAL | 按 `pi-ai` 返回的价格计算，单位人民币 |
+| created_at | INTEGER | |
 
 ### thread_links（对话线程与文章的绑定）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| conversation_id | TEXT PK | pi-durable 的对话 ID |
+| conversation_id | TEXT PK | `conversations.id` |
 | skill_id | TEXT FK | 这个对话属于哪项技能（`tibi` 为主对话；技能运行时的子对话也登记） |
-| document_id | INTEGER FK NULL | 绑定的文章（在该文章中打开 Tibi 时自动续上）；NULL 为全局线程 |
+| document_id | TEXT FK NULL | 绑定的文章（在该文章中打开 Tibi 时自动续上）；NULL 为全局线程 |
 | title | TEXT | 自动生成，可改 |
 | trigger | TEXT | `user` / `auto`（Tibi 自动判断后运行的技能）/ `event` / `mcp` |
 | created_at / updated_at | INTEGER | |
@@ -380,8 +448,8 @@ learning_events        audio_cache        daily_stats
 ### skill_audit（写操作审计，支持撤销）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
-| task_id | TEXT NULL | pi-durable 的工具任务 ID（可跳到任务中心看过程）；界面直接调用时为空 |
+| id | TEXT PK | |
+| job_step_id | TEXT NULL | 哪一步调用的（可跳到任务中心看过程）；界面直接调用时为空 |
 | skill_id | TEXT FK NULL | 界面直接调用、MCP 直接调用时为空 |
 | idempotency_key | TEXT NULL | 写能力的幂等键，崩溃重跑不重复写（§9） |
 | tool | TEXT | 能力名 |
@@ -396,7 +464,7 @@ learning_events        audio_cache        daily_stats
 ### memories
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
+| id | TEXT PK | |
 | type | TEXT | `profile`（身份/偏好，常驻）/ `semantic`（观察）/ `episodic`（学习日志摘要）/ `procedural`（行为指令） |
 | content | TEXT | 记忆内容（自然语言） |
 | subject | TEXT | 可选的关联对象，如词条 `term:123`、语法点 `grammar:subjunctive` |
@@ -405,7 +473,7 @@ learning_events        audio_cache        daily_stats
 | source_ref | TEXT | 来源：`conversation:…`、`task:…`、`document:5`、`event:88` |
 | period_start / period_end | INTEGER | 情景记忆覆盖的时间段 |
 | status | TEXT | `active` / `superseded`（用户删除是硬删，不留状态） |
-| superseded_by | INTEGER | 被哪条记忆替代 |
+| superseded_by | TEXT | 被哪条记忆替代 |
 | last_used_at / created_at / updated_at | INTEGER | |
 
 > 全文搜索：`memories_fts`。后续如引入向量检索，增加 `memory_embeddings`（sqlite-vec）。
@@ -413,7 +481,7 @@ learning_events        audio_cache        daily_stats
 ### learning_events（学习事件流，记忆整合的原料）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | INTEGER PK | |
+| id | TEXT PK | |
 | type | TEXT | `document_imported` / `section_finished` / `term_marked` / `review_session` / `vocab_test` / `quiz_done` … |
 | payload | TEXT(JSON) | 事件细节；`document_imported` 带 `document_id`、`source_type`、`prelabel_total`，`section_finished` 带 `document_id`、`section_id`（M1 成功标准用） |
 | consolidated | INTEGER | 是否已被整合进记忆 |
@@ -460,9 +528,11 @@ learning_events        audio_cache        daily_stats
 |---|---|
 | 文章（`documents`） | 软删，`deleted_at`；回收期满再硬删时 `term_contexts.sentence_id` 置空，`review_logs.context_snapshot` 保留 |
 | 卡片（`cards`） | 移出生词本时软删；`review_logs` 是 FSRS 优化的训练数据，不随之删除 |
-| 记忆（`memories`）、对话（pi-durable） | 用户删除时硬删，含审计里的内容副本；隐私优先。记忆在撤销窗口过后执行 |
+| 记忆（`memories`）、对话（`conversations` / `messages`） | 用户删除时硬删（同步时先发墓碑，两端都删掉后再清除墓碑），含审计里的内容副本；隐私优先。记忆在撤销窗口过后执行 |
 
-**迁移**：领域表版本记在 `PRAGMA user_version`，只向前迁移，不写回退脚本；迁移前先备份 `app.db`。`pi_` 表的迁移归 pi-durable（05 §11），同样先备份。
+**迁移**：领域表版本记在 `PRAGMA user_version`，只向前迁移，不写回退脚本；迁移前先备份 `app.db`。对话与任务表和领域表一起迁移（R9 后不再有第三方管理的表）。
+
+**同步**（R11，具体通道仍待定，排在 M7）：两端各自写本地库；同步时按表交换"上次同步之后改过的行"（`updated_at`），同一行两端都改过时后写的赢；`review_logs`、`learning_events` 只追加，按 `id` 合并；FSRS 卡片在合并 `review_logs` 后按全部记录重算，不直接比较两端的卡片状态；墓碑保留到两端都确认。
 
 ## 待定事项
 
