@@ -26,3 +26,7 @@ target/
 .env.*
 # 词典原始数据（用 pnpm ecdict 下载）
 data/ecdict/
+# 桌面壳的随包资源与 sidecar 二进制（构建时生成）
+apps/desktop/src-tauri/resources/dict.db
+apps/desktop/src-tauri/binaries/tibi-core-*
+apps/desktop/src-tauri/gen/

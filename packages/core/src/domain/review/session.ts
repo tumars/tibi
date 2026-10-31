@@ -112,7 +112,7 @@ export async function applyRating(db: Database, ctx: Ctx, step: Pick<Step, 'card
   if (!term) throw new TibiError('not_found', '词条不存在');
   const params = await loadParams(db);
   const { patch, log } = await schedule(params, card, rating, o.t);
-  await updateCard(db, card.id, patch);
+  await updateCard(db, card.id, patch as Partial<CardRow>);
   const log_id = await insertLog(db, {
     card_id: card.id, rating, card_type: step.card_type, auto_graded: o.auto, suggested_rating: o.suggested, hints: o.hints, correct: o.correct,
     session_id: o.session_id, context_id: step.context.id || undefined, context_snapshot: step.context.sentence, fsrs: log, duration_ms: o.duration_ms, reviewed_at: o.t,

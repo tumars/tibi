@@ -1,4 +1,4 @@
-import { now, type Database } from '../../db/driver.js';
+import { now, type Database, type Row } from '../../db/driver.js';
 import type { Dict } from '../../dict/types.js';
 import type { CardType, QueueItem, Status } from '../../types.js';
 import { startOfToday } from '../shared/cards.js';
@@ -17,7 +17,7 @@ export const NEW_GROUP = 5;
 export interface CardWithTerm { card: CardRow; term: TermRow }
 
 export async function dueCards(db: Database, at: number, limit = 200): Promise<CardWithTerm[]> {
-  const rows = await db.all<Record<string, unknown>>(`SELECT ${CARD_COLUMNS.split(', ').map(c => `c.${c} AS c_${c}`).join(', ')}, t.*
+  const rows = await db.all<Row>(`SELECT ${CARD_COLUMNS.split(', ').map(c => `c.${c} AS c_${c}`).join(', ')}, t.*
     FROM cards c JOIN terms t ON t.id = c.term_id
     WHERE c.deleted_at IS NULL AND c.suspended = 0 AND c.state != 0 AND c.due <= ? AND t.deleted_at IS NULL AND t.in_wordbook = 1 AND t.status <= 5
       AND (t.paused_until IS NULL OR t.paused_until <= ?)
@@ -27,7 +27,7 @@ export async function dueCards(db: Database, at: number, limit = 200): Promise<C
 
 export async function newCards(db: Database, at: number, limit: number): Promise<CardWithTerm[]> {
   if (limit <= 0) return [];
-  const rows = await db.all<Record<string, unknown>>(`SELECT ${CARD_COLUMNS.split(', ').map(c => `c.${c} AS c_${c}`).join(', ')}, t.*
+  const rows = await db.all<Row>(`SELECT ${CARD_COLUMNS.split(', ').map(c => `c.${c} AS c_${c}`).join(', ')}, t.*
     FROM cards c JOIN terms t ON t.id = c.term_id
     WHERE c.deleted_at IS NULL AND c.suspended = 0 AND c.state = 0 AND c.due <= ? AND t.deleted_at IS NULL AND t.in_wordbook = 1 AND t.status <= 5
       AND (t.paused_until IS NULL OR t.paused_until <= ?)
@@ -35,7 +35,7 @@ export async function newCards(db: Database, at: number, limit: number): Promise
   return rows.map(split);
 }
 
-function split(r: Record<string, unknown>): CardWithTerm {
+function split(r: Row): CardWithTerm {
   const card: Record<string, unknown> = {}; const term: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(r)) { if (k.startsWith('c_')) card[k.slice(2)] = v; else term[k] = v; }
   return { card: card as CardRow, term: term as TermRow };

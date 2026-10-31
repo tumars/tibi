@@ -17,7 +17,7 @@ export interface ResolvedSkill extends SkillDef { extra_instructions?: string; e
 export const SKILL_IDS = SKILL_DEFS.map(s => s.id);
 export function skillDef(id: string): SkillDef | undefined { return SKILL_DEFS.find(s => s.id === id); }
 
-interface SkillRow { id: string; model_tier: string | null; extra_instructions: string | null; write_permission: string; enabled: number }
+interface SkillRow extends Record<string, string | number | null> { id: string; model_tier: string | null; extra_instructions: string | null; write_permission: string; enabled: number }
 
 /** 内置定义 + 用户覆盖 */
 export async function resolveSkill(db: Database, id: string): Promise<ResolvedSkill> {

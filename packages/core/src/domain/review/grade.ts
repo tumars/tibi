@@ -11,20 +11,22 @@ export function normalizeAnswer(s: string): string {
   return s.toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9'\- ]/g, '').replace(/\s+/g, ' ').trim();
 }
 
-/** 编辑距离（小写、去标点后） */
+/** 编辑距离（相邻两个字母写反算 1 步，Damerau 最优串对齐） */
 export function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
   const m = a.length, n = b.length;
   if (!m) return n; if (!n) return m;
-  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  const d: number[][] = Array.from({ length: m + 1 }, (_, i) => { const r = new Array<number>(n + 1).fill(0); r[0] = i; return r; });
+  for (let j = 0; j <= n; j++) d[0]![j] = j;
   for (let i = 1; i <= m; i++) {
-    const cur = [i];
     for (let j = 1; j <= n; j++) {
-      cur[j] = Math.min(prev[j]! + 1, cur[j - 1]! + 1, prev[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let v = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, d[i - 2]![j - 2]! + 1);
+      d[i]![j] = v;
     }
-    prev = cur;
   }
-  return prev[n]!;
+  return d[m]![n]!;
 }
 
 export interface Judged { correct: boolean; near_miss: boolean; distance?: number }
@@ -37,8 +39,8 @@ export function judgeTyped(expected: string[], answer: string): Judged {
   if (forms.includes(a)) return { correct: true, near_miss: false, distance: 0 };
   let best = Infinity;
   for (const f of forms) best = Math.min(best, levenshtein(a, f));
-  // 允许的"差一点"：编辑距离 ≤ 1，或长词 ≤ 2（≥ 8 个字母）
-  const tol = Math.max(...forms.map(f => f.length)) >= 8 ? 2 : 1;
+  // 允许的"差一点"：编辑距离 ≤ 1，或长词 ≤ 2（≥ 10 个字母）
+  const tol = Math.max(...forms.map(f => f.length)) >= 10 ? 2 : 1;
   if (best <= tol) return { correct: true, near_miss: true, distance: best };
   return { correct: false, near_miss: false, distance: best };
 }

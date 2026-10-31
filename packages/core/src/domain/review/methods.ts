@@ -2,7 +2,8 @@ import { Type } from '@sinclair/typebox';
 import { j, now } from '../../db/driver.js';
 import { uuidv7 } from '../../ids.js';
 import { method, S, type Ctx, type MethodMap } from '../../rpc/define.js';
-import { TibiError, type PracticeItem, type PracticeMode, type QueueItem } from '../../types.js';
+import { TibiError, type PracticeMode, type QueueItem, type Rating } from '../../types.js';
+import type { PracticeItem } from './practice-types.js';
 import { loadParams, preview } from './fsrs.js';
 import { buildSteps, forecast, makeStep, pickCardType, shuffle } from './queue.js';
 import { getCard, getCardByTerm, getSession, getTerm, insertSession, openSession, saveSession, sessionSteps, termContexts, type TermRow } from './repo.js';
@@ -59,10 +60,10 @@ export const reviewMethods: MethodMap = {
   }, '自评题的四个按钮、"改评分"展开时的间隔文案'),
 
   'review.answer': method(Type.Object({ session_id: S.id, step: Type.Integer({ minimum: 0 }), answer: answerSchema, hints: Type.Integer({ minimum: 0, default: 0 }), duration_ms: Type.Integer({ minimum: 0, default: 0 }) }), async (p, ctx) => {
-    return answerStep(ctx, ctx.dict, p);
+    return answerStep(ctx, ctx.dict, { ...p, answer: { ...p.answer, self_rating: p.answer.self_rating as Rating | undefined } });
   }, 'Core 判分（G1）；只有首次作答写 review_logs（G3）；答错插入换题型的重练步'),
 
-  'review.override': method(Type.Object({ session_id: S.id, step: Type.Integer({ minimum: 0 }), rating: S.rating }), async (p, ctx) => overrideRating(ctx, p.session_id, p.step, p.rating), '用户改系统给的评分'),
+  'review.override': method(Type.Object({ session_id: S.id, step: Type.Integer({ minimum: 0 }), rating: S.rating }), async (p, ctx) => overrideRating(ctx, p.session_id, p.step, p.rating as Rating), '用户改系统给的评分'),
 
   'review.next': method(Type.Object({ session_id: S.id, step: Type.Integer({ minimum: 0 }) }), async (p, ctx) => nextStep(ctx, p.session_id, p.step), '推进游标并保存进度'),
 

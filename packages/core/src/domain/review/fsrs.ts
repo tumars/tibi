@@ -13,7 +13,8 @@ export interface CardRow extends Row {
 }
 
 type Scheduler = Awaited<ReturnType<typeof DefaultScheduler>>;
-type FsrsCard = ReturnType<Scheduler['newCard']>;
+/** ts-fsrs 6 的卡片对象（FSRS-7 字段），按运行时实际形状写，类型层面用 unknown 过桥 */
+export interface FsrsCard { cardId: string | number; stability: number; stabilityFast: number; difficulty: number; state: 0 | 1 | 2 | 3; scheduleStatus: 'new' | 'learning' | 'review' | 'relearning'; dueAt: Date; lastReviewAt: Date | null; reps: number; lapses: number; scheduledDays: number; learningStep: number }
 
 const cache = new Map<string, Promise<Scheduler>>();
 
@@ -43,11 +44,15 @@ export function getScheduler(params: FsrsParams): Promise<Scheduler> {
 export function toFsrsCard(row: CardRow): FsrsCard {
   const state = row.state as 0 | 1 | 2 | 3;
   const status = (['new', 'learning', 'review', 'relearning'] as const)[state] ?? 'new';
+  // 非新卡两种稳定度都必须为正（FSRS-7 校验）；旧数据只有一个时互相补上
+  const stability = state === 0 ? row.stability : (row.stability > 0 ? row.stability : row.stability_fast > 0 ? row.stability_fast : 0.1);
+  const stabilityFast = state === 0 ? row.stability_fast : (row.stability_fast > 0 ? row.stability_fast : stability);
+  const difficulty = state === 0 ? row.difficulty : (row.difficulty > 0 ? row.difficulty : 5);
   return {
-    cardId: row.id, stability: row.stability, stabilityFast: row.stability_fast, difficulty: row.difficulty,
+    cardId: row.id, stability, stabilityFast, difficulty,
     state, scheduleStatus: status, dueAt: new Date(row.due), lastReviewAt: row.last_review ? new Date(row.last_review) : null,
     reps: row.reps, lapses: row.lapses, scheduledDays: row.scheduled_days, learningStep: row.learning_steps,
-  } as FsrsCard;
+  };
 }
 
 /** 调度后要写回卡片行的字段 */
@@ -65,8 +70,8 @@ export function fromFsrsCard(c: FsrsCard, now: number, prevLastReview: number | 
 /** 作答后排期：返回新行字段 + review_logs 要记的"作答前"快照字段 */
 export async function schedule(params: FsrsParams, row: CardRow, rating: Rating, now: number): Promise<{ patch: CardPatch; log: { state: number; due: number; stability: number; stability_fast: number; difficulty: number; elapsed_days: number; last_elapsed_days: number; scheduled_days: number; learning_steps: number } }> {
   const s = await getScheduler(params);
-  const r = s.review({ card: toFsrsCard(row), grade: rating as unknown as typeof FsrsRating.Good, now: new Date(now) });
-  const patch = fromFsrsCard(r.card as FsrsCard, now, row.last_review);
+  const r = s.review({ card: toFsrsCard(row) as never, grade: rating as unknown as typeof FsrsRating.Good, now: new Date(now) });
+  const patch = fromFsrsCard(r.card as unknown as FsrsCard, now, row.last_review);
   return {
     patch,
     log: { state: row.state, due: row.due, stability: row.stability, stability_fast: row.stability_fast, difficulty: row.difficulty, elapsed_days: patch.elapsed_days, last_elapsed_days: row.elapsed_days, scheduled_days: row.scheduled_days, learning_steps: row.learning_steps },
@@ -77,8 +82,8 @@ export async function schedule(params: FsrsParams, row: CardRow, rating: Rating,
 export async function previewDays(params: FsrsParams, row: CardRow, now: number): Promise<Record<Rating, number>> {
   const s = await getScheduler(params);
   const out = { 1: 0, 2: 0, 3: 0, 4: 0 } as Record<Rating, number>;
-  for (const item of s.preview({ card: toFsrsCard(row), now: new Date(now) })) {
-    const c = item.card as FsrsCard;
+  for (const item of s.preview({ card: toFsrsCard(row) as never, now: new Date(now) })) {
+    const c = item.card as unknown as FsrsCard;
     out[item.grade as Rating] = Math.max(0, (new Date(c.dueAt).getTime() - now) / 86_400_000);
   }
   return out;
@@ -105,7 +110,7 @@ export function intervalLabel(days: number): string {
   if (minutes < 60) return `${Math.round(minutes)} 分钟后`;
   if (days < 1) return `${Math.round(minutes / 60)} 小时后`;
   if (days < 14) return `${Math.round(days)} 天后`;
-  if (days < 60) return `${Math.round(days / 7)} 周后`;
+  if (days < 30) return `${Math.round(days / 7)} 周后`;
   if (days < 365) { const m = days / 30; return `${m % 1 < 0.25 || m % 1 > 0.75 ? Math.round(m) : Math.round(m * 2) / 2} 个月后`; }
   const y = days / 365; return `${y < 1.75 ? 1 : Math.round(y * 2) / 2} 年后`;
 }

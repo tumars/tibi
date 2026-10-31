@@ -1,11 +1,11 @@
-import { j, now, type Database } from '../../db/driver.js';
+import { j, now, type Database, type Row } from '../../db/driver.js';
 import { uuidv7 } from '../../ids.js';
 import type { QueueItem, Rating, Status, Term } from '../../types.js';
 import { CARD_COLUMNS, type CardRow } from './fsrs.js';
 
 /** 复习相关的数据库读写（cards / review_sessions / review_logs / terms 的相关列） */
 
-export interface TermRow { id: string; kind: string; text: string; text_display: string; status: number; status_source: string; meaning: string | null; short_gloss: string | null; note: string | null; in_wordbook: number; paused_until: number | null; encounter_count: number; last_seen_at: number | null; created_at: number; [k: string]: unknown }
+export interface TermRow extends Row { id: string; kind: string; text: string; text_display: string; status: number; status_source: string; meaning: string | null; short_gloss: string | null; note: string | null; in_wordbook: number; paused_until: number | null; encounter_count: number; last_seen_at: number | null; created_at: number }
 
 export async function getCard(db: Database, card_id: string): Promise<CardRow | undefined> {
   return db.get<CardRow>(`SELECT ${CARD_COLUMNS} FROM cards WHERE id = ?`, [card_id]);
@@ -14,7 +14,7 @@ export async function getCardByTerm(db: Database, term_id: string): Promise<Card
   return db.get<CardRow>(`SELECT ${CARD_COLUMNS} FROM cards WHERE term_id = ?`, [term_id]);
 }
 export async function getTerm(db: Database, term_id: string): Promise<TermRow | undefined> {
-  return db.get<TermRow>('SELECT * FROM terms WHERE id = ?', [term_id]) as Promise<TermRow | undefined>;
+  return db.get<TermRow>('SELECT * FROM terms WHERE id = ?', [term_id]);
 }
 
 export async function updateCard(db: Database, card_id: string, patch: Partial<CardRow>): Promise<void> {
@@ -39,7 +39,7 @@ export function toTerm(t: TermRow, card?: CardRow): Term {
 }
 
 /** 一条语境：优先 is_primary 的文章语境，其次任何文章语境，再词典 / 手动 */
-export interface ContextRow { id: string; source: string; document_id: string | null; sentence_id: string | null; text: string | null; surface: string | null; meaning_in_context: string | null; is_primary: number; sentence_text: string | null; translation: string | null; document_title: string | null; [k: string]: unknown }
+export interface ContextRow extends Row { id: string; source: string; document_id: string | null; sentence_id: string | null; text: string | null; surface: string | null; meaning_in_context: string | null; is_primary: number; sentence_text: string | null; translation: string | null; document_title: string | null }
 
 export async function termContexts(db: Database, term_id: string): Promise<ContextRow[]> {
   return db.all<ContextRow>(`SELECT tc.id, tc.source, tc.document_id, tc.sentence_id, tc.text, tc.surface, tc.meaning_in_context, tc.is_primary,
@@ -49,7 +49,7 @@ export async function termContexts(db: Database, term_id: string): Promise<Conte
     ORDER BY tc.is_primary DESC, CASE tc.source WHEN 'article' THEN 0 WHEN 'dictionary' THEN 1 ELSE 2 END, tc.created_at`, [term_id]);
 }
 
-export interface SessionRow { id: string; kind: string; graded: number; steps_json: string; cursor: number; status: string; started_at: number; updated_at: number; finished_at: number | null; [k: string]: unknown }
+export interface SessionRow extends Row { id: string; kind: string; graded: number; steps_json: string; cursor: number; status: string; started_at: number; updated_at: number; finished_at: number | null }
 
 export async function openSession(db: Database): Promise<SessionRow | undefined> {
   return db.get<SessionRow>("SELECT * FROM review_sessions WHERE kind = 'review' AND status IN ('active', 'paused') ORDER BY started_at DESC LIMIT 1");

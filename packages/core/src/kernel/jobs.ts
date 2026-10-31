@@ -25,7 +25,7 @@ interface Active {
 
 export interface ApprovalDecision { decision: 'allow' | 'deny' | 'edit'; edited?: Record<string, unknown> }
 
-interface JobRow {
+interface JobRow extends Record<string, string | number | null> {
   id: string; kind: string; skill_id: string | null; parent_job_id: string | null; conversation_id: string | null; status: string; trigger: string; title: string;
   input: string; output: string | null; error: string | null; created_at: number; started_at: number | null; finished_at: number | null; pipeline: string; tainted: number; approval: string | null; progress: string | null;
 }
@@ -203,7 +203,7 @@ export class JobRunnerImpl implements JobRunner {
     // "以后这类都自动允许"：按技能 + 能力记的规则；读过不可信内容的任务不生效
     if (!entry.ctx.tainted && !req.untrusted) {
       const rule = await this.db.get<{ value: string }>('SELECT value FROM settings WHERE key = ?', [autoRuleKey(row?.skill_id, req.tool)]);
-      if (rule && j.parse(rule.value, false) === true) return { decision: 'allow' };
+      if (rule && j.parse<boolean>(rule.value, false)) return { decision: 'allow' };
     }
     const approval: Approval = { ...req, task_id: id, untrusted: req.untrusted || entry.ctx.tainted, requested_at: now() };
     await this.db.run("UPDATE jobs SET status = 'waiting_approval', approval = ?, updated_at = ? WHERE id = ?", [j.str(approval), now(), id]);

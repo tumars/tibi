@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "主窗口能走的命令：只有系统能力（06 §7），业务数据全经 core_call 到 sidecar",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-title",
+    "core:event:default",
+    "dialog:allow-open",
+    "opener:allow-reveal-item-in-dir",
+    "deep-link:default"
+  ]
+}
