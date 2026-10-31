@@ -49,6 +49,9 @@ export function Words() {
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
+  // 全局搜索打开某个词：/words?term=<id>
+  const termParam = params.get('term');
+  useEffect(() => { if (termParam) rpc.call('terms.get', { id: termParam }).then(setDetail, () => undefined); }, [termParam]);
   const open = async (t: Term) => { try { setDetail(await rpc.call('terms.get', { id: t.id })); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
   const setStatus = async (id: string, s: Status) => {
     try { await rpc.call('terms.setStatus', { ids: [id], status: s, source: 'user' }); setDetail(d => d && d.id === id ? { ...d, status: s } : d); void load(); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }

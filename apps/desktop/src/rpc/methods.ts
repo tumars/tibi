@@ -3,7 +3,7 @@
  */
 import type {
   Answer, AnswerResult, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession, Skill,
-  SampleInfo, SectionContent, Status, Task, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval,
+  SampleInfo, SearchResult, SectionContent, Status, Task, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval,
 } from '@tibi/core';
 
 export interface MethodTable {
@@ -30,6 +30,8 @@ export interface MethodTable {
   'terms.list': { params: { view?: 'all' | 'due' | 'late' | 'new' | 'leech' | 'stuck' | 'stale' | 'unsure' | 'ignored' | 'known' | 'mastered'; status?: Status[]; kind?: 'word' | 'phrase'; document_id?: Id; tags?: string[]; q?: string; sort?: 'due' | 'added' | 'enc' | 'alpha' | 'stage' | 'freq'; cursor?: string; limit?: number }; result: Page<Term> & { counts: Record<string, number> } };
   'terms.export': { params: { format: 'csv' | 'anki' | 'txt'; ids?: Id[]; with_contexts?: boolean }; result: { filename: string; text: string; count: number } };
   'terms.import': { params: { path: string; format: 'csv' | 'txt' | 'anki' | 'known' }; result: { added: number; known: number; skipped: number; total: number } };
+  'terms.add': { params: { entries: { text: string; meaning?: string }[] }; result: { created: Term[]; undo?: Undo } };
+  'search.query': { params: { q: string; limit?: number }; result: SearchResult };
   'terms.get': { params: { id: Id } | { text: string }; result: TermDetail };
   'terms.setStatus': { params: { ids: Id[]; status: Status; source?: 'user' | 'page_done' }; result: { changed: number; undo: Undo } };
   'terms.remove': { params: { ids: Id[] }; result: Undo };

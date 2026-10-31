@@ -155,6 +155,7 @@ API = [
     ('feeds.list', '{}', '{ url: string; title: string; builtin: boolean; enabled: boolean }[]', 'M5 订阅源：内置 + 自己加的'),
     ('feeds.update', '{ add?: { url: string; title?: string }; remove?: string; toggle?: { url: string; enabled: boolean } }', '同 feeds.list', '加源时先抓一次，确认是 RSS / Atom'),
     ('feeds.search', '{ interests?: string[]; max_unknown_ratio?: number; limit?: number }', 'search_feeds 的返回', '界面直接看候选，不经模型'),
+    ('search.query', '{ q: string; limit?: number }', '{ documents: { id; title; genre; snippet? }[]; terms: { id; text; display; meaning?; status }[]; conversations: { id; title; kind; last_message_at? }[]; dict?: { lemma: string; entry: DictEntry } }', 'M6 全局搜索（⌘K，00 §3.8）：文章标题 + 正文 FTS5 片段、生词本里的词（英文前缀 / 词形 / 中文释义，不含已知和忽略）、对话标题；输入像英文单词又不在生词本里时附词典释义。设置项和跳转在界面本地匹配。只读'),
     ('stats.summary', '{ range: 30 | 90 | 180 }', '{ known: number; known_delta: number; prev_delta: number; minutes: number; words: number; study_days: number; streak: number; longest_streak: number; reviews: number; retention: number }', '四张指标卡'),
     ('stats.series', "{ metrics: ('known' | 'minutes' | 'words' | 'reviews')[]; days: number }", '{ dates: Ts[]; series: Record<string, number[]> }', '折线、柱状、热力图共用'),
     ('stats.retention', '{ weeks: number }', '{ weeks: { ratings: [number, number, number, number]; retention: number }[]; lapses: number; leeches: number }', '"复习表现"面板'),

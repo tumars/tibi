@@ -5,6 +5,7 @@ import { isTauri } from '../rpc';
 import { useCore } from '../store/core';
 import { useUi } from '../store/ui';
 import { tl } from '../lib/i18n';
+import { SearchPalette } from './SearchPalette';
 
 const NAV = [
   { to: '/', label: tl('首页'), icon: HomeIcon },
@@ -41,7 +42,7 @@ export function Shell() {
           <span className="logo"><img src="/logo.svg" alt="" /><span className="hide-c">Tibi</span></span>
           <button className="ibtn hide-c" onClick={toggleSide} title={tl('折叠侧栏（⌘\\\\）')}><PanelLeft /></button>
         </div>
-        <button className="nav-search" style={{ display: 'flex', alignItems: 'center', gap: 10, height: 32, padding: '0 10px', borderRadius: 8, color: 'var(--ink-2)' }} title={tl('搜索（M1 后）')}><Search size={17} /><span className="hide-c">{tl('搜索')}</span><span className="kbd hide-c" style={{ marginLeft: 'auto' }}>⌘K</span></button>
+        <button className="nav-search" style={{ display: 'flex', alignItems: 'center', gap: 10, height: 32, padding: '0 10px', borderRadius: 8, color: 'var(--ink-2)' }} title={tl('搜索（⌘K）')} onClick={() => window.dispatchEvent(new Event('tibi:search'))}><Search size={17} /><span className="hide-c">{tl('搜索')}</span><span className="kbd hide-c" style={{ marginLeft: 'auto' }}>⌘K</span></button>
         <nav className="nav">
           {NAV.map(n => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive || (n.to === '/library' && reading) ? 'cur' : '')} title={n.label}>
@@ -70,6 +71,7 @@ export function Shell() {
           </div>
         </div>
       </aside>
+      <SearchPalette />
       <section className="main">
         <Outlet />
       </section>

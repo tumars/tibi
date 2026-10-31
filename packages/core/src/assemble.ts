@@ -1,4 +1,5 @@
 import { feedsCapabilities, feedsMethods } from './domain/documents/feeds.js';
+import { searchMethods } from './domain/search/methods.js';
 import { Core } from './core.js';
 import type { Database } from './db/driver.js';
 import type { Dict } from './dict/types.js';
@@ -37,7 +38,8 @@ export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core;
     .use(reviewMethods)
     .use(statsMethods)
     .use(profileMethods)
-    .use(feedsMethods);
+    .use(feedsMethods)
+    .use(searchMethods);
 
   kernel.registerCapabilities({ ...feedsCapabilities, ...documentsCapabilities, ...termsCapabilities, ...reviewCapabilities, ...statsCapabilities });
   registerImportPipeline(kernel.jobs, core);

@@ -1,7 +1,7 @@
 import type { Profile, Provider } from '@tibi/core';
 import { ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Top } from '../components/Shell';
 import { Switch } from '../components/Switch';
 import { saveProvider } from '../lib/providers';
@@ -23,13 +23,28 @@ export function Settings() {
   useEffect(() => { rpc.call('settings.get', { keys: ['review.recognize'] }).then(r => setRecognize(!!r['review.recognize']), () => undefined); }, []);
   const theme = useUi(s => s.theme); const setTheme = useUi(s => s.setTheme);
   const status = useCore(s => s.status);
-  const [sec, setSec] = useState<string>('general');
+  const [params] = useSearchParams();
+  const [sec, setSec] = useState<string>(params.get('sec') ?? 'general');
   const [profile, setProfile] = useState<Profile>();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [budget, setBudget] = useState<{ month: number; task: number }>({ month: 20, task: 1 });
   const [adv, setAdv] = useState(false);
   const [editing, setEditing] = useState<Partial<Provider> & { key?: string }>();
 
+  // 全局搜索跳到某一项：?sec=advanced&item=模型 → 滚过去并闪一下浅蓝底
+  const secParam = params.get('sec'), itemParam = params.get('item');
+  useEffect(() => {
+    if (!secParam) return;
+    setSec(secParam); if (secParam === 'advanced') setAdv(true);
+    const t = setTimeout(() => {
+      const want = itemParam ? tl(itemParam) : '';
+      const el = want ? [...document.querySelectorAll<HTMLElement>(`#s-${secParam} .t, #s-${secParam} h3`)].find(x => x.textContent?.trim() === want) : undefined;
+      const target = (el?.closest('.item') as HTMLElement | null) ?? el ?? document.getElementById(`s-${secParam}`);
+      target?.scrollIntoView({ behavior: 'smooth', block: el ? 'center' : 'start' });
+      if (el) { const box = (el.closest('.item') as HTMLElement | null) ?? el; box.classList.remove('flash'); void box.offsetWidth; box.classList.add('flash'); }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [secParam, itemParam]);
   useEffect(() => {
     rpc.call('profile.get', {}).then(setProfile, () => undefined);
     rpc.call('providers.list', {}).then(setProviders, () => undefined);
