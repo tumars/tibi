@@ -147,9 +147,9 @@ body { display: grid; place-items: center; padding: 24px; }
     <!-- 2 词汇量测试 -->
     <div class="pane" data-p="2">
       <h1>测测词汇量</h1>
-      <p class="lead" id="vtLead"><b>点亮确定认识的词。</b>其中混了几个不存在的词。</p>
+      <p class="lead" id="vtLead"><b>点亮确定认识的词。</b>其中混了几个不存在的词。共 7 组，约 3–4 分钟。</p>
       <div id="vtest">
-        <div class="vt-head"><span id="vtN">第 1 / 5 组</span><div class="bar2"><i id="vtBar" style="width:0%"></i></div><span id="vtB"></span></div>
+        <div class="vt-head"><span id="vtN">第 1 / 7 组</span><div class="bar2"><i id="vtBar" style="width:0%"></i></div><span id="vtB"></span></div>
         <div class="vt" id="vt"></div>
         <div class="vt-foot"><span id="vtCnt">已点亮 0 个</span><span class="sp" style="flex:1"></span><button class="btn sm" id="vtNone">这组一个都不认识</button><button class="btn sm pri" id="vtNext">下一组</button></div>
       </div>
@@ -159,7 +159,7 @@ body { display: grid; place-items: center; padding: 24px; }
     <div class="pane" data-p="3">
       <h1>连接一个模型</h1>
       <p class="lead">讲解、总结和出题需要模型。查词、标注和复习不需要。</p>
-      <div class="seg" id="mseg"><button class="on" data-m="key">填 API Key</button><button data-m="login">用账号登录</button><button data-m="local">本地模型</button></div>
+      <div class="seg" id="mseg"><button class="on" data-m="key">填 API Key</button><button data-m="local">本地模型</button></div>
       <div class="mp on" data-m="key">
         <div class="prov" id="prov">
           <button class="on" data-v="deepseek"><b>DeepSeek <span class="tag">推荐</span></b><span>便宜、中文好；快速档 deepseek-v4-flash，深入档 deepseek-v4-pro</span></button>
@@ -170,10 +170,6 @@ body { display: grid; place-items: center; padding: 24px; }
         <div class="keyrow"><input class="input" id="key" type="password" placeholder="sk-…（只存在本机）" autocomplete="off"><button class="btn" id="testBtn">测试连接</button></div>
         <div class="conn" id="conn"></div>
         <div class="tiers" id="tiers"><div><span>快速档 · 查词、标注、日常问答</span><span>deepseek-v4-flash</span></div><div><span>深入档 · 长难句、学习洞察、出题</span><span>deepseek-v4-pro</span></div></div>
-      </div>
-      <div class="mp" data-m="login">
-        <div class="login"><button class="btn" data-login="ChatGPT">用 ChatGPT 账号登录</button></div>
-        <div class="note">使用已有的 ChatGPT 订阅。</div>
       </div>
       <div class="mp" data-m="local">
         <div class="note">没检测到 Ollama。安装并运行后会自动识别。</div>
@@ -248,30 +244,34 @@ single('#goal', 'goal'); single('#lv', 'lv'); single('#lang', 'lang');
 document.querySelectorAll('#mat .chip').forEach(b => b.onclick = () => { b.classList.toggle('on'); ans.mat = [...document.querySelectorAll('#mat .on')].map(x => x.dataset.v); });
 $('#nick').addEventListener('focus', () => fox.set('listening')); $('#nick').addEventListener('blur', () => fox.set('idle'));
 $('#nick').addEventListener('input', () => { const v = $('#nick').value.trim(); if (v) say(`${v}，你好。`); });
-/* ---------- 第 2 步：词汇量测试（按词频分 5 组，混入 4 个伪词） ---------- */
+/* ---------- 第 2 步：词汇量测试（R8：按词频分 7 组，4k–10k 学习区测得更细；4k 以下和 10k 以上每组 8 个真词、4k–10k 每组 10 个，每组再混 2 个伪词；约 3–4 分钟） ---------- */
 const BANDS = [
-  { l: '前 1,000', size: 1000, words: ['although', 'provide', 'various', 'perhaps', 'reduce', 'effort', 'certain', 'morbent'] },
-  { l: '1–2k', size: 1000, words: ['maintain', 'narrow', 'steady', 'obtain', 'glance', 'modest', 'distribute', 'accuse'] },
-  { l: '2–4k', size: 2000, words: ['abundant', 'reluctant', 'notorious', 'resemble', 'flandish', 'plausible', 'coincide', 'deteriorate'] },
-  { l: '4–6k', size: 2000, words: ['ephemeral', 'meticulous', 'ostensibly', 'fervent', 'precarious', 'prenticate', 'lucid', 'ambivalent'] },
-  { l: '6k 以上', size: 4000, words: ['perspicacious', 'recondite', 'sedulous', 'truculent', 'strevious', 'lugubrious', 'pellucid', 'aver'] },
+  { l: '前 1,000', size: 1000, words: ['although', 'provide', 'various', 'perhaps', 'reduce', 'effort', 'certain', 'region'], fake: ['morbent', 'plinter'] },
+  { l: '1–2k', size: 1000, words: ['maintain', 'narrow', 'steady', 'obtain', 'glance', 'modest', 'distribute', 'accuse'], fake: ['granteel', 'vospen'] },
+  { l: '2–4k', size: 2000, words: ['abundant', 'reluctant', 'notorious', 'resemble', 'plausible', 'coincide', 'deteriorate', 'vague'], fake: ['flandish', 'mintrous'] },
+  { l: '4–6k', size: 2000, words: ['meticulous', 'fervent', 'precarious', 'lucid', 'ambivalent', 'scrutiny', 'cumbersome', 'tenacious', 'impede', 'frugal'], fake: ['prenticate', 'bralient'] },
+  { l: '6–8k', size: 2000, words: ['ostensibly', 'ephemeral', 'ubiquitous', 'placate', 'insidious', 'austere', 'quell', 'exacerbate', 'lament', 'wry'], fake: ['strevious', 'dorplent'] },
+  { l: '8–10k', size: 2000, words: ['pernicious', 'obsequious', 'sanguine', 'garrulous', 'laconic', 'recalcitrant', 'esoteric', 'capricious', 'fastidious', 'vociferous'], fake: ['quandrel', 'phlemmet'] },
+  { l: '10k 以上', size: 4000, words: ['perspicacious', 'recondite', 'sedulous', 'truculent', 'lugubrious', 'pellucid', 'aver', 'obstreperous'], fake: ['lorvaceous', 'scrivalent'] },
 ];
-const PSEUDO = new Set(['morbent', 'flandish', 'prenticate', 'strevious']);
+// 伪词插在固定但不显眼的位置（按组号错开），正式版随机
+BANDS.forEach((b, i) => { b.fake.forEach((f, k) => b.words.splice((i * 3 + k * 5 + 2) % (b.words.length + 1), 0, f)); });
+const PSEUDO = new Set(BANDS.flatMap(b => b.fake));
 let band = 0; const picked = BANDS.map(() => new Set());
 function renderBand() {
   const b = BANDS[band];
-  $('#vtN').textContent = `第 ${band + 1} / 5 组`; $('#vtB').textContent = `词频 ${b.l}`; $('#vtBar').style.width = (band / 5 * 100) + '%';
+  $('#vtN').textContent = `第 ${band + 1} / ${BANDS.length} 组`; $('#vtB').textContent = `词频 ${b.l}`; $('#vtBar').style.width = (band / BANDS.length * 100) + '%';
   $('#vt').innerHTML = b.words.map(w => `<button data-w="${w}" class="${picked[band].has(w) ? 'on' : ''}">${w}</button>`).join('');
   $('#vt').querySelectorAll('button').forEach(x => x.onclick = () => { const w = x.dataset.w; picked[band].has(w) ? picked[band].delete(w) : picked[band].add(w); x.classList.toggle('on'); $('#vtCnt').textContent = `已点亮 ${picked[band].size} 个`; });
-  $('#vtCnt').textContent = `已点亮 ${picked[band].size} 个`; $('#vtNext').textContent = band === 4 ? '看结果' : '下一组';
+  $('#vtCnt').textContent = `已点亮 ${picked[band].size} 个`; $('#vtNext').textContent = band === BANDS.length - 1 ? '看结果' : '下一组';
   anim($('#vt').children, { opacity: [0, 1], y: [6, 0] }, { duration: 0.3, delay: stag(0.03) });
 }
 $('#vtNone').onclick = () => { picked[band].clear(); renderBand(); };
-$('#vtNext').onclick = () => { if (band < 4) { band++; renderBand(); fox.pulse('thinking', 600); } else showResult(); };
+$('#vtNext').onclick = () => { if (band < BANDS.length - 1) { band++; renderBand(); fox.pulse('thinking', 600); } else showResult(); };
 function showResult() {
   let est = 0, pseudo = 0, realTotal = 0, realKnown = 0; const ratios = [];
   BANDS.forEach((b, i) => { const real = b.words.filter(w => !PSEUDO.has(w)); const known = real.filter(w => picked[i].has(w)).length; pseudo += [...picked[i]].filter(w => PSEUDO.has(w)).length; const r = known / real.length; ratios.push(r); est += r * b.size; realTotal += real.length; realKnown += known; });
-  est = Math.round(est * (1 - pseudo * 0.08) / 100) * 100; ans.vocab = est;
+  est = Math.round(est * (1 - pseudo * 0.06) / 100) * 100; ans.vocab = est;
   const cefr = est < 2500 ? 'A2' : est < 4500 ? 'B1' : est < 7000 ? 'B2' : est < 10000 ? 'C1' : 'C2';
   const known = Math.min(Math.round(est * 0.65 / 500) * 500, 8000);
   $('#vtLead').innerHTML = '测完了。读得越多，估算越准。';
@@ -295,7 +295,6 @@ $('#testBtn').onclick = () => {
   c.className = 'conn'; c.innerHTML = '<span class="sp"></span>正在连接…'; fox.set('thinking');
   setTimeout(() => { c.className = 'conn ok'; c.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>连接成功 · ${TIERS[ans.model][0]} · 420 ms`; ans.connected = true; fox.set('happy'); say('连接成功。'); }, 1300);
 };
-document.querySelectorAll('[data-login]').forEach(b => b.onclick = () => toast(`原型：会打开浏览器登录 ${b.dataset.login}，登录后两档模型都可选它的模型`));
 /* ---------- 第 4 步：第一篇 ---------- */
 const SAMPLES = [
   { g: '技术文档 · 示例', t: 'Understanding Ownership in Rust', m: '约 4 分钟 · 自拟示例', open: true, sample: true },

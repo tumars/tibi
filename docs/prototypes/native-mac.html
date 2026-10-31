@@ -14,20 +14,20 @@
   --v-bg: #f6f6f5; --v-surface: #fff; --v-sunken: #f2f2f1; --v-line: rgba(0,0,0,.07); --v-ink: #18181b; --v-ink-2: #55555c; --v-ink-3: #9d9da6; --v-accent: #3d52e0; --v-wash: rgba(61,82,224,.08); --v-warm: #f5a043;
   /* 原生化方案 */
   --m-side: rgba(236,236,238,.62); --m-content: #fff; --m-line: rgba(0,0,0,.1); --m-hair: rgba(0,0,0,.12); --m-ink: rgba(0,0,0,.85); --m-ink-2: rgba(0,0,0,.5); --m-ink-3: rgba(0,0,0,.3);
-  --m-accent: #0a7aff; --m-sel: rgba(0,0,0,.08); --m-sel-focus: var(--m-accent); --m-ctl: #fff; --m-ctl-shadow: 0 .5px 1px rgba(0,0,0,.18), 0 0 0 .5px rgba(0,0,0,.08);
+  --m-accent: #3d52e0; /* E4 不采用系统强调色：选中、焦点、默认按钮都用品牌靛蓝 */ --m-sel: rgba(0,0,0,.08); --m-sel-focus: var(--m-accent); --m-ctl: #fff; --m-ctl-shadow: 0 .5px 1px rgba(0,0,0,.18), 0 0 0 .5px rgba(0,0,0,.08);
   --m-warm: #f5a043; --m-ai: #3d52e0;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --wall-a: #2a3350; --wall-b: #4a3b36; --wall-c: #2b3d33; --page-ink: #f5f5f7; --page-ink-2: #a1a1a6; --page-surface: rgba(30,30,32,.7);
   --v-bg: #0b0b0c; --v-surface: #141416; --v-sunken: #1b1b1e; --v-line: rgba(255,255,255,.08); --v-ink: #ededee; --v-ink-2: #a5a5ad; --v-ink-3: #6b6b74; --v-accent: #7d8cf0; --v-wash: rgba(125,140,240,.12);
   --m-side: rgba(40,40,44,.6); --m-content: #1e1e20; --m-line: rgba(255,255,255,.1); --m-hair: rgba(255,255,255,.14); --m-ink: rgba(255,255,255,.88); --m-ink-2: rgba(255,255,255,.55); --m-ink-3: rgba(255,255,255,.3);
-  --m-accent: #3b8eff; --m-sel: rgba(255,255,255,.1); --m-ctl: rgba(255,255,255,.1); --m-ctl-shadow: 0 .5px 1px rgba(0,0,0,.4), 0 0 0 .5px rgba(255,255,255,.1);
+  --m-accent: #7d8cf0; --m-sel: rgba(255,255,255,.1); --m-ctl: rgba(255,255,255,.1); --m-ctl-shadow: 0 .5px 1px rgba(0,0,0,.4), 0 0 0 .5px rgba(255,255,255,.1);
 } }
 :root[data-theme="dark"] {
   --wall-a: #2a3350; --wall-b: #4a3b36; --wall-c: #2b3d33; --page-ink: #f5f5f7; --page-ink-2: #a1a1a6; --page-surface: rgba(30,30,32,.7);
   --v-bg: #0b0b0c; --v-surface: #141416; --v-sunken: #1b1b1e; --v-line: rgba(255,255,255,.08); --v-ink: #ededee; --v-ink-2: #a5a5ad; --v-ink-3: #6b6b74; --v-accent: #7d8cf0; --v-wash: rgba(125,140,240,.12);
   --m-side: rgba(40,40,44,.6); --m-content: #1e1e20; --m-line: rgba(255,255,255,.1); --m-hair: rgba(255,255,255,.14); --m-ink: rgba(255,255,255,.88); --m-ink-2: rgba(255,255,255,.55); --m-ink-3: rgba(255,255,255,.3);
-  --m-accent: #3b8eff; --m-sel: rgba(255,255,255,.1); --m-ctl: rgba(255,255,255,.1); --m-ctl-shadow: 0 .5px 1px rgba(0,0,0,.4), 0 0 0 .5px rgba(255,255,255,.1);
+  --m-accent: #7d8cf0; --m-sel: rgba(255,255,255,.1); --m-ctl: rgba(255,255,255,.1); --m-ctl-shadow: 0 .5px 1px rgba(0,0,0,.4), 0 0 0 .5px rgba(255,255,255,.1);
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -207,11 +207,11 @@ svg.ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-wid
       <tr><td>侧栏材质</td><td>与底色同色的实心灰</td><td>半透明毛玻璃，透出桌面壁纸（这里用 CSS 模拟）</td><td><code>window-vibrancy</code> 的 Sidebar 材质，网页背景透明；macOS 26 可换 Liquid Glass</td></tr>
       <tr><td>字体字号</td><td>Geist + 普惠体，14px</td><td>系统字体（SF Pro + 苹方），13px 正文、11px 小字，粗细更稳</td><td><code>-apple-system</code> 字体栈；Windows 再回落到 Segoe UI / 微软雅黑</td></tr>
       <tr><td>控件</td><td>胶囊、大圆角、实心墨色主按钮</td><td>24px 高、6px 圆角、极淡的描边与投影，主按钮用系统蓝渐变</td><td>自己的 token；无现成的 mac 皮肤库值得用</td></tr>
-      <tr><td>选中与强调</td><td>蓝色浅底 + 蓝字</td><td>侧栏选中行是实心系统强调色 + 白字（失焦变灰）；跟随用户在系统设置里选的强调色</td><td>WebKit 的 <code>-apple-system-control-accent</code> / <code>AccentColor</code></td></tr>
+      <tr><td>选中与强调</td><td>蓝色浅底 + 蓝字</td><td>侧栏选中行是实心强调色 + 白字（失焦变灰）。<b>不跟随系统强调色</b>（E4 不采用）：仍用品牌靛蓝，和手机版、logo 一致</td><td>自己的 token（<code>--accent</code>）</td></tr>
       <tr><td>分割线</td><td>1px，7% 黑</td><td>0.5px 发丝线（视网膜屏下真是半像素）</td><td><code>box-shadow: inset 0 -.5px</code>，不用 border</td></tr>
       <tr><td>菜单与右键</td><td>HTML 画的菜单</td><td>系统原生菜单与右键菜单</td><td>Tauri 2 Menu API（<code>Menu.popup</code>）</td></tr>
     </table>
-    <p>Tibi 的电光蓝保留给 AI 标识（✦）、进度和品牌；选中、焦点、默认按钮改用系统强调色。藏狐橙不变。</p>
+    <p>强调色统一用品牌靛蓝（AI 标识 ✦、进度、选中、焦点、默认按钮），不跟随系统强调色（E4 不采用）。藏狐橙不变。</p>
   </div>
 </div>
 <script>

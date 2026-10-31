@@ -43,30 +43,23 @@
     </header>
     <div class="scroll" id="scroll">
       <div class="page">
+        <section class="lead-wrap" id="leadWrap"><a class="lead" id="lead" href="#"></a><div class="also" id="also"></div></section>
         <section class="hero">
-          <div class="hero-fox" id="heroFox"></div>
-          <h1 id="greet">今天想读点什么？</h1>
+          <h1 id="greet" hidden>先读点什么？</h1>
           <div class="sub" hidden></div>
+          <div class="askrow"><div class="hero-fox" id="heroFox"></div>
           <div class="composer" id="composer">
             <div class="agsel" id="agSel" hidden></div>
-            <textarea id="input" rows="2" placeholder="例如：https://blog.rust-lang.org/… 或者“推荐一篇 10 分钟的科技新闻”；输入 / 选择要做的事" aria-label="输入"></textarea>
+            <textarea id="input" rows="2" placeholder="粘贴网址或一段英文就会导入，也可以直接问 Tibi；输入 / 选择要做的事" aria-label="输入"></textarea>
             <div class="cbar">
               <button class="attach" id="attachBtn" title="添加文件或图片"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-              <div class="modes" id="modes" role="radiogroup" aria-label="模式">
-                <i class="thumb" id="modeThumb"></i>
-                <button class="on" data-m="import" role="radio" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span class="lbl">导入</span></button>
-                <button data-m="ask" role="radio" aria-checked="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg><span class="lbl">问 Tibi</span></button>
-                <button data-m="find" role="radio" aria-checked="false"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><span class="lbl">找文章</span></button>
-              </div>
               <span class="sp"></span>
               <button class="tier" id="tierBtn" title="切换速度与深度">快速 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
               <button class="send" id="sendBtn" disabled aria-label="发送"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
             </div>
           <div class="mention" id="mention" role="listbox" aria-label="选择要做的事" hidden></div>
-          </div>
+          </div></div>
           <div class="chips" id="chips">
-            <button class="chip" data-c="continue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 5v14l11-7z"/></svg>继续读 Ownership in Rust</button>
-            <button class="chip" data-c="review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg>复习 18 张（到期 14 + 新词 4）</button>
             <button class="chip" data-c="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>推荐一篇 10 分钟的科技新闻</button>
             <button class="chip" data-c="story"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>用这周的生词写个小故事</button>
           </div>
@@ -79,11 +72,6 @@
             <div class="tile"><span class="k">今日阅读</span><span class="v"><span data-count="12">0</span><small>/ 20 分钟</small></span><div class="bar2"><i style="width:60%"></i></div></div>
             <div class="tile"><span class="k">已知词</span><span class="v"><span data-count="6214" data-sep="1">0</span><small>词</small></span><span class="d">本周 +38 · 连续 9 天</span><div class="week" id="week"></div></div>
           </div>
-        </section>
-
-        <section>
-          <div class="sech"><h2>继续阅读</h2></div>
-          <div class="cont" id="cont"></div>
         </section>
 
         <section>
@@ -169,14 +157,18 @@ const DOCS = [
   { id: 'trains', kind: 'article', ex: 'The distinctive hum of a sleeper carriage is back on several routes.', g: 'news', tags: ['旅行'], t: 'The Quiet Return of Night Trains in Europe', src: '自拟示例', mins: 5, ratio: 1.6, lv: ['舒适', 'ok'], p: 100 },
   { id: 'ctx', kind: 'article', ex: 'Attention cost grows quadratically with the length of the input.', g: 'academic', tags: ['机器学习', 'Transformer'], t: 'How Transformers Handle Long Context', src: '自拟示例', mins: 12, ratio: 6.3, lv: ['偏难', 'hard'], p: 0 },
 ];
-let filter = 'all', mode = 'import', tier = '快速', agent = null;
+let filter = 'all', tier = '快速', agent = null;
 if (IS_EMPTY) DOCS.length = 0;   // 原型演示：第一次打开，书架为空
 
 /* ---------- 渲染 ---------- */
 function renderCont() {
-  $('#cont').closest('section').hidden = !DOCS.some(d => d.p > 0 && d.p < 100);
-  $('#cont').innerHTML = DOCS.filter(d => d.p > 0 && d.p < 100).slice(0, 2).map(d => `<a class="ccard" href="${d.open ? URLS.reader : '#'}" data-id="${d.id}"><span class="cv" data-cover="${d.id}"></span><div><div class="g">${d.book ? `书 · 第 ${d.book.ch} 章 · 本章 ${d.book.chp}%` : `${GEN[d.g]} · 读到 ${d.p}%`}</div><div class="t">${esc(d.t)}</div>${d.ex ? `<div class="ex">${esc(d.ex)}</div>` : ''}<div class="m"><div class="bar2"><i style="width:${d.p}%"></i></div><span>${d.book ? '本章' : ''}还剩约 ${Math.max(1, Math.round(d.mins * (1 - (d.book ? d.book.chp : d.p) / 100)))} 分钟</span></div></div></a>`).join('');
-  document.querySelectorAll('.ccard').forEach(a => { if (a.getAttribute('href') !== '#') ext(a); else a.onclick = e => { e.preventDefault(); toast('原型中只有阅读器里的三篇可以打开'); }; });
+  const reading = DOCS.filter(d => d.p > 0 && d.p < 100), d = reading[0];
+  $('#leadWrap').hidden = !d; if (!d) return;
+  const left = Math.max(1, Math.round(d.mins * (1 - (d.book ? d.book.chp : d.p) / 100)));
+  $('#lead').href = d.open ? URLS.reader : '#'; ext($('#lead'));
+  $('#lead').innerHTML = `<div class="k">继续读 · ${d.book ? `书 · 第 ${d.book.ch} 章` : GEN[d.g]}</div><div class="t">${esc(d.t)}</div>${d.quote || d.ex ? `<p class="x">${esc(d.quote || d.ex)}</p>` : ''}<div class="m"><div class="bar2"><i style="width:${d.book ? d.book.chp : d.p}%"></i></div><span>${d.book ? '本章' : '读到'} ${d.book ? d.book.chp : d.p}% · 还剩约 ${left} 分钟</span><span class="btn pri">继续</span></div>`;
+  $('#also').innerHTML = reading.slice(1, 4).length ? '<span>还在读</span>' + reading.slice(1, 4).map(x => `<a href="${x.open ? URLS.reader : '#'}" data-id="${x.id}">${esc(x.t)}${x.book ? ` · 第 ${x.book.ch} 章` : ` · ${x.p}%`}</a>`).join('') : '';
+  document.querySelectorAll('#also a').forEach(a => { if (a.getAttribute('href') !== '#') ext(a); else a.onclick = e => { e.preventDefault(); toast('原型中只有阅读器里的三篇可以打开'); }; });
 }
 function renderGrid(animate, newId) {
   const list = DOCS.filter(d => filter === 'all' || d.kind === filter);
@@ -213,19 +205,16 @@ $('#filters').onclick = e => { const b = e.target.closest('.pill'); if (!b) retu
 
 /* ---------- 输入框 ---------- */
 const input = $('#input');
-const PH = { import: '粘贴网址或一段英文，或把 PDF / EPUB / 图片拖进来', ask: '问 Tibi 任何关于英语和你学习的问题', find: '想读什么？例如“10 分钟左右的科技新闻，别太难”' };
-function setMode(m, focus) {
-  if (agent && MODE_OF[agent] !== m) setAgent(null, true);
-  mode = m; document.querySelectorAll('#modes button').forEach(b => { const on = b.dataset.m === m; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
-  input.placeholder = agent ? SLASH_PH[agent] : PH[m]; moveThumb(true); if (focus) input.focus();
+const PH = input.placeholder;
+// 不分模式（R13）：按内容判断。网址或整段英文 = 导入；"推荐 / 找 / 来一篇…" = 找文章；其余 = 问 Tibi。判断不对时可以用 / 指定
+function intentOf(v) {
+  if (/^https?:\/\//i.test(v)) return 'import';
+  const latin = (v.match(/[a-z]/gi) || []).length;
+  if (v.length > 160 && latin / v.length > 0.6) return 'import';
+  if (/(推荐|找|来)\s*(一|几|两)?\s*(篇|点|本)|想读|文章/.test(v)) return 'find';
+  return 'ask';
 }
-function moveThumb(animate) {
-  const b = $('#modes button.on'), t = $('#modeThumb'); if (!b) return;
-  if (animate && M && !REDUCE) anim(t, { x: b.offsetLeft - 3, width: b.offsetWidth + 'px' }, { type: 'spring', bounce: 0.2, duration: 0.4 });
-  else { t.style.transform = `translateX(${b.offsetLeft - 3}px)`; t.style.width = b.offsetWidth + 'px'; }
-}
-document.querySelectorAll('#modes button').forEach(b => b.onclick = () => setMode(b.dataset.m, true));
-input.addEventListener('input', () => { $('#sendBtn').disabled = !input.value.trim(); input.style.height = 'auto'; input.style.height = Math.min(220, input.scrollHeight) + 'px'; if (/^https?:\/\//i.test(input.value.trim()) && mode !== 'import') setMode('import'); });
+input.addEventListener('input', () => { $('#sendBtn').disabled = !input.value.trim(); input.style.height = 'auto'; input.style.height = Math.min(220, input.scrollHeight) + 'px'; });
 input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); } });
 $('#sendBtn').onclick = submit;
 $('#tierBtn').onclick = () => { tier = tier === '快速' ? '深入' : '快速'; $('#tierBtn').firstChild.textContent = tier + ' '; toast(tier === '快速' ? '快速：响应快，适合查词和短问题' : '深入：更慢但更仔细，适合长文分析和学习计划'); };
@@ -240,24 +229,23 @@ function submit() {
   const m = v.match(/^\/(\S+)\s+/); if (m) { const a = AGENTS.find(x => x.id !== 'tibi' && (x.slash === m[1] || x.skill === m[1])); if (a) { setAgent(a.id, true); v = v.slice(m[0].length); } }
   input.value = ''; input.style.height = ''; $('#sendBtn').disabled = true; closeMention();
   const ag = agent; if (ag) setAgent(null, true);
-  if (ag === 'importer' || (!ag && (mode === 'import' || /^https?:\/\//i.test(v)))) runImport(v);
-  else if (ag === 'scout' || (!ag && mode === 'find')) runFind(v);
+  const it = ag ? null : intentOf(v);
+  if (ag === 'importer' || it === 'import') runImport(v);
+  else if (ag === 'scout' || it === 'find') runFind(v);
   else if (ag && ag !== 'tibi') runDelegate(ag, v);
   else runAsk(v);
 }
 
-/* ---------- / 选择要做的事（技能用动词命名；不让用户挑"智能体"） ---------- */
-const MODE_OF = { importer: 'import', scout: 'find', tibi: 'ask', tutor: 'ask', coach: 'ask', insight: 'ask', archivist: 'ask' };
+/* ---------- / 选择要做的事（用动词命名；不让用户挑"智能体"，也不分模式） ---------- */
 const SLASH_PH = { importer: '粘贴网址或文字，或把文件拖进来', scout: '想读什么？例如"10 分钟左右的科技新闻"', tutor: '贴一句话或一个词，Tibi 来讲', coach: '出什么题？例如"这周的生词，10 道填空"', insight: '想看什么？例如"最近一个月进步在哪"', archivist: '要 Tibi 记住或整理什么？' };
 const SLASH_DESC = { importer: '网址、文字、PDF、EPUB、图片', scout: '按你的水平和兴趣推荐', tutor: '一句话、一个词、一段语法', coach: '用你的生词出练习，不影响复习排期', insight: '看看最近的进步和薄弱点', archivist: '整理 Tibi 对你的了解' };
 let mList = [], mCur = 0;
 function setAgent(id, quiet) {
   agent = id; const box = $('#agSel');
-  if (!id) { box.hidden = true; box.innerHTML = ''; if (!quiet) input.placeholder = PH[mode]; return; }
+  if (!id) { box.hidden = true; box.innerHTML = ''; if (!quiet) input.placeholder = PH; return; }
   const a = agentById(id);
   box.innerHTML = `<span class="agchip">${agentIcon(id)}/${esc(a.slash)}<button title="取消" aria-label="取消">${'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>'}</button></span><span class="agdesc">${esc(SLASH_DESC[id] || '')}</span>`;
   box.hidden = false; box.querySelector('button').onclick = () => { setAgent(null); input.focus(); };
-  if (MODE_OF[id] !== mode) { mode = MODE_OF[id]; document.querySelectorAll('#modes button').forEach(b => { const on = b.dataset.m === mode; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); }); moveThumb(true); }
   input.placeholder = SLASH_PH[id];
   anim(box, { opacity: [0, 1], y: [-4, 0] }, { duration: 0.25, ease: EASE });
 }
@@ -286,9 +274,7 @@ input.addEventListener('keydown', e => {
 input.addEventListener('blur', () => setTimeout(closeMention, 120));
 document.querySelectorAll('.chip').forEach(c => c.onclick = () => {
   const k = c.dataset.c;
-  if (k === 'continue') { const a = document.createElement('a'); a.href = URLS.reader; ext(a); a.click(); }
-  else if (k === 'review') { const a = document.createElement('a'); a.href = URLS.review; ext(a); a.click(); }
-  else if (k === 'news') runFind('推荐一篇 10 分钟的科技新闻');
+  if (k === 'news') runFind('推荐一篇 10 分钟的科技新闻');
   else runAsk('用这周的生词写个小故事');
 });
 
@@ -354,7 +340,7 @@ function nameOf(src) {
 const AI_STATE = location.hash === '#offline' ? 'offline' : location.hash === '#nomodel' ? 'nomodel' : null;
 const FILE_OK = /\.(pdf|epub|docx|txt|md|markdown|png|jpe?g|gif|webp|heic|bmp|tiff?)$/i;
 const go = url => { const a = document.createElement('a'); a.href = url; ext(a); a.click(); };
-const pasteInstead = () => { closeDrawer(); setMode('import', true); input.placeholder = '把文章正文复制到这里，回车导入'; MAIN.scrollTop = 0; };
+const pasteInstead = () => { closeDrawer(); input.focus(); input.placeholder = '把文章正文复制到这里，回车导入'; MAIN.scrollTop = 0; };
 const READ_NO_AI = { t: '先读，不用 AI', link: 'reader' };
 const FAIL = {
   fetch: c => ({ img: 'error-generic', title: '这个网址没读到', desc: `${esc(c.host)} 拒绝了访问（403），可能需要登录。可以重试，或直接粘贴正文。`, actions: [{ t: '重试', pri: true, onclick: c.retry }, { t: '粘贴正文', onclick: pasteInstead }] }),
@@ -499,9 +485,9 @@ $('#dinput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shif
 
 /* ---------- 其他 ---------- */
 let tt; function toast(t) { const el = $('#toast'); el.textContent = t; const was = el.hidden; el.hidden = false; if (was) anim(el, { opacity: [0, 1], y: [12, 0] }, { type: 'spring', bounce: 0.2, duration: 0.45 }); clearTimeout(tt); tt = setTimeout(() => el.hidden = true, 3000); }
-$('#collapseBtn').onclick = () => { $('#app').classList.toggle('collapsed'); setTimeout(moveThumb, 380); };
+$('#collapseBtn').onclick = () => { $('#app').classList.toggle('collapsed'); setTimeout(() => {}, 380); };
 $('#menuBtn').onclick = () => $('#app').classList.toggle('menu');
-const focusImport = () => { $('#app').classList.remove('menu'); setMode('import', true); MAIN.scrollTop = 0; };
+const focusImport = () => { $('#app').classList.remove('menu'); input.focus(); MAIN.scrollTop = 0; };
 $('#themeBtn').onclick = () => { const r = document.documentElement, dark = matchMedia('(prefers-color-scheme: dark)').matches; const cur = r.dataset.theme || (dark ? 'dark' : 'light'); r.dataset.theme = cur === 'dark' ? 'light' : 'dark'; setTimeout(() => { covers(); }, 30); };
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTimeout(() => { covers(); }, 30));
 document.querySelectorAll('[data-todo]').forEach(a => a.onclick = e => { e.preventDefault(); toast(`「${a.dataset.todo}」的原型还没做`); });
@@ -513,17 +499,15 @@ addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSearch(); }
   if (e.key === 'Escape' && document.activeElement !== $('#dinput')) closeDrawer();
 });
-addEventListener('resize', () => moveThumb(false));
 
 const h = new Date().getHours();
-$('#greet').textContent = (h < 5 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好') + '，今天想读点什么？';
 $('#week').innerHTML = Array.from({ length: 7 }, (_, i) => { const d = (new Date().getDay() + 6) % 7; return `<i class="${i < d ? 'on' : i === d ? 'now' : ''}"></i>`; }).join('');
-renderCont(); renderGrid(false); renderRecent(); covers(); setMode('import'); moveThumb(false); demoToggle();
+renderCont(); renderGrid(false); renderRecent(); covers(); demoToggle();
 if (IS_EMPTY) {
-  $('#greet').textContent = '先读点什么？';
+  $('#greet').hidden = false;
   $('.hero .sub').textContent = '读过的文章里的生词会自动进入复习'; $('.hero .sub').hidden = false;
   $('#chips').innerHTML = `<button class="chip" data-c="sample"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 5v14l11-7z"/></svg>读一篇示例文章</button><button class="chip" data-c="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>按我的水平推荐一篇</button><button class="chip" data-c="test"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>先测一下我的词汇量</button>`;
-  $('#chips [data-c="sample"]').onclick = () => runImport('sample:' + SAMPLES[0].t); $('#chips [data-c="news"]').onclick = () => runFind('按我的水平推荐一篇'); $('#chips [data-c="test"]').onclick = () => toast('原型：正式版会打开 2–3 分钟的词汇量测试（首次启动引导里也有）');
+  $('#chips [data-c="sample"]').onclick = () => runImport('sample:' + SAMPLES[0].t); $('#chips [data-c="news"]').onclick = () => runFind('按我的水平推荐一篇'); $('#chips [data-c="test"]').onclick = () => toast('原型：正式版会打开 3–4 分钟的词汇量测试（首次启动引导里也有）');
   document.querySelectorAll('.tile').forEach((t, i) => { const v = t.querySelector('[data-count]'); if (i === 0) { v.dataset.count = '0'; t.querySelector('.d').textContent = '读过文章后会有'; t.querySelector('.go').hidden = true; } if (i === 1) { v.dataset.count = '0'; t.querySelector('.bar2 i').style.width = '0%'; } if (i === 2) { t.querySelector('.d').textContent = '来自词汇量测试'; t.querySelector('#week').hidden = true; } });
   document.querySelectorAll('.streak .t').forEach(x => x.textContent = '今天开始'); document.querySelectorAll('.streak .s').forEach(x => x.textContent = '今日 0 / 20 分钟');
   const ring = $('#ringArc'); if (ring) ring.setAttribute('stroke-dashoffset', 87.96);
@@ -532,7 +516,7 @@ if (IS_EMPTY) {
 /* 第一次使用：告诉用户 Tibi 能做什么（用示例代替概念） */
 /* 吉祥物：深夜睡觉；输入时倾听；Tibi 干活时思考 / 阅读；完成时开心 */
 const NIGHT = h >= 23 || h < 5, FOX_BASE = NIGHT ? 'sleeping' : 'idle';
-const fox = Fox.mount($('#heroFox'), { state: FOX_BASE, size: 128, interactive: true });
+const fox = Fox.mount($('#heroFox'), { state: FOX_BASE, size: 64, interactive: true });
 let foxBusy = 0;
 function foxWork(st) { foxBusy++; fox.set(st); }
 function foxDone(ok = true) { foxBusy = Math.max(0, foxBusy - 1); if (!foxBusy) { fox.set(document.activeElement === input ? 'listening' : 'idle'); fox.pulse(ok ? 'happy' : 'surprised', 2200); } }

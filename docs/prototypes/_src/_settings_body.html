@@ -87,6 +87,11 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
 .tools { display: flex; flex-wrap: wrap; gap: 6px; }
 .tools code { font-family: var(--f-mono); font-size: 11.5px; padding: 3px 8px; border-radius: 6px; background: var(--sunken); color: var(--ink-2); display: inline-flex; align-items: center; gap: 5px; }
 .saved { font-size: 12px; color: var(--ink-3); display: inline-flex; align-items: center; gap: 6px; }
+/* 高级（R15）：模型、Tibi 能做的事、花费上限、MCP 默认折叠 */
+.advtog { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 18px; border-radius: 16px; box-shadow: inset 0 0 0 1px var(--line); font-size: 13.5px; color: var(--ink-2); text-align: left; }
+.advtog:hover { background: var(--hover); color: var(--ink); } .advtog span { flex: 1; } .advtog svg { transition: transform .2s; } .advtog[aria-expanded="true"] svg { transform: rotate(180deg); }
+.advbody { display: flex; flex-direction: column; gap: 32px; margin-top: -24px; }
+.ssec.sub > h2 { font-size: 15px; }
 @media (max-width: 960px) { .sw { grid-template-columns: minmax(0, 1fr); gap: 16px; } .snav { position: static; flex-direction: row; overflow-x: auto; gap: 4px; padding-bottom: 4px; } .snav a { flex: none; } }
 </style>
 
@@ -106,12 +111,11 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
           <a href="#general" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg>通用</a>
           <a href="#reading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6c3-1 6-1 8 1 2-2 5-2 8-1v12c-3-1-6-1-8 1-2-2-5-2-8-1z"/><path d="M12 7v12"/></svg>阅读</a>
           <a href="#learning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg>学习与复习</a>
-          <a href="#ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M8 10h8M8 14h5"/></svg>模型</a>
           <a href="#tibi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>Tibi</a>
-          <a href="#agents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 20 14 10M14 10l2-2M16 4v2M20 8h-2M18.5 5.5l-1.2 1.2"/><path d="M8 4l.8 1.7L10.5 6.5 8.8 7.3 8 9l-.8-1.7L5.5 6.5l1.7-.8z"/></svg>技能</a>
           <a href="#voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6"/></svg>语音</a>
           <a href="#memory"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 4a4 4 0 00-4 4c0 1 .3 1.8.8 2.5A4 4 0 007 18h2V4zM15 4a4 4 0 014 4c0 1-.3 1.8-.8 2.5A4 4 0 0117 18h-2V4z"/></svg>记忆</a>
           <a href="#data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3 3 7 3s7-1.3 7-3"/></svg>数据</a>
+          <a href="#advanced"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>高级</a>
           <a href="#about"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8h.01"/></svg>关于</a>
         </nav>
 
@@ -143,51 +147,20 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
               <div class="item"><div><div class="t">每日阅读目标</div></div><div class="ctl"><div class="range"><input type="range" min="5" max="60" step="5" value="20" data-out="goalOut" data-unit=" 分钟" aria-label="每日阅读目标"><b id="goalOut">20 分钟</b></div></div></div>
               <div class="item"><div><div class="t">每天最多新学的词</div><div class="d">超过的排到第二天</div></div><div class="ctl"><div class="range"><input type="range" min="5" max="50" step="5" value="20" data-out="newOut" data-unit=" 个" aria-label="每日新词上限"><b id="newOut">20 个</b></div></div></div>
               <div class="item"><div><div class="t">目标记得率</div><div class="d" id="retDesc"></div></div><div class="ctl"><div class="range"><input type="range" id="ret" min="80" max="97" value="90" aria-label="目标记忆保持率"><b id="retOut">90%</b></div></div></div>
-              <div class="item col"><div><div class="t">题型</div><div class="d">关闭的题型由前一种代替</div></div>
-                <div class="ctl" style="justify-content:flex-start"><div class="seg multi" data-seg="types"><button class="on">识别</button><button class="on">选义</button><button class="on">填空</button><button class="on">听写</button><button class="on">拼写</button><button class="on">造句</button></div></div></div>
+              <div class="item"><div><div class="t">识别题</div><div class="d">看词回想意思，自己判断记没记住。关闭后只用选义和语境填空</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="识别题"></button></div></div>
               <div class="item"><div><div class="t">按我的复习记录优化排期</div><div class="d">已有 941 条记录 · 从未优化</div></div><div class="ctl"><button class="btn sm" id="optBtn">现在优化</button></div></div>
             </div>
           </section>
 
-          <section class="ssec" id="ai"><h2>模型</h2>
-            <div class="group" id="provs">
-              <div class="prov"><span class="ico">DS</span><div><div class="t">DeepSeek <span class="tag def">文本 · 默认</span><span class="tag ok">● 已连接</span></div><div class="d">deepseek-v4-flash · 本月用量约 ¥3.2</div></div><button class="btn sm" data-edit="ds">编辑</button>
-                <div class="pform" id="form-ds" hidden><span>Base URL</span><input class="input" value="https://api.deepseek.com/v1"><span>API Key</span><input class="input" type="password" value="sk-••••••••••••••••"><span>模型</span><select class="input"><option>deepseek-v4-flash</option><option>deepseek-v4-pro</option></select><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="ds">测试连接</button><button class="btn sm" data-close="ds">完成</button></div></div></div>
-              <div class="prov"><span class="ico">👁</span><div><div class="t">视觉模型 <span class="tag off">未配置</span></div><div class="d">用于高质量识别图片和扫描版 PDF；不配置时使用本地 Tesseract</div></div><button class="btn sm" data-edit="vis">配置</button>
-                <div class="pform" id="form-vis" hidden><span>服务商</span><select class="input"><option>OpenAI 兼容接口</option><option>通义千问 VL</option><option>OpenAI</option></select><span>Base URL</span><input class="input" placeholder="https://…"><span>API Key</span><input class="input" type="password" placeholder="sk-…"><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="vis">测试连接</button><button class="btn sm" data-close="vis">完成</button></div></div></div>
-              <div class="prov"><span class="ico">🖼</span><div><div class="t">图像模型 <span class="tag off">未配置</span></div><div class="d">为文章生成封面；不配置则不显示封面</div></div><button class="btn sm" data-edit="img">配置</button>
-                <div class="pform" id="form-img" hidden><span>服务商</span><select class="input"><option>OpenAI 图像模型</option><option>其他兼容接口</option></select><span>API Key</span><input class="input" type="password" placeholder="sk-…"><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="img">测试连接</button><button class="btn sm" data-close="img">完成</button></div></div></div>
-              <div class="prov"><span class="ico">+</span><div><div class="t">添加服务商</div><div class="d">任何 OpenAI 兼容接口：通义、Kimi、智谱、Ollama 本地模型…</div></div><button class="btn sm" id="addProv">添加</button></div>
-            </div>
-            <div class="desc" style="margin-top:14px">两档模型</div>
-            <div class="group">
-              <div class="item"><div><div class="t">快速</div><div class="d">对话、查词、导入分析等大多数工作</div></div><div class="ctl"><select class="input" aria-label="快速档模型"><option>DeepSeek · deepseek-v4-flash</option><option>本地 · Ollama qwen3</option></select></div></div>
-              <div class="item"><div><div class="t">深入</div><div class="d">统计洞察、学习计划等需要仔细推理的工作</div></div><div class="ctl"><select class="input" aria-label="深入档模型"><option>DeepSeek · deepseek-v4-pro</option><option>DeepSeek · deepseek-v4-flash</option></select></div></div>
-            </div>
-            <div class="desc" style="margin-top:14px">或使用已有订阅 · 使用前请确认服务条款允许</div>
-            <div class="radio" id="backend">
-              <label><input type="radio" name="be" checked><div><b>使用上面配置的 API Key</b><span>默认。按量计费，花费按技能统计</span></div></label>
-              <label><input type="radio" name="be" data-login="ChatGPT"><div><b>用 ChatGPT 账号登录</b><span>使用你的 ChatGPT 订阅额度</span></div></label>
-            </div>
-          </section>
 
           <section class="ssec" id="tibi"><h2>Tibi</h2>
             <div class="group">
               <div class="item col"><div><div class="t">Tibi 修改学习数据时</div><div class="d">所有改动都可撤销</div></div>
                 <div class="ctl" style="justify-content:flex-start"><div class="seg" data-seg="perm"><button>每次都问</button><button class="on">标词自动，其余询问</button><button>全部自动</button></div></div></div>
               <div class="item"><div><div class="t">Tibi 怎么称呼你，用什么语言聊</div></div><div class="ctl"><input class="input" value="你" style="width:90px" aria-label="称呼"><select class="input" aria-label="对话语言"><option>中英混合</option><option>中文</option><option>英文（练习用）</option></select></div></div>
-              <div class="item"><div><div class="t">允许其他 AI 工具使用 Tibi（MCP）</div><div class="d">在 Codex、Claude Code 等工具里使用 Tibi；写操作同样先问你</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="开启 MCP 服务" id="mcpSw"></button></div></div>
-              <div class="item" id="mcpCfg" hidden><div><div class="t">接入配置</div><div class="mono">{"mcpServers":{"tibi":{"command":"tibi","args":["mcp"]}}}</div></div><div class="ctl"><button class="btn sm" id="copyMcp">复制</button></div></div>
             </div>
           </section>
 
-          <section class="ssec" id="agents"><h2>Tibi 的技能</h2>
-            <div class="group" id="agList"></div>
-            <div class="group" style="margin-top:12px">
-              <div class="item"><div><div class="t">每月预算</div><div class="d">本月已用 <b id="spent"></b>；超出后暂停 AI 功能</div></div><div class="ctl"><input class="input" value="20" style="width:70px;text-align:right" aria-label="每月预算"> 元</div></div>
-              <div class="item"><div><div class="t">单个任务上限</div><div class="d">超过时先问你</div></div><div class="ctl"><input class="input" value="0.5" style="width:70px;text-align:right" aria-label="单个任务上限"> 元</div></div>
-            </div>
-          </section>
 
           <section class="ssec" id="voice"><h2>语音</h2>
             <div class="group">
@@ -216,7 +189,7 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
               <div class="item"><div><div class="t">备份</div><div class="d">自动备份：每天一次，保留最近 7 份 · 上次 今天 09:12</div></div><div class="ctl"><button class="btn sm" id="backupBtn">立即备份</button><button class="btn sm" data-toast="原型：正式版会选择一个备份文件并恢复">从备份恢复</button></div></div>
               <div class="item"><div><div class="t">导出生词本</div></div><div class="ctl"><button class="btn sm" data-toast="原型：正式版会保存 tibi-words.csv">CSV</button><button class="btn sm" data-toast="原型：正式版会生成 Anki 卡组">Anki</button></div></div>
               <div class="item"><div><div class="t">从其他工具导入已知词</div><div class="d">Anki 卡组、LingQ 导出、纯文本单词表</div></div><div class="ctl"><button class="btn sm" data-toast="原型：正式版会打开文件选择">选择文件</button></div></div>
-              <div class="item"><div><div class="t">词典</div><div class="d">ECDICT · 约 340 万词条 · dict.db 只读</div></div><div class="ctl"><span class="tag ok">最新</span></div></div>
+              <div class="item"><div><div class="t">词典</div><div class="d">内置英汉词典 · 约 340 万词条</div></div><div class="ctl"><span class="tag ok">最新</span></div></div>
               <div class="item"><div><div class="t">语音缓存</div><div class="d">朗读和发音的音频缓存 · 126 MB</div></div><div class="ctl"><button class="btn sm" id="clearCache">清理</button></div></div>
             </div>
             <div class="group" style="margin-top:12px">
@@ -224,6 +197,42 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
             </div>
           </section>
 
+          <section class="ssec" id="advanced"><h2>高级</h2>
+            <button class="advtog" id="advTog" aria-expanded="false" aria-controls="advBody"><span>模型、Tibi 能做的事、花费上限、其他 AI 工具</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+          </section>
+          <div class="advbody" id="advBody" hidden>
+          <section class="ssec sub" id="ai"><h2>模型</h2>
+            <div class="group" id="provs">
+              <div class="prov"><span class="ico">DS</span><div><div class="t">DeepSeek <span class="tag def">文本 · 默认</span><span class="tag ok">● 已连接</span></div><div class="d">deepseek-v4-flash · 本月用量约 ¥3.2</div></div><button class="btn sm" data-edit="ds">编辑</button>
+                <div class="pform" id="form-ds" hidden><span>Base URL</span><input class="input" value="https://api.deepseek.com/v1"><span>API Key</span><input class="input" type="password" value="sk-••••••••••••••••"><span>模型</span><select class="input"><option>deepseek-v4-flash</option><option>deepseek-v4-pro</option></select><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="ds">测试连接</button><button class="btn sm" data-close="ds">完成</button></div></div></div>
+              <div class="prov"><span class="ico">👁</span><div><div class="t">视觉模型 <span class="tag off">未配置</span></div><div class="d">用于高质量识别图片和扫描版 PDF；不配置时使用本地 Tesseract</div></div><button class="btn sm" data-edit="vis">配置</button>
+                <div class="pform" id="form-vis" hidden><span>服务商</span><select class="input"><option>OpenAI 兼容接口</option><option>通义千问 VL</option><option>OpenAI</option></select><span>Base URL</span><input class="input" placeholder="https://…"><span>API Key</span><input class="input" type="password" placeholder="sk-…"><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="vis">测试连接</button><button class="btn sm" data-close="vis">完成</button></div></div></div>
+              <div class="prov"><span class="ico">🖼</span><div><div class="t">图像模型 <span class="tag off">未配置</span></div><div class="d">为文章生成封面；不配置则不显示封面</div></div><button class="btn sm" data-edit="img">配置</button>
+                <div class="pform" id="form-img" hidden><span>服务商</span><select class="input"><option>OpenAI 图像模型</option><option>其他兼容接口</option></select><span>API Key</span><input class="input" type="password" placeholder="sk-…"><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="img">测试连接</button><button class="btn sm" data-close="img">完成</button></div></div></div>
+              <div class="prov"><span class="ico">+</span><div><div class="t">添加服务商</div><div class="d">任何 OpenAI 兼容接口：通义、Kimi、智谱、Ollama 本地模型…</div></div><button class="btn sm" id="addProv">添加</button></div>
+            </div>
+            <div class="desc" style="margin-top:14px">两档模型</div>
+            <div class="group">
+              <div class="item"><div><div class="t">快速</div><div class="d">对话、查词、导入分析等大多数工作</div></div><div class="ctl"><select class="input" aria-label="快速档模型"><option>DeepSeek · deepseek-v4-flash</option><option>本地 · Ollama qwen3</option></select></div></div>
+              <div class="item"><div><div class="t">深入</div><div class="d">统计洞察、学习计划等需要仔细推理的工作</div></div><div class="ctl"><select class="input" aria-label="深入档模型"><option>DeepSeek · deepseek-v4-pro</option><option>DeepSeek · deepseek-v4-flash</option></select></div></div>
+            </div>
+          </section>
+          <section class="ssec sub" id="agents"><h2>Tibi 能做的事</h2>
+            <div class="group" id="agList"></div>
+          </section>
+          <section class="ssec sub" id="budget"><h2>花费上限</h2>
+            <div class="group">
+              <div class="item"><div><div class="t">每月预算</div><div class="d">本月已用 <b id="spent"></b>；超出后暂停 AI 功能</div></div><div class="ctl"><input class="input" value="20" style="width:70px;text-align:right" aria-label="每月预算"> 元</div></div>
+              <div class="item"><div><div class="t">单个任务上限</div><div class="d">超过时先问你</div></div><div class="ctl"><input class="input" value="0.5" style="width:70px;text-align:right" aria-label="单个任务上限"> 元</div></div>
+            </div>
+          </section>
+          <section class="ssec sub" id="mcp"><h2>其他 AI 工具</h2>
+            <div class="group">
+              <div class="item"><div><div class="t">允许其他 AI 工具使用 Tibi（MCP）</div><div class="d">在 Codex、Claude Code 等工具里使用 Tibi；写操作同样先问你</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="开启 MCP 服务" id="mcpSw"></button></div></div>
+              <div class="item" id="mcpCfg" hidden><div><div class="t">接入配置</div><div class="mono">{"mcpServers":{"tibi":{"command":"tibi","args":["mcp"]}}}</div></div><div class="ctl"><button class="btn sm" id="copyMcp">复制</button></div></div>
+            </div>
+          </section>
+          </div>
           <section class="ssec" id="about"><h2>关于</h2>
             <div class="group">
               <div class="item"><div><div class="t">Tibi 0.1.0（原型）</div><div class="d">开源 · MIT 协议 · 本地优先的 AI 英语阅读工具</div></div><div class="ctl"><button class="btn sm" data-toast="原型：已是最新版本">检查更新</button></div></div>
@@ -269,12 +278,11 @@ document.querySelectorAll('[data-test]').forEach(b => b.onclick = () => {
   setTimeout(() => toast(ok ? '连接成功' : '连接失败：请检查 API Key'), 400 + lines.length * 350);
 });
 $('#addProv').onclick = () => toast('原型：正式版会让你填写名称、Base URL、API Key 和模型名');
-document.querySelectorAll('#backend input').forEach(r => r.onchange = () => r.dataset.login ? toast(`原型：会打开浏览器登录 ${r.dataset.login}，登录后两档模型都可选它的模型`) : saved('已切换为 API Key'));
 $('#copyMcp').onclick = () => { navigator.clipboard && navigator.clipboard.writeText($('#mcpCfg .mono').textContent).then(() => toast('已复制'), () => toast('复制失败，请手动选择文本')); };
 $('#retest').href = URLS.onboarding + '#step=2'; ext($('#retest'));   // 首次启动引导的第 2 步可以单独重测
 $('#optBtn').onclick = () => { const b = $('#optBtn'); b.disabled = true; b.textContent = '优化中…'; setTimeout(() => { b.textContent = '已优化'; toast('已根据 941 条复习记录优化参数：预计每天少复习约 12% 的卡片'); }, 1600); };
 
-/* Tibi 的技能（内部是专职智能体，界面上叫技能） */
+/* Tibi 能做的事（内部是技能；界面上用动词，不出现"技能"） */
 const CHEV = '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>';
 let openAg = null;
 function renderAgents() {
@@ -285,7 +293,6 @@ function renderAgents() {
       ${openAg === a.id ? `<div class="more">
         <span>模型档</span><div><div class="seg" data-ag-model="${a.id}"><button${a.model === 'fast' ? ' class="on"' : ''} data-v="fast">快速</button><button${a.model === 'deep' ? ' class="on"' : ''} data-v="deep">深入</button></div></div>
         <span>附加指令</span><textarea placeholder="${a.id === 'scout' ? '例如：多推荐 BBC 和 The Economist，少推荐 Reddit' : '例如：讲解时多举例，少用术语'}">${esc(a.extra || '')}</textarea>
-        <span>用到的能力</span><div class="tools">${a.tools.map(t => `<code>${t}</code>`).join('')}</div>
         <span>写入数据时</span><div><select class="input"><option>跟随全局设置</option><option>每次都问</option></select></div>
         <span></span><div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn sm" data-link="tasks" href="#">查看最近记录</a><button class="btn sm" data-ag-reset="${a.id}">恢复默认</button></div>
       </div>` : ''}</div>`).join('');
@@ -337,12 +344,16 @@ $('#backupBtn').onclick = () => { const b = $('#backupBtn'); b.textContent = '�
 $('#clearCache').onclick = () => { $('#clearCache').closest('.item').querySelector('.d').textContent = '朗读和发音的音频缓存 · 0 MB'; toast('已清理 126 MB 语音缓存'); };
 
 /* 每组右上角"恢复默认" */
-document.querySelectorAll('.ssec > h2').forEach(h => { if (h.parentElement.id === 'about') return; const b = document.createElement('button'); b.className = 'reset'; b.textContent = '恢复默认'; b.onclick = () => toast(`原型：「${h.firstChild.textContent.trim()}」这一组恢复默认值`, () => toast('已撤销')); h.appendChild(b); });
+document.querySelectorAll('.ssec > h2').forEach(h => { if (['about', 'advanced'].includes(h.parentElement.id)) return; const b = document.createElement('button'); b.className = 'reset'; b.textContent = '恢复默认'; b.onclick = () => toast(`原型：「${h.firstChild.textContent.trim()}」这一组恢复默认值`, () => toast('已撤销')); h.appendChild(b); });
 
+/* 高级：默认折叠；搜索或从别处跳到其中一节时自动展开 */
+function setAdv(open) { $('#advBody').hidden = !open; $('#advTog').setAttribute('aria-expanded', open); }
+$('#advTog').onclick = () => { const open = $('#advBody').hidden; setAdv(open); if (open) anim($('#advBody'), { opacity: [0, 1], y: [-6, 0] }, { duration: 0.3, ease: EASE }); };
+const ADV = ['ai', 'agents', 'budget', 'mcp'];
 /* 页内搜索：按设置项过滤，命中的文字高亮 */
 const SEARCHABLE = '.item, .prov, .ag, .radio label';
 function searchSettings(q) {
-  q = q.trim().toLowerCase(); const body = $('.sbody'); let total = 0;
+  q = q.trim().toLowerCase(); const body = $('.sbody'); let total = 0; if (q) setAdv(true);
   document.querySelectorAll('mark.sm').forEach(m => m.replaceWith(m.textContent));
   document.querySelectorAll('.ssec').forEach(sec => {
     let n = 0;
@@ -363,11 +374,12 @@ $('#resetApp').onclick = () => { const b = $('#resetApp'); if (b.dataset.armed) 
 
 /* 左侧小导航：点击滚动、滚动时高亮 */
 document.querySelectorAll('#snav a').forEach(a => a.onclick = e => { e.preventDefault(); const t = $(a.getAttribute('href')); MAIN.scrollTo({ top: t.offsetTop - 8, behavior: REDUCE ? 'auto' : 'smooth' }); });
-MAIN.addEventListener('scroll', () => { const secs = [...document.querySelectorAll('.ssec')]; let cur = secs[0]; secs.forEach(s => { if (s.getBoundingClientRect().top < 140) cur = s; }); document.querySelectorAll('#snav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + cur.id)); });
+MAIN.addEventListener('scroll', () => { const secs = [...document.querySelectorAll('.ssec:not(.sub)')]; let cur = secs[0]; secs.forEach(s => { if (s.getBoundingClientRect().top < 140) cur = s; }); document.querySelectorAll('#snav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + cur.id)); });
 
 /* 从搜索面板跳转：#分组 或 #分组/设置项 */
 function gotoHash() {
   const [sec, name] = decodeURIComponent(location.hash.slice(1)).split('/'); const t = sec && document.getElementById(sec); if (!t || !t.classList.contains('ssec')) return;
+  if (ADV.includes(sec)) setAdv(true);
   if (sec === 'agents' && name) { const a = AGENTS.find(x => x.skill === name || x.name === name); if (a) { openAg = a.id; renderAgents(); } }
   let el = t; if (name) el = [...t.querySelectorAll('.ag, .item, .prov, .group, label')].find(x => (x.querySelector('.t, b') || x).textContent.trim().startsWith(name)) || t;
   MAIN.scrollTo({ top: el.getBoundingClientRect().top - MAIN.getBoundingClientRect().top + MAIN.scrollTop - 80, behavior: REDUCE ? 'auto' : 'smooth' });

@@ -109,7 +109,7 @@
             <div class="prov-line" style="margin-top:10px"><span class="av-ag tibi" id="insAv" aria-hidden="true"></span><span>Tibi · 学习洞察</span> · <a href="#" id="insProv" title="DeepSeek 深入 · 昨天 21:03 · ¥0.009">查看过程</a> · <button id="insRe">重新生成</button></div></div></section>
 
         <section class="panel" id="growthPanel">
-          <div class="ph"><h2>已知词数</h2><span class="sub" id="growSub"></span><button class="linkbtn" id="tblBtn">以表格查看</button></div>
+          <div class="ph"><h2>已知词数</h2><span class="sub" id="growSub"></span><div class="legend"><span><i class="line" style="background:var(--accent)"></i>实测</span><span><i class="dash" style="border-color:var(--accent)"></i>含估算</span></div><button class="linkbtn" id="tblBtn">以表格查看</button></div>
           <div class="chart" id="growth" role="img"></div>
           <div class="tblwrap" id="growTbl" hidden></div>
         </section>
@@ -167,6 +167,8 @@ const fmt = d => `${d.getMonth() + 1}/${d.getDate()}`;
 const minutes = Array.from({ length: N }, (_, i) => { const d = dayOf(i), wk = d.getDay() === 0 || d.getDay() === 6; const base = i < 40 ? 10 : i < 120 ? 16 : 21; const skip = rnd() < (i > N - 10 ? 0 : 0.12); return skip ? 0 : Math.max(3, Math.round(base + (wk ? 8 : 0) + (rnd() - 0.4) * 14)); });
 minutes[N - 1] = 12;
 const known = []; { let k = 5340; for (let i = 0; i < N; i++) { k += minutes[i] ? Math.round(minutes[i] * (0.12 + rnd() * 0.12)) : 0; known.push(k); } const off = 6214 - known[N - 1]; for (let i = 0; i < N; i++) known[i] += off; }
+/* R8：已知词拆成两条。实测 = 你确认过的词（标为已知、复习记得、阅读中确认、测试里答对的）；含估算 = 实测 + 词汇量测试按词频推断的部分。读得越多，估算的部分越少 */
+const measured = known.map((k, i) => Math.round(k - (4300 - i * (4300 - 3900) / (N - 1))));
 const words = minutes.map(m => Math.round(m * 155 * (0.8 + rnd() * 0.4)));
 const forecast = [18, 9, 14, 6, 11, 7, 3, 12, 8, 5, 9, 4, 6, 10];
 let range = 90;
@@ -184,7 +186,7 @@ function drawKpis() {
   const prevS = Math.max(0, s - range), prevGain = known[s] - known[prevS];
   const totalWords = words.slice(s).reduce((a, b) => a + b, 0);
   $('#kp').innerHTML = [
-    ['已知词', kfmt(known[N - 1]), '词', `${range} 天 <b>+${gain}</b>${prevGain ? `（上一周期 +${prevGain}）` : ''}`],
+    ['已知词', kfmt(known[N - 1]), '词', `其中实测 ${kfmt(measured[N - 1])} · ${range} 天 <b>+${gain}</b>`],
     ['阅读', Math.round(mins.reduce((a, b) => a + b, 0) / 60 * 10) / 10, '小时', `共 ${kfmt(totalWords)} 词 · ${Math.round(totalWords / 1000 / range * 7 * 10) / 10}k 词 / 周`],
     ['学习天数', days, `/ ${range} 天`, `连续 9 天 · 最长 23 天`],
     ['复习', range === 30 ? 312 : range === 90 ? 941 : 1760, '次', '记得或轻松 <b>86%</b>'],
@@ -197,31 +199,32 @@ function drawKpis() {
 /* ---------- 已知词数（词汇量）：面积折线 + 十字线 ---------- */
 function drawGrowth() {
   const box = $('#growth'), W = box.clientWidth, H = 220, L = 46, R = 12, T = 12, B = 26;
-  const s = N - range, data = known.slice(s), lo = Math.min(...data), hi = Math.max(...data);
+  const s = N - range, data = known.slice(s), dm = measured.slice(s), lo = Math.min(...dm), hi = Math.max(...data);
   const ticks = nice(lo, hi), y0 = ticks[0], y1 = ticks[ticks.length - 1];
   const x = i => L + i * (W - L - R) / (data.length - 1), y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
-  const pts = data.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const pts = data.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' '), ptm = dm.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const xt = [0, Math.round((data.length - 1) / 3), Math.round((data.length - 1) * 2 / 3), data.length - 1];
-  box.setAttribute('aria-label', `已知词数从 ${kfmt(data[0])} 增长到 ${kfmt(data[data.length - 1])}`);
+  box.setAttribute('aria-label', `已知词数（含估算）从 ${kfmt(data[0])} 增长到 ${kfmt(data[data.length - 1])}，其中实测从 ${kfmt(dm[0])} 增长到 ${kfmt(dm[dm.length - 1])}`);
   box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}">
     ${ticks.map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text class="axis" x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${kfmt(t)}</text>`).join('')}
     ${xt.map(i => `<text class="axis" x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === data.length - 1 ? 'end' : 'middle'}">${i === data.length - 1 ? '今天' : fmt(dayOf(s + i))}</text>`).join('')}
-    <path d="M${x(0)},${y(y0)} L${pts.split(' ').join(' L')} L${x(data.length - 1)},${y(y0)} Z" fill="var(--accent)" fill-opacity=".1"/>
-    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M${x(0)},${y(y0)} L${ptm.split(' ').join(' L')} L${x(dm.length - 1)},${y(y0)} Z" fill="var(--accent)" fill-opacity=".1"/>
+    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 4" stroke-opacity=".75" stroke-linejoin="round"/>
+    <polyline points="${ptm}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     <line id="gx" y1="${T}" y2="${H - B}" stroke="var(--ink-3)" stroke-dasharray="3 3" opacity="0"/>
-    <circle id="gd" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" cx="${x(data.length - 1)}" cy="${y(data[data.length - 1])}"/>
+    <circle id="gd" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" cx="${x(dm.length - 1)}" cy="${y(dm[dm.length - 1])}"/>
     <rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" id="ghit"/>
   </svg>`;
   const t = tip(box), svg = box.querySelector('svg');
   svg.querySelector('#ghit').onpointermove = e => {
     const r = svg.getBoundingClientRect(); const i = Math.max(0, Math.min(data.length - 1, Math.round((e.clientX - r.left - L) / ((W - L - R) / (data.length - 1)))));
     svg.querySelector('#gx').setAttribute('x1', x(i)); svg.querySelector('#gx').setAttribute('x2', x(i)); svg.querySelector('#gx').setAttribute('opacity', '1');
-    svg.querySelector('#gd').setAttribute('cx', x(i)); svg.querySelector('#gd').setAttribute('cy', y(data[i]));
-    const d = i ? data[i] - data[i - 1] : 0;
-    t.hidden = false; t.style.left = x(i) + 'px'; t.style.top = y(data[i]) + 'px'; t.innerHTML = `${fmt(dayOf(s + i))} · <b>${kfmt(data[i])}</b> 词${d ? ` · +${d}` : ''}`;
+    svg.querySelector('#gd').setAttribute('cx', x(i)); svg.querySelector('#gd').setAttribute('cy', y(dm[i]));
+    const d = i ? dm[i] - dm[i - 1] : 0;
+    t.hidden = false; t.style.left = x(i) + 'px'; t.style.top = y(dm[i]) + 'px'; t.innerHTML = `${fmt(dayOf(s + i))} · 实测 <b>${kfmt(dm[i])}</b>${d ? ` · +${d}` : ''} · 含估算 ${kfmt(data[i])}`;
   };
-  svg.querySelector('#ghit').onpointerleave = () => { t.hidden = true; svg.querySelector('#gx').setAttribute('opacity', '0'); svg.querySelector('#gd').setAttribute('cx', x(data.length - 1)); svg.querySelector('#gd').setAttribute('cy', y(data[data.length - 1])); };
-  $('#growTbl').innerHTML = `<table class="tbl"><thead><tr><th>日期</th><th>已知词</th><th>当天新增</th><th>阅读分钟</th></tr></thead><tbody>${data.map((v, i) => [fmt(dayOf(s + i)), kfmt(v), i ? v - data[i - 1] : '—', minutes[s + i]]).reverse().map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  svg.querySelector('#ghit').onpointerleave = () => { t.hidden = true; svg.querySelector('#gx').setAttribute('opacity', '0'); svg.querySelector('#gd').setAttribute('cx', x(dm.length - 1)); svg.querySelector('#gd').setAttribute('cy', y(dm[dm.length - 1])); };
+  $('#growTbl').innerHTML = `<table class="tbl"><thead><tr><th>日期</th><th>实测</th><th>含估算</th><th>当天新增（实测）</th><th>阅读分钟</th></tr></thead><tbody>${data.map((v, i) => [fmt(dayOf(s + i)), kfmt(dm[i]), kfmt(v), i ? dm[i] - dm[i - 1] : '—', minutes[s + i]]).reverse().map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
 /* ---------- 每日阅读：柱状图 + 目标线 ---------- */

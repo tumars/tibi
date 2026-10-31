@@ -24,12 +24,12 @@
   const SETS = [
     ['general', '外观', '通用', '深色 浅色 主题 夜间 dark theme'], ['general', '界面语言', '通用', 'language english'], ['general', '英语水平与目标', '通用', '雅思 托福 词汇量测试 重新测'], ['general', '常读材料', '通用', '推荐 兴趣'],
     ['reading', '正文字体', '阅读', 'charter 字体 font'], ['reading', '字号', '阅读', '字体大小 font size'], ['reading', '标注强度', '阅读', '纯净阅读 高亮 标记'], ['reading', '默认显示译文', '阅读', '翻译 translation'], ['reading', '默认显示行间释义', '阅读', 'gloss 小字'], ['reading', '释义语言', '阅读', '英英 中英'],
-    ['learning', '每日阅读目标', '学习与复习', '分钟 goal'], ['learning', '每天最多新学的词', '学习与复习', '新卡 上限'], ['learning', '目标记得率', '学习与复习', 'fsrs retention 复习量'], ['learning', '题型', '学习与复习', '识别 填空 听写 拼写 造句'], ['learning', '按我的复习记录优化排期', '学习与复习', '优化 fsrs'],
-    ['ai', 'DeepSeek', '模型', 'api key 模型 服务商 base url provider'], ['ai', '视觉模型', '模型', 'ocr 图片 识别'], ['ai', '图像模型', '模型', '封面 插画'], ['ai', '快速', '模型', '模型档 deepseek-v4-flash'], ['ai', '深入', '模型', '模型档 deepseek-v4-pro'], ['ai', '用 ChatGPT 账号登录', '模型', '订阅 chatgpt claude 账号 登录 oauth'], ['tibi', 'Tibi 修改学习数据时', 'Tibi', '权限 自动 询问'], ['tibi', 'Tibi 怎么称呼你', 'Tibi', '称呼 名字 对话语言 中英'], ['tibi', '允许其他 AI 工具使用 Tibi（MCP）', 'Tibi', 'mcp'],
-    ['agents', 'Tibi 的技能', '技能', 'skill 技能 帮手 agent 智能体'], ['agents', '导入文章', '技能', '导入 importer 总结 短语'], ['agents', '找文章', '技能', '选文 scout 推荐'], ['agents', '讲解', '技能', '伴读 tutor 长难句 语法'], ['agents', '出题与批改', '技能', '复习 coach 造句 批改'], ['agents', '学习洞察', '技能', 'insight 周报 统计'], ['agents', '整理记忆', '技能', 'archivist 记忆'], ['agents', '每月预算', '技能', '花费 预算 费用 cost budget'],
+    ['learning', '每日阅读目标', '学习与复习', '分钟 goal'], ['learning', '每天最多新学的词', '学习与复习', '新卡 上限'], ['learning', '目标记得率', '学习与复习', 'fsrs retention 复习量'], ['learning', '识别题', '学习与复习', '题型 识别 自评 选义 填空'], ['learning', '按我的复习记录优化排期', '学习与复习', '优化 fsrs'],
+    ['ai', 'DeepSeek', '高级 · 模型', 'api key 模型 服务商 base url provider'], ['ai', '视觉模型', '高级 · 模型', 'ocr 图片 识别'], ['ai', '图像模型', '高级 · 模型', '封面 插画'], ['ai', '快速', '高级 · 模型', '模型档 deepseek-v4-flash'], ['ai', '深入', '高级 · 模型', '模型档 deepseek-v4-pro'], ['tibi', 'Tibi 修改学习数据时', 'Tibi', '权限 自动 询问'], ['tibi', 'Tibi 怎么称呼你', 'Tibi', '称呼 名字 对话语言 中英'], ['mcp', '允许其他 AI 工具使用 Tibi（MCP）', '高级', 'mcp codex claude'],
+    ['agents', 'Tibi 能做的事', '高级', 'skill 技能 帮手 agent 智能体'], ['agents', '导入文章', '能做的事', '导入 importer 总结 短语'], ['agents', '找文章', '能做的事', '选文 scout 推荐'], ['agents', '讲解', '能做的事', '伴读 tutor 长难句 语法'], ['agents', '出题与批改', '能做的事', '复习 coach 造句 批改'], ['agents', '学习洞察', '能做的事', 'insight 周报 统计'], ['agents', '整理记忆', '能做的事', 'archivist 记忆'], ['budget', '每月预算', '高级', '花费 预算 费用 cost budget'],
     ['voice', '朗读引擎', '语音', 'tts kokoro 发音'], ['voice', '音色', '语音', '美音 英音 voice'], ['voice', '默认语速', '语音', '速度 speed'],
     ['memory', '记忆', '记忆', '记住 memory 清空 删除 tibi'],
-    ['data', '数据库位置', '数据', 'sqlite db'], ['data', '备份', '数据', '恢复 backup'], ['data', '导出生词本', '数据', 'csv anki export'], ['data', '从其他工具导入已知词', '数据', 'anki lingq'], ['data', '重置 Tibi', '数据', '清空 删除 全部数据 reset'], ['data', '词典', '数据', 'ecdict'], ['data', '语音缓存', '数据', '清理 缓存'],
+    ['data', '数据库位置', '数据', 'sqlite db'], ['data', '备份', '数据', '恢复 backup'], ['data', '导出生词本', '数据', 'csv anki export'], ['data', '从其他工具导入已知词', '数据', 'anki lingq'], ['data', '重置 Tibi', '数据', '清空 删除 全部数据 reset'], ['data', '词典', '数据', 'ecdict 英汉'], ['data', '语音缓存', '数据', '清理 缓存'],
     ['about', '检查更新', '关于', '版本 version'],
   ];
   const ICON = {

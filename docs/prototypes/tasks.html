@@ -194,7 +194,7 @@ function renderKpis() {
     <div class="kpi"><span class="k">运行中</span><span class="v">${TASKS.filter(t => t.state === 'run').length}<small>个</small></span></div>
     <div class="kpi"><span class="k">本周完成</span><span class="v">${done + 37}<small>个 · 失败 1</small></span></div>
     <div class="kpi"><span class="k">本月花费</span><span class="v">¥${SPENT.toFixed(2)}<small>/ 预算 ¥${BUDGET}</small></span><div class="bar2"><i style="width:${Math.min(100, SPENT / BUDGET * 100)}%"></i></div></div>
-    <div class="kpi"><span class="k">花得最多的技能</span><span class="v" style="font-size:16px;display:flex;align-items:center;gap:8px;margin-top:4px">导入文章<small>¥${agentById('importer').cost.toFixed(2)}</small></span></div>`;
+    <div class="kpi"><span class="k">花得最多的事</span><span class="v" style="font-size:16px;display:flex;align-items:center;gap:8px;margin-top:4px">导入文章<small>¥${agentById('importer').cost.toFixed(2)}</small></span></div>`;
 }
 function titleHtml(t) { return `${esc(t.title)}${t.doc ? ` <span class="doc">《${esc(t.doc)}》</span>` : ''}`; }
 function renderAppr() {
@@ -203,7 +203,7 @@ function renderAppr() {
       <div class="h">${agentAv('tibi')}<span>${esc(t.appr.title)}</span><span class="k">等你确认</span></div>
       <div class="b">${t.appr.body}</div>
       <div class="impact"><span>将执行</span><code>${esc(t.appr.tool)}</code><span>· ${t.appr.tool === 'remember' ? '写入 1 条记忆' : '新增 3 篇到书架'} · 可撤销</span><span class="k">A 允许 · R 拒绝</span></div>
-      <div class="prov-line">${esc(t.appr.src)} · 技能：${skillOf(t.agent)} · <button data-open="${t.id}">查看过程</button></div>
+      <div class="prov-line">${esc(t.appr.src)} · ${skillOf(t.agent)} · <button data-open="${t.id}">查看过程</button></div>
       <div class="acts"><button class="btn sm pri" data-ok="${t.id}">允许</button><button class="btn sm" data-no="${t.id}">拒绝</button>${t.appr.edit ? `<button class="btn sm" data-ed="${t.id}">修改后允许</button>` : ''}<label class="chk"><input type="checkbox" data-always="${t.id}">以后这类都自动允许</label></div>
     </div>`).join('') : '<div class="none">没有需要你确认的事。</div>';
   $('#appr').querySelectorAll('[data-ok]').forEach(b => b.onclick = () => decide(b.dataset.ok, true));
@@ -338,8 +338,8 @@ renderAll();
 if (IS_EMPTY) {
   $('#secAppr').hidden = true; $('#secHist').hidden = true; $('#filter').hidden = true;
   emptyState($('#run'), { img: 'empty-tasks', title: 'Tibi 还没做过事', desc: 'Tibi 做的事和需要你确认的改动会出现在这里。', cls: '',
-    actions: [{ t: '去首页导入一篇文章', pri: true, link: 'home' }, { t: '看看 Tibi 的技能', link: 'settings' }] });
-  $('#kpis').innerHTML = `<div class="kpi"><span class="k">运行中</span><span class="v">0<small>个</small></span></div><div class="kpi"><span class="k">本周完成</span><span class="v">0<small>个</small></span></div><div class="kpi"><span class="k">本月花费</span><span class="v">¥0.00<small>/ 预算 ¥20</small></span><div class="bar2"><i style="width:0%"></i></div></div><div class="kpi"><span class="k">花得最多的技能</span><span class="v" style="font-size:16px;margin-top:4px;color:var(--ink-3)">还没有</span></div>`;
+    actions: [{ t: '去首页导入一篇文章', pri: true, link: 'home' }, { t: '看看 Tibi 能做的事', link: 'settings' }] });
+  $('#kpis').innerHTML = `<div class="kpi"><span class="k">运行中</span><span class="v">0<small>个</small></span></div><div class="kpi"><span class="k">本周完成</span><span class="v">0<small>个</small></span></div><div class="kpi"><span class="k">本月花费</span><span class="v">¥0.00<small>/ 预算 ¥20</small></span><div class="bar2"><i style="width:0%"></i></div></div><div class="kpi"><span class="k">花得最多的事</span><span class="v" style="font-size:16px;margin-top:4px;color:var(--ink-3)">还没有</span></div>`;
   $('#secRun h2').innerHTML = '运行中 <span class="n">0</span>';
   const badge = document.getElementById('navTasks'); if (badge) badge.hidden = true;
 }
