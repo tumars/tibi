@@ -99,6 +99,8 @@
 - 生词的导出 / 导入在生词本右上角（见第 5 节）。
 - 想彻底清空：退出 Tibi，删掉下面的数据目录（建议先手动备份一份）。
 
+- **同步**（和手机、其他电脑）：开启后选位置——Mac 上的 **iCloud Drive**（需要正式签名版本）、任意**文件夹**（Dropbox、OneDrive、NAS 挂载等，几台电脑都指向它）、或 **WebDAV**（坚果云、Nextcloud、群晖；填地址、账号和应用密码）。先"检查"：那里已有 Tibi 资料库就"加入"，两边的数据合并、不覆盖；没有就"新建"。之后启动时、每 5 分钟、改动后半分钟自动同步，也可以"立即同步"。同步文件不加密；API Key 不同步，每台设备各自填。
+
 数据目录：macOS `~/Library/Application Support/app.tibi/`，Windows `%APPDATA%\app.tibi\`，Linux `~/.local/share/app.tibi/`。
 
 ## 11. 快捷键

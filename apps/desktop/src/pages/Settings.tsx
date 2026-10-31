@@ -10,6 +10,7 @@ import { MemoryItems } from '../settings/MemoryItems';
 import { VoiceItems } from '../settings/VoiceItems';
 import { SkillItems } from '../settings/SkillItems';
 import { McpItems } from '../settings/McpItems';
+import { SyncItems } from '../settings/SyncItems';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
@@ -138,7 +139,7 @@ export function Settings() {
             <BackupItems />
             <div className="item"><div><div className="t">{tl('生词本导入与导出')}</div><div className="d">{tl('导出为 Anki / CSV / 纯文本；从其他工具导入已知词表或单词表。在生词本页右上角。')}</div></div><div className="ctl"><button className="btn sm" onClick={() => nav('/words')}>{tl('去生词本')}</button></div></div>
             <ExportSummaryItem />
-            <div className="item"><div><div className="t">{tl('同步')}</div><div className="d">{tl('和手机、其他电脑同步，经过你自己的 iCloud Drive 或 WebDAV 云盘。M7 起可用。')}</div></div><div className="ctl"><button className="btn sm" disabled>{tl('开启同步')}</button></div></div>
+            <SyncItems />
           </div></section>
 
           <section className="ssec" id="s-about"><h2>{tl('关于')}</h2><div className="group">

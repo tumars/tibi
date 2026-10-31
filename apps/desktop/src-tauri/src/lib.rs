@@ -119,6 +119,14 @@ fn mcp_command(app: AppHandle) -> Result<Value, String> {
 }
 
 /// 文件选择：所选路径登记到白名单，并告诉 Core（system.registerPaths）
+
+/// 选一个文件夹（同步：任意本地文件夹，08 §13）；不登记给 Core 的文件白名单，Core 只在里面建 Tibi Sync/
+#[tauri::command]
+async fn pick_folder(app: AppHandle) -> Result<Value, String> {
+    let path = app.dialog().file().blocking_pick_folder().and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().into_owned());
+    Ok(json!({ "path": path }))
+}
+
 #[tauri::command]
 async fn pick_file(app: AppHandle, kinds: Vec<String>, multiple: Option<bool>) -> Result<Value, String> {
     let mut exts: Vec<&str> = Vec::new();
@@ -277,7 +285,7 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move { register_paths(&app, &paths).await; });
             }
         })
-        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, window_set_tray_mode, restore_backup, save_text_file, mcp_command])
+        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command])
         .run(tauri::generate_context!())
         .expect("Tibi 启动失败");
 }

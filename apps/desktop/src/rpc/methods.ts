@@ -32,6 +32,12 @@ export interface MethodTable {
   'terms.import': { params: { path: string; format: 'csv' | 'txt' | 'anki' | 'known' }; result: { added: number; known: number; skipped: number; total: number } };
   'terms.add': { params: { entries: { text: string; meaning?: string }[] }; result: { created: Term[]; undo?: Undo } };
   'search.query': { params: { q: string; limit?: number }; result: SearchResult };
+  'sync.status': { params: Record<string, never>; result: SyncStatus };
+  'sync.probe': { params: { backend: SyncBackendCfg }; result: { ok: boolean; library?: { library_id: string; devices: number; updated_at: number }; error?: { code: string; message: string } } };
+  'sync.enable': { params: { backend: SyncBackendCfg; device_name?: string; sync_files?: boolean }; result: SyncStatus };
+  'sync.now': { params: Record<string, never>; result: SyncStatus };
+  'sync.removeDevice': { params: { device_id: string }; result: SyncStatus };
+  'sync.disable': { params: Record<string, never>; result: Ok };
   'terms.get': { params: { id: Id } | { text: string }; result: TermDetail };
   'terms.setStatus': { params: { ids: Id[]; status: Status; source?: 'user' | 'page_done' }; result: { changed: number; undo: Undo } };
   'terms.remove': { params: { ids: Id[] }; result: Undo };
@@ -98,6 +104,12 @@ export type Params<M extends MethodName> = MethodTable[M]['params'];
 export type Result<M extends MethodName> = MethodTable[M]['result'];
 
 /** Core → 界面事件（06 §4） */
+export type SyncBackendCfg = { kind: 'icloud' } | { kind: 'folder'; path: string } | { kind: 'webdav'; url: string; user: string; password_ref: string };
+export interface SyncStatus {
+  enabled: boolean; backend?: SyncBackendCfg; state: 'off' | 'idle' | 'syncing' | 'error'; last_synced_at?: number; pending: number; sync_files: boolean;
+  device?: { id: string; name: string }; peers: { id: string; name: string; platform: string; last_seen_at?: number; removed: boolean }[]; error?: { code: string; message: string };
+}
+
 export interface EventTable {
   'task.update': { task: TaskSummary; steps?: unknown[] };
   'task.done': { task: TaskSummary; result?: { document_id?: Id; summary: string; action?: { label: string; route: string } } };
@@ -108,6 +120,6 @@ export interface EventTable {
   'model.status': { ok: boolean; reason?: 'offline' | 'unauthorized' | 'budget' };
   'chat.delta': { conversation_id: Id; submission_id: TaskId; delta: string; done?: boolean };
   'chat.tool': { conversation_id?: Id; task_id: TaskId; phase: 'start' | 'end'; tool: string; skill_id: string; summary: string; duration_ms?: number };
-  'sync.update': { state: 'idle' | 'syncing' | 'error' };
+  'sync.update': { state: 'idle' | 'syncing' | 'error'; pushed?: number; pulled?: number; last_synced_at?: number; error?: { code: string; message: string } };
 }
 export type EventName = keyof EventTable;
