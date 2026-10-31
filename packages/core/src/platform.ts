@@ -4,7 +4,7 @@
  */
 
 export interface FetchedPage { status: number; final_url: string; content_type: string; body: string }
-export interface ReadableArticle { title: string; byline?: string; excerpt?: string; lang?: string; /** 清洗后的正文 Markdown（代码块保留围栏） */ markdown: string; images: string[]; published_at?: number }
+export interface ReadableArticle { title: string; /** 站点名（og:site_name），用来去掉标题里的站点后缀 */ site_name?: string; /** 页面第一个 h1 */ h1?: string; byline?: string; excerpt?: string; lang?: string; /** 清洗后的正文 Markdown（代码块保留围栏） */ markdown: string; images: string[]; published_at?: number }
 
 export interface Platform {
   /** 抓取网页；只在 Core 校验过 URL 之后调用。重定向每跳由实现方重查 */

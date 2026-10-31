@@ -7,6 +7,7 @@ import type { Ctx } from '../../rpc/define.js';
 import { TibiError, type Genre, type Kind, type Status, type Token } from '../../types.js';
 import { alreadyDone, recordUndo } from '../shared/undo.js';
 import { annotateSentences } from '../text/annotate.js';
+import { cleanTitle, dropLeadingTitle } from '../text/title.js';
 import { cefrOfDocument, difficultyOfRatio } from '../text/prelabel.js';
 import { countWords, segmentMarkdown, splitSentences, type Segmented } from '../text/segment.js';
 import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, insertTerm, logStatus, readProfile, upsertForm } from '../terms/repo.js';
@@ -43,7 +44,8 @@ async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise
     if (/text\/plain/.test(page.content_type)) return { title: new URL(page.final_url).pathname.split('/').pop() || s.url, markdown: page.body, source_type: 'url', source_uri: page.final_url };
     const art = await ctx.platform.extractReadable(page.body, page.final_url);
     if (countWords(art.markdown) < 30) throw new TibiError('invalid_source', '这个页面抓不到正文。可以复制正文后粘贴');
-    return { title: art.title, author: art.byline, markdown: art.markdown, source_type: 'url', source_uri: page.final_url, published_at: art.published_at, lang: art.lang };
+    const title = cleanTitle(art.title, { site: art.site_name, h1: art.h1, host: new URL(page.final_url).hostname });
+    return { title, author: art.byline, markdown: dropLeadingTitle(art.markdown, title), source_type: 'url', source_uri: page.final_url, published_at: art.published_at, lang: art.lang };
   }
   if (s.type === 'file') {
     if (!ctx.platform.isPathAllowed(s.path)) throw new TibiError('permission_denied', '这个文件没有经过选择或拖入');

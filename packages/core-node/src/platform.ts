@@ -41,6 +41,14 @@ export async function checkUrl(raw: string): Promise<URL> {
   return u;
 }
 
+/** 正文抽取前先删掉的块：导航、侧栏目录、面包屑、快捷键帮助、页脚 */
+const NOISE = [
+  'nav', '[role="navigation"]', '[role="banner"]', '[role="search"]', '[aria-hidden="true"]', 'script', 'style', 'noscript', 'template',
+  '#mdbook-help-container', '#help-container', '#menu-bar', '#mdbook-menu-bar', '.menu-title', '#mdbook-sidebar', '#sidebar', '.sidebar', '.nav-chapters', '.nav-wrapper', '.mobile-nav-chapters', '#searchbar-outer', '#search-wrapper',
+  '.toc', '#toc', '.table-of-contents', '.breadcrumb', '.breadcrumbs', '.skip-link', '.skip-to-content', '.theme-doc-toc-mobile', '.pagination-nav', '.headerlink', '.md-sidebar', '.md-header', '.md-footer',
+  'body > header', 'body > footer', 'footer.footer', 'aside.sidebar', 'aside[role="navigation"]',
+].join(', ');
+
 /** 备份放在 app.db 旁边的 backups/ 目录；内存库（测试）没有 */
 export function fileBackups(dbPath: string): BackupStore | undefined {
   if (!dbPath || dbPath === ':memory:') return undefined;
@@ -90,14 +98,38 @@ export function nodePlatform(opts: NodePlatformOptions): Platform {
       const { document } = parseHTML(html);
       try { (document as unknown as { location: unknown }).location = new URL(url); } catch { /* linkedom 不需要 */ }
       const meta = (name: string) => document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.getAttribute('content') ?? undefined;
+      const docTitle = document.title;
+      // 先去掉导航、目录、快捷键帮助这类不是正文的块（文档站常见：mdBook、Docusaurus、Sphinx、MkDocs），Readability 有时会把它们当正文
+      for (const el of [...document.querySelectorAll(NOISE)]) el.remove();
+      // Readability 会丢掉 class / id 带 header 的块；文章头（h1 + 导语段落）常放在这种块里（如 MDN），去掉这类名字再交给它
+      for (const el of [...document.querySelectorAll('[class*="header"], [id*="header"]')]) {
+        const paras = [...el.querySelectorAll('p')].filter(x => (x.textContent ?? '').trim().length > 80);
+        if (el.querySelector('h1') && paras.length) { el.removeAttribute('class'); el.removeAttribute('id'); }
+      }
+      // 文章自己的标题：优先正文区里的 h1，没有就用正文区第一个 h2（新版 mdBook），最后才是全页第一个 h1
+      const titleEl = ['main h1', 'article h1', '[role="main"] h1', 'main h2', 'article h2', 'h1'].map(q => document.querySelector(q)).find(Boolean);
+      const h1 = titleEl?.textContent?.trim() || undefined;
+      // 标题下的导语段落（在 Readability 之前取，它可能把标题所在的块整个丢掉）
+      let leadHtml = '';
+      for (let el = titleEl?.parentElement, i = 0; el && i < 3; el = el.parentElement, i++) {
+        const ps = [...el.querySelectorAll('p')].filter(x => (x.textContent ?? '').trim().length > 60).slice(0, 3);
+        if (ps.length) { leadHtml = ps.map(x => x.outerHTML).join(''); break; }
+      }
       const reader = new Readability(document as never, { keepClasses: false });
       const art = reader.parse();
       const contentHtml = art?.content ?? document.body?.innerHTML ?? '';
-      const markdown = htmlToMarkdown(contentHtml, url);
+      let markdown = htmlToMarkdown(contentHtml, url);
+      if (leadHtml) {
+        const lead = htmlToMarkdown(leadHtml, url).trim();
+        const probe = lead.replace(/\s+/g, ' ').slice(0, 50);
+        if (probe && !markdown.replace(/\s+/g, ' ').includes(probe)) markdown = `${lead}\n\n${markdown}`;
+      }
       const images: string[] = [...new Set((contentHtml.match(/<img[^>]+src="([^"]+)"/g) ?? []).map((m: string) => m.replace(/.*src="([^"]+)".*/, '$1')))];
       const published = meta('article:published_time') ?? meta('date') ?? meta('pubdate');
       return {
-        title: art?.title || document.title || url,
+        title: art?.title || docTitle || url,
+        site_name: art?.siteName ?? meta('og:site_name') ?? meta('application-name') ?? undefined,
+        h1,
         byline: art?.byline ?? meta('author') ?? undefined,
         excerpt: art?.excerpt ?? meta('description') ?? undefined,
         lang: art?.lang ?? document.documentElement?.getAttribute('lang') ?? undefined,
