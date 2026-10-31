@@ -9,6 +9,7 @@ import { BackupItems, ExportSummaryItem } from '../settings/DataItems';
 import { MemoryItems } from '../settings/MemoryItems';
 import { VoiceItems } from '../settings/VoiceItems';
 import { SkillItems } from '../settings/SkillItems';
+import { McpItems } from '../settings/McpItems';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
@@ -79,6 +80,10 @@ export function Settings() {
             <div className="item"><div><div className="t">出识别题</div><div className="d">看着词想意思，自己评分。关掉时这一步由选义题代替（R6）</div></div><div className="ctl"><Switch label="出识别题" checked={recognize} onChange={async v => { setRecognize(v); await rpc.call('settings.set', { patch: { 'review.recognize': v } }).catch(e => toast(errorInfo(e).message, { kind: 'err' })); }} /></div></div>
           </div></section>
 
+          <section className="ssec" id="s-memory"><h2>记忆</h2><div className="group">
+            <MemoryItems />
+          </div></section>
+
           <section className="ssec" id="s-advanced">
             <h2>高级</h2>
             <button className="advtog" onClick={() => setAdv(!adv)} aria-expanded={adv}><span style={{ flex: 1 }}>模型、花费上限</span><ChevronDown size={14} style={{ transform: adv ? 'rotate(180deg)' : undefined }} /></button>
@@ -104,12 +109,11 @@ export function Settings() {
                 <div className="item"><div><div className="t">每月预算</div><div className="d">本月已用 ¥{status?.budget.month_spent.toFixed(2) ?? '0.00'}；超出后 AI 功能改为稍后补做</div></div><div className="ctl"><input className="input" type="number" value={budget.month} min={0} style={{ width: 80, textAlign: 'right' }} onChange={e => setBudgetKey('month', Number(e.target.value))} /> 元</div></div>
                 <div className="item"><div><div className="t">单个任务上限</div><div className="d">超过时先问你</div></div><div className="ctl"><input className="input" type="number" value={budget.task} min={0} step={0.5} style={{ width: 80, textAlign: 'right' }} onChange={e => setBudgetKey('task', Number(e.target.value))} /> 元</div></div>
               </div>
+              <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>其他 AI 工具</h3>
+              <div className="group"><McpItems /></div>
             </>}
           </section>
 
-          <section className="ssec" id="s-memory"><h2>记忆</h2><div className="group">
-            <MemoryItems />
-          </div></section>
 
           <section className="ssec" id="s-data"><h2>数据</h2><div className="group">
             <div className="item"><div><div className="t">数据库位置</div><div className="mono" style={{ marginTop: 6 }}>{status?.db_path ?? '—'}</div></div><div className="ctl"><button className="btn sm" onClick={async () => { if (!isTauri() || !status) return toast('浏览器模式不能打开'); const { invoke } = await import('@tauri-apps/api/core'); await invoke('open_path', { path: status.db_path }).catch(e => toast(String(e), { kind: 'err' })); }}>在文件夹中显示</button></div></div>

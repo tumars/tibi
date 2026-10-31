@@ -8,6 +8,7 @@ import { builtinCapabilities, CapabilityRegistry, type UiContext } from './capab
 import { JobRunnerImpl } from './jobs.js';
 import { chatMethods, taskMethods } from './methods.js';
 import { makeSkillMethods } from './skills.js';
+import { makeMcpMethods } from './mcp.js';
 import type { EventSink, JobContext } from './types.js';
 
 export * from './jobs.js';
@@ -88,6 +89,7 @@ export function createKernel(db: Database, initialEvents: EventSink, opts: Kerne
     ...taskMethods(methodDeps),
     ...makeSkillMethods((skill_id, input) => runSkillJob({ skill_id, input, trigger: 'user' })),
     ...memoryMethods,
+    ...makeMcpMethods({ db, registry, runner, makeCtx: caller => needCtx()(caller) }),
   };
 
   return {

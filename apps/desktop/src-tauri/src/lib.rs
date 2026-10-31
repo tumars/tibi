@@ -108,6 +108,16 @@ async fn save_text_file(app: AppHandle, default_name: String, text: String) -> R
     Ok(json!({ "saved": true, "path": p.to_string_lossy() }))
 }
 
+/// MCP 接入配置用（06 §6）：sidecar 可执行文件的路径（安装包里和主程序放在一起）与 app 数据目录
+#[tauri::command]
+fn mcp_command(app: AppHandle) -> Result<Value, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let dir = exe.parent().ok_or("找不到程序目录")?;
+    let name = if cfg!(windows) { "tibi-core.exe" } else { "tibi-core" };
+    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(json!({ "program": dir.join(name).to_string_lossy(), "data_dir": data.to_string_lossy() }))
+}
+
 /// 文件选择：所选路径登记到白名单，并告诉 Core（system.registerPaths）
 #[tauri::command]
 async fn pick_file(app: AppHandle, kinds: Vec<String>, multiple: Option<bool>) -> Result<Value, String> {
@@ -267,7 +277,7 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move { register_paths(&app, &paths).await; });
             }
         })
-        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, window_set_tray_mode, restore_backup, save_text_file])
+        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, window_set_tray_mode, restore_backup, save_text_file, mcp_command])
         .run(tauri::generate_context!())
         .expect("Tibi 启动失败");
 }

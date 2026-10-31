@@ -592,3 +592,10 @@ h2.st .sp { flex: 1; }
 .feeds { display: flex; flex-direction: column; gap: 6px; }
 .feed { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 10px; align-items: center; }
 .feed .ft { font-weight: 500; white-space: nowrap; } .feed .fu { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 设置 → 其他 AI 工具（MCP） */
+.mcpw { display: flex; flex-direction: column; gap: 8px; }
+.mcpt { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 10px; align-items: center; font-size: 13px; }
+.mcpt code { font-family: var(--f-mono); font-size: 12px; }
+.snip { display: flex; gap: 8px; align-items: flex-start; }
+.snip pre { flex: 1; margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--sunken); font-family: var(--f-mono); font-size: 12px; white-space: pre-wrap; word-break: break-all; }

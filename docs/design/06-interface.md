@@ -404,7 +404,8 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 ## 6. MCP Server
 
 - 外部工具以 stdio 启动 `tibi mcp`。它只是代理：经本地 socket 加令牌连运行中的 Core，自己不开数据库。Core 持单实例锁，保证 `app.db` 只有一个写入者。
-- 设置里开关 + 可复制的接入配置（令牌在这里生成，存钥匙串）。外部工具触发的任务 `trigger = mcp`，审批卡注明来源（如 Codex）。
+- 设置里开关 + 可复制的接入配置。外部工具触发的任务 `trigger = mcp`，审批卡注明来源（如 Codex）。
+- **实现**（M5，2026-10-31）：代理是 sidecar 本身（`tibi-core --mcp --data-dir <app 数据目录>`）；Core 启动时在数据目录开本地 socket（Windows 是命名管道），令牌放在同目录的 `mcp.token`（权限 0600，T24：原定存钥匙串，改成只有本用户可读的文件，代理才能自己读到）。开关、写工具白名单存 settings（`mcp.enabled`、`mcp.write_tools`），由 Core 的 `mcp.config` / `mcp.configure` / `mcp.tools` / `mcp.call` 判断；写调用两秒内没完成（在等确认）就先返回 `pending_approval`。
 - 默认只开读能力白名单；写能力由用户逐项开启，开启后仍按权限模式审批。
 - 工具 = 能力层（名称、参数、返回与 §5 一致），不暴露 `run_skill`、`tool_search`；另加一项：
 

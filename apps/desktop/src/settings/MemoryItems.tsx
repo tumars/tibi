@@ -42,7 +42,7 @@ export function MemoryItems() {
       <div><div className="t">暂停记住新的事</div><div className="d">打开后 Tibi 不再写入新记忆，已有的照常使用。Tibi 想记住什么时会先问你（按权限模式）。</div></div>
       <div className="ctl"><Switch label="暂停记住新的事" checked={paused} onChange={async v => { setPaused(v); await rpc.call('memory.pause', { paused: v }).catch(e => toast(errorInfo(e).message, { kind: 'err' })); }} /></div>
     </div>
-    {items && !groups.length && <div className="item"><div className="d">Tibi 还没有记住什么。对话里说"记住……"，或者让它整理记忆（M5）。</div></div>}
+    {items && !groups.length && <div className="item"><div className="d">Tibi 还没有记住什么。对话里说"记住……"，或者在 设置 → 高级 → Tibi 能做的事 里让它整理记忆。</div></div>}
     {groups.map(([t, list]) => <div key={t} className="item col">
       <div className="t">{TYPE[t]}</div>
       <div className="memlist">{list.map(m => <div key={m.id} className="mem">

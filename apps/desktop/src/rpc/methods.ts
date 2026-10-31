@@ -68,6 +68,8 @@ export interface MethodTable {
   'skills.reset': { params: { id: string }; result: Skill };
   'skills.runNow': { params: { id: string; input?: string }; result: { task_id: TaskId } };
   'feeds.list': { params: Record<string, never>; result: { url: string; title: string; builtin: boolean; enabled: boolean }[] };
+  'mcp.config': { params: Record<string, never>; result: { enabled: boolean; write_tools: string[]; tools: { name: string; description: string; write: boolean }[] } };
+  'mcp.configure': { params: { enabled?: boolean; write_tools?: string[] }; result: Ok };
   'feeds.update': { params: { add?: { url: string; title?: string }; remove?: string; toggle?: { url: string; enabled: boolean } }; result: { url: string; title: string; builtin: boolean; enabled: boolean }[] };
   'memory.list': { params: { type?: Memory['type']; q?: string }; result: Memory[] };
   'memory.update': { params: { id: Id; content: string }; result: Memory };
