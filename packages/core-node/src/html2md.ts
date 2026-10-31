@@ -5,7 +5,7 @@ import { parseHTML } from 'linkedom';
  * 其余标签只取文字。代码块保留围栏并带语言（sections.content_md 的约定，01 §2）。
  */
 export function htmlToMarkdown(html: string, baseUrl?: string): string {
-  const { document } = parseHTML(`<body>${html}</body>`);
+  const { document } = parseHTML(`<!doctype html><html><body>${html}</body></html>`);
   const out: string[] = [];
 
   const text = (n: Node): string => {

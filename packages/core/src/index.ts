@@ -10,3 +10,4 @@ export * from './rpc/define.js';
 export { Dispatcher, type RpcRequest, type RpcResponse } from './rpc/dispatcher.js';
 export { systemMethods } from './rpc/system.js';
 export { Core, type CoreOptions } from './core.js';
+export * from './domain/shared/index.js';
