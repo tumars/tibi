@@ -1,5 +1,7 @@
 import { feedsCapabilities, feedsMethods } from './domain/documents/feeds.js';
 import { searchMethods } from './domain/search/methods.js';
+import { syncMethods } from './sync/methods.js';
+import { SyncEngine } from './sync/engine.js';
 import { Core } from './core.js';
 import type { Database } from './db/driver.js';
 import type { Dict } from './dict/types.js';
@@ -39,10 +41,13 @@ export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core;
     .use(statsMethods)
     .use(profileMethods)
     .use(feedsMethods)
-    .use(searchMethods);
+    .use(searchMethods)
+    .use(syncMethods);
 
   kernel.registerCapabilities({ ...feedsCapabilities, ...documentsCapabilities, ...termsCapabilities, ...reviewCapabilities, ...statsCapabilities });
   registerImportPipeline(kernel.jobs, core);
+  // 同步开着时按当前表结构重建触发器（08 §5）
+  await SyncEngine.resume(core.db);
 
   if (opts.resume !== false) await kernel.jobs.resumeAll();
   return { core, kernel };

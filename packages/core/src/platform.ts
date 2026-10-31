@@ -1,3 +1,5 @@
+import type { SyncBackend } from './sync/backend.js';
+
 /**
  * 运行时能力（Core 不自己做的事）：抓网页、抽正文、读密钥、读文件。
  * 桌面由 core-node 实现（undici fetch + Readability），手机由各自的运行时实现；测试用假的。
@@ -31,6 +33,10 @@ export interface Platform {
   isPathAllowed(path: string): boolean;
   /** 备份目录（app.db 旁边的 backups/）；Core 用 VACUUM INTO 写文件，这里只管列出和删除。没有文件系统的运行时不提供 */
   backups?: BackupStore;
+  /** 同步用的文件夹（08 §8）：iCloud Drive 的应用容器（macOS / iOS），或用户选的本地文件夹（Dropbox、OneDrive、NAS 挂载等）。WebDAV 由 Core 自己连 */
+  syncFolder?(o: { kind: 'icloud' } | { kind: 'folder'; path: string }): Promise<SyncBackend>;
+  /** 设备名（同步的设备列表里显示），如"孟的 MacBook Pro" */
+  deviceName?(): string;
 }
 
 export interface BackupFile { name: string; path: string; size: number; created_at: number }

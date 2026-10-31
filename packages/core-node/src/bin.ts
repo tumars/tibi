@@ -45,6 +45,16 @@ async function main() {
   };
   setTimeout(tick, 60_000).unref?.();
   setInterval(tick, 3600_000).unref?.();
+  // 同步（08 §5）：启动后、每 5 分钟、本机有改动后 30 秒（合并连续的改动）；没开同步时 sync.auto 直接返回
+  const autoSync = () => void core.call('sync.auto', {}).catch(() => undefined);
+  setTimeout(autoSync, 10_000).unref?.();
+  setInterval(autoSync, 5 * 60_000).unref?.();
+  let pending: ReturnType<typeof setTimeout> | undefined;
+  core.events.on((event, data) => {
+    if (event !== 'data.changed' || (data as { source?: string }).source === 'sync') return;
+    if (pending) clearTimeout(pending);
+    pending = setTimeout(autoSync, 30_000); pending.unref?.();
+  });
 }
 
 main().catch(e => { console.error('[tibi-core] 启动失败', e); process.exit(1); });

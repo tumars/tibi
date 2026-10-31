@@ -158,6 +158,7 @@
 | T24 | MCP 令牌不放钥匙串，放在 app 数据目录的 `mcp.token`（0600）：代理 `tibi-core --mcp` 是外部工具启动的独立进程，读不到 Tibi 进程经壳拿的钥匙串；本地 socket 也只有本用户能连。真正的开关和写工具白名单在 Core 里判，令牌只防同机其他用户 | 06 §6 |
 | T25 | 界面语言（M6）：源码直接写中文、用 `tl('中文原文', { 变量 })` 包起来，中文原文就是键；英文在 `apps/desktop/src/locales/en.json`，缺的条目显示中文；CI 用 `i18n:check` 保证没有漏翻。语言在启动时定下来（默认中文；目标用户是中文母语者，不跟随系统语言），切换后重新载入界面，所以模块顶层常量也能用 `tl`。Core 产生的文字（任务标题、步骤名、错误、AI 内容）暂不翻译；"Tibi 讲解用的语言"是另一个设置（`assistant_prefs.language`），写进系统提示 | 00 §3.7 |
 | T26 | 出安装包（M6）：GitHub Actions 打 tag 出四个目标（macOS Apple 芯片 / Intel、Windows x64、Linux x64）的草稿 Release；sidecar 在各自平台用 Bun `--compile` 打；词典只生成一次并缓存，经 `tauri build --config src-tauri/tauri.bundle.conf.json` 合并进资源（主配置不写，开发时没有词典也能编译）；配了 Apple 证书密钥就签名公证，否则出未签名包 | dev README §4 |
+| T27 | 同步的改动捕获用 SQLite 触发器（开启同步时按当前表结构生成、启动时重建），不在每个写方法里记：写入散在各领域方法里，触发器不会漏；应用别的设备的改动时用 `sync_state.capture = 0` 关掉记录。一条 put 共用一个 HLC，推送时按改动时间分配。熟练度按来源优先（用户 > 自动）再比时钟 | 08 §13 |
 | T10 | 复习用 ts-fsrs 6.0 的 `DefaultScheduler`（FSRS-7 默认），卡片字段按库的命名映射到表（`stability_fast` ← `stabilityFast`、`learning_steps` ← `learningStep`） | 01 §4 |
 
 ## 待决定

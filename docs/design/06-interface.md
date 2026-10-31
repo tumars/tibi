@@ -116,7 +116,8 @@ interface UsageSummary { schema: 1; app_version: string; days_since_first_use: n
   h3: { has_card: boolean; reviewed_next_day?: boolean } }                                                     // 还没到次日时为空
 
 // 错误（JSON-RPC error.data.code）
-interface SyncStatus { enabled: boolean; backend?: 'icloud' | 'webdav'; state: 'off' | 'idle' | 'syncing' | 'error'; last_synced_at?: Ts; pending: number; sync_files: boolean; device: { id: string; name: string }; peers: { id: string; name: string; platform: 'macos' | 'windows' | 'linux' | 'ios' | 'android'; last_seen_at: Ts }[]; error?: SyncError }
+type SyncBackendCfg = { kind: 'icloud' } | { kind: 'folder'; path: string } | { kind: 'webdav'; url: string; user: string; password_ref: string }
+interface SyncStatus { enabled: boolean; backend?: SyncBackendCfg; state: 'off' | 'idle' | 'syncing' | 'error'; last_synced_at?: Ts; pending: number; sync_files: boolean; device?: { id: string; name: string }; peers: { id: string; name: string; platform: 'macos' | 'windows' | 'linux' | 'ios' | 'android'; last_seen_at?: Ts; removed: boolean }[]; error?: SyncError }
 type SyncError = 'offline' | 'auth' | 'icloud_signed_out' | 'quota' | 'newer_format' | 'unknown';
 type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavailable' | 'budget_exceeded' | 'offline' | 'invalid_source' | 'busy';
 ```
@@ -264,9 +265,10 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
 | `sync.status` | `{}` | `SyncStatus` | 设置 → 数据 → 同步、手机"我 › 同步" |
-| `sync.probe` | `{ backend: 'icloud' \| 'webdav'; webdav?: { url: string; user: string; password_ref: string } }` | `{ ok: boolean; library?: { library_id: string; devices: number; updated_at: Ts }; error?: SyncError }` | 测试连接并看文件夹里有没有已有的资料库；WebDAV 密码先经 keyring_set 存钥匙串，这里只传引用 |
-| `sync.enable` | `{ backend: 'icloud' \| 'webdav'; webdav?: { url: string; user: string; password_ref: string }; join?: string; device_name: string; sync_files?: boolean }` | `SyncStatus` | join 为已有 library_id 时加入，否则新建；本机已有数据作为第一批改动推送（08 §9） |
-| `sync.now` | `{}` | `{ task_id: TaskId }` | 立即推送 + 拉取；进度走 sync.update |
+| `sync.probe` | `{ backend: SyncBackendCfg }` | `{ ok: boolean; library?: { library_id: string; devices: number; updated_at: Ts }; error?: SyncError }` | 测试连接并看文件夹里有没有已有的资料库；WebDAV 密码先由壳写进钥匙串，这里只传 password_ref。M7：后端多了 folder（任意本地文件夹：Dropbox、OneDrive、NAS 挂载等），桌面之间也能同步 |
+| `sync.enable` | `{ backend: SyncBackendCfg; device_name?: string; sync_files?: boolean }` | `SyncStatus` | 文件夹里已有资料库就加入，否则新建；本机已有数据作为第一批改动推送（08 §9），再拉一次。设备名默认取主机名 |
+| `sync.now` | `{}` | `SyncStatus` | 立即推送 + 拉取，跑完返回；过程走 sync.update，失败原因记在 SyncStatus.error |
+| `sync.auto` | `{}` | `{ ran: boolean }` | 自动同步的时机（启动后 10 秒、每 5 分钟、本机改动后 30 秒）由运行时调用；没开或正在同步时直接返回 |
 | `sync.setOptions` | `{ sync_files?: boolean; device_name?: string }` | `SyncStatus` |  |
 | `sync.removeDevice` | `{ device_id: string }` | `SyncStatus` | 不再等这台设备的确认；它的文件夹保留，回来时按新设备处理 |
 | `sync.disable` | `{}` | `Ok` | 停止同步；本机数据保留，云端文件不删 |
