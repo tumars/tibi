@@ -57,6 +57,11 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
 .pform { grid-column: 1 / -1; display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px 14px; align-items: center; padding: 14px 16px; border-radius: 12px; background: var(--sunken); margin-top: 4px; font-size: 13px; }
 .pform .input { background: var(--surface); }
 .pform .row { grid-column: 2; }
+/* 同步（M7，见 design/08-sync.md） */
+#syncGrp .pform { margin: 0 18px 14px; }
+.sdev { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.sdev div { display: flex; align-items: center; gap: 10px; font-size: 13px; } .sdev div span { color: var(--ink-3); font-size: 12px; } .sdev div button { margin-left: auto; font-size: 12px; color: var(--ink-3); }
+.sdot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; margin-right: 6px; } .sdot.run { background: var(--accent); animation: sp 1s ease-in-out infinite alternate; } @keyframes sp { to { opacity: .3; } }
 .radio { display: flex; flex-direction: column; gap: 8px; }
 .radio label { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; padding: 12px 14px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; }
 .radio label:has(input:checked) { box-shadow: inset 0 0 0 1.5px var(--ink); }
@@ -215,7 +220,21 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
           </section>
 
           <section class="ssec" id="data"><h2>数据</h2><div class="desc">所有数据都保存在你的电脑上。</div>
-            <div class="group">
+            <div class="group" id="syncGrp">
+              <div class="item" id="syncOff"><div><div class="t">同步</div><div class="d">和手机、其他电脑同步，经过你自己的 iCloud Drive 或 WebDAV 云盘</div></div><div class="ctl"><button class="btn sm pri" id="syncStart">开启同步</button></div></div>
+              <div id="syncSetup" hidden>
+                <div class="item"><div><div class="t">同步</div><div class="d">同步文件不加密，存放在你选的云盘里</div></div><div class="ctl"><div class="seg" id="syncBk"><button data-v="icloud" class="on">iCloud Drive</button><button data-v="webdav">WebDAV</button></div></div></div>
+                <div class="pform" id="syncDav" hidden><span>地址</span><input class="input" id="davUrl" placeholder="https://dav.jianguoyun.com/dav/Tibi"><span>账号</span><input class="input" id="davUser" placeholder="邮箱或用户名"><span>应用密码</span><input class="input" id="davPw" type="password" placeholder="在云盘的安全设置里生成"></div>
+                <div class="item"><div><div class="d" id="syncProbe">检查云盘里有没有已有的 Tibi 资料库</div></div><div class="ctl"><button class="btn sm" id="syncCancel">取消</button><button class="btn sm pri" id="syncCheck">检查</button></div></div>
+              </div>
+              <div id="syncOn" hidden>
+                <div class="item"><div><div class="t">同步 <span class="tag def" id="syncBkTag">iCloud Drive</span></div><div class="d" id="syncState"><i class="sdot"></i>已同步 · 刚刚</div></div><div class="ctl"><button class="btn sm" id="syncNow">立即同步</button></div></div>
+                <div class="item"><div><div class="t">设备</div><div class="sdev" id="syncDevs"></div></div><div class="ctl"></div></div>
+                <div class="item"><div><div class="t">同步导入的原始文件</div><div class="d">PDF、EPUB、图片。关掉后其他设备只有正文，没有原文件</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="同步导入的原始文件"></button></div></div>
+                <div class="item"><div><div class="t">停止同步</div><div class="d">这台电脑上的数据保留，云盘里的文件不删</div></div><div class="ctl"><button class="btn sm" id="syncStop">停止</button></div></div>
+              </div>
+            </div>
+            <div class="group" style="margin-top:12px">
               <div class="item"><div><div class="t">数据库位置</div><div class="mono" style="margin-top:6px">~/Library/Application Support/Tibi/app.db · 18.4 MB</div></div><div class="ctl"><button class="btn sm" data-toast="原型：正式版会在 Finder 中显示">在 Finder 中显示</button><button class="btn sm" data-toast="原型：正式版可选择新位置并迁移数据">更改</button></div></div>
               <div class="item"><div><div class="t">备份</div><div class="d">自动备份：每天一次，保留最近 7 份 · 上次 今天 09:12</div></div><div class="ctl"><button class="btn sm" id="backupBtn">立即备份</button><button class="btn sm" data-toast="原型：正式版会选择一个备份文件并恢复">从备份恢复</button></div></div>
               <div class="item"><div><div class="t">导出生词本</div></div><div class="ctl"><button class="btn sm" data-toast="原型：正式版会保存 tibi-words.csv">CSV</button><button class="btn sm" data-toast="原型：正式版会生成 Anki 卡组">Anki</button></div></div>
@@ -373,6 +392,24 @@ $('#clearMem').onclick = () => { const b = $('#clearMem'); if (b.dataset.armed) 
 
 /* 数据 */
 document.querySelectorAll('[data-toast]').forEach(b => b.onclick = () => toast(b.dataset.toast));
+/* 同步（原型）：关闭 → 选位置并检查 → 加入已有资料库 → 已开启 */
+(() => {
+  let bk = 'icloud', devs = [{ n: '这台 MacBook Pro', p: '本机', me: true }, { n: 'iPhone 15', p: 'iOS · 10 分钟前' }];
+  const show = s => { $('#syncOff').hidden = s !== 'off'; $('#syncSetup').hidden = s !== 'setup'; $('#syncOn').hidden = s !== 'on'; };
+  const renderDevs = () => { $('#syncDevs').innerHTML = devs.map((d, i) => `<div><b style="font-weight:500">${d.n}</b><span>${d.p}</span>${d.me ? '' : `<button data-rm="${i}">移除</button>`}</div>`).join(''); $('#syncDevs').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { devs.splice(+b.dataset.rm, 1); renderDevs(); toast('已移除。它再上线时会按新设备重新同步'); }); };
+  const run = () => { $('#syncState').innerHTML = '<i class="sdot run"></i>正在同步…'; setTimeout(() => { $('#syncState').innerHTML = '<i class="sdot"></i>已同步 · 刚刚'; }, 1200); };
+  $('#syncStart').onclick = () => { show('setup'); $('#syncProbe').textContent = '检查云盘里有没有已有的 Tibi 资料库'; $('#syncCheck').textContent = '检查'; $('#syncCheck').dataset.step = ''; };
+  $('#syncCancel').onclick = () => show('off');
+  $('#syncBk').querySelectorAll('button').forEach(b => b.onclick = () => { bk = b.dataset.v; $('#syncBk').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); $('#syncDav').hidden = bk !== 'webdav'; });
+  $('#syncCheck').onclick = () => {
+    if ($('#syncCheck').dataset.step === 'join') { show('on'); $('#syncBkTag').textContent = bk === 'icloud' ? 'iCloud Drive' : 'WebDAV'; renderDevs(); run(); return; }
+    if (bk === 'webdav' && (!$('#davUrl').value.trim() || !$('#davUser').value.trim() || !$('#davPw').value)) { toast('填好地址、账号和应用密码'); return; }
+    $('#syncProbe').textContent = '正在检查…';
+    setTimeout(() => { $('#syncProbe').innerHTML = '找到已有的 Tibi 资料库：1 台设备（iPhone 15）· 10 分钟前更新。加入后两边的数据会合并，不会覆盖'; $('#syncCheck').textContent = '加入'; $('#syncCheck').dataset.step = 'join'; }, 700);
+  };
+  $('#syncNow').onclick = run;
+  $('#syncStop').onclick = () => { show('off'); toast('已停止同步'); };
+})();
 $('#backupBtn').onclick = () => { const b = $('#backupBtn'); b.textContent = '备份中…'; setTimeout(() => { b.textContent = '立即备份'; toast('已备份到 backups/app-2026-10-29.db'); }, 900); };
 $('#clearCache').onclick = () => { $('#clearCache').closest('.item').querySelector('.d').textContent = '朗读和发音的音频缓存 · 0 MB'; toast('已清理 126 MB 语音缓存'); };
 

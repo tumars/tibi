@@ -94,6 +94,8 @@ interface UsageSummary { schema: 1; app_version: string; days_since_first_use: n
   h3: { has_card: boolean; reviewed_next_day?: boolean } }                                                     // 还没到次日时为空
 
 // 错误（JSON-RPC error.data.code）
+interface SyncStatus { enabled: boolean; backend?: 'icloud' | 'webdav'; state: 'off' | 'idle' | 'syncing' | 'error'; last_synced_at?: Ts; pending: number; sync_files: boolean; device: { id: string; name: string }; peers: { id: string; name: string; platform: 'macos' | 'windows' | 'linux' | 'ios' | 'android'; last_seen_at: Ts }[]; error?: SyncError }
+type SyncError = 'offline' | 'auth' | 'icloud_signed_out' | 'quota' | 'newer_format' | 'unknown';
 type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavailable' | 'budget_exceeded' | 'offline' | 'invalid_source' | 'busy';
 """
 
@@ -195,6 +197,15 @@ API = [
     ('vocab.start', '{}', '{ bands: { label: string; words: string[] }[] }', '词汇量测试：5 组 × 8 词，含伪词（不标出）'),
     ('vocab.submit', '{ picks: string[][] }', '{ estimate: number; cefr: string; bands: number[]; pseudo_hits: number }', '估算并初始化已知词库（terms.status 99 / 推断已知）；vocab_source 记为 test，并按新估算重新标注'),
   ]),
+  ('sync', '同步（M7，见 08）', [
+    ('sync.status', '{}', 'SyncStatus', '设置 → 数据 → 同步、手机"我 › 同步"'),
+    ('sync.probe', "{ backend: 'icloud' | 'webdav'; webdav?: { url: string; user: string; password_ref: string } }", "{ ok: boolean; library?: { library_id: string; devices: number; updated_at: Ts }; error?: SyncError }", '测试连接并看文件夹里有没有已有的资料库；WebDAV 密码先经 keyring_set 存钥匙串，这里只传引用'),
+    ('sync.enable', "{ backend: 'icloud' | 'webdav'; webdav?: { url: string; user: string; password_ref: string }; join?: string; device_name: string; sync_files?: boolean }", 'SyncStatus', 'join 为已有 library_id 时加入，否则新建；本机已有数据作为第一批改动推送（08 §9）'),
+    ('sync.now', '{}', '{ task_id: TaskId }', '立即推送 + 拉取；进度走 sync.update'),
+    ('sync.setOptions', '{ sync_files?: boolean; device_name?: string }', 'SyncStatus', ''),
+    ('sync.removeDevice', '{ device_id: string }', 'SyncStatus', '不再等这台设备的确认；它的文件夹保留，回来时按新设备处理'),
+    ('sync.disable', '{}', 'Ok', '停止同步；本机数据保留，云端文件不删'),
+  ]),
   ('system', '系统', [
     ('system.status', '{}', "{ version: string; db_path: string; offline: boolean; models: { fast?: string; deep?: string; ok: boolean }; budget: { month_spent: number; limit: number; per_task: number }; pending_approvals: number; running_tasks: number }", '启动与顶栏徽标'),
     ('system.undo', '{ undo_id: Id }', 'Ok', '所有返回 Undo 的操作统一从这里撤销'),
@@ -214,6 +225,7 @@ EVENTS = [
   ('approval.resolved', "{ task_id: TaskId; decision: 'allow' | 'deny' | 'edit' }", '多处显示同一张卡时同步收起'),
   ('data.changed', "{ table: 'documents' | 'terms' | 'cards' | 'memories' | 'skills' | 'settings'; ids?: Id[] }", '书架、生词本、统计做局部刷新'),
   ('usage.updated', '{ skill_id: SkillId; month_cost: number; total: number }', '设置页与任务中心的花费'),
+  ('sync.update', "{ state: 'idle' | 'syncing' | 'error'; pushed?: number; pulled?: number; last_synced_at?: Ts; error?: SyncError }", '同步状态行；拉取后有改动时另发 data.changed'),
   ('model.status', "{ ok: boolean; reason?: 'offline' | 'unauthorized' | 'budget' }", '顶栏提示"AI 未运行，可稍后补做"'),
 ]
 

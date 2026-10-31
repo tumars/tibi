@@ -28,13 +28,18 @@ input { font: inherit; }
 .screen { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 0 calc(110px + var(--sab)); }
 .screen::-webkit-scrollbar { display: none; }
 svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-/* 顶部：大标题（iOS 风格），滚动时收成小标题 */
+/* 顶部：手机版各页不放页标题，顶栏只留按钮（返回、导入、深浅色、设置） */
 .top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; height: calc(52px + var(--sat)); padding: var(--sat) 12px 0 16px; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .top h1 { margin: 0; font-size: 17px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* iOS 26 导航栏按钮：圆形玻璃 */
 .top .ib, .rvhead .x { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 0 0 .5px var(--line-2); }
 .top .ib:active, .rvhead .x:active { transform: scale(.94); }
-.big { margin: 0; padding: 2px 16px 8px; font-size: 34px; font-weight: 700; letter-spacing: -.02em; }
+/* 手机版各页不放页标题（2026-10-31）：顶栏只留按钮，内容直接开始 */
+.top .sp { flex: 1; }
+/* 书架顶栏：搜索框 + 导入按钮同一行（iOS"文件"、备忘录的做法），不单独占一行放"+" */
+.libbar { gap: 10px; }
+.lsearch { flex: 1; min-width: 0; height: 40px; border-radius: 20px; background: var(--fill); display: flex; align-items: center; gap: 6px; padding: 0 14px; color: var(--ink-3); }
+.lsearch svg { width: 17px; height: 17px; } .lsearch input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font-size: 16px; color: var(--ink); } .lsearch input::placeholder { color: var(--ink-3); } .lsearch input::-webkit-search-cancel-button { display: none; } .topgap { height: calc(var(--sat) + 16px); }
 .logo { width: 28px; height: 28px; border-radius: 8px; }
 /* 底部标签栏：浮动胶囊（iOS 26 风格），滚动时收窄 */
 .tabs { position: absolute; left: 14px; right: 14px; bottom: calc(14px + var(--sab)); z-index: 20; display: flex; gap: 8px; height: 62px; transition: transform .3s cubic-bezier(.22,.8,.24,1); }
@@ -228,6 +233,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .menu a:first-child { border-radius: 22px 22px 0 0; } .menu a:last-child { border-radius: 0 0 22px 22px; } .menu a:active { background: var(--hover); }
 .menu .ti { width: 30px; height: 30px; border-radius: 8px; background: var(--c); display: grid; place-items: center; flex: none; } .menu .ti svg { width: 18px; height: 18px; color: #fff; stroke-width: 2; }
 .menu a .r { margin-left: auto; font-size: 16px; display: flex; align-items: center; gap: 4px; } .menu a .r em { font-style: normal; color: var(--ink-3); }
+.sheet .ysync { background: var(--sunken); } .ysync a { gap: 10px; } .ysync a + a::before { left: 16px; } .ysync a #yState { flex: 1; } .ysync #ySyncNow .r em { color: var(--accent); }
 /* 系统集成演示：小组件、锁屏、分享 */
 .wgs { display: grid; grid-template-columns: 158px 1fr; gap: 12px; align-items: start; }
 .wg { border-radius: 22px; padding: 14px; background: linear-gradient(160deg, #2f3fa8, #232f86); color: #fff; height: 158px; display: flex; flex-direction: column; }
@@ -283,9 +289,8 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 
   <!-- 书架 -->
   <section class="screen" id="s-lib" hidden>
-    <header class="top"><h1 id="libTop" style="opacity:0">书架</h1><button class="ib" id="addBtn" title="导入"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 5v14M5 12h14"/></svg></button></header>
-    <h1 class="big">书架</h1>
-    <div class="pad"><div class="seg" id="kindSeg"><button class="on" data-k="all">全部</button><button data-k="article">文章</button><button data-k="book">书</button></div></div>
+    <header class="top libbar"><label class="lsearch"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><input id="libQ" type="search" placeholder="搜索书架" autocomplete="off"></label><button class="ib" id="addBtn" title="导入" aria-label="导入"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 5v14M5 12h14"/></svg></button></header>
+    <div class="pad" style="margin-top:6px"><div class="seg" id="kindSeg"><button class="on" data-k="all">全部</button><button data-k="article">文章</button><button data-k="book">书</button></div></div>
     <div class="pad" style="margin-top:10px"><div class="chips" id="tagChips"></div></div>
     <div class="pad" style="margin-top:12px"><div class="card" id="shelf"></div></div>
   </section>
@@ -295,8 +300,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 
   <!-- 我 -->
   <section class="screen me" id="s-me" hidden>
-    <header class="top"><h1 id="meTop" style="opacity:0">我</h1><button class="ib" id="themeBtn" title="深浅色"><svg class="i" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button><button class="ib" data-say="原型：打开设置"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button></header>
-    <h1 class="big">我</h1>
+    <header class="top"><span class="sp"></span><button class="ib" id="themeBtn" title="深浅色"><svg class="i" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button><button class="ib" data-say="原型：打开设置"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 00-2 1.2l-2.4-.9-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg></button></header>
     <div class="head"><svg class="ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" stroke-width="4"/><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" stroke-width="4" stroke-linecap="round" stroke-dasharray="87.96" stroke-dashoffset="35" transform="rotate(-90 18 18)"/></svg><div><b>连续 9 天</b><span>今日 12 / 20 分钟 · 已知 6,214 词</span></div></div>
     <div class="pad sec"><h2>本周阅读<a href="#" data-say="原型：打开统计">统计</a></h2><div class="card" style="padding:12px 14px"><div class="week"><i class="ok" style="height:70%"></i><i class="ok" style="height:55%"></i><i style="height:30%"></i><i class="ok" style="height:90%"></i><i class="ok" style="height:60%"></i><i style="height:20%"></i><i class="ok" style="height:40%"></i></div><div class="lbl" style="margin-top:6px">本周 5 天达到 20 分钟</div></div></div>
     <div class="pad sec"><div class="card menu">
@@ -307,13 +311,13 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
     </div></div>
     <div class="pad sec"><div class="card menu">
       <a href="#" id="remindRow"><i class="ti" style="--c:#ff3b30"><svg class="i" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1112 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 004 0"/></svg></i>每日提醒<span class="r" id="remindVal"><em>21:00</em>›</span></a>
-      <a href="#" data-say="原型：与桌面端同步（局域网 / iCloud 文件夹）"><i class="ti" style="--c:#30b0c7"><svg class="i" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0114-5M20 12a8 8 0 01-14 5M18 3v4h-4M6 21v-4h4"/></svg></i>同步<span class="r"><em>刚刚</em>›</span></a>
+      <a href="#" id="syncRow"><i class="ti" style="--c:#30b0c7"><svg class="i" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0114-5M20 12a8 8 0 01-14 5M18 3v4h-4M6 21v-4h4"/></svg></i>同步<span class="r"><em>刚刚</em>›</span></a>
       <a href="#" id="sysRow"><i class="ti" style="--c:#8e8e93"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/></svg></i>小组件与分享<span class="r"><em>演示</em>›</span></a>
     </div></div>
   </section>
 
   <!-- 阅读器：全屏，不显示标签栏 -->
-  <header class="top rdtop" id="rdtop" hidden><button class="ib" id="back" aria-label="返回"><svg class="i" viewBox="0 0 24 24" style="stroke-width:2.2;width:22px;height:22px"><path d="M15 5l-7 7 7 7"/></svg></button><h1>Understanding Ownership in Rust</h1><button class="ib" id="lgTop" title="标注说明"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8h.01"/></svg></button></header>
+  <header class="top rdtop" id="rdtop" hidden><button class="ib" id="back" aria-label="返回"><svg class="i" viewBox="0 0 24 24" style="stroke-width:2.2;width:22px;height:22px"><path d="M15 5l-7 7 7 7"/></svg></button><span class="sp"></span><button class="ib" id="lgTop" title="标注说明"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8h.01"/></svg></button></header>
   <div class="rdprog" id="rdprog" hidden><i></i></div>
   <section class="screen" id="s-read" hidden><article class="rd" id="rd"></article></section>
   <div class="rdbar" id="rdbar" hidden>
@@ -355,6 +359,20 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
     <h2>每日提醒</h2>
     <div class="lbl" style="margin-bottom:12px">每天一条，内容是当天的待复习数。</div>
     <div class="seg" id="remSeg"><button data-v="关闭">关闭</button><button data-v="08:30">早上</button><button data-v="12:30">中午</button><button class="on" data-v="21:00">晚上</button></div>
+  </div></div>
+  <div class="sheet" id="ysheet"><div class="grab"></div><div class="sc">
+    <h2>同步</h2>
+    <div class="card menu ysync">
+      <a href="#" id="ySyncNow"><span id="yState">已同步 · 刚刚</span><span class="r"><em>立即同步</em></span></a>
+      <a href="#" data-say="原型：正式版可切换到 WebDAV（坚果云、Nextcloud 等）"><span>存放位置</span><span class="r"><em>iCloud Drive</em>›</span></a>
+      <a href="#" id="yFiles"><span>同步导入的原始文件</span><span class="r"><em id="yFilesV">开</em>›</span></a>
+    </div>
+    <div class="lbl" style="margin:14px 4px 8px">设备</div>
+    <div class="card menu ysync">
+      <a href="#" data-say="这台设备"><span>这台 iPhone</span><span class="r"><em>本机</em></span></a>
+      <a href="#" data-say="原型：正式版可移除不再使用的设备"><span>MacBook Pro</span><span class="r"><em>macOS · 2 分钟前</em>›</span></a>
+    </div>
+    <div class="lbl" style="margin:12px 4px 0">同步文件不加密，存放在你的 iCloud Drive 里。</div>
   </div></div>
   <div class="sheet full" id="ssheet"><div class="grab"></div><div class="sc">
     <h2>小组件与分享</h2>
@@ -414,8 +432,6 @@ document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { hapti
 $('#back').onclick = () => show(tab);
 $('#contCard').onclick = openReader;
 $('#rvCard').onclick = () => { show('review'); rvGo(); };
-// 大标题滚过后，小标题淡入（iOS 导航栏行为）
-[['#s-lib', '#libTop'], ['#s-me', '#meTop']].forEach(([s, h]) => $(s).addEventListener('scroll', e => { $(h).style.opacity = e.target.scrollTop > 30 ? 1 : 0; }));
 
 /* ---------- 输入、粘贴、对话 ---------- */
 // 首页对话：今天的对话接在卡片下面，第二天换新的一页，以前的在"我 › 对话记录"
@@ -464,17 +480,18 @@ const DOCS = [
   { k: 'article', g: '新闻', t: 'The Quiet Return of Night Trains in Europe', p: 100, mins: 5, ratio: 1.6, tags: ['旅行'] },
   { k: 'article', g: '学术', t: 'How Transformers Handle Long Context', p: 0, mins: 12, ratio: 6.3, hard: true, tags: ['机器学习'] },
 ];
-let kind = 'all', tag = '';
+let kind = 'all', tag = '', libQ = '';
 function renderShelf() {
   const tags = [...new Set(DOCS.flatMap(d => d.tags))];
   $('#tagChips').innerHTML = tags.map(t => `<button class="chip${t === tag ? ' on' : ''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
   $('#tagChips').querySelectorAll('[data-tag]').forEach(b => b.onclick = () => { tag = tag === b.dataset.tag ? '' : b.dataset.tag; renderShelf(); });
-  const list = DOCS.filter(d => (kind === 'all' || d.k === kind) && (!tag || d.tags.includes(tag)));
+  const list = DOCS.filter(d => (kind === 'all' || d.k === kind) && (!tag || d.tags.includes(tag)) && (!libQ || (d.t + ' ' + d.tags.join(' ')).toLowerCase().includes(libQ)));
   $('#shelf').innerHTML = list.map(d => `<button class="doc" data-open="${d.open ? 1 : 0}"><span class="b"><span class="t">${esc(d.t)}</span><span class="m"><span>${d.k === 'book' ? '书 · ' : ''}${d.g}</span><span>·</span><span>${d.ch || (d.p >= 100 ? '已读完' : `约 ${d.mins} 分钟`)}</span><span class="lv${d.hard ? ' hard' : ''}">· 生词率 ${d.ratio}%</span></span>${d.p && d.p < 100 ? `<span class="bar"><i style="width:${d.p}%"></i></span>` : ''}</span><span class="chev">›</span></button>`).join('') || '<div class="lbl" style="padding:20px;text-align:center">没有符合的文章</div>';
   $('#shelf').querySelectorAll('.doc').forEach(b => b.onclick = () => +b.dataset.open ? openReader() : toast('原型里只有第一篇可以打开'));
 }
 document.querySelectorAll('#kindSeg button').forEach(b => b.onclick = () => { kind = b.dataset.k; document.querySelectorAll('#kindSeg button').forEach(x => x.classList.toggle('on', x === b)); renderShelf(); });
 renderShelf();
+$('#libQ').addEventListener('input', e => { libQ = e.target.value.trim().toLowerCase(); renderShelf(); });
 $('#addBtn').onclick = () => openSheet('#isheet');
 $('#impPaste').onclick = () => { closeSheets(); show('home'); setTimeout(() => $('#pasteBtn').click(), 250); };
 
@@ -571,7 +588,7 @@ function grade(c, ok, ms) { if (!ok) return [1, c.type === 'choice' ? '选错了
 function renderRv() {
   const s = $('#s-review');
   if (!rv.active) {   // 入口：今天的复习概况
-    s.innerHTML = `<header class="top"><h1 style="opacity:0">复习</h1></header><h1 class="big">复习</h1><div class="pad"><div class="card" style="padding:18px;text-align:center"><div style="font-size:44px;font-weight:700;letter-spacing:-.02em">18</div><div class="lbl">张待复习 · 到期 14 + 新词 4 · 约 6 分钟</div><button class="btn pri full" id="rvBegin" style="margin-top:16px">开始复习</button></div></div><div class="pad sec"><h2>练习</h2><div class="card menu"><a href="#" data-say="原型：听写你读过的句子，不计分"><svg class="i" viewBox="0 0 24 24"><path d="M4 12h2l3-6 4 12 3-6h4"/></svg>听写原句<span class="r">›</span></a><a href="#" data-say="原型：听发音、看释义拼出单词，不计分"><svg class="i" viewBox="0 0 24 24"><path d="M4 18l4-12 4 12M5.5 14h5M14 18v-6a3 3 0 016 0v6M14 15h6"/></svg>拼写<span class="r">›</span></a><a href="#" data-say="原型：affect / effect 这类在句子里二选一，不计分"><svg class="i" viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>易混词辨析<span class="r">›</span></a><a href="#" data-say="原型：用一个词造句，Tibi 批改，不计分"><svg class="i" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>造句<span class="r">›</span></a></div></div>`;
+    s.innerHTML = `<div class="topgap"></div><div class="pad"><div class="card" style="padding:18px;text-align:center"><div style="font-size:44px;font-weight:700;letter-spacing:-.02em">18</div><div class="lbl">张待复习 · 到期 14 + 新词 4 · 约 6 分钟</div><button class="btn pri full" id="rvBegin" style="margin-top:16px">开始复习</button></div></div><div class="pad sec"><h2>练习</h2><div class="card menu"><a href="#" data-say="原型：听写你读过的句子，不计分"><svg class="i" viewBox="0 0 24 24"><path d="M4 12h2l3-6 4 12 3-6h4"/></svg>听写原句<span class="r">›</span></a><a href="#" data-say="原型：听发音、看释义拼出单词，不计分"><svg class="i" viewBox="0 0 24 24"><path d="M4 18l4-12 4 12M5.5 14h5M14 18v-6a3 3 0 016 0v6M14 15h6"/></svg>拼写<span class="r">›</span></a><a href="#" data-say="原型：affect / effect 这类在句子里二选一，不计分"><svg class="i" viewBox="0 0 24 24"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>易混词辨析<span class="r">›</span></a><a href="#" data-say="原型：用一个词造句，Tibi 批改，不计分"><svg class="i" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>造句<span class="r">›</span></a></div></div>`;
     bindSay(s); $('#rvBegin').onclick = rvGo; if (rv.Q.length && rv.i < rv.Q.length) $('#rvBegin').textContent = `接着复习 · 还剩 ${rv.Q.length - rv.i} 张`; $('#tabs').hidden = false; return;
   }
   $('#tabs').hidden = true;
@@ -643,6 +660,10 @@ renderRv();
 
 /* ---------- 我：提醒、小组件与分享演示 ---------- */
 $('#remindRow').onclick = e => { e.preventDefault(); openSheet('#tsheet'); };
+// 同步（M7，见 design/08-sync.md）
+$('#syncRow').onclick = e => { e.preventDefault(); openSheet('#ysheet'); bindSay($('#ysheet')); };
+$('#ySyncNow').onclick = e => { e.preventDefault(); $('#yState').textContent = '正在同步…'; setTimeout(() => { $('#yState').textContent = '已同步 · 刚刚'; haptic(); }, 1100); };
+$('#yFiles').onclick = e => { e.preventDefault(); const v = $('#yFilesV'); v.textContent = v.textContent === '开' ? '关' : '开'; };
 document.querySelectorAll('#remSeg button').forEach(b => b.onclick = () => { document.querySelectorAll('#remSeg button').forEach(x => x.classList.toggle('on', x === b)); $('#remindVal').innerHTML = `<em>${b.dataset.v}</em>›`; haptic(); });
 let wgFox = null;
 $('#sysRow').onclick = e => { e.preventDefault(); openSheet('#ssheet'); if (!wgFox) wgFox = Fox.mount($('#wgFox'), { state: 'idle', size: 50 }); };

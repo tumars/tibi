@@ -532,7 +532,17 @@ learning_events        audio_cache        daily_stats
 
 **迁移**：领域表版本记在 `PRAGMA user_version`，只向前迁移，不写回退脚本；迁移前先备份 `app.db`。对话与任务表和领域表一起迁移（R9 后不再有第三方管理的表）。
 
-**同步**（R11，具体通道仍待定，排在 M7）：两端各自写本地库；同步时按表交换"上次同步之后改过的行"（`updated_at`），同一行两端都改过时后写的赢；`review_logs`、`learning_events` 只追加，按 `id` 合并；FSRS 卡片在合并 `review_logs` 后按全部记录重算，不直接比较两端的卡片状态；墓碑保留到两端都确认。
+**同步**（R11；方案见 [`08-sync.md`](08-sync.md)，2026-10-31 第一版，排在 M7）：共享文件夹（iCloud Drive / WebDAV）里放变更文件，每台设备只写自己的文件夹；按字段比较混合逻辑时钟（HLC），后改的赢；只追加的表按 `id` 合并；FSRS 卡片合并 `review_logs` 后按时间顺序重算；自然键相同的两条（同一个词、同一篇文章）合并到更早建的那条。M1 只需遵守 08 §9 的五条约定，下面这几张表 M7 才建。
+
+### 同步用的本地表（M7）
+
+| 表 | 字段 | 说明 |
+|---|---|---|
+| `sync_state`（单行） | `device_id`、`library_id`、`backend`（`icloud` / `webdav`）、`webdav_url`、`webdav_user`、`sync_files`（是否同步原始文件）、`hlc`（本机最大时钟）、`last_push_seq`、`last_synced_at`、`status`、`error` | WebDAV 密码在钥匙串，不在这里 |
+| `sync_peers` | `device_id` PK、`name`、`platform`、`app_version`、`last_read_seq`、`last_seen_at`、`removed_at` | 其他设备与本机读到的位置 |
+| `sync_clocks` | `(table_name, row_id, field)` PK、`hlc`、`src` | 每个字段最后一次改动的时钟；`src` 只给熟练度这类有来源的字段 |
+| `sync_outbox` | `seq` PK 自增、`table_name`、`row_id`、`op`（`put` / `add` / `del`）、`fields`（JSON）、`hlc` | 待推送的改动，推送成功后删除；本地自增序号只在本机用 |
+| `sync_aliases` | `table_name`、`old_id` PK、`new_id` | 重复合并后旧 ID 指向留下的 ID |
 
 ## 待定事项
 

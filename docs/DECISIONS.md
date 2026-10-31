@@ -112,6 +112,7 @@
 | R10 | 导入是固定流水线，不是模型驱动的技能；AI 只做其中的生成步骤，离线先完成本地部分；用户触发免审批。技能剩 5 项 | [05 §4.3](design/05-agent-architecture.md#43-技能清单) |
 | R11 | 主键 UUIDv7，可同步的表带 `updated_at` 与墓碑，`review_logs` / `learning_events` 只追加；Core 写成不依赖 Node 的 TS 包 | [01 约定、§9](design/01-database.md#9-约束与迁移) |
 | — | 手机可以单独用：手机自带 Core、自己的库和 API Key，电脑不开机也能导入、问 Tibi、复习；两端靠同步合并 | [00 §3.13](design/00-concept-design.md#313-手机端d8) |
+| S1–S7 | 同步（2026-10-31 第一版）：iCloud Drive / WebDAV 共享文件夹 + 变更文件，每台设备只写自己的文件夹；按字段比较 HLC 后改的赢，自动推断不覆盖用户亲手改的；复习卡片按记录重算；原始文件默认同步可关；同步默认关；**暂不做端到端加密**；局域网直连以后再做；M7 实现，M1 只遵守 08 §9 | [08](design/08-sync.md) |
 | — | 对话：电脑一次一页、手机一天一页，同一个数据模型（`conversations.kind`）；同步后互相可见（"10 月 31 日 · 手机"） | [00 §3.5、§3.13](design/00-concept-design.md#313-手机端d8)、[01 conversations](design/01-database.md#conversations对话) |
 | R12 | 纯开源 + 自带 Key，不做托管、不收费、不经手用户数据 | [00 §1](design/00-concept-design.md#1-产品定位) |
 | R13 | 电脑首页去掉模式切换，按内容判断（网址或长段英文 → 导入，含"推荐 / 找"→ 找文章，其余问 Tibi，`/` 可手动指定）；继续读升为最上面的主卡 | [00 §3.5](design/00-concept-design.md#35-首页与书架home--library) |
@@ -130,7 +131,6 @@
 
 | 事项 | 为什么还开着 | 出处 |
 |---|---|---|
-| 手机与电脑的同步通道 | 局域网 / iCloud 文件夹 / 自建；数据层已按 R11 准备好，通道排在 M7 | [00 §3.13](design/00-concept-design.md#313-手机端d8) |
 | 商标与域名 | 只做过公开检索（2026-10-31）：挪威国家图书馆有一款无障碍阅读应用叫 **Tibi**（Tibi Library）；纽约时装品牌 **TIBI** 是知名商标（服装类）；`tibi.app` 在域名交易平台挂售，`tibi.ai` 已被注册。软件类（第 9、41、42 类）是否有冲突需要查商标库（中国、美国、欧盟），要你决定查哪些地区、是否考虑备选名或加后缀 | [overview 第 11 节](design/overview.html#decisions) |
 | 接口细节 | `chat.send` 的 context、长章节分页、MCP 资源、事件通道（M0 / M1 实现时定） | [06 §8](design/06-interface.md#8-待定) |
 | 数据细节 | `sections` 修订、`excerpt`、`learning_events` 是否派生（M1 实现时定） | [01 待定事项](design/01-database.md#待定事项) |
