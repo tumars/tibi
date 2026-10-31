@@ -85,6 +85,9 @@ export interface MethodTable {
   'tasks.get': { params: { id: TaskId }; result: Task };
   'tasks.cancel': { params: { id: TaskId }; result: TaskSummary };
   'tasks.retry': { params: { id: TaskId }; result: TaskSummary };
+  'tasks.pause': { params: { id: TaskId }; result: TaskSummary };
+  'tasks.resume': { params: { id: TaskId }; result: TaskSummary };
+  'tasks.diagnostics': { params: { id: TaskId }; result: Record<string, unknown> };
   'chat.history': { params: { conversation_id: Id; cursor?: string }; result: Page<Message> };
 }
 

@@ -21,6 +21,7 @@ export function Shell() {
   const due = useCore(s => s.due); const connected = useCore(s => s.connected);
   const counts = { docCount: useCore(s => s.docCount), wordCount: useCore(s => s.wordCount) };
   const goal = useCore(s => s.goal); const minutes = useCore(s => s.todayMinutes); const streak = useCore(s => s.streak); const vocab = useCore(s => s.vocab);
+  const taskBadge = useCore(s => (s.status?.running_tasks ?? 0) + (s.status?.pending_approvals ?? 0));
   const recentDocs = useCore(s => s.recentDocs); const recentChats = useCore(s => s.recentChats);
   const loc = useLocation();
   const reading = loc.pathname.startsWith('/read/');
@@ -45,6 +46,7 @@ export function Shell() {
             <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive || (n.to === '/library' && reading) ? 'cur' : '')} title={n.label}>
               <n.icon /><span className="hide-c">{n.label}</span>
               {n.badge && due > 0 && <span className="n badge hide-c">{due}</span>}
+              {n.to === '/tasks' && taskBadge > 0 && <span className="n badge hide-c" title="运行中 + 等你确认">{taskBadge}</span>}
               {'count' in n && n.count && counts[n.count] > 0 && <span className="n hide-c">{counts[n.count]}</span>}
             </NavLink>
           ))}
