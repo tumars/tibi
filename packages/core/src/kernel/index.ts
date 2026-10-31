@@ -2,7 +2,8 @@ import type { Database } from '../db/driver.js';
 import { memoryCapabilities, memoryMethods } from '../domain/memory/index.js';
 import type { CapabilityMap, Ctx, MethodMap } from '../rpc/define.js';
 import { TibiError, type SkillId } from '../types.js';
-import { runSkill, type AgentDeps, type ResolvedModel } from './agent.js';
+import { resolveModelFromProviders, runSkill, type AgentDeps, type ResolvedModel } from './agent.js';
+import { completeOnce, type CompleteOptions, type CompleteResult } from './complete.js';
 import { builtinCapabilities, CapabilityRegistry, type UiContext } from './capabilities.js';
 import { JobRunnerImpl } from './jobs.js';
 import { chatMethods, taskMethods } from './methods.js';
@@ -41,6 +42,8 @@ export interface Kernel {
   runSkillJob(args: { skill_id: SkillId; input: string; conversation_id?: string; context?: unknown; parent_job_id?: string; trigger?: 'user' | 'auto' | 'mcp' | 'share'; wait?: boolean }): Promise<{ task_id: string; result?: string }>;
   uiContext(): UiContext | undefined;
   setUiContext(c: UiContext | undefined): void;
+  /** 一次性模型调用（Core.ai 指向它） */
+  complete(ctx: Ctx, o: CompleteOptions): Promise<CompleteResult>;
 }
 
 /** 事件先发到 createKernel 传入的总线；bind() 时可以换成 Core 的总线（Core 自己 new 了一个 EventBus） */
@@ -94,6 +97,7 @@ export function createKernel(db: Database, initialEvents: EventSink, opts: Kerne
     runSkillJob,
     uiContext: () => ui,
     setUiContext: c => { ui = c; },
+    complete: (ctx, o) => completeOnce(ctx, opts.resolveModel ?? resolveModelFromProviders, o),
   };
 }
 

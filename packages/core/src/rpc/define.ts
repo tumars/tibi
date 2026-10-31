@@ -3,6 +3,7 @@ import { Value } from '@sinclair/typebox/value';
 import type { Database } from '../db/driver.js';
 import type { Dict } from '../dict/types.js';
 import type { EventSink, JobRunner } from '../kernel/types.js';
+import type { CompleteOptions, CompleteResult } from '../kernel/complete.js';
 import type { Platform } from '../platform.js';
 import { TibiError } from '../types.js';
 
@@ -22,6 +23,8 @@ export interface Ctx {
   caller: { origin: 'ui' | 'skill' | 'mcp'; job_id?: string; job_step_id?: string; skill_id?: string; tainted?: boolean };
   /** 当前权限模式（user_profile.assistant_prefs.permission） */
   permission(): Promise<'ask' | 'default' | 'auto'>;
+  /** 一次性模型调用（语境释义、测试连接）；组装时由内核提供，单测里可以不给 */
+  ai?: { complete(o: CompleteOptions): Promise<CompleteResult> };
   /** 方法之间互相调用（如 review.answer → record_review 能力） */
   call<T = unknown>(method: string, params: unknown): Promise<T>;
 }

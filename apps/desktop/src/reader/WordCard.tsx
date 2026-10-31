@@ -1,6 +1,8 @@
 import type { Status } from '@tibi/core';
 import { Volume2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { useCore } from '../store/core';
 import { speak, STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { toast } from '../store/ui';
@@ -13,12 +15,26 @@ export function WordCard({ word, sentenceId, anchor, onClose, onStatus }: WordCa
   const [err, setErr] = useState<string>();
   const [status, setStatus] = useState<Status | undefined>();
   const ref = useRef<HTMLDivElement>(null);
+  const nav = useNavigate();
+  const modelOk = useCore(s => !!s.status?.models.ok);
+  // 语境释义（M1）：缓存里没有、又连了模型时现写一条；没连模型只提示一句，不打断阅读（00 §3.9）
+  const [ctxm, setCtxm] = useState<{ state: 'loading' | 'ok' | 'err' | 'nomodel'; text?: string }>();
 
   useEffect(() => {
     let alive = true;
-    rpc.call('terms.lookup', { text: word, sentence_id: sentenceId }).then(r => { if (!alive) return; setData(r); setStatus(r.term?.status); }, e => { if (alive) setErr(errorInfo(e).message); });
+    setCtxm(undefined);
+    rpc.call('terms.lookup', { text: word, sentence_id: sentenceId }).then(r => {
+      if (!alive) return; setData(r); setStatus(r.term?.status);
+      if (r.context_meaning) { setCtxm({ state: 'ok', text: r.context_meaning }); return; }
+      if (!sentenceId || !r.dict && !r.term) return;
+      if (!modelOk) { setCtxm({ state: 'nomodel' }); return; }
+      setCtxm({ state: 'loading' });
+      rpc.call('terms.context_meaning', { text: word, sentence_id: sentenceId }).then(
+        m => { if (alive) setCtxm({ state: 'ok', text: m.meaning }); },
+        e => { if (!alive) return; const i = errorInfo(e); setCtxm(i.code === 'model_unavailable' && !modelOk ? { state: 'nomodel' } : { state: 'err', text: i.message }); });
+    }, e => { if (alive) setErr(errorInfo(e).message); });
     return () => { alive = false; };
-  }, [word, sentenceId]);
+  }, [word, sentenceId, modelOk]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
@@ -46,7 +62,10 @@ export function WordCard({ word, sentenceId, anchor, onClose, onStatus }: WordCa
       {data?.card_created && <div className="added">已加入复习 <button className="linkbtn" style={{ fontSize: 12 }} onClick={() => setS(97)}>其实认识</button></div>}
       {err && <div className="dict" style={{ color: 'var(--hard)' }}>{err}</div>}
       {!data && !err && <div className="dict">查询中…</div>}
-      {data?.context_meaning && <div className="ai"><span className="tag">✦ 在这句里</span>{data.context_meaning}</div>}
+      {ctxm?.state === 'ok' && <div className="ai"><span className="tag">✦ 在这句里</span>{ctxm.text}</div>}
+      {ctxm?.state === 'loading' && <div className="ai muted"><span className="tag">✦ 在这句里</span>正在看这句话…</div>}
+      {ctxm?.state === 'err' && <div className="ai muted"><span className="tag">✦ 在这句里</span>{ctxm.text}</div>}
+      {ctxm?.state === 'nomodel' && <div className="ai muted"><span className="tag">✦ 在这句里</span>连接模型后显示 · <button className="linkbtn" onClick={() => nav(`/welcome?step=3&back=${encodeURIComponent(location.hash.slice(1) || '/')}`)}>去连接</button></div>}
       {data && <div className="dict">{data.term?.meaning || data.dict?.translation || (data.dict ? '' : '词典里没有这个词')}</div>}
       {data?.dict?.exam?.length ? <div className="lbl" style={{ marginTop: 6 }}>{data.dict.exam.join(' · ')}{data.dict.collins ? ` · 柯林斯 ${'★'.repeat(data.dict.collins)}` : ''}</div> : null}
       <div className="stages">

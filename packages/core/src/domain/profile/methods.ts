@@ -94,8 +94,12 @@ export const profileMethods: MethodMap = {
     const r = await ctx.db.get<{ id: string; secret_ref: string | null }>('SELECT id, secret_ref FROM providers WHERE id = ? AND deleted_at IS NULL', [p.id]);
     if (!r) throw new TibiError('not_found', '没有这个服务商');
     if (!r.secret_ref || !(await ctx.platform.getSecret(r.secret_ref))) return { ok: false, error: '还没有填 API Key' };
-    return { ok: false, error: '连接测试在接入模型后提供（M0 还没有）' };
-  }, '连接测试（M0 占位）'),
+    if (!ctx.ai) return { ok: false, error: '这里不能调用模型' };
+    try {
+      const out = await ctx.ai.complete({ provider_id: r.id, budget: false, system: 'Reply with exactly: OK', prompt: 'ping', max_tokens: 5 });
+      return { ok: true, model: out.model, latency_ms: out.latency_ms };
+    } catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+  }, '连接测试：用这个服务商发一条很短的请求，返回模型名与耗时；不计入预算检查（仍记用量）'),
 
   'vocab.start': method(Type.Object({}), async (_p, ctx) => vocabStart(ctx), '词汇量测试：7 组，含伪词（不标出）'),
   'vocab.submit': method(Type.Object({ picks: Type.Array(Type.Array(Type.String())) }), async (p, ctx) => vocabSubmit(ctx, p.picks), '估算并初始化已知词库'),

@@ -28,7 +28,8 @@ export function Onboarding() {
   const nav = useNavigate();
   const [params] = useSearchParams();
   const single = (Number(params.get('step')) === 2 ? 2 : Number(params.get('step')) === 3 ? 3 : 0) as 0 | 2 | 3;
-  const [backTo, backLabel] = BACK[params.get('from') ?? (single === 2 ? 'settings' : 'home')] ?? BACK.home!;
+  const back = params.get('back');   // 从阅读器来：回到原来那一页
+  const [backTo, backLabel] = back?.startsWith('/') ? [back, '阅读'] : BACK[params.get('from') ?? (single === 2 ? 'settings' : 'home')] ?? BACK.home!;
   const [step, setStep] = useState<Step>(single || 1);
   const [say, setSay] = useState('你好，我是 Tibi。');
   const [fox, setFox] = useState('idle');

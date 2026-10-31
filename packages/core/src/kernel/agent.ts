@@ -26,7 +26,7 @@ export interface AgentDeps {
   /** 技能运行时的 Ctx（caller.origin = skill） */
   makeCtx: (caller: Ctx['caller']) => Ctx;
   /** 测试 / 离线：注入假的模型与 streamFn */
-  resolveModel?: (ctx: Ctx, tier: Tier) => Promise<ResolvedModel>;
+  resolveModel?: (ctx: Ctx, tier: Tier, provider_id?: string) => Promise<ResolvedModel>;
   uiContext: () => UiContext | undefined;
 }
 
@@ -34,9 +34,11 @@ export interface RunSkillArgs { skill_id: SkillId; input: string; conversation_i
 export interface RunSkillResult { text: string; usage: { tokens_in: number; tokens_out: number; cost: number } }
 
 /** 从 providers 表找模型；没有可用的模型或密钥 → model_unavailable */
-export async function resolveModelFromProviders(ctx: Ctx, tier: Tier): Promise<ResolvedModel> {
-  const row = await ctx.db.get<{ id: string; protocol: string; base_url: string | null; model: string; secret_ref: string | null; name: string }>(
-    "SELECT id, protocol, base_url, model, secret_ref, name FROM providers WHERE kind = 'llm' AND deleted_at IS NULL AND (tier = ? OR is_default = 1) ORDER BY CASE WHEN tier = ? THEN 0 ELSE 1 END LIMIT 1", [tier, tier]);
+export async function resolveModelFromProviders(ctx: Ctx, tier: Tier, provider_id?: string): Promise<ResolvedModel> {
+  type Row = { id: string; protocol: string; base_url: string | null; model: string; secret_ref: string | null; name: string };
+  const row = provider_id
+    ? await ctx.db.get<Row>("SELECT id, protocol, base_url, model, secret_ref, name FROM providers WHERE id = ? AND deleted_at IS NULL", [provider_id])
+    : await ctx.db.get<Row>("SELECT id, protocol, base_url, model, secret_ref, name FROM providers WHERE kind = 'llm' AND deleted_at IS NULL AND (tier = ? OR is_default = 1) ORDER BY CASE WHEN tier = ? THEN 0 ELSE 1 END LIMIT 1", [tier, tier]);
   if (!row || !row.model) throw new TibiError('model_unavailable', '还没有连接模型。在设置里填 API Key 之后再试');
   const apiKey = row.secret_ref ? await ctx.platform.getSecret(row.secret_ref) : undefined;
   if (!apiKey && row.protocol !== 'ollama') throw new TibiError('model_unavailable', `${row.name} 的 API Key 不见了。在设置里重新填写`);

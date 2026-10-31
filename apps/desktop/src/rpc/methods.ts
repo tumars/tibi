@@ -21,6 +21,7 @@ export interface MethodTable {
   'sections.progress': { params: { id: Id; sentence_id: Id; progress: number }; result: Ok };
   'sections.finish': { params: { id: Id; mark_rest_known: boolean }; result: { marked: number; undo?: Undo } };
   'terms.lookup': { params: { text: string; sentence_id?: Id }; result: { dict?: DictEntry; term?: Term; context_meaning?: string; status_change?: { from: Status; to: Status }; card_created?: boolean } };
+  'terms.context_meaning': { params: { text: string; sentence_id: Id }; result: { meaning: string; cached: boolean } };
   'terms.list': { params: { view?: 'all' | 'due' | 'late' | 'new' | 'leech' | 'stuck' | 'stale' | 'unsure' | 'ignored' | 'known' | 'mastered'; status?: Status[]; kind?: 'word' | 'phrase'; document_id?: Id; tags?: string[]; q?: string; sort?: 'due' | 'added' | 'enc' | 'alpha' | 'stage' | 'freq'; cursor?: string; limit?: number }; result: Page<Term> & { counts: Record<string, number> } };
   'terms.get': { params: { id: Id } | { text: string }; result: TermDetail };
   'terms.setStatus': { params: { ids: Id[]; status: Status; source?: 'user' | 'page_done' }; result: { changed: number; undo: Undo } };

@@ -149,6 +149,7 @@
 | T15 | 复习：`review.answer` 不推进游标，看完评分行后调 `review.next`；每日新卡上限按"今天首次作答的新卡数"计；`review.start` 在一个事务里查找或新建会话（界面重复调用时续上同一轮） | 实现中定下 |
 | T16 | 内置示例的正文与预生成结果放在 `packages/core/samples/<id>/`（`article.md` + `ai.json`），构建成 `samples.gen.ts` 内嵌进 Core（R11：Core 不读文件系统）。导入走同一条流水线，最后一步把总结、建议、短语、长难句写成文档级 `ai_results`，语境释义按句写（`task = context_meanings`，键是 lemma），`model = 'bundled'`、`provider_id` 为空；示例不标 deferred | M1 内置示例 |
 | T17 | 任务取消立即生效：步骤函数不看 abort signal 时，`job.step` 也不再等它跑完，直接以取消结束（这一步的结果丢弃、不写检查点） | 原来取消要等当前步骤自然结束，测试里会卡 5 秒 |
+| T18 | M1 的模型调用只有一种：`completeOnce`（内核里的一次性调用，不建任务、不走技能，照样查预算、记 usage_records），经 `Ctx.ai.complete` 给领域方法用。语境释义（`terms.context_meaning`）和测试连接（`providers.test`）都走它；语境释义按固定提示写、句子当不可信材料放在分隔符里，输出清洗成一行 ≤40 字再缓存 | M1 语境释义；M2 起换成讲解技能 |
 | T10 | 复习用 ts-fsrs 6.0 的 `DefaultScheduler`（FSRS-7 默认），卡片字段按库的命名映射到表（`stability_fast` ← `stabilityFast`、`learning_steps` ← `learningStep`） | 01 §4 |
 
 ## 待决定

@@ -26,6 +26,7 @@ export interface AssembleOptions extends KernelOptions {
 export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core; kernel: Kernel }> {
   const kernel = createKernel(opts.db, new EventBus(), { resolveModel: opts.resolveModel, device: opts.device });
   const core = new Core({ db: opts.db, dict: opts.dict, platform: opts.platform, jobs: kernel.jobs });
+  core.ai = (ctx, o) => kernel.complete(ctx, o);
   kernel.bind(caller => core.ctx(caller), core.events);
 
   core.use(undoMethods)

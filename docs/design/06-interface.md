@@ -146,6 +146,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
 | `terms.lookup` | `{ text: string; sentence_id?: Id }` | `{ dict?: DictEntry; term?: Term; context_meaning?: string; status_change?: { from: Status; to: Status }; card_created?: boolean }` | 词卡：词典 + 本地状态 + 语境释义缓存（内置示例先查预生成结果；否则 M1 由固定的模型调用补，M2 起由讲解技能补）。**写操作**（R5）：带 sentence_id 时，status = 0 的词自动设为 1（source = lookup）并建卡，每日新卡上限（默认 20）之外的排队到后面几天；99、97、98、其他状态不变，规则判为已知的词不写入；不带 sentence_id 时只读。不返回 Undo，词卡上可改状态或忽略 |
+| `terms.context_meaning` | `{ text: string; sentence_id: Id }` | `{ meaning: string; cached: boolean }` | M1 词卡的语境释义：先查缓存（内置示例的预生成结果、term_contexts.meaning_in_context）；没有就用快速档模型按固定提示现写一条（≤16 字），写回 term_contexts，用量记在 tutor 名下。没连模型 → model_unavailable，离线 → offline，超预算 → budget_exceeded。词卡先显示词典释义，再异步补这一行；M2 起由讲解技能接手 |
 | `terms.list` | `{ view?: 'all' \| 'due' \| 'late' \| 'new' \| 'leech' \| 'stuck' \| 'stale' \| 'unsure' \| 'ignored' \| 'known' \| 'mastered'; status?: Status[]; kind?: 'word' \| 'phrase'; document_id?: Id; tags?: string[]; q?: string; sort?: 'due' \| 'added' \| 'enc' \| 'alpha' \| 'stage' \| 'freq'; cursor?: string; limit?: number }` | `Page<Term> & { counts: Record<string, number> }` | counts 给左栏视图计数与标签计数；词条不单独打标签，tags 继承来源文章（01 §2） |
 | `terms.get` | `{ id: Id } \| { text: string }` | `TermDetail` | 详情抽屉；contexts 已按 i+1 适合度排序 |
 | `terms.setStatus` | `{ ids: Id[]; status: Status; source?: 'user' \| 'page_done' }` | `{ changed: number; undo: Undo }` | 0–5、97 标为已知、98 忽略；5、97、98 会暂停已有卡片，97 不建新卡 |
@@ -245,7 +246,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `settings.set` | `{ patch: Record<string, unknown> }` | `Record<string, unknown>` |  |
 | `providers.list` | `{}` | `Provider[]` | 密钥不返回，只有 has_secret |
 | `providers.upsert` | `{ provider: Omit<Provider, 'id' \| 'has_secret' \| 'month_cost'> & { id?: Id }; secret_ref?: string }` | `Provider` | 密钥先由 Rust 写入钥匙串，这里只传引用 |
-| `providers.test` | `{ id: Id }` | `{ ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string }` | 连接测试 |
+| `providers.test` | `{ id: Id }` | `{ ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string }` | 连接测试：用这个服务商发一条很短的请求（不做预算检查，仍记用量），返回模型名与耗时；失败时 ok = false 并带原因 |
 | `vocab.start` | `{}` | `{ bands: { label: string; words: string[] }[] }` | 词汇量测试：7 组（前 1k / 1–2k / 2–4k / 4–6k / 6–8k / 8–10k / 10k+；4k–10k 每组 10 个真词，其余 8 个），每组再混 2 个伪词（不标出）；有完整词典时按词频随机取词 |
 | `vocab.submit` | `{ picks: string[][] }` | `{ estimate: number; cefr: string; bands: number[]; pseudo_hits: number }` | 估算并初始化已知词库（terms.status 99 / 推断已知）；vocab_source 记为 test，并按新估算重新标注全部文章（每篇一个 reanalyze 任务） |
 
