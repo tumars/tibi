@@ -14,7 +14,7 @@ import { DocCard } from './Library';
 
 /**
  * 首页：与原型 docs/prototypes/home.html 对齐（00 §3.5，R13）。
- * 自上而下：继续读主卡 + 还在读 → 狐狸 + 大输入框（不分模式，按内容判断）→ 建议 → 今天三张卡 → 书架。
+ * 自上而下：狐狸 + 欢迎语 → 大输入框（不分模式，按内容判断）→ 建议 → 继续读主卡 + 还在读 → 今天三张卡 → 书架。
  */
 type Kind = 'all' | 'article' | 'book';
 
@@ -31,7 +31,7 @@ export function Home() {
   const [focus, setFocus] = useState(false);
   const [kind, setKind] = useState<Kind>('all');
   const due = useCore(s => s.due); const connected = useCore(s => s.connected); const status = useCore(s => s.status);
-  const goal = useCore(s => s.goal);
+  const goal = useCore(s => s.goal); const nickname = useCore(s => s.nickname);
   const ta = useRef<HTMLTextAreaElement>(null);
 
   const load = useCallback(async () => {
@@ -86,11 +86,44 @@ export function Home() {
   const todayMin = week.length ? Math.round(week[week.length - 1] ?? 0) : 0;
   const k = classifyInput(text.trim());
   const foxState = task ? 'reading' : focus ? 'listening' : 'idle';
+  const hour = new Date().getHours();
+  const greeting = hour < 5 ? '夜深了' : hour < 11 ? '早上好' : hour < 13 ? '中午好' : hour < 18 ? '下午好' : '晚上好';
+  // 欢迎语第二行：只说一件最该做的事（03 §9：一句话、不打气）
+  const welcomeLine: React.ReactNode = lead && lead.progress > 0
+    ? <>上次读到<a href={`#/read/${lead.id}`}>{lead.title}</a>的 {fmtPct(lead.progress)}</>
+    : due > 0 ? <>今天有 {due} 张卡要复习</>
+    : lead ? <>书架里有<a href={`#/read/${lead.id}`}>{lead.title}</a>还没开始读</>
+    : '先读点什么？粘贴一个网址或一段英文';
 
   return (
     <>
       <Top crumbs={[{ label: '首页' }]} />
       <div className="scroll"><div className="page home">
+        <section className="hero">
+          <div className="welcome">
+            <Fox className="hero-fox" size={104} state={foxState} />
+            <h1>{greeting}{nickname ? <>，<span className="name">{nickname}</span></> : ''}</h1>
+            <div className="sub">{welcomeLine}</div>
+          </div>
+          <div className={`composer${over ? ' over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}>
+              <textarea ref={ta} value={text} rows={2} aria-label="输入"
+                placeholder="粘贴网址或一段英文就会导入，也可以直接问 Tibi；输入 / 选择要做的事"
+                onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
+                onChange={e => setText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void submit(); } }} />
+              <div className="cbar">
+                <button className="attach" title="添加文件" onClick={pickFile}><Plus size={16} /></button>
+                {text.trim() && <span className="hint">{({ url: '导入这个网址', text: '导入这段英文', ask: '问 Tibi（M2 起）' } as const)[k]}</span>}
+                <span className="sp" />
+                <button className="tier" title="切换速度与深度" onClick={() => toast('"深入"档从 M2 起可用')}>快速 <ChevronDown size={12} /></button>
+                <button className="send" disabled={!text.trim()} onClick={submit} aria-label="发送"><ArrowUp size={17} /></button>
+              </div>
+          </div>
+          <div className="chips">
+            <button className="chip" onClick={() => toast('找文章从 M5 起可用')}><Search />推荐一篇 10 分钟的科技新闻</button>
+            <button className="chip" onClick={() => toast('M2 起可用')}><Sparkles />用这周的生词写个小故事</button>
+          </div>
+        </section>
         {lead && (
           <section className="lead-wrap">
             <div className="lead" role="button" tabIndex={0} onClick={() => nav(`/read/${lead.id}`)} onKeyDown={e => { if (e.key === 'Enter') nav(`/read/${lead.id}`); }}>
@@ -107,30 +140,6 @@ export function Home() {
           </section>
         )}
 
-        <section className="hero">
-          {!lead && <h1>先读点什么？</h1>}
-          <div className="askrow">
-            <Fox className="hero-fox" size={64} state={foxState} />
-            <div className={`composer${over ? ' over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}>
-              <textarea ref={ta} value={text} rows={2} aria-label="输入"
-                placeholder="粘贴网址或一段英文就会导入，也可以直接问 Tibi；输入 / 选择要做的事"
-                onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
-                onChange={e => setText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void submit(); } }} />
-              <div className="cbar">
-                <button className="attach" title="添加文件" onClick={pickFile}><Plus size={16} /></button>
-                {text.trim() && <span className="hint">{({ url: '导入这个网址', text: '导入这段英文', ask: '问 Tibi（M2 起）' } as const)[k]}</span>}
-                <span className="sp" />
-                <button className="tier" title="切换速度与深度" onClick={() => toast('"深入"档从 M2 起可用')}>快速 <ChevronDown size={12} /></button>
-                <button className="send" disabled={!text.trim()} onClick={submit} aria-label="发送"><ArrowUp size={17} /></button>
-              </div>
-            </div>
-          </div>
-          <div className="chips">
-            <button className="chip" onClick={() => toast('找文章从 M5 起可用')}><Search />推荐一篇 10 分钟的科技新闻</button>
-            <button className="chip" onClick={() => toast('M2 起可用')}><Sparkles />用这周的生词写个小故事</button>
-          </div>
-        </section>
         {task && <div className="importing"><span className="lbl">正在导入</span><b style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{task.title}</b><span className="lbl" style={{ marginLeft: 'auto' }}>{task.step.label}</span></div>}
 
         <section>

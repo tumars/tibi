@@ -99,7 +99,7 @@ h2.st .sp { flex: 1; }
 /* 首页（与原型 docs/prototypes/home.html + v2.css 对齐：居中窄栏、继续读主卡、狐狸在输入框外侧、今天三张卡） */
 .page.home { max-width: 1040px; padding: 36px 40px 80px; display: flex; flex-direction: column; gap: 44px; }
 .bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; } .bar i { display: block; height: 100%; background: var(--accent); }
-.lead-wrap { max-width: 760px; width: 100%; margin: 20px auto 0; }
+.lead-wrap { max-width: 760px; width: 100%; margin: 0 auto; }
 .lead { display: block; padding: 22px 24px 20px; border-radius: 20px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); color: inherit; cursor: pointer; transition: box-shadow .15s; }
 .lead:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
 .lead .k { font-size: 12.5px; color: var(--ink-3); }
@@ -111,9 +111,14 @@ h2.st .sp { flex: 1; }
 .also { margin-top: 10px; padding: 0 4px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--ink-3); }
 .also a { color: var(--ink-2); } .also a:hover { color: var(--ink); }
 .hero { max-width: 760px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
-.hero h1 { margin: 0; text-align: center; font-size: 34px; font-weight: 600; letter-spacing: -.025em; line-height: 1.15; }
-.askrow { display: flex; gap: 14px; align-items: flex-start; } .askrow .composer { flex: 1; min-width: 0; }
-.askrow .hero-fox { width: 64px; height: 64px; flex: none; margin: 4px 0 0; }
+/* 欢迎区：狐狸在上、问候在中、输入框在下（2026-10-31 用户要求恢复"图像在上面"） */
+.welcome { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 8px; }
+.welcome .hero-fox { width: 104px; height: 104px; margin-bottom: 2px; }
+.welcome h1 { margin: 0; text-align: center; font-size: 32px; font-weight: 600; letter-spacing: -.025em; line-height: 1.2; }
+.welcome h1 .name { color: var(--accent); }
+.welcome .sub { font-size: 15px; color: var(--ink-3); text-align: center; }
+.welcome .sub a { color: var(--ink-2); border-bottom: 1px solid var(--line-2); }
+.welcome .sub a:hover { color: var(--ink); border-color: var(--ink-3); }
 .composer { position: relative; border-radius: 24px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 1px 2px rgba(0,0,0,.03); padding: 16px 14px 12px 18px; display: flex; flex-direction: column; gap: 10px; transition: box-shadow .2s, background .2s; }
 .composer:focus-within { box-shadow: 0 0 0 1.5px var(--accent), 0 0 0 6px var(--accent-wash); }
 .composer.over { box-shadow: 0 0 0 1.5px var(--accent), 0 0 0 8px var(--accent-wash); background: var(--accent-wash); }
