@@ -57,8 +57,8 @@ function moveThumb(group, animate) {
 const mascotImg = id => `<img src="img/mascot/${id}.webp" srcset="img/mascot/${id}.webp 1x, img/mascot/${id}@2x.webp 2x" alt="">`;
 /* 空状态：吉祥物 + 标题 + 说明 + 动作。actions: [{t, pri, link, onclick}] */
 function emptyState(el, { state = 'idle', img, title, desc, actions = [], cls = '', extra = '' } = {}) {
-  el.innerHTML = `<div class="empty ${cls}"><div class="fx${img ? ' art' : ''}">${img ? mascotImg(img) : ''}</div><h3>${title}</h3>${desc ? `<p>${desc}</p>` : ''}${extra}${actions.length ? `<div class="acts">${actions.map((a, i) => a.link ? `<a class="btn${a.pri ? ' pri' : ''}" data-link="${a.link}" href="#">${a.t}</a>` : `<button class="btn${a.pri ? ' pri' : ''}" data-ea="${i}">${a.t}</button>`).join('')}</div>` : ''}</div>`;
-  if (!img && window.Fox) Fox.mount(el.querySelector('.fx'), { state, size: 132, interactive: true });
+  el.innerHTML = `<div class="empty ${cls}"><div class="fx${img ? ' art' : ''}">${img ? mascotImg(img) + '<div class="fox-badge"></div>' : ''}</div><h3>${title}</h3>${desc ? `<p>${desc}</p>` : ''}${extra}${actions.length ? `<div class="acts">${actions.map((a, i) => a.link ? `<a class="btn${a.pri ? ' pri' : ''}" data-link="${a.link}" href="#">${a.t}</a>` : `<button class="btn${a.pri ? ' pri' : ''}" data-ea="${i}">${a.t}</button>`).join('')}</div>` : ''}</div>`;
+  if (window.Fox) Fox.mount(el.querySelector(img ? '.fox-badge' : '.fx'), { state, size: img ? 50 : 132, interactive: true });
   el.querySelectorAll('[data-link]').forEach(a => { a.href = URLS[a.dataset.link]; ext(a); });
   el.querySelectorAll('[data-ea]').forEach(b => b.onclick = actions[+b.dataset.ea].onclick);
   anim(el.firstElementChild, { opacity: [0, 1], y: [8, 0] }, { duration: 0.4, ease: EASE });

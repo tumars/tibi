@@ -10,7 +10,7 @@ body { display: grid; place-items: center; padding: 24px; }
 .ob .left { background: var(--sunken); padding: 28px 26px; display: flex; flex-direction: column; gap: 18px; }
 .ob .obbrand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; }
 .ob .obbrand img { width: 26px; height: 26px; border-radius: 7px; }
-.ob .fx { width: 210px; height: 210px; margin: 0 auto -6px; }
+.ob .fx { position: relative; width: 210px; height: 210px; margin: 0 auto -6px; }
 .ob .fx img { display: block; width: 100%; height: 100%; }
 .ob .obsay { font-size: 13.5px; line-height: 1.6; color: var(--ink-2); text-align: center; min-height: 44px; padding: 0 4px; }
 .obsteps { list-style: none; margin: auto 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -116,7 +116,7 @@ body { display: grid; place-items: center; padding: 24px; }
 <div class="ob" id="ob">
   <aside class="left">
     <div class="obbrand"><img src="img/logo.svg" alt="">Tibi</div>
-    <div class="fx" id="fx"></div>
+    <div class="fx"><span id="art"></span><div class="fox-badge" id="fx"></div></div>
     <div class="obsay" id="say">你好，我是 Tibi。先聊几句，我好知道该怎么帮你。</div>
     <ol class="obsteps" id="steps">
       <li data-s="1" class="cur"><i>1</i>先认识一下</li>
@@ -196,8 +196,10 @@ body { display: grid; place-items: center; padding: 24px; }
 
 <script src="https://cdn.jsdelivr.net/npm/motion@11.11.17/dist/motion.js"></script>
 <script src="v2-shell.js"></script>
+<script src="v2-fox.js"></script>
 <script>
 const ART = { 1: 'onboarding-hello', 2: 'onboarding-test', 3: 'onboarding-model', 4: 'onboarding-read' };
+const fox = Fox.mount($('#fx'), { state: 'idle', size: 50, interactive: true });
 const say = t => { $('#say').textContent = t; anim($('#say'), { opacity: [0, 1] }, { duration: 0.3 }); };
 const ans = { nick: '', goal: '雅思 7 分', lv: 'B2', mat: ['tech', 'news'], lang: 'mixed', vocab: 0, model: 'deepseek', connected: false, first: null };
 const FROM_SETTINGS = /step=2/.test(location.hash);   // 设置里的“重新测词汇量”直接进第 2 步
@@ -211,7 +213,7 @@ function go(n) {
   const skip = $('#skip'); skip.hidden = !(n === 2 || n === 3 || n === 4); skip.textContent = n === 2 ? '跳过，直接按自评水平' : n === 3 ? '先跳过（AI 功能暂不可用）' : '先不读，进入 Tibi';
   const next = $('#next'); next.textContent = n === 4 ? '进入 Tibi' : n === 2 ? '继续' : '继续'; next.disabled = (n === 2 && !ans.vocab) || (n === 4 && !ans.first);
   if (FROM_SETTINGS && n === 2) { skip.hidden = true; next.textContent = '保存并回到设置'; }
-  say(SAY[n]); $('#fx').innerHTML = mascotImg(ART[n]);
+  say(SAY[n]); $('#art').innerHTML = mascotImg(ART[n]); fox.set(n === 2 ? 'listening' : 'idle');
   anim($(`.pane[data-p="${n}"]`), { opacity: [0, 1], x: [10, 0] }, { duration: 0.35, ease: EASE });
   document.title = `Tibi 首次使用 · ${['', '先认识一下', '测测词汇量', '连接模型', '读第一篇'][n]}`;
 }
@@ -228,6 +230,7 @@ $('#skip').onclick = () => {
   go(step + 1);
 };
 function finish() {
+  fox.set('happy');
   const dest = FROM_SETTINGS ? URLS.settings : ans.first && ans.first.open ? URLS.reader : URLS.home;
   toast(FROM_SETTINGS ? '词汇量已更新，已知词库会按新结果重新初始化' : `准备好了${ans.nick ? '，' + ans.nick : ''}。进入 Tibi…`);
   setTimeout(() => { location.href = dest; }, 900);
@@ -236,6 +239,7 @@ function finish() {
 const single = (sel, key) => document.querySelectorAll(sel + ' .chip, ' + sel + ' button').forEach(b => b.onclick = () => { document.querySelectorAll(sel + ' .on').forEach(x => x.classList.remove('on')); b.classList.add('on'); ans[key] = b.dataset.v; });
 single('#goal', 'goal'); single('#lv', 'lv'); single('#lang', 'lang');
 document.querySelectorAll('#mat .chip').forEach(b => b.onclick = () => { b.classList.toggle('on'); ans.mat = [...document.querySelectorAll('#mat .on')].map(x => x.dataset.v); });
+$('#nick').addEventListener('focus', () => fox.set('listening')); $('#nick').addEventListener('blur', () => fox.set('idle'));
 $('#nick').addEventListener('input', () => { const v = $('#nick').value.trim(); if (v) say(`${v}，你好。`); });
 /* ---------- 第 2 步：词汇量测试（按词频分 5 组，混入 4 个伪词） ---------- */
 const BANDS = [
@@ -256,7 +260,7 @@ function renderBand() {
   anim($('#vt').children, { opacity: [0, 1], y: [6, 0] }, { duration: 0.3, delay: stag(0.03) });
 }
 $('#vtNone').onclick = () => { picked[band].clear(); renderBand(); };
-$('#vtNext').onclick = () => { if (band < 4) { band++; renderBand(); } else showResult(); };
+$('#vtNext').onclick = () => { if (band < 4) { band++; renderBand(); fox.pulse('thinking', 600); } else showResult(); };
 function showResult() {
   let est = 0, pseudo = 0, realTotal = 0, realKnown = 0; const ratios = [];
   BANDS.forEach((b, i) => { const real = b.words.filter(w => !PSEUDO.has(w)); const known = real.filter(w => picked[i].has(w)).length; pseudo += [...picked[i]].filter(w => PSEUDO.has(w)).length; const r = known / real.length; ratios.push(r); est += r * b.size; realTotal += real.length; realKnown += known; });
@@ -272,7 +276,7 @@ function showResult() {
   </div><div class="manual">数不对？自己填：<input class="input" id="manual" type="number" step="100" min="500" max="30000" placeholder="${est}"><span>词（以你填的为准）</span></div>`;
   $('#manual').addEventListener('change', () => { const v = +$('#manual').value; if (v >= 500) { ans.vocab = v; toast(`已改为约 ${v.toLocaleString()} 词`); } });
   anim(r.querySelectorAll('.big, .box, .manual'), { opacity: [0, 1], y: [10, 0] }, { duration: 0.4, ease: EASE, delay: stag(0.06) });
-  $('#next').disabled = false; say(cefr >= 'B2' ? '不错，这个水平读大多数文章都够用。' : '很好，起点清楚了，剩下的交给每天的阅读。');
+  $('#next').disabled = false; fox.set('happy'); say(cefr >= 'B2' ? '不错，这个水平读大多数文章都够用。' : '很好，起点清楚了，剩下的交给每天的阅读。');
 }
 renderBand();
 /* ---------- 第 3 步：模型 ---------- */
@@ -280,9 +284,9 @@ $('#mseg').querySelectorAll('button').forEach(b => b.onclick = () => { $('#mseg'
 const TIERS = { deepseek: ['deepseek-chat', 'deepseek-reasoner'], openai: ['gpt-4.1-mini', 'gpt-4.1'], anthropic: ['claude-haiku', 'claude-sonnet'], custom: ['（填模型名）', '（填模型名）'] };
 $('#prov').querySelectorAll('button').forEach(b => b.onclick = () => { $('#prov').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); ans.model = b.dataset.v; const t = TIERS[ans.model]; $('#tiers').querySelectorAll('div span:last-child').forEach((s, i) => s.textContent = t[i]); $('#conn').className = 'conn'; $('#conn').textContent = ''; ans.connected = false; });
 $('#testBtn').onclick = () => {
-  const c = $('#conn'); if (!$('#key').value.trim()) { c.className = 'conn err'; c.textContent = '先填 API Key'; return; }
-  c.className = 'conn'; c.innerHTML = '<span class="sp"></span>正在连接…';
-  setTimeout(() => { c.className = 'conn ok'; c.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>连接成功 · ${TIERS[ans.model][0]} · 420 ms`; ans.connected = true; say('连上了。以后花了多少钱，在"任务"和"设置"里都能看到。'); }, 1300);
+  const c = $('#conn'); if (!$('#key').value.trim()) { c.className = 'conn err'; c.textContent = '先填 API Key'; fox.pulse('surprised', 1200); return; }
+  c.className = 'conn'; c.innerHTML = '<span class="sp"></span>正在连接…'; fox.set('thinking');
+  setTimeout(() => { c.className = 'conn ok'; c.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>连接成功 · ${TIERS[ans.model][0]} · 420 ms`; ans.connected = true; fox.set('happy'); say('连上了。以后花了多少钱，在"任务"和"设置"里都能看到。'); }, 1300);
 };
 document.querySelectorAll('[data-login]').forEach(b => b.onclick = () => toast(`原型：会打开浏览器登录 ${b.dataset.login}，登录后两档模型都可选它的模型`));
 /* ---------- 第 4 步：第一篇 ---------- */
@@ -297,11 +301,12 @@ $('#urlBtn').onclick = () => { const v = $('#url').value.trim(); if (!v) return;
 function importFirst(d) {
   ans.first = d; const box = $('#imp'); box.className = 'imp on';
   const ST = ['获取内容', '分句、词形还原', `对照你的 ${ans.vocab ? ans.vocab.toLocaleString() : '—'} 词标注生词`, 'AI 总结（没连模型就跳过）'];
-  box.innerHTML = ST.map(s => `<div class="st"><i></i>${s}</div>`).join('') + `<div class="done">好了。《${esc(d.t)}》已经在书架上，生词率 4.5%，正好在学习区。</div>`; $('#next').disabled = true;
+  box.innerHTML = ST.map(s => `<div class="st"><i></i>${s}</div>`).join('') + `<div class="done">好了。《${esc(d.t)}》已经在书架上，生词率 4.5%，正好在学习区。</div>`;
+  fox.set('reading'); $('#next').disabled = true;
   const rows = [...box.querySelectorAll('.st')]; let i = 0;
   const tick = () => {
     if (i > 0) { rows[i - 1].className = 'st ok'; rows[i - 1].querySelector('i').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>'; }
-    if (i >= rows.length) { box.classList.add('finished'); say('第一篇准备好了。点"进入 Tibi"开始读。'); $('#next').disabled = false; $('#next').textContent = d.open ? '开始阅读' : '进入 Tibi'; return; }
+    if (i >= rows.length) { box.classList.add('finished'); fox.set('happy'); say('第一篇准备好了。点"进入 Tibi"开始读。'); $('#next').disabled = false; $('#next').textContent = d.open ? '开始阅读' : '进入 Tibi'; return; }
     rows[i].className = 'st run'; i++; setTimeout(tick, i === 4 && !ans.connected ? 300 : 700);
   };
   tick();
