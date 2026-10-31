@@ -22,6 +22,8 @@ export interface JobContext {
   /** 本任务是否读过不可信内容（抓取的网页、导入正文、搜索结果）；读过之后写入与外联必须审批 */
   tainted: boolean;
   markTainted(): void;
+  /** 记一条已经发生的步骤（模型调用这类不经 step() 包裹的事），返回 job_steps.id */
+  record?(kind: 'pipeline' | 'tool' | 'model', name: string, input: unknown, output: unknown, status?: 'done' | 'failed'): Promise<string>;
 }
 
 export interface JobSpec {
