@@ -1,6 +1,6 @@
 # 数据库设计 v0.1（草案）
 
-> 状态：**草案**（2026-10-29 复审：智能体表改为技能表，providers 去掉本地 harness）。
+> 状态：**草案**（2026-10-29 复审：智能体表改为技能表，providers 去掉本地 harness；2026-10-31：去掉跟打、自定义技能、例行任务的字段，新增 97 标为已知与 M1 统计字段）。
 > 数据库：SQLite。分两个文件：
 > - `app.db`：用户数据（读写）
 > - `dict.db`：ECDICT 词典（只读，随应用分发/升级）
@@ -39,11 +39,12 @@ learning_events        audio_cache        daily_stats
 | assistant_prefs | TEXT(JSON) | Tibi 对用户的称呼、对话语言、讲解详细度、权限模式等（Tibi 自己的名字固定） |
 | vocab_estimate | INTEGER | 估算词汇量（测试 + 持续修正） |
 | vocab_tested_at | INTEGER | 最近一次测试时间 |
+| vocab_source | TEXT | 估算来源：`self` 自评 / `test` 校准测试 / `manual` 手填；`self` 时界面注明准确性较低（00 §3.9） |
 | daily_goal_minutes | INTEGER | 每日阅读目标（分钟） |
 | daily_new_cards | INTEGER | 每日新卡上限，默认 20 |
 | desired_retention | REAL | FSRS 期望保持率，默认 0.9 |
 | fsrs_params | TEXT(JSON) | FSRS 个性化参数（优化后写入）；必须带算法版本：`{ algorithm: "FSRS-6", weights: [...], optimized_at }`，权重不跨版本复用 |
-| created_at / updated_at | INTEGER | |
+| created_at / updated_at | INTEGER | `created_at` 即首次使用时间，H2 的 7 天窗口从这里算 |
 
 ### settings（键值表，存杂项偏好）
 | 字段 | 类型 | 说明 |
@@ -80,7 +81,7 @@ learning_events        audio_cache        daily_stats
 | author | TEXT | |
 | kind | TEXT | `article` 文章 / `book` 书（D10：形态，导入时由来源决定，不可改；书的章节存 `sections`，文章只有一个 section） |
 | genre | TEXT | `tech` / `news` / `lit` / `academic` / `general`（类型 = 处理策略：分词、着色与 AI 产出；自动识别，用户可改，改后 `ai_results` 相关条目失效） |
-| source_type | TEXT | `text` / `url` / `file` / `image` / `tibi_generated`（Tibi 写的短文，G7） |
+| source_type | TEXT | `text` / `url` / `file` / `image` / `sample`（内置示例，带预生成 AI 结果，不计入"自己导入"）/ `tibi_generated`（Tibi 写的短文，G7） |
 | source_uri | TEXT | 原始网址或原文件名 |
 | lang | TEXT | 语言，如 `en` |
 | content_hash | TEXT | 规范化正文的哈希，导入时去重（§9） |
@@ -161,13 +162,13 @@ learning_events        audio_cache        daily_stats
 | text | TEXT | 规范形式（单词为 lemma 小写；短语为小写、空格规范化）；词族（D11）只有原形一条，词形存 `term_forms` |
 | paused_until | INTEGER NULL | 难词"暂停复习 2 周"：到期前不进复习队列 |
 | text_display | TEXT | 显示形式 |
-| status | INTEGER | 0=生词 1=见过 2=眼熟 3=认得 4=熟悉 5=掌握（界面只显示名称） 98=忽略 99=推断已知（待确认）（D1/D2 已确认） |
-| status_source | TEXT | `user` / `auto_vocab_test` / `auto_rule` / `page_done` / `srs` / `agent` |
+| status | INTEGER | 0=生词 1=见过 2=眼熟 3=认得 4=熟悉 5=掌握（界面只显示名称） 97=标为已知（不建卡、不进复习，计入已知词总数，不等于掌握；R5） 98=忽略 99=推断已知（待确认）（D1/D2 已确认） |
+| status_source | TEXT | `user` / `auto_vocab_test` / `auto_rule` / `page_done`（批量标为已知）/ `lookup`（点词自动 0 → 1，R5）/ `srs` / `agent` |
 | category | TEXT | 可选：`general` / `domain_term`（技术术语等领域词）/ `proper_noun` |
 | meaning | TEXT | 用户采用/编辑的释义 |
 | short_gloss | TEXT | 简短释义（2–6 个字），用于"行间释义"；默认取词典首义或 AI 语境释义的缩写 |
 | note | TEXT | 用户笔记 |
-| in_wordbook | INTEGER | 是否加入生词本（生成复习卡片） |
+| in_wordbook | INTEGER | 是否加入生词本（生成复习卡片）；点词自动建卡时置 1（R5），标为已知（97）不置 |
 | encounter_count | INTEGER | 遇见次数（冗余计数，便于展示） |
 | first_seen_at / last_seen_at / status_changed_at / created_at | INTEGER | `last_seen_at` 供"很久没遇见"视图 |
 
@@ -191,6 +192,8 @@ learning_events        audio_cache        daily_stats
 | term_id | INTEGER FK | |
 | status | INTEGER | 变化后的值 |
 | source | TEXT | 同 `terms.status_source` |
+| prelabel | TEXT NULL | 这次改动前，这个词还是预标注判断时记 `known` / `unsure` / `new`；用户碰过之后为空（H1 用） |
+| document_id | INTEGER NULL | 改动时正在读的文章；不设外键，文章硬删后仍可统计（H1 用） |
 | created_at | INTEGER | |
 
 ### term_contexts
@@ -254,7 +257,7 @@ learning_events        audio_cache        daily_stats
 | id | INTEGER PK | |
 | card_id | INTEGER FK | |
 | rating | INTEGER | 1 Again / 2 Hard / 3 Good / 4 Easy |
-| card_type | TEXT | 本次题型：recognize / choice / cloze / listen / spell / produce |
+| card_type | TEXT | 本次题型：recognize / choice / cloze / listen / spell / produce（M1 只有 choice、cloze，M3 补齐） |
 | auto_graded | INTEGER | 1 = 系统评分（选义、填空、听写、拼写、造句由 Tibi 批改）；0 = 用户自评（识别）（G1） |
 | suggested_rating | INTEGER NULL | 系统给的评分；用户"改评分"时与 rating 不同，用于校准阈值 |
 | hints | INTEGER | 用了几次逐字母提示（G5）；> 0 时系统评分最高为 Hard |
@@ -272,12 +275,11 @@ learning_events        audio_cache        daily_stats
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | id | INTEGER PK | |
-| mode | TEXT | `dictation` 听写原句 / `typing` 跟打原句 / `confusable` 易混词辨析 |
+| mode | TEXT | `dictation` 听写原句 / `confusable` 易混词辨析 |
 | source | TEXT | `recent` / `mistakes` / `leech` / `document` |
 | document_id | INTEGER NULL | 来源文章 |
 | items | INTEGER | 题数 |
 | accuracy | REAL | 0–100 |
-| wpm | REAL NULL | 跟打速度（每 5 个正确字符计 1 词） |
 | duration_ms | INTEGER | |
 | created_at | INTEGER | |
 
@@ -289,10 +291,10 @@ learning_events        audio_cache        daily_stats
 | id | INTEGER PK | |
 | scope | TEXT | `document` / `section` / `sentence` / `term_context` |
 | target_id | INTEGER | 对应对象 id |
-| task | TEXT | `summary` / `phrases` / `hard_sentences` / `advice` / `glossary`（技术术语表）/ `characters`（小说人物表）/ `recap`（前情提要）/ `background`（新闻背景知识）/ `translate` / `explain` / `grade_sentence` |
+| task | TEXT | `summary` / `phrases` / `hard_sentences` / `advice` / `glossary`（技术术语表）/ `characters`（小说人物表）/ `recap`（前情提要）/ `background`（新闻背景知识）/ `translate` / `explain` / `grade_sentence` / `context_meanings`（内置示例预生成的语境释义，按句存，`terms.lookup` 先查它） |
 | prompt_version | TEXT | prompt 版本号，升级 prompt 后可识别旧结果 |
-| provider_id | INTEGER | |
-| model | TEXT | |
+| provider_id | INTEGER NULL | 内置示例的预生成结果为空 |
+| model | TEXT | 内置示例的预生成结果为 `bundled` |
 | output | TEXT(JSON) | 结构化结果 |
 | tokens_in / tokens_out | INTEGER | 用量统计 |
 | created_at | INTEGER | |
@@ -328,9 +330,22 @@ learning_events        audio_cache        daily_stats
 | words_read | INTEGER | |
 | reading_ms | INTEGER | |
 | new_terms | INTEGER | |
-| known_terms_total | INTEGER | 当天结束时已知词总数（成长曲线） |
+| known_terms_total | INTEGER | 当天结束时已知词总数（成长曲线）；含标为已知（97） |
 | reviews | INTEGER | |
 | review_correct | INTEGER | |
+
+### M1 成功标准的数据来源
+
+`stats.export_summary` 只读这些数据，导出时只留计数（[00 §6](00-concept-design.md#m1-成功标准)）。
+
+| 指标 | 口径 | 来源 |
+|---|---|---|
+| H1 分母 | 第一篇读完的文章（含内置示例）里，导入时状态来自预标注规则或词汇测试、用户没碰过的不重复词数 | `learning_events`：最早读完全部章节的 `section_finished`；`document_imported.payload.prelabel_total` |
+| H1 分子 | 读完前用户手动改过且方向相反的词：预标已知 → 设为 0–4；预标生词 → 设为 5 / 97。待确认词的确认和点词自动 0 → 1 不算改动 | `term_status_log`（`source = user`，`prelabel`，`document_id`，`created_at`） |
+| H2 | 首次使用后 7 天内 `source_type` 不是 `sample`、`tibi_generated` 的导入数 ≥ 1 | `user_profile.created_at`；`learning_events.document_imported.payload.source_type`（文章硬删后仍在） |
+| H3 | 最早一张卡建立日（本地时区）的次日，至少答过一张卡 | `MIN(cards.created_at)`（含软删）；`review_logs.reviewed_at` |
+
+> 为此补的字段：`term_status_log.prelabel`、`term_status_log.document_id`、`document_imported` 事件的 `prelabel_total` 与 `source_type`。
 
 ## 7. 技能（Tibi 的能力扩展）
 
@@ -339,18 +354,14 @@ learning_events        audio_cache        daily_stats
 > **对话、模型轮次、工具调用、任务、子对话、用量**都由 pi-durable 存在 `app.db` 里以 `pi_` 为前缀的表中（同一个文件、同一个连接，由 Tibi Core 独占）。这些表的结构归 pi-durable 管，我们不直接改，只通过它的 API 读写。下面只列我们自己的表。
 
 ### skills（技能配置）
-内置技能的定义来自随应用分发的 `SKILL.md`，这里只存用户的改动；自定义技能的 `SKILL.md` 存在 `~/Tibi/skills/<name>/`，这里存索引与设置。
+技能的定义来自随应用分发的 `SKILL.md`，这里只存用户的改动。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | TEXT PK | `tibi` / `importer` / `scout` / `tutor` / `coach` / `insight` / `archivist` / `custom-xxxxx` |
-| source | TEXT | `builtin` / `custom` |
-| path | TEXT NULL | 自定义技能的 `SKILL.md` 路径 |
+| id | TEXT PK | `tibi` / `importer` / `scout` / `tutor` / `coach` / `insight` / `archivist` |
 | model_tier | TEXT NULL | `fast` / `deep`；NULL 跟随 `SKILL.md` |
 | extra_instructions | TEXT NULL | 用户追加的指令 |
 | write_permission | TEXT | `inherit` / `ask` |
-| schedule_enabled | INTEGER | 例行任务开关（只对声明了 schedule 的技能有效） |
-| schedule_cron | TEXT NULL | 用户改过的时间；NULL 用默认 |
 | enabled | INTEGER | |
 | created_at / updated_at | INTEGER | |
 
@@ -363,7 +374,7 @@ learning_events        audio_cache        daily_stats
 | skill_id | TEXT FK | 这个对话属于哪项技能（`tibi` 为主对话；技能运行时的子对话也登记） |
 | document_id | INTEGER FK NULL | 绑定的文章（在该文章中打开 Tibi 时自动续上）；NULL 为全局线程 |
 | title | TEXT | 自动生成，可改 |
-| trigger | TEXT | `user` / `auto`（Tibi 自动判断后运行的技能）/ `schedule` / `event` / `mcp` |
+| trigger | TEXT | `user` / `auto`（Tibi 自动判断后运行的技能）/ `event` / `mcp` |
 | created_at / updated_at | INTEGER | |
 
 ### skill_audit（写操作审计，支持撤销）
@@ -404,7 +415,7 @@ learning_events        audio_cache        daily_stats
 |---|---|---|
 | id | INTEGER PK | |
 | type | TEXT | `document_imported` / `section_finished` / `term_marked` / `review_session` / `vocab_test` / `quiz_done` … |
-| payload | TEXT(JSON) | 事件细节 |
+| payload | TEXT(JSON) | 事件细节；`document_imported` 带 `document_id`、`source_type`、`prelabel_total`，`section_finished` 带 `document_id`、`section_id`（M1 成功标准用） |
 | consolidated | INTEGER | 是否已被整合进记忆 |
 | created_at | INTEGER | |
 

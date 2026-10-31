@@ -59,10 +59,10 @@ Character reference sheet of CHARACTER on a plain light grey (#f2f2f1) backgroun
 | empty-words | 生词本为空 | 1024×1024 | 已落地 |
 | celebrate-review | 复习完成页 | 1024×1024 | 已落地 |
 | celebrate-streak | 连续学习 7 / 30 / 100 天 | 1024×1024 | 已出 |
-| onboarding-hello | 预留未用（原计划引导第 1 步 认识一下） | 1024×1024 | 已出 |
-| onboarding-test | 预留未用（原计划引导第 2 步 词汇量测试） | 1024×1024 | 已出 |
-| onboarding-model | 预留未用（原计划引导第 3 步 连接模型） | 1024×1024 | 已出 |
-| onboarding-read | 预留未用（原计划引导第 4 步 读第一篇） | 1024×1024 | 已出 |
+| onboarding-hello | 预留未用（引导第 1 步 认识一下；引导页用 SVG 小狐狸） | 1024×1024 | 已出 |
+| onboarding-test | 预留未用（校准词汇量，`#step=2`，不在引导主流程） | 1024×1024 | 已出 |
+| onboarding-model | 预留未用（连接模型，`#step=3`，不在引导主流程） | 1024×1024 | 已出 |
+| onboarding-read | 预留未用（引导第 2 步 读第一篇；引导页用 SVG 小狐狸） | 1024×1024 | 已出 |
 | error-offline | 首页失败态：模型不可用 / 离线 | 1024×1024 | 已落地 |
 | error-generic | 首页失败态：出错了 | 1024×1024 | 已落地 |
 | sticker-* | 对话里的贴纸反应（6 张：赞、笑、疑问、加油、睡、惊） | 512×512 | 已出 |

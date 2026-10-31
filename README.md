@@ -34,7 +34,7 @@
 
 ### 原型
 - [首页](docs/prototypes/home.html)、[书架](docs/prototypes/library.html)、[阅读器](docs/prototypes/reader.html)、[生词本](docs/prototypes/words.html)、[复习](docs/prototypes/review.html)（含"练习"分段，网址加 `#practice`）、[统计](docs/prototypes/stats.html)、[设置](docs/prototypes/settings.html)、[任务](docs/prototypes/tasks.html)（v2，HTML，浏览器直接打开，页面之间互相链接；共享 `v2.css`、`v2-shell.js`、`v2-search.js`、`v2-agents.js`；任意页面按 ⌘K 打开搜索）
-- [首次启动引导](docs/prototypes/onboarding.html)（四步：认识一下、词汇量测试、连接模型、读第一篇；`#step=2` 直接重测词汇量）
+- [首次启动引导](docs/prototypes/onboarding.html)（两步：认识一下、读第一篇；校准词汇量 `#step=2`、连接模型 `#step=3` 按需进入）
 - [书架页：现在 vs mac 原生化对照](docs/prototypes/native-mac.html)（调研 [research/04](docs/research/04-mac-native-and-mascot.md)）
 - [吉祥物：藏狐](docs/prototypes/mascot.html)（SVG 动画，7 种状态，组件 `v2-fox.js`）
 - [手机版](docs/prototypes/mobile.html)（独立的壳：底部标签栏、浮动 Tibi、底部抽屉；D8）

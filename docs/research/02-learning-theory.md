@@ -15,7 +15,7 @@
 - **观点**：读懂一篇文章大约需要认识 **95%**（常引的最低线，[Language Teacher 37.4](https://jalt-publications.org/sites/default/files/pdf-article/37.4tlt_art1.pdf)）到 **98%**（来自 66 名学生的回归，并非直接测出，[来源](https://ulb-dok.uibk.ac.at/ulbtirolfodok/content/titleinfo/9760724/full.pdf)）的词。两篇均未能打开原文，98% 的出处由检索摘要印证。这是经验带，不是精确阈值。约 98% 覆盖率对应大约 8,000–9,000 词族（读小说/报刊）。
 - **产品映射**：
   - **难度指标 = 1 − 对该用户的已知词覆盖率**，经验带：≥98% 舒适 / 95–98% 学习区 / <95% 过难。不说哪一段"最佳"，上线后可按个人数据调。
-  - **词汇量估算**：初次使用做一次快速词汇量测试（按词频分层抽样，类似 testyourvocab），作为自动标注的初始依据。
+  - **词汇量估算**：先按自评给初始估算，读完第一篇时提议做一次快速词汇量测试校准（按词频分层抽样，类似 testyourvocab；可跳过，见 00 §3.9），作为自动标注的依据。
   - 词频分层数据来自 ECDICT 的 BNC/COCA 词频字段。
 
 ## 3. 注意假说（Schmidt, Noticing Hypothesis）与附带词汇习得

@@ -1,6 +1,6 @@
 # 05 调研：词光（Word Atlas）的复习设计，对 Tibi 的参考
 
-> 2026-10-30。对象：[designfuchen/word-atlas](https://github.com/designfuchen/word-atlas)（代码 MIT，词库与插画 CC BY 4.0）与在线版 [0xlei.tech/words](https://0xlei.tech/words/)（练习页 `#/practice`、学习页 `#/learn`）。读了仓库的 `docs/learning-model.md`、`src/store/session.ts`、`src/store/srs.ts`、`src/pages/Learn.tsx`、`Practice.tsx`、`Today.tsx`，并在浏览器里走完一轮学习（5 个新词 + 回忆 + 故意答错）。在线版比仓库多了"今日阅读""易混词辨析""同义替换""考试日期"等功能。建议的决策 G1–G8 **已于 2026-10-30 全部采用**，落在 `00-concept-design.md` §3.3、`01-database.md`（review_sessions、practice_logs）、`06-interface.md`（review.*、practice.*）与复习原型。
+> 2026-10-30。对象：[designfuchen/word-atlas](https://github.com/designfuchen/word-atlas)（代码 MIT，词库与插画 CC BY 4.0）与在线版 [0xlei.tech/words](https://0xlei.tech/words/)（练习页 `#/practice`、学习页 `#/learn`）。读了仓库的 `docs/learning-model.md`、`src/store/session.ts`、`src/store/srs.ts`、`src/pages/Learn.tsx`、`Practice.tsx`、`Today.tsx`，并在浏览器里走完一轮学习（5 个新词 + 回忆 + 故意答错）。在线版比仓库多了"今日阅读""易混词辨析""同义替换""考试日期"等功能。建议的决策 G1–G8 **已于 2026-10-30 全部采用**（2026-10-31 砍掉 G8 的例句打字，其余不变），落在 `00-concept-design.md` §3.3、`01-database.md`（review_sessions、practice_logs）、`06-interface.md`（review.*、practice.*）与复习原型。
 
 ## 1. 它的理念，一句话
 
@@ -55,7 +55,7 @@
 | **G5** | **提示由用户主动要**：填空题默认只给中文提示，首字母改为"提示"按钮（H），一次露一个字母；用了提示最多"模糊" | |
 | **G6** | **复习可续**：中途离开保存进度；首页"待复习"卡片和复习页显示"上次还剩 n 张，接着复习" | |
 | **G7** | **完成页加两件事**："再练 n 个错词"（不计分，调用 `review.quiz`）；"读一篇用到这些词的短文"（找文章技能先找；找不到时由 Tibi 写一篇 300 词以内、生词率 ≤ 5% 的短文，标明是生成的）。正确率改为"首次正确率" | 第二件是 Tibi 能做而词光做不到的：短文里的词全是用户自己的生词 |
-| **G8** | **不计分的练习**（排在 M5 之后）：复习页加"练习"分段——听写原句（用户读过的句子，整句）、例句打字、易混词辨析；只记准确率与用时，不改记忆状态 | 不做单独的导航项，避免功能膨胀 |
+| **G8** | **不计分的练习**（排在 00 §6"后续"）：复习页加"练习"分段——听写原句（用户读过的句子，整句）、易混词辨析；只记准确率与用时，不改记忆状态。例句打字（跟打）已砍（2026-10-31，R2） | 不做单独的导航项，避免功能膨胀 |
 
 ## 4. 词库数据可以用吗
 
