@@ -5,6 +5,7 @@ import { speak } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
+import { tl } from '../lib/i18n';
 
 /**
  * 练习（G8 / R6，不计分，成绩记 practice_logs；00 §3.3）：听写原句、拼写、易混词辨析、造句（Tibi 批改）。
@@ -14,12 +15,12 @@ type Mode = 'dictation' | 'spell' | 'confusable' | 'produce';
 type Source = 'recent' | 'mistakes' | 'leech';
 type Item = Result<'practice.start'>['items'][number];
 const MODES: { key: Mode; label: string; desc: string }[] = [
-  { key: 'dictation', label: '听写原句', desc: '听你读过的句子，写下整句' },
-  { key: 'spell', label: '拼写', desc: '看中文释义和字母数，拼出单词' },
-  { key: 'confusable', label: '易混词', desc: '在句子里二选一' },
-  { key: 'produce', label: '造句', desc: '用目标词写一句，Tibi 批改' },
+  { key: 'dictation', label: tl('听写原句'), desc: tl('听你读过的句子，写下整句') },
+  { key: 'spell', label: tl('拼写'), desc: tl('看中文释义和字母数，拼出单词') },
+  { key: 'confusable', label: tl('易混词'), desc: tl('在句子里二选一') },
+  { key: 'produce', label: tl('造句'), desc: tl('用目标词写一句，Tibi 批改') },
 ];
-const SOURCES: { key: Source; label: string }[] = [{ key: 'recent', label: '最近的词' }, { key: 'mistakes', label: '这周答错的' }, { key: 'leech', label: '难词' }];
+const SOURCES: { key: Source; label: string }[] = [{ key: 'recent', label: tl('最近的词') }, { key: 'mistakes', label: tl('这周答错的') }, { key: 'leech', label: tl('难词') }];
 
 /** 听写：按词对齐（LCS），返回每个原词是否写对，和准确率 */
 export function alignWords(target: string, typed: string): { words: { w: string; ok: boolean }[]; accuracy: number } {
@@ -50,7 +51,7 @@ export function Practice() {
     setDone(undefined); setChecked(undefined); setAnswer('');
     try {
       const r = await rpc.call('practice.start', { mode, source, count: 5 });
-      if (!r.items.length) { toast(source === 'recent' ? '生词本里还没有能练的词（听写和易混词需要读过的句子）' : '这里还没有能练的词'); return; }
+      if (!r.items.length) { toast(source === 'recent' ? tl('生词本里还没有能练的词（听写和易混词需要读过的句子）') : tl('这里还没有能练的词')); return; }
       setRun({ id: r.practice_id, items: r.items, idx: 0, results: [] }); t0.current = Date.now();
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
@@ -59,15 +60,15 @@ export function Practice() {
   const check = async (choice?: string) => {
     if (!item || checked) return;
     if (mode === 'dictation') { const r = alignWords(item.sentence, answer); setChecked({ accuracy: r.accuracy, detail: <p className="dict-diff">{r.words.map((w, i) => <span key={i} className={w.ok ? '' : 'miss'}>{w.w} </span>)}</p> }); return; }
-    if (mode === 'spell') { const ok = answer.trim().toLowerCase() === (item.answer ?? '').toLowerCase(); setChecked({ accuracy: ok ? 100 : 0, detail: <p>{ok ? '拼对了' : <>正确拼写：<b>{item.answer}</b></>}</p> }); return; }
-    if (mode === 'confusable') { const ok = choice === item.answer; setChecked({ accuracy: ok ? 100 : 0, detail: <p>{ok ? '选对了。' : <>应该是 <b>{item.answer}</b>。</>}{item.explain ? ` ${item.explain}` : ''}</p> }); return; }
+    if (mode === 'spell') { const ok = answer.trim().toLowerCase() === (item.answer ?? '').toLowerCase(); setChecked({ accuracy: ok ? 100 : 0, detail: <p>{ok ? tl('拼对了') : <>{tl('正确拼写：')}<b>{item.answer}</b></>}</p> }); return; }
+    if (mode === 'confusable') { const ok = choice === item.answer; setChecked({ accuracy: ok ? 100 : 0, detail: <p>{ok ? tl('选对了。') : <>{tl('应该是')} <b>{item.answer}</b>{tl('。')}</>}{item.explain ? ` ${item.explain}` : ''}</p> }); return; }
     // 造句：交给 Tibi 批改
     if (!answer.trim()) return;
-    if (!modelOk) { setChecked({ accuracy: 0, detail: <p className="lbl">没连模型，这题先不批改。<button className="linkbtn" onClick={() => nav('/welcome?step=3&back=%2Freview%3Ftab%3Dpractice')}>去连接</button></p> }); return; }
+    if (!modelOk) { setChecked({ accuracy: 0, detail: <p className="lbl">{tl('没连模型，这题先不批改。')}<button className="linkbtn" onClick={() => nav('/welcome?step=3&back=%2Freview%3Ftab%3Dpractice')}>{tl('去连接')}</button></p> }); return; }
     setBusy(true);
     try {
       const g = await rpc.call('practice.grade', { word: item.answer ?? '', text: answer, sentence: item.sentence || undefined });
-      setChecked({ accuracy: g.score, detail: <><p><b>{g.score} 分</b>{g.ok ? '' : ' · 目标词用得不太对'}。{g.feedback}</p>{g.better && g.better !== answer.trim() && <p className="better">{g.better}</p>}</> });
+      setChecked({ accuracy: g.score, detail: <><p><b>{tl('{score} 分', { score: g.score })}</b>{tl('{v0}。{feedback}', { v0: g.ok ? '' : tl(' · 目标词用得不太对'), feedback: g.feedback })}</p>{g.better && g.better !== answer.trim() && <p className="better">{g.better}</p>}</> });
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
     setBusy(false);
   };
@@ -82,31 +83,31 @@ export function Practice() {
   };
 
   if (done) return <div className="rvcard pdone">
-    <h3>这一轮练完了</h3>
+    <h3>{tl('这一轮练完了')}</h3>
     <p className="big">{Math.round(done.accuracy)}%</p>
-    <p className="lbl">准确率 · 用时 {Math.round(done.duration_ms / 1000)} 秒{mode === 'dictation' && done.best.rounds > 1 ? ` · 听写最好 ${Math.round(done.best.dictation_accuracy)}%` : ''}。练习不影响复习排期。</p>
-    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}><button className="btn pri" onClick={start}>再来一轮</button><button className="btn" onClick={() => setDone(undefined)}>换个练法</button></div>
+    <p className="lbl">{tl('准确率 · 用时 {v0} 秒', { v0: Math.round(done.duration_ms / 1000) })}{mode === 'dictation' && done.best.rounds > 1 ? tl(' · 听写最好 {v0}%', { v0: Math.round(done.best.dictation_accuracy) }) : ''}{tl('。练习不影响复习排期。')}</p>
+    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}><button className="btn pri" onClick={start}>{tl('再来一轮')}</button><button className="btn" onClick={() => setDone(undefined)}>{tl('换个练法')}</button></div>
   </div>;
 
   if (!run || !item) return <div className="pstart">
     <div className="pmodes">{MODES.map(m => <button key={m.key} className={mode === m.key ? 'on' : ''} onClick={() => setMode(m.key)}><b>{m.label}</b><span>{m.desc}</span></button>)}</div>
-    <div className="psrc"><span className="lbl">词从哪来</span><div className="seg">{SOURCES.map(s => <button key={s.key} className={source === s.key ? 'on' : ''} onClick={() => setSource(s.key)}>{s.label}</button>)}</div></div>
-    <button className="btn pri" style={{ height: 44 }} onClick={start}>开始 · 5 题</button>
-    <p className="lbl">练习不计分，不影响复习排期；成绩单独记录。{mode === 'produce' && !modelOk ? '造句要连接模型才能批改。' : ''}</p>
+    <div className="psrc"><span className="lbl">{tl('词从哪来')}</span><div className="seg">{SOURCES.map(s => <button key={s.key} className={source === s.key ? 'on' : ''} onClick={() => setSource(s.key)}>{s.label}</button>)}</div></div>
+    <button className="btn pri" style={{ height: 44 }} onClick={start}>{tl('开始 · 5 题')}</button>
+    <p className="lbl">{tl('练习不计分，不影响复习排期；成绩单独记录。')}{mode === 'produce' && !modelOk ? tl('造句要连接模型才能批改。') : ''}</p>
   </div>;
 
   return <div className="rvcard practice">
-    <div className="k"><span>{MODES.find(m => m.key === mode)!.label} · 第 {run.idx + 1} / {run.items.length} 题</span><span className="sp" />
-      {(mode === 'dictation' || mode === 'spell') && <button className="linkbtn" onClick={() => speak(mode === 'dictation' ? item.sentence : item.answer ?? '')}><Volume2 size={14} /> 再听一遍</button>}</div>
-    {mode === 'dictation' && <p className="q">听句子，把整句写下来</p>}
-    {mode === 'spell' && <><p className="q">{item.sentence || '（没有释义）'}</p><p className="lbl">{item.explain}</p></>}
-    {mode === 'confusable' && <><p className="q">选一个填进去</p><p className="sent">{item.sentence}</p></>}
-    {mode === 'produce' && <><p className="q">用 <b>{item.answer}</b> 写一句英文</p>{item.sentence && <p className="lbl">原文：{item.sentence}</p>}</>}
+    <div className="k"><span>{tl('{mode} · 第 {i} / {n} 题', { mode: MODES.find(m => m.key === mode)!.label, i: run.idx + 1, n: run.items.length })}</span><span className="sp" />
+      {(mode === 'dictation' || mode === 'spell') && <button className="linkbtn" onClick={() => speak(mode === 'dictation' ? item.sentence : item.answer ?? '')}><Volume2 size={14} /> {tl('再听一遍')}</button>}</div>
+    {mode === 'dictation' && <p className="q">{tl('听句子，把整句写下来')}</p>}
+    {mode === 'spell' && <><p className="q">{item.sentence || tl('（没有释义）')}</p><p className="lbl">{item.explain}</p></>}
+    {mode === 'confusable' && <><p className="q">{tl('选一个填进去')}</p><p className="sent">{item.sentence}</p></>}
+    {mode === 'produce' && <><p className="q">{tl('用')} <b>{item.answer}</b> {tl('写一句英文')}</p>{item.sentence && <p className="lbl">{tl('原文：{sentence}', { sentence: item.sentence })}</p>}</>}
     {mode === 'confusable'
       ? <div className="opts">{item.options?.map(o => <button key={o} className={`ropt${checked ? (o === item.answer ? ' ok' : ' dim') : ''}`} disabled={!!checked} onClick={() => void check(o)}>{o}</button>)}</div>
       : <textarea className="input pin" value={answer} autoFocus rows={mode === 'spell' ? 1 : 3} disabled={!!checked} onChange={e => setAnswer(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); if (checked) void next(); else void check(); } }} placeholder={mode === 'spell' ? '拼写' : mode === 'dictation' ? '听到什么写什么' : '写一句话'} />}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); if (checked) void next(); else void check(); } }} placeholder={mode === 'spell' ? tl('拼写') : mode === 'dictation' ? tl('听到什么写什么') : tl('写一句话')} />}
     {checked && <div className="pres">{checked.detail}</div>}
-    <div className="pfoot">{!checked ? (mode !== 'confusable' && <button className="btn pri" disabled={busy || !answer.trim()} onClick={() => void check()}>{busy ? '正在批改…' : mode === 'produce' ? '请 Tibi 批改' : '检查'}</button>) : <button className="btn pri" onClick={() => void next()}>{run.idx + 1 >= run.items.length ? '看结果' : '下一题'}</button>}</div>
+    <div className="pfoot">{!checked ? (mode !== 'confusable' && <button className="btn pri" disabled={busy || !answer.trim()} onClick={() => void check()}>{busy ? tl('正在批改…') : mode === 'produce' ? tl('请 Tibi 批改') : tl('检查')}</button>) : <button className="btn pri" onClick={() => void next()}>{run.idx + 1 >= run.items.length ? tl('看结果') : tl('下一题')}</button>}</div>
   </div>;
 }

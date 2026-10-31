@@ -1,4 +1,5 @@
 import type { Status } from '@tibi/core';
+import { tl } from './i18n';
 
 /** 词状态 → 着色 class（03 §6：生词荧光笔、学习中渐浅、待确认虚线；5 / 97 / 98 / 无行不标） */
 export function wordClass(status: Status | undefined): string {
@@ -7,17 +8,17 @@ export function wordClass(status: Status | undefined): string {
   return `w s${status}`;
 }
 
-export const STATUS_NAMES: Record<number, string> = { 0: '生词', 1: '见过', 2: '眼熟', 3: '认得', 4: '熟悉', 5: '掌握', 97: '已知', 98: '忽略', 99: '待确认' };
-export const GENRE_NAMES: Record<string, string> = { tech: '技术', news: '新闻', lit: '文学', academic: '学术', general: '一般' };
+export const STATUS_NAMES: Record<number, string> = { 0: tl('生词'), 1: tl('见过'), 2: tl('眼熟'), 3: tl('认得'), 4: tl('熟悉'), 5: tl('掌握'), 97: tl('已知'), 98: tl('忽略'), 99: tl('待确认') };
+export const GENRE_NAMES: Record<string, string> = { tech: tl('技术'), news: tl('新闻'), lit: tl('文学'), academic: tl('学术'), general: tl('一般') };
 
-export function fmtMinutes(n: number) { return n < 1 ? '不到 1 分钟' : `约 ${Math.round(n)} 分钟`; }
+export function fmtMinutes(n: number) { return n < 1 ? tl('不到 1 分钟') : tl('约 {v0} 分钟', { v0: Math.round(n) }); }
 export function fmtPct(n: number) { return `${Math.round(n * 100)}%`; }
-export function fmtDate(ts?: number) { if (!ts) return ''; const d = new Date(ts); return `${d.getMonth() + 1} 月 ${d.getDate()} 日`; }
+export function fmtDate(ts?: number) { if (!ts) return ''; const d = new Date(ts); return tl('{v0} 月 {v1} 日', { v0: d.getMonth() + 1, v1: d.getDate() }); }
 export function fmtAgo(ts?: number) {
   if (!ts) return '';
   const s = (Date.now() - ts) / 1000;
-  if (s < 60) return '刚刚'; if (s < 3600) return `${Math.floor(s / 60)} 分钟前`; if (s < 86400) return `${Math.floor(s / 3600)} 小时前`;
-  const d = Math.floor(s / 86400); return d < 30 ? `${d} 天前` : fmtDate(ts);
+  if (s < 60) return tl('刚刚'); if (s < 3600) return tl('{v0} 分钟前', { v0: Math.floor(s / 60) }); if (s < 86400) return tl('{v0} 小时前', { v0: Math.floor(s / 3600) });
+  const d = Math.floor(s / 86400); return d < 30 ? tl('{d} 天前', { d }) : fmtDate(ts);
 }
 
 /** 首页输入框的判断（R13）：网址或长段英文 → 导入；其余 → 问 Tibi */

@@ -1,0 +1,129 @@
+# 打 tag（v0.1.0 这样）→ 三平台安装包，放进一个草稿 Release，人工检查后再发布。
+# 签名 / 公证：配了下面这些仓库密钥就自动签，没配就出未签名的包（README 里写了怎么打开）。
+#   macOS：APPLE_CERTIFICATE、APPLE_CERTIFICATE_PASSWORD、APPLE_SIGNING_IDENTITY、APPLE_ID、APPLE_PASSWORD、APPLE_TEAM_ID
+#   Windows：暂不签（以后接 Azure Trusted Signing）
+name: Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # 词典只生成一次（下载 ECDICT 约 66 MB、入库几分钟），各平台共用
+  dict:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: 版本号一致（tag = tauri.conf.json = Cargo.toml）
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          conf=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          cargo=$(grep -m1 '^version' apps/desktop/src-tauri/Cargo.toml | cut -d'"' -f2)
+          echo "tag=$tag conf=$conf cargo=$cargo"
+          test "$tag" = "$conf" && test "$tag" = "$cargo"
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: data/ecdict/dict.db
+          key: ecdict-${{ hashFiles('packages/core-node/src/ecdict/*.ts') }}
+      - if: steps.cache.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile && pnpm ecdict
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dict
+          path: data/ecdict/dict.db
+          retention-days: 3
+
+  build:
+    needs: dict
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: ${{ matrix.target }}
+      - name: 系统库（Linux）
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: dict
+          path: data/ecdict
+      - name: sidecar + OCR 资源 + 词典
+        run: node apps/desktop/scripts/bundle-prep.mjs --target ${{ matrix.target }}
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          args: --target ${{ matrix.target }} --config src-tauri/tauri.bundle.conf.json
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseName: Tibi ${{ github.ref_name }}
+          releaseBody: 见 docs/CHANGELOG.md。未签名的 macOS 包第一次打开：右键 → 打开；Windows 提示 SmartScreen 时选"仍要运行"。
+          releaseDraft: true
+          prerelease: true
+      - name: 没打 tag 时把安装包留作构建产物
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tibi-${{ matrix.target }}
+          path: |
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+          if-no-files-found: ignore
+
+  # 剪藏插件 zip 也挂到同一个 Release
+  clipper:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node extensions/clipper/zip.mjs
+      - run: gh release upload "$GITHUB_REF_NAME" extensions/clipper/dist/*.zip --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

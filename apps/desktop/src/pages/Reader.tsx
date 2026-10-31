@@ -15,6 +15,7 @@ import { WordCard } from '../reader/WordCard';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
+import { tl } from '../lib/i18n';
 
 export function Reader() {
   const { id, section } = useParams();
@@ -107,35 +108,35 @@ export function Reader() {
     setFinish(false); if (!content) return;
     try {
       const r = await rpc.call('sections.finish', { id: content.id, mark_rest_known: markRest });
-      if (r.marked > 0 && r.undo) toast(`已把 ${r.marked} 个生词标为已知`, { action: { label: '撤销', run: () => { void rpc.call('system.undo', { undo_id: r.undo!.undo_id }).then(() => toast('已撤销'), e => toast(errorInfo(e).message, { kind: 'err' })); } } });
-      else toast('读完了');
+      if (r.marked > 0 && r.undo) toast(tl('已把 {marked} 个生词标为已知', { marked: r.marked }), { action: { label: tl('撤销'), run: () => { void rpc.call('system.undo', { undo_id: r.undo!.undo_id }).then(() => toast(tl('已撤销')), e => toast(errorInfo(e).message, { kind: 'err' })); } } });
+      else toast(tl('读完了'));
       const idx = doc?.sections.findIndex(s => s.id === content.id) ?? -1;
       const next = doc?.sections[idx + 1];
       if (next) nav(`/read/${id}/${next.id}`); else nav('/library');
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
-  if (err) return <><Top crumbs={[{ label: '书架', to: '/library' }, { label: '文章' }]} /><Empty title="打不开这篇文章" text={err} action={<button className="btn" onClick={() => nav('/library')}>回到书架</button>} /></>;
-  if (!doc || !content) return <><Top crumbs={[{ label: '书架', to: '/library' }, { label: doc?.title ?? '…' }]} /><div className="scroll" /></>;
+  if (err) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: tl('文章') }]} /><Empty title={tl('打不开这篇文章')} text={err} action={<button className="btn" onClick={() => nav('/library')}>{tl('回到书架')}</button>} /></>;
+  if (!doc || !content) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: doc?.title ?? '…' }]} /><div className="scroll" /></>;
 
   const sec = doc.sections.find(s => s.id === content.id);
   const left = counts ? counts.new + counts.unsure : 0;
 
   return (
     <>
-      <Top crumbs={[{ label: '书架', to: '/library' }, { label: doc.title }]} right={<>
-        {doc.sections.length > 1 && <select className="input" value={content.id} onChange={e => nav(`/read/${id}/${e.target.value}`)} aria-label="章节">{doc.sections.map(s => <option key={s.id} value={s.id}>{s.idx + 1}. {s.title || `第 ${s.idx + 1} 章`}</option>)}</select>}
-        <button className={`pill${panel === 'summary' ? ' on' : ''}`} title="总结" onClick={() => setPanel(panel === 'summary' ? undefined : 'summary')}><FileText size={15} />总结</button>
-        <button className={`pill${panel === 'tibi' ? ' on' : ''}`} title="问 Tibi" onClick={() => setPanel(panel === 'tibi' ? undefined : 'tibi')}><Sparkles size={15} />Tibi</button>
-        <button className="ibtn" title="标注说明" onClick={() => setLegend(true)}><Info /></button>
+      <Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: doc.title }]} right={<>
+        {doc.sections.length > 1 && <select className="input" value={content.id} onChange={e => nav(`/read/${id}/${e.target.value}`)} aria-label={tl('章节')}>{doc.sections.map(s => <option key={s.id} value={s.id}>{s.idx + 1}. {s.title || tl('第 {v0} 章', { v0: s.idx + 1 })}</option>)}</select>}
+        <button className={`pill${panel === 'summary' ? ' on' : ''}`} title={tl('总结')} onClick={() => setPanel(panel === 'summary' ? undefined : 'summary')}><FileText size={15} />{tl('总结')}</button>
+        <button className={`pill${panel === 'tibi' ? ' on' : ''}`} title={tl('问 Tibi')} onClick={() => setPanel(panel === 'tibi' ? undefined : 'tibi')}><Sparkles size={15} />Tibi</button>
+        <button className="ibtn" title={tl('标注说明')} onClick={() => setLegend(true)}><Info /></button>
       </>} />
       <div className={`rdwrap${panel ? ' with-panel' : ''}`}>
       <div className="scroll" ref={scrollRef} onScroll={() => { onScroll(); setSelAsk(undefined); }} onMouseUp={onSelect}>
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '18px 32px 0' }}>
           <div className="rd" style={{ padding: 0 }}>
             <div className="meta">
-              <span>{GENRE_NAMES[doc.genre] ?? doc.genre} · {fmtMinutes(sec?.word_count ? sec.word_count / 180 : doc.minutes)} · 生词率 {fmtPct(doc.unknown_ratio)}</span>
-              {counts && <span className="tagc">生词 {counts.new} · 学习中 {counts.learning} · 待确认 {counts.unsure}</span>}
+              <span>{tl('{v0} · {v1} · 生词率 {unknown_ratio}', { v0: GENRE_NAMES[doc.genre] ?? doc.genre, v1: fmtMinutes(sec?.word_count ? sec.word_count / 180 : doc.minutes), unknown_ratio: fmtPct(doc.unknown_ratio) })}</span>
+              {counts && <span className="tagc">{tl('生词 {new} · 学习中 {learning} · 待确认 {unsure}', { new: counts.new, learning: counts.learning, unsure: counts.unsure })}</span>}
             </div>
             <h1>{doc.sections.length > 1 && sec?.title ? sec.title : doc.title}</h1>
           </div>
@@ -143,11 +144,11 @@ export function Reader() {
         <SectionView content={content} mode={mode} gloss={gloss} translations={translations} overrides={overrides} selected={card ? { sentence: card.sentence.id, s: card.s } : undefined} onWord={onWord} />
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px 40px' }}>
           <div className="endc">
-            <h3>读完了</h3>
-            <p>{left ? `还有 ${left} 个生词没处理。标为已知后不进复习，可随时改回。` : '生词都处理过了。'}</p>
+            <h3>{tl('读完了')}</h3>
+            <p>{left ? tl('还有 {left} 个生词没处理。标为已知后不进复习，可随时改回。', { left }) : tl('生词都处理过了。')}</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              {left > 0 && <button className="btn pri" onClick={() => setFinish(true)}>标为已知并读完</button>}
-              <button className={`btn${left ? '' : ' pri'}`} onClick={() => onFinish(false)}>读完了</button>
+              {left > 0 && <button className="btn pri" onClick={() => setFinish(true)}>{tl('标为已知并读完')}</button>}
+              <button className={`btn${left ? '' : ' pri'}`} onClick={() => onFinish(false)}>{tl('读完了')}</button>
             </div>
           </div>
         </div>
@@ -155,35 +156,35 @@ export function Reader() {
           <button className={translations ? 'on' : ''} onClick={async () => {
             const on = !translations; setTranslations(on);
             if (!on || translating || content.sentences.every(s => s.translation)) return;
-            if (!modelOk) { toast('要连接模型才能生成译文', { action: { label: '去连接', run: () => nav(`/welcome?step=3&back=${encodeURIComponent(location.hash.slice(1))}`) } }); return; }
-            try { setTranslating(true); await rpc.call('sections.translate', { id: content.id }); toast('正在翻译这一章，好了会自动显示'); } catch (e) { setTranslating(false); toast(errorInfo(e).message, { kind: 'err' }); }
-          }}><Languages />{translating ? '翻译中…' : '译文'}</button>
-          <button className={gloss ? 'on' : ''} onClick={() => setGloss(!gloss)}><Type />释义</button>
-          <button className={aloud ? 'on' : ''} onClick={() => setAloud(!aloud)}><Volume2 />朗读</button>
+            if (!modelOk) { toast(tl('要连接模型才能生成译文'), { action: { label: tl('去连接'), run: () => nav(`/welcome?step=3&back=${encodeURIComponent(location.hash.slice(1))}`) } }); return; }
+            try { setTranslating(true); await rpc.call('sections.translate', { id: content.id }); toast(tl('正在翻译这一章，好了会自动显示')); } catch (e) { setTranslating(false); toast(errorInfo(e).message, { kind: 'err' }); }
+          }}><Languages />{translating ? tl('翻译中…') : tl('译文')}</button>
+          <button className={gloss ? 'on' : ''} onClick={() => setGloss(!gloss)}><Type />{tl('释义')}</button>
+          <button className={aloud ? 'on' : ''} onClick={() => setAloud(!aloud)}><Volume2 />{tl('朗读')}</button>
           <span className="vsep" />
-          <button onClick={() => setMode(mode === 'all' ? 'new' : mode === 'new' ? 'clean' : 'all')}>{{ all: '全部标注', new: '仅生词', clean: '纯净阅读' }[mode]}</button>
+          <button onClick={() => setMode(mode === 'all' ? 'new' : mode === 'new' ? 'clean' : 'all')}>{{ all: tl('全部标注'), new: tl('仅生词'), clean: tl('纯净阅读') }[mode]}</button>
           <span className="vsep" />
           <button onClick={() => setPanel(panel === 'tibi' ? undefined : 'tibi')} style={{ color: 'var(--accent)' }}><Sparkles />Tibi</button>
-          <button onClick={() => (left ? setFinish(true) : onFinish(false))}><BookOpenCheck />读完了</button>
+          <button onClick={() => (left ? setFinish(true) : onFinish(false))}><BookOpenCheck />{tl('读完了')}</button>
         </div>
       </div>
       {panel === 'tibi' && <TibiPanel doc={doc} sectionId={content.id} pending={pending} onClose={() => setPanel(undefined)} />}
-      {panel === 'summary' && <SummaryPanel doc={doc} onClose={() => setPanel(undefined)} onPhrase={text => { const el = [...(scrollRef.current?.querySelectorAll<HTMLElement>('[data-sid]') ?? [])].find(x => x.textContent?.toLowerCase().includes(text.toLowerCase())); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); } else toast('这一章里没有找到这个短语'); }} />}
+      {panel === 'summary' && <SummaryPanel doc={doc} onClose={() => setPanel(undefined)} onPhrase={text => { const el = [...(scrollRef.current?.querySelectorAll<HTMLElement>('[data-sid]') ?? [])].find(x => x.textContent?.toLowerCase().includes(text.toLowerCase())); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); } else toast(tl('这一章里没有找到这个短语')); }} />}
       </div>
       {aloud && <ReadAloud key={content.id} content={content} scroller={scrollRef.current} onClose={() => setAloud(false)} />}
-      {showTop && <button className="totop" onClick={() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setShowTop(false); }}><ArrowUp size={14} />回到开头</button>}
-      {selAsk && <button className="selask" style={{ left: selAsk.x, top: selAsk.y }} onMouseDown={e => e.preventDefault()} onClick={() => ask(selAsk.text.length > 80 ? `讲讲这句：${selAsk.text}` : `「${selAsk.text}」在这里是什么意思？`, { sentence_id: selAsk.sentence_id, selection: selAsk.text })}><Sparkles size={13} />问 Tibi</button>}
-      {card && <WordCard onAsk={(w, sid) => ask(`「${w}」在这句话里是什么意思？用法上要注意什么？`, { sentence_id: sid, selection: w })} word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} onClose={() => setCard(undefined)} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}
-      <Modal open={legend} onOpenChange={setLegend} title="标注说明" actions={<button className="btn pri" onClick={() => setLegend(false)}>知道了</button>}>
+      {showTop && <button className="totop" onClick={() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setShowTop(false); }}><ArrowUp size={14} />{tl('回到开头')}</button>}
+      {selAsk && <button className="selask" style={{ left: selAsk.x, top: selAsk.y }} onMouseDown={e => e.preventDefault()} onClick={() => ask(selAsk.text.length > 80 ? tl('讲讲这句：{text}', { text: selAsk.text }) : tl('「{text}」在这里是什么意思？', { text: selAsk.text }), { sentence_id: selAsk.sentence_id, selection: selAsk.text })}><Sparkles size={13} />{tl('问 Tibi')}</button>}
+      {card && <WordCard onAsk={(w, sid) => ask(tl('「{w}」在这句话里是什么意思？用法上要注意什么？', { w }), { sentence_id: sid, selection: w })} word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} onClose={() => setCard(undefined)} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}
+      <Modal open={legend} onOpenChange={setLegend} title={tl('标注说明')} actions={<button className="btn pri" onClick={() => setLegend(false)}>{tl('知道了')}</button>}>
         <div className="legend">
-          <div className="row"><span className="ex"><span className="w s0">upshot</span></span><span>生词：可能不认识，点开看释义</span></div>
-          <div className="row"><span className="ex"><span className="w s1">overhead</span></span><span>学习中：越浅越熟（见过 → 熟悉）</span></div>
-          <div className="row"><span className="ex"><span className="w s99">binding</span></span><span>待确认：点一下确认认不认识</span></div>
-          <div className="row"><span className="ex"><span className="w">feature</span></span><span>已知：不标</span></div>
+          <div className="row"><span className="ex"><span className="w s0">upshot</span></span><span>{tl('生词：可能不认识，点开看释义')}</span></div>
+          <div className="row"><span className="ex"><span className="w s1">overhead</span></span><span>{tl('学习中：越浅越熟（见过 → 熟悉）')}</span></div>
+          <div className="row"><span className="ex"><span className="w s99">binding</span></span><span>{tl('待确认：点一下确认认不认识')}</span></div>
+          <div className="row"><span className="ex"><span className="w">feature</span></span><span>{tl('已知：不标')}</span></div>
         </div>
       </Modal>
-      <Modal open={finish} onOpenChange={setFinish} title={`把剩下的 ${left} 个生词标为已知？`} actions={<><button className="btn" onClick={() => onFinish(false)}>只标读完</button><button className="btn pri" onClick={() => onFinish(true)}>标为已知</button></>}>
-        <p>标为已知的词不进复习，可以撤销。待确认的词不动。</p>
+      <Modal open={finish} onOpenChange={setFinish} title={tl('把剩下的 {left} 个生词标为已知？', { left })} actions={<><button className="btn" onClick={() => onFinish(false)}>{tl('只标读完')}</button><button className="btn pri" onClick={() => onFinish(true)}>{tl('标为已知')}</button></>}>
+        <p>{tl('标为已知的词不进复习，可以撤销。待确认的词不动。')}</p>
       </Modal>
     </>
   );

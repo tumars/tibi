@@ -13,7 +13,7 @@ describe('MCP：stdio 代理 → 本地 socket → Core（M5）', () => {
     const core = await createCore({ dbPath: join(dir, 'app.db'), version: 't' });
     const server = startMcpSocket(core, dir);
     await new Promise(r => setTimeout(r, 100));
-    const child = spawn(process.execPath, ['--import', 'tsx', join(__dirname, '../src/bin.ts'), '--mcp', '--data-dir', dir], { stdio: ['pipe', 'pipe', 'inherit'] });
+    const child = spawn(process.execPath, ['--import', 'tsx', join(__dirname, '../src/bin.ts'), '--mcp', '--data-dir', dir], { cwd: join(__dirname, '..'), stdio: ['pipe', 'pipe', 'inherit'] });   // tsx 装在 core-node 里，从仓库根跑 vitest 时也要在这里解析
     const replies = new Map<number, (v: unknown) => void>();
     createInterface({ input: child.stdout! }).on('line', l => { const m = JSON.parse(l); replies.get(m.id)?.(m); });
     let id = 0;

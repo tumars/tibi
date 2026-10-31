@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { locale, tl } from '../lib/i18n';
 
 /**
  * 统计页的小图表（00 §3.6）：只用强调色与灰色，SVG 按容器宽度缩放（viewBox），深浅色跟着 CSS 变量走。
@@ -22,7 +23,7 @@ export function AreaChart({ dates, main, dashed, height = 160, fmt = (n: number)
         {dashed && <path d={line(dashed)} fill="none" stroke="var(--ink-3)" strokeWidth="1.5" strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />}
         {hover !== undefined && <line x1={x(hover)} x2={x(hover)} y1="0" y2={H} stroke="var(--line-2)" vectorEffect="non-scaling-stroke" />}
       </svg>
-      {hover !== undefined && main[hover] !== undefined && <div className="tip" style={{ left: `${(x(hover) / W) * 100}%` }}>{new Date(dates[hover]!).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })} · {fmt(main[hover]!)}{dashed ? ` · 估算 ${fmt(dashed[hover] ?? 0)}` : ''}</div>}
+      {hover !== undefined && main[hover] !== undefined && <div className="tip" style={{ left: `${(x(hover) / W) * 100}%` }}>{new Date(dates[hover]!).toLocaleDateString(locale, { month: 'numeric', day: 'numeric' })} · {fmt(main[hover]!)}{dashed ? tl(' · 估算 {v0}', { v0: fmt(dashed[hover] ?? 0) }) : ''}</div>}
     </div>
   );
 }
@@ -48,7 +49,7 @@ export function StackBars({ weeks, height = 120 }: { weeks: { ratings: [number, 
   return (
     <div className="chart">
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: H }}>
-        {weeks.map((w, i) => { let y = H; return w.ratings.map((n, k) => { const h = (n / max) * (H - 4); y -= h; return <rect key={`${i}-${k}`} x={i * bw + bw * 0.2} y={y} width={bw * 0.6} height={h} fill={fills[k]}><title>{['忘了', '模糊', '记得', '轻松'][k]} {n}</title></rect>; }); })}
+        {weeks.map((w, i) => { let y = H; return w.ratings.map((n, k) => { const h = (n / max) * (H - 4); y -= h; return <rect key={`${i}-${k}`} x={i * bw + bw * 0.2} y={y} width={bw * 0.6} height={h} fill={fills[k]}><title>{[tl('忘了'), tl('模糊'), tl('记得'), tl('轻松')][k]} {n}</title></rect>; }); })}
       </svg>
     </div>
   );
@@ -61,5 +62,5 @@ export function Heatmap({ dates, values }: { dates: number[]; values: number[] }
   const first = new Date(dates[0] ?? Date.now()); const offset = (first.getDay() + 6) % 7;
   const cells = [...Array(offset).fill(undefined), ...values.map((v, i) => ({ v, d: dates[i]! }))];
   const cols: (typeof cells)[] = []; for (let i = 0; i < cells.length; i += 7) cols.push(cells.slice(i, i + 7));
-  return <div className="heat">{cols.map((c, i) => <div key={i} className="hcol">{c.map((x, k) => x ? <i key={k} className={`l${level(x.v)}`} title={`${new Date(x.d).toLocaleDateString('zh-CN')} · ${x.v} 分钟`} /> : <i key={k} className="pad" />)}</div>)}</div>;
+  return <div className="heat">{cols.map((c, i) => <div key={i} className="hcol">{c.map((x, k) => x ? <i key={k} className={`l${level(x.v)}`} title={tl('{v0} · {v} 分钟', { v0: new Date(x.d).toLocaleDateString(locale), v: x.v })} /> : <i key={k} className="pad" />)}</div>)}</div>;
 }

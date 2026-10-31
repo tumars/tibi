@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { GENRE_NAMES } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
+import { tl } from '../lib/i18n';
 
 /** 导入一篇内置示例并在完成后打开；已经导入过的直接打开 */
 export async function openSample(s: SampleInfo, nav: (to: string) => void) {
@@ -31,9 +32,9 @@ export function Samples() {
     <div className="samples">
       {list.map(s => (
         <button key={s.id} className="sample" onClick={() => void openSample(s, nav)}>
-          <span className="g">{GENRE_NAMES[s.genre] ?? s.genre} · 示例</span>
+          <span className="g">{tl('{v0} · 示例', { v0: GENRE_NAMES[s.genre] ?? s.genre })}</span>
           <span className="t">{s.title}</span>
-          <span className="m">约 {s.minutes} 分钟{s.author && s.author !== 'Tibi' ? ` · ${s.author}` : ''}</span>
+          <span className="m">{tl('约 {minutes} 分钟', { minutes: s.minutes })}{s.author && s.author !== 'Tibi' ? ` · ${s.author}` : ''}</span>
         </button>
       ))}
     </div>

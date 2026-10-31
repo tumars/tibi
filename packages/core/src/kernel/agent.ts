@@ -16,6 +16,9 @@ import { checkBudget, recordUsage, USD_CNY } from './usage.js';
  * 每轮模型调用记 job_steps(kind=model) 与 usage_records；流式文本与工具调用发 chat.* 事件。
  */
 
+/** 设置里「Tibi 讲解用的语言」→ 写进系统提示的说法 */
+const LANG_TEXT: Record<string, string> = { mixed: '中文为主，术语、例句保留英文', zh: '只用中文（英文原句除外）', en: 'English only（用户要求全英文讲解）' };
+
 export interface ResolvedModel { model: Model<Api>; apiKey?: string; streamFn: StreamFn }
 
 export interface AgentDeps {
@@ -143,7 +146,7 @@ export async function buildSystemPrompt(deps: AgentDeps, ctx: Ctx, skill: Resolv
   const prof = await db.get<{ display_name: string | null; level_self: string | null; goal: string | null; interests: string; vocab_estimate: number; assistant_prefs: string }>("SELECT display_name, level_self, goal, interests, vocab_estimate, assistant_prefs FROM user_profile WHERE id = '1'");
   const prefs = j.parse<{ nickname?: string; language?: string; permission?: string }>(prof?.assistant_prefs, {});
   const core = await db.all<{ content: string }>("SELECT content FROM memories WHERE type IN ('profile', 'procedural') AND status = 'active' AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 20");
-  parts.push(['## 用户', `称呼：${prefs.nickname ?? prof?.display_name ?? '你'}；水平：${prof?.level_self ?? '未知'}；估算词汇量：${prof?.vocab_estimate ?? '未知'}；目标：${prof?.goal ?? '未知'}；兴趣：${j.parse<string[]>(prof?.interests, []).join('、') || '未知'}；对话语言：${prefs.language ?? 'mixed'}`, ...core.map(m => `- ${m.content}`)].join('\n'));
+  parts.push(['## 用户', `称呼：${prefs.nickname ?? prof?.display_name ?? '你'}；水平：${prof?.level_self ?? '未知'}；估算词汇量：${prof?.vocab_estimate ?? '未知'}；目标：${prof?.goal ?? '未知'}；兴趣：${j.parse<string[]>(prof?.interests, []).join('、') || '未知'}；回答语言：${LANG_TEXT[prefs.language ?? 'mixed'] ?? LANG_TEXT.mixed}`, ...core.map(m => `- ${m.content}`)].join('\n'));
   parts.push(`## 可用工具\n${skill.allowed_tools.filter(t => deps.registry.has(t)).map(t => `- ${t}：${deps.registry.get(t)!.description}`).join('\n') || '（无）'}\n权限模式：${await ctx.permission()}`);
   try {
     const snap = await deps.registry.call<Record<string, unknown>>('get_context', {}, ctx);

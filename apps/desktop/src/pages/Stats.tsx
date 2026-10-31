@@ -6,13 +6,14 @@ import { Top } from '../components/Shell';
 import { GENRE_NAMES, STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
+import { locale, tl } from '../lib/i18n';
 
 /**
  * 学习统计（00 §3.6，原型 stats.html，M3）：四项指标 → Tibi 的洞察 → 已知词数（实测实线 / 估算虚线，R8）→ 每日阅读 →
  * 接下来要复习 → 复习表现 → 学习日历 → 生词本熟练度 → 按类型阅读量。范围 30 天 / 90 天 / 半年。
  */
 type Range = 30 | 90 | 180;
-const RANGE_LABEL: Record<Range, string> = { 30: '30 天', 90: '90 天', 180: '半年' };
+const RANGE_LABEL: Record<Range, string> = { 30: tl('30 天'), 90: tl('90 天'), 180: tl('半年') };
 
 export function Stats() {
   const nav = useNavigate();
@@ -56,58 +57,58 @@ export function Stats() {
 
   return (
     <>
-      <Top crumbs={[{ label: '统计' }]} right={<div className="seg">{([30, 90, 180] as Range[]).map(r => <button key={r} className={range === r ? 'on' : ''} onClick={() => setRange(r)}>{RANGE_LABEL[r]}</button>)}</div>} />
+      <Top crumbs={[{ label: tl('统计') }]} right={<div className="seg">{([30, 90, 180] as Range[]).map(r => <button key={r} className={range === r ? 'on' : ''} onClick={() => setRange(r)}>{RANGE_LABEL[r]}</button>)}</div>} />
       <div className="scroll"><div className="page stats">
-        {empty ? <Empty title="还没有可以统计的东西" text="读一篇文章、复习几张卡，这里就会有数据。" action={<button className="btn pri" onClick={() => nav('/')}>去首页读一篇</button>} /> : <>
+        {empty ? <Empty title={tl('还没有可以统计的东西')} text={tl('读一篇文章、复习几张卡，这里就会有数据。')} action={<button className="btn pri" onClick={() => nav('/')}>{tl('去首页读一篇')}</button>} /> : <>
           <div className="tiles four">
-            <button className="tile" onClick={() => jump('st-known')}><span className="k">已知词</span><span className="v">{(sum?.known ?? 0).toLocaleString()}<small>词</small></span><span className="d">{RANGE_LABEL[range]}内 {(sum?.known_delta ?? 0) >= 0 ? '+' : ''}{sum?.known_delta ?? 0}{sum?.prev_delta ? ` · 上期 +${sum.prev_delta}` : ''}</span></button>
-            <button className="tile" onClick={() => jump('st-daily')}><span className="k">阅读</span><span className="v">{sum?.minutes ?? 0}<small>分钟</small></span><span className="d">{(sum?.words ?? 0).toLocaleString()} 词</span></button>
-            <button className="tile" onClick={() => jump('st-cal')}><span className="k">学习天数</span><span className="v">{sum?.study_days ?? 0}<small>天</small></span><span className="d">连续 {sum?.streak ?? 0} 天 · 最长 {sum?.longest_streak ?? 0} 天</span></button>
-            <button className="tile" onClick={() => jump('st-ret')}><span className="k">复习</span><span className="v">{sum?.reviews ?? 0}<small>次</small></span><span className="d">记得率 {Math.round((sum?.retention ?? 0) * 100)}%</span></button>
+            <button className="tile" onClick={() => jump('st-known')}><span className="k">{tl('已知词')}</span><span className="v">{(sum?.known ?? 0).toLocaleString()}<small>{tl('词')}</small></span><span className="d">{tl('{v0}内', { v0: RANGE_LABEL[range] })} {(sum?.known_delta ?? 0) >= 0 ? '+' : ''}{sum?.known_delta ?? 0}{sum?.prev_delta ? tl(' · 上期 +{prev_delta}', { prev_delta: sum.prev_delta }) : ''}</span></button>
+            <button className="tile" onClick={() => jump('st-daily')}><span className="k">{tl('阅读')}</span><span className="v">{sum?.minutes ?? 0}<small>{tl('分钟')}</small></span><span className="d">{tl('{v0} 词', { v0: (sum?.words ?? 0).toLocaleString() })}</span></button>
+            <button className="tile" onClick={() => jump('st-cal')}><span className="k">{tl('学习天数')}</span><span className="v">{sum?.study_days ?? 0}<small>{tl('天')}</small></span><span className="d">{tl('连续 {v0} 天 · 最长 {v1} 天', { v0: sum?.streak ?? 0, v1: sum?.longest_streak ?? 0 })}</span></button>
+            <button className="tile" onClick={() => jump('st-ret')}><span className="k">{tl('复习')}</span><span className="v">{sum?.reviews ?? 0}<small>{tl('次')}</small></span><span className="d">{tl('记得率 {v0}', { v0: Math.round((sum?.retention ?? 0) * 100) })}%</span></button>
           </div>
 
           <div className="insight">
-            <div className="ih"><b><span style={{ color: 'var(--accent)' }}>✦</span> Tibi 的洞察</b><span className="sp" />{ins.state === 'ok' && <button className="linkbtn" onClick={() => void loadInsight(true)}>重新生成</button>}</div>
-            {ins.state === 'loading' && <p className="lbl">正在看你最近的学习数据…</p>}
-            {ins.state === 'nomodel' && <p className="lbl">连接模型后，Tibi 会在这里写一段观察和建议。<button className="linkbtn" onClick={() => nav('/welcome?step=3&back=%2Fstats')}>去连接</button></p>}
+            <div className="ih"><b><span style={{ color: 'var(--accent)' }}>✦</span> {tl('Tibi 的洞察')}</b><span className="sp" />{ins.state === 'ok' && <button className="linkbtn" onClick={() => void loadInsight(true)}>{tl('重新生成')}</button>}</div>
+            {ins.state === 'loading' && <p className="lbl">{tl('正在看你最近的学习数据…')}</p>}
+            {ins.state === 'nomodel' && <p className="lbl">{tl('连接模型后，Tibi 会在这里写一段观察和建议。')}<button className="linkbtn" onClick={() => nav('/welcome?step=3&back=%2Fstats')}>{tl('去连接')}</button></p>}
             {ins.state === 'err' && <p className="lbl">{ins.err}</p>}
             {ins.state === 'ok' && ins.data && <>
               <p>{ins.data.text}</p>
               {ins.data.actions.length > 0 && <div className="acts">{ins.data.actions.map(a => <button key={a.route} className="btn sm" onClick={() => nav(a.route)}>{a.label}</button>)}</div>}
-              <div className="lbl">Tibi · 学习洞察 · 只在打开统计页时生成</div>
+              <div className="lbl">{tl('Tibi · 学习洞察 · 只在打开统计页时生成')}</div>
             </>}
           </div>
 
-          <section id="st-known"><div className="sech"><h2>已知词数</h2><span className="lbl">实线 = 你亲手确认的（标过、测试点亮、复习答对）+ 推断；虚线 = 按词汇量估算的部分</span></div>
+          <section id="st-known"><div className="sech"><h2>{tl('已知词数')}</h2><span className="lbl">{tl('实线 = 你亲手确认的（标过、测试点亮、复习答对）+ 推断；虚线 = 按词汇量估算的部分')}</span></div>
             {known && <AreaChart dates={known.dates} main={known.series.known ?? []} dashed={known.series.known_estimated} />}
           </section>
 
-          <section id="st-daily"><div className="sech"><h2>每日阅读</h2><span className="lbl">最近 30 天 · 虚线是每天 {goal} 分钟的目标</span></div>
-            {daily && <Bars values={daily.series.minutes ?? []} goal={goal} hi={v => v >= goal} title={(v, i) => `${new Date(daily.dates[i]!).toLocaleDateString('zh-CN')} · ${v} 分钟`} />}
+          <section id="st-daily"><div className="sech"><h2>{tl('每日阅读')}</h2><span className="lbl">{tl('最近 30 天 · 虚线是每天 {goal} 分钟的目标', { goal })}</span></div>
+            {daily && <Bars values={daily.series.minutes ?? []} goal={goal} hi={v => v >= goal} title={(v, i) => tl('{v0} · {v} 分钟', { v0: new Date(daily.dates[i]!).toLocaleDateString(locale), v })} />}
           </section>
 
           <div className="two">
-            <section><div className="sech"><h2>接下来要复习</h2></div>
-              {fc && <><Bars values={fc.days} hi={(_, i) => i === 0} height={100} labels={fc.days.map((_, i) => (i === 0 ? '今天' : i % 3 === 0 ? `${i} 天后` : ''))} />
-                <p className="lbl">目标记得率 {Math.round(fc.target_retention * 100)}%{retTotal ? ` · 实际 ${Math.round(retRate * 100)}%` : ''}</p></>}
+            <section><div className="sech"><h2>{tl('接下来要复习')}</h2></div>
+              {fc && <><Bars values={fc.days} hi={(_, i) => i === 0} height={100} labels={fc.days.map((_, i) => (i === 0 ? tl('今天') : i % 3 === 0 ? tl('{i} 天后', { i }) : ''))} />
+                <p className="lbl">{tl('目标记得率 {v0}%{v1}', { v0: Math.round(fc.target_retention * 100), v1: retTotal ? tl(' · 实际 {v0}%', { v0: Math.round(retRate * 100) }) : '' })}</p></>}
             </section>
-            <section id="st-ret"><div className="sech"><h2>复习表现</h2><span className="lbl">最近 12 周</span></div>
+            <section id="st-ret"><div className="sech"><h2>{tl('复习表现')}</h2><span className="lbl">{tl('最近 12 周')}</span></div>
               {ret && <><StackBars weeks={ret.weeks} height={100} />
-                <p className="lbl">记得率 {Math.round(retRate * 100)}% · 忘了 {ret.lapses} 次 · <a href="#/words?view=leech">难词 {ret.leeches} 个</a></p></>}
+                <p className="lbl">{tl('记得率 {v0}% · 忘了 {lapses} 次 ·', { v0: Math.round(retRate * 100), lapses: ret.lapses })} <a href="#/words?view=leech">{tl('难词 {leeches} 个', { leeches: ret.leeches })}</a></p></>}
             </section>
           </div>
 
-          <section id="st-cal"><div className="sech"><h2>学习日历</h2><span className="lbl">最近 26 周，颜色越深学得越久</span></div>
+          <section id="st-cal"><div className="sech"><h2>{tl('学习日历')}</h2><span className="lbl">{tl('最近 26 周，颜色越深学得越久')}</span></div>
             {cal && <Heatmap dates={cal.dates} values={cal.series.minutes ?? []} />}
           </section>
 
           <div className="two">
-            <section><div className="sech"><h2>生词本熟练度</h2><a className="more" href="#/words">去生词本 →</a></div>
+            <section><div className="sech"><h2>{tl('生词本熟练度')}</h2><a className="more" href="#/words">{tl('去生词本 →')}</a></div>
               {totalStages ? <><div className="stagebar">{stages.map((n, i) => n ? <i key={i} className={`s${i}`} style={{ flex: n }} title={`${STATUS_NAMES[i]} ${n}`} /> : null)}</div>
-                <div className="stagelegend">{stages.map((n, i) => <span key={i}><i className={`s${i}`} />{STATUS_NAMES[i]} {n}</span>)}</div></> : <p className="lbl">生词本还是空的。</p>}
+                <div className="stagelegend">{stages.map((n, i) => <span key={i}><i className={`s${i}`} />{STATUS_NAMES[i]} {n}</span>)}</div></> : <p className="lbl">{tl('生词本还是空的。')}</p>}
             </section>
-            <section><div className="sech"><h2>按类型阅读量</h2></div>
-              {genres.length ? genres.map(g => { const max = Math.max(...genres.map(x => x.words), 1); return <div key={g.genre} className="grow"><span>{GENRE_NAMES[g.genre] ?? g.genre}</span><div className="gbar"><i style={{ width: `${(g.words / max) * 100}%` }} /></div><span className="lbl">{g.words.toLocaleString()} 词 · 生词率 {(g.unknown_ratio * 100).toFixed(1)}%</span></div>; }) : <p className="lbl">这段时间还没读文章。</p>}
+            <section><div className="sech"><h2>{tl('按类型阅读量')}</h2></div>
+              {genres.length ? genres.map(g => { const max = Math.max(...genres.map(x => x.words), 1); return <div key={g.genre} className="grow"><span>{GENRE_NAMES[g.genre] ?? g.genre}</span><div className="gbar"><i style={{ width: `${(g.words / max) * 100}%` }} /></div><span className="lbl">{tl('{words} 词 · 生词率 {v1}', { words: g.words.toLocaleString(), v1: (g.unknown_ratio * 100).toFixed(1) })}%</span></div>; }) : <p className="lbl">{tl('这段时间还没读文章。')}</p>}
             </section>
           </div>
         </>}

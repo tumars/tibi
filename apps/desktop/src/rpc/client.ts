@@ -1,4 +1,5 @@
 import type { EventName, EventTable, MethodName, Params, Result } from './methods';
+import { tl } from '../lib/i18n';
 
 /**
  * RPC 客户端（06 §1）：
@@ -50,8 +51,8 @@ function wsTransport(url: string): Transport {
     opening = new Promise<WebSocket>((resolve, reject) => {
       const s = new WebSocket(url);
       s.onopen = () => { ws = s; opening = undefined; resolve(s); };
-      s.onerror = () => { opening = undefined; reject(new RpcError('连不上 Tibi Core。先运行 pnpm core:dev', 'offline', -32006)); };
-      s.onclose = () => { ws = undefined; for (const p of pending.values()) p.reject(new RpcError('Core 断开了', 'offline', -32006)); pending.clear(); };
+      s.onerror = () => { opening = undefined; reject(new RpcError(tl('连不上 Tibi Core。先运行 pnpm core:dev'), 'offline', -32006)); };
+      s.onclose = () => { ws = undefined; for (const p of pending.values()) p.reject(new RpcError(tl('Core 断开了'), 'offline', -32006)); pending.clear(); };
       s.onmessage = ev => {
         let f: Frame; try { f = JSON.parse(String(ev.data)); } catch { return; }
         if (f.method === 'event') { const p = f.params as { event: string; data: unknown }; for (const l of listeners) l(p.event, p.data); return; }

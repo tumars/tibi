@@ -1,0 +1,54 @@
+# 每个 PR / 推送：生成文件是否最新、类型检查、单测、界面构建、Rust 壳编译检查
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 内嵌文件（sql / skills / samples）是最新的
+        run: pnpm --filter @tibi/core gen && git diff --exit-code
+      - run: pnpm -r typecheck
+      - name: 界面文案都有英文
+        run: pnpm --filter @tibi/desktop i18n:check
+      - run: pnpm test
+      - run: pnpm --filter @tibi/desktop build:web
+
+  rust:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: 系统库（WebKitGTK 等）
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - run: pnpm install --frozen-lockfile
+      - name: 占位 sidecar（externalBin 要求文件存在）
+        run: node apps/desktop/scripts/sidecar-dev.mjs
+      - run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings

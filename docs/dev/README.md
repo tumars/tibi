@@ -48,7 +48,7 @@ pnpm --filter @tibi/core-node build   # 打包 dist/tibi-core.js（sidecar 的 J
 pnpm --filter @tibi/core-node sidecar # Bun --compile 单文件 sidecar → apps/desktop/src-tauri/binaries/（另把 OCR 的 worker 与 wasm 拷到 binaries/ocr/）
 TIBI_TEST_OCR=1 pnpm --filter @tibi/core-node test   # 连带跑 OCR 测试（要下载约 10 MB 的语言包）
 pnpm --filter @tibi/core gen          # 改了 sql/*.sql、skills/*.md 或 samples/ 后重新生成内嵌文件
-pnpm ecdict                        # 下载 ECDICT 并生成 data/dict.db（不进仓库）
+pnpm ecdict                        # 下载 ECDICT 并生成 data/ecdict/dict.db（不进仓库；开发时壳和 Core 都会找这里）
 pnpm clipper:zip                   # 打包剪藏插件 extensions/clipper/dist/*.zip
 ```
 
@@ -62,6 +62,26 @@ Core 的 stdio 协议（06 §1）：每行一条 JSON。壳 → Core 请求 `{js
 - **写操作**：走 `recordUndo` / `registerUndo`（撤销）、发 `data.changed` 事件；id 用 `uuidv7()`；写入带 `updated_at`；删除写 `deleted_at`；只追加的表不 UPDATE（08 §9 的五条约定）。
 - **文档即代码**：实现与设计不一致时改设计文档，并在 `docs/CHANGELOG.md` 记一行；技术决定记在 `docs/DECISIONS.md` 的 T 组。
 
-## 4. M0 的技术决定（T 组）
+## 4. 出安装包与 CI
+
+- **CI**（`.github/workflows/ci.yml`，每个 PR 和推到 main）：内嵌文件是否最新（`pnpm --filter @tibi/core gen` 后无改动）、类型检查、单测、界面构建、界面文案是否都有英文（`i18n:check`）；另起一个任务在 Ubuntu 上 `cargo clippy` 检查 Rust 壳。
+- **发布**（`.github/workflows/release.yml`）：推一个 `v0.1.0` 这样的 tag → 先生成一次词典（缓存）→ macOS（Apple 芯片、Intel）、Windows、Linux 四个目标各自打 sidecar + 安装包 → 放进一个**草稿** Release，剪藏插件 zip 也挂上去；人工检查后再发布。tag 必须和 `tauri.conf.json`、`Cargo.toml` 的版本一致。手动触发（不打 tag）时安装包留作构建产物。
+- **签名**：仓库里配了 `APPLE_CERTIFICATE` 等密钥就自动签名、公证 macOS 包；没配就出未签名的包。Windows 暂不签。
+- **本地出包**：
+
+```bash
+pnpm --filter @tibi/desktop bundle:prep      # sidecar（本机 target）+ OCR 资源 + 词典（没有就先跑 pnpm ecdict）
+pnpm --filter @tibi/desktop bundle           # tauri build，带上 src-tauri/tauri.bundle.conf.json（把 dict.db 放进安装包）
+```
+
+词典不写在主配置 `tauri.conf.json` 的 resources 里：开发时没有词典也能编译；只有出包时用 `--config src-tauri/tauri.bundle.conf.json` 合并进去。
+
+## 5. 界面文案（i18n）
+
+- 源码里直接写中文，用 `tl('中文原文')` 包起来；有变量写成 `tl('已导入 {n} 篇', { n })`，不要把一句话拆成几段拼。
+- 改完跑 `pnpm --filter @tibi/desktop i18n:sync`：把新键补进 `src/locales/en.json`（值为空）、删掉不用的；再填上英文。`i18n:check` 在 CI 里检查没有漏翻。
+- 详见 T25。
+
+## 6. M0 的技术决定（T 组）
 
 见 [`docs/DECISIONS.md`](../DECISIONS.md#m0-技术决定t-组)。

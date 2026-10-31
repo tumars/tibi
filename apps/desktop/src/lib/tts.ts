@@ -1,3 +1,4 @@
+import { tl } from './i18n';
 /**
  * 朗读（00 §3.4，M4）：系统语音（默认，离线可用）/ Kokoro 本地模型（可下载，约 86 MB，第一次用时从 Hugging Face 下载，浏览器缓存）。
  * - say(text)：单词发音、句子朗读；返回播放结束的 Promise（stop() 会让它提前结束）。
@@ -35,8 +36,8 @@ function systemSay(text: string, r: number): Promise<void> {
 
 /* ---------- Kokoro ---------- */
 export const KOKORO_VOICES: Voice[] = [
-  { id: 'af_heart', label: '美音 · 女（Heart）', accent: 'us' }, { id: 'am_michael', label: '美音 · 男（Michael）', accent: 'us' },
-  { id: 'bf_emma', label: '英音 · 女（Emma）', accent: 'gb' }, { id: 'bm_george', label: '英音 · 男（George）', accent: 'gb' },
+  { id: 'af_heart', label: tl('美音 · 女（Heart）'), accent: 'us' }, { id: 'am_michael', label: tl('美音 · 男（Michael）'), accent: 'us' },
+  { id: 'bf_emma', label: tl('英音 · 女（Emma）'), accent: 'gb' }, { id: 'bm_george', label: tl('英音 · 男（George）'), accent: 'gb' },
 ];
 type KokoroModel = { generate(text: string, o: { voice: string; speed: number }): Promise<{ audio: Float32Array; sampling_rate: number }> };
 let kokoro: Promise<KokoroModel> | undefined;
