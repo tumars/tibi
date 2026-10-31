@@ -471,7 +471,7 @@ interface DictEntry { word: string; phonetic?: string; translation: string; defi
 interface CardState { card_id: Id; term_id: Id; state: 0 | 1 | 2 | 3; due: Ts; stability: number; difficulty: number; reps: number; lapses: number; suspended: boolean; forced_type?: CardType }
 interface QueueItem { step: number; card_id: Id; term: Term; card_type: CardType; is_new: boolean; last_review?: Ts;
   intro: boolean;                      // 没在文章里见过的新词先"初见"（G4），这一步不作答
-  retry: 0 | 1 | 2;                    // &gt;0 = 答错后换题型再见一面，不计分（G3）
+  retry: 0 | 1 | 2;                    // &gt;0 = 答错后换题型重练，不计分（G3）
   self_rated: boolean;                 // 只有 recognize 自评（G1）
   options?: { id: string; text: string; from?: string }[];   // 选义题的四个选项；from = 干扰项来源（易混词、同篇生词…），答错后展示
   context: { id: Id; sentence: string; answer: string[]; translation: string; document_title?: string; document_id?: Id; source: 'article' | 'dictionary' }; hint?: string; note?: string }

@@ -163,7 +163,7 @@
   <aside class="drawer" id="drawer" aria-label="Tibi">
     <header class="dhead"><span class="ttl"><svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg><span>Tibi</span><span id="dSub"></span></span><span class="sp"></span><button class="ibtn" id="closeDrawer" title="关闭（Esc）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <div class="scroll" id="dscroll"><div class="dbody" id="dbody"></div></div>
-    <div class="dfoot"><div class="dcomp"><textarea id="dinput" placeholder="问 Tibi，比如：为什么这里用 affect 而不是 effect？" aria-label="向 Tibi 提问"></textarea><button class="send" id="dsend" aria-label="发送"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></div>
+    <div class="dfoot"><div class="dcomp"><textarea id="dinput" placeholder="问 Tibi" aria-label="向 Tibi 提问"></textarea><button class="send" id="dsend" aria-label="发送"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></div>
   </aside>
 </div>
 
@@ -190,7 +190,7 @@ const ivTxt = (days, g) => g === 1 ? '10 分钟后' : days < 30 ? `${days} 天` 
 /* ============ 题型与评分规则（2026-10-30 参考词光 Word Atlas，决策 G1–G7） ============
    G1 只有"识别"自评；选义、填空、听写、拼写答完由系统按"对错 + 用时 + 提示 + 拼写距离"给分，可改。
    G2 生词 / 见过 → 识别或选义（四选一，干扰项来自同一篇文章、生词本、易混词）。
-   G3 每个词只有第一次作答算数；答错的词 3 张后换一种题型"再见一面"，最多两次，不计分。
+   G3 每个词只有第一次作答算数；答错的词 3 张后换一种题型重练，最多两次，不计分。
    G4 没在文章里见过的新词（手动添加、词表导入）先"初见"，再打乱顺序回忆；读文章时标的词直接进题。
    G5 提示由用户要：一次露一个字母，用了提示最多"模糊"。 */
 const STAGES = ['生词', '见过', '眼熟', '认得', '熟悉', '掌握'];
@@ -255,7 +255,7 @@ function optsFor(c) {   // 重练时没有现成干扰项：取生词本里同�
   const pick = others.filter(b => b.zh.split(' ')[0] === pos).concat(others.filter(b => b.zh.split(' ')[0] !== pos)).slice(0, 3);
   return [{ t: c.zh, ok: 1 }].concat(pick.map(b => ({ t: b.zh, from: '生词本里的 ' + b.w })));
 }
-function retryOf(c) {   // G3：换一种题型再见一面，不计分
+function retryOf(c) {   // G3：换一种题型重练，不计分
   const type = c.type === 'choice' || c.type === 'recognize' || c.type === 'produce' ? 'cloze' : 'choice';
   return Object.assign({}, c, { type, retry: (c.retry || 0) + 1, res: undefined, opts: type === 'choice' ? optsFor(c) : c.opts });
 }
@@ -291,9 +291,9 @@ function answerBlock(c, extra = '') {
 }
 const SAY_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6M18.5 6.5a8 8 0 010 11"/></svg>';
 function gradeLine(c) {
-  if (c.retry || drill) return `<div class="gline"><span class="gtag">不计分</span><span>${pend.ok ? '这次记住了' : c.retry >= 2 || drill ? '先放一放，FSRS 会让它更早回来' : '还没记住，过几张再见一面'}</span></div>`;
+  if (c.retry || drill) return `<div class="gline"><span class="gtag">不计分</span><span>${pend.ok ? '这次记住了' : c.retry >= 2 || drill ? '这轮先到这里，它会更早回来' : '过几张再出一次'}</span></div>`;
   const g = pend.g, s = schedule(c, g);
-  return `<div class="gline"><span class="gtag r${g}">${RATE_LAB[g - 1]}</span><span>${pend.reason} · ${g === 1 ? '3 张后换个题型再见一面' : ivTxt(s.days, g) + '后再见'}</span><button class="linkbtn" id="chgRate">${showRates ? '收起' : '改评分'}</button></div>`;
+  return `<div class="gline"><span class="gtag r${g}">${RATE_LAB[g - 1]}</span><span>${pend.reason} · ${g === 1 ? '3 张后换个题型重练' : ivTxt(s.days, g) + '后再见'}</span><button class="linkbtn" id="chgRate">${showRates ? '收起' : '改评分'}</button></div>`;
 }
 
 /* ============ 渲染：复习 ============ */
@@ -305,7 +305,7 @@ function render(dir) {
   const n = Q.length;
   let body = '', foot = '';
   const meta = c.type === 'intro' ? `<span>新词 · ${esc(c.added)}</span>`
-    : c.retry || drill ? `<span class="rtag">${drill ? '错词再练' : '再见一面'} · 不计分</span>`
+    : c.retry || drill ? `<span class="rtag">${drill ? '错词再练' : '重练'} · 不计分</span>`
     : `<span>熟练度：${STAGES[c.s]}</span><span>${c.isNew ? '第一次复习' : `上次复习 ${c.t} 天前`}</span>`;
   const head = `<div class="chead"><span class="ctype">${TYPE_ICON[c.type]} ${TYPE[c.type]}</span>${meta}<span class="sp"></span><button class="ibtn" id="askBtn" title="问 Tibi（L）"><svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg></button></div>`;
   const hintBtn = c.w.length > 2 ? `<button class="linkbtn" id="hintBtn"${hints >= c.w.length - 1 ? ' disabled' : ''}>提示一个字母${hints ? `（已用 ${hints}）` : ''}</button>` : '';
@@ -314,13 +314,13 @@ function render(dir) {
       <div class="sentence" style="font-size:20px">${sentHTML(c, 'show')}</div><div class="ctxzh">${esc(c.tr)}</div><div class="src">${esc(c.src)}</div></div>`;
     foot = `<button class="reveal" id="nextBtn">认识了 <span class="kbd">Enter</span></button>`;
   } else if (c.type === 'recognize') {
-    body = `<div class="prompt">这个${c.phrase ? '短语' : '词'}在句子里是什么意思？先在心里回答，再看答案。</div><div class="sentence">${sentHTML(c, 'show')}</div>`;
+    body = `<div class="prompt">这个${c.phrase ? '短语' : '词'}在句子里是什么意思？</div><div class="sentence">${sentHTML(c, 'show')}</div>`;
     if (phase === 'ask') foot = `<button class="reveal" id="revealBtn">显示答案 <span class="kbd">空格</span></button>`;
   } else if (c.type === 'choice') {
     const os = orderOpts({ w: c.w, opts: c.opts || optsFor(c) });
     body = `<div class="prompt">它在这句话里是什么意思？</div><div class="sentence">${sentHTML(c, 'show')}</div>
       <div class="opts">${os.map((o, k) => { const cls = phase === 'ask' ? '' : o.ok ? ' ok' : k === choice ? ' bad' : ' dim'; return `<button class="opt${cls}" data-k="${k}" ${phase === 'ask' ? '' : 'disabled'}><span class="kbd">${k + 1}</span><span>${esc(o.t)}</span>${phase !== 'ask' && k === choice && !o.ok && o.from ? `<span class="from">${esc(o.from)}</span>` : ''}</button>`; }).join('')}</div>`;
-    if (phase === 'ask') foot = `<div class="footnote">按 <span class="kbd">1</span>–<span class="kbd">4</span> 选择 · 想不起来就选最像的，答错没关系</div>`;
+    if (phase === 'ask') foot = `<div class="footnote">按 <span class="kbd">1</span>–<span class="kbd">4</span> 选择</div>`;
   } else if (c.type === 'cloze') {
     body = `<div class="prompt">根据上下文填空</div><div class="sentence">${phase === 'ask' ? sentHTML(c, 'blank') : sentHTML(c, 'result')}</div><div class="hint">提示：<b>${esc(c.hint || c.zh)}</b></div>`;
     if (phase === 'ask') foot = `<button class="reveal" id="checkBtn">检查 <span class="kbd">Enter</span></button><div class="footrow">${hintBtn}<button class="linkbtn" id="giveup">不会，直接看答案</button></div>`;
@@ -333,14 +333,14 @@ function render(dir) {
       <div class="spellrow"><input class="spellin${phase === 'ask' ? '' : isRight(c, typed) ? ' ok' : ' bad'}" id="spellIn" value="${esc(phase === 'ask' ? '' : typed)}" ${phase === 'ask' ? '' : 'disabled'} placeholder="${'·'.repeat(c.w.length)}（${c.w.length} 个字母）" autocomplete="off" spellcheck="false" aria-label="拼写"></div>`;
     if (phase === 'ask') foot = `<button class="reveal" id="checkBtn">检查 <span class="kbd">Enter</span></button><div class="footrow">${hintBtn}<button class="linkbtn" id="giveup">想不起来，看答案</button></div>`;
   } else if (c.type === 'produce') {
-    body = `<div class="prompt">${c.task}，Tibi 会帮你批改</div><div class="quote" style="color:var(--ink-2)">原文：${sentHTML(c, 'show')}</div>
+    body = `<div class="prompt">${c.task}</div><div class="quote" style="color:var(--ink-2)">原文：${sentHTML(c, 'show')}</div>
       <textarea class="produce" id="prodIn" placeholder="例如：I have no objection to working late tonight." ${phase === 'ask' ? '' : 'disabled'}>${esc(phase === 'ask' ? '' : typed)}</textarea>`;
     if (phase === 'ask') foot = `<button class="reveal" id="checkBtn">✦ 交给 Tibi 批改 <span class="kbd">⌘ Enter</span></button><div class="footrow"><button class="linkbtn" id="giveup">跳过造句，看答案</button></div>`;
   }
   if (phase === 'shown') {
     let verdict = '';
     if (['cloze', 'listen', 'spell'].includes(c.type)) verdict = !typed ? '<span class="verdict bad">没有作答</span>' : isRight(c, typed) ? '<span class="verdict ok">✓ 正确</span>' : near(c, typed) ? '<span class="verdict mid">差一点，注意拼写</span>' : '<span class="verdict bad">✕ 不对</span>';
-    if (c.type === 'choice') verdict = pend.ok ? '<span class="verdict ok">✓ 选对了</span>' : '<span class="verdict bad">没关系，记住它</span>';
+    if (c.type === 'choice') verdict = pend.ok ? '<span class="verdict ok">✓ 选对了</span>' : '<span class="verdict bad">✕ 选错了</span>';
     if (c.type === 'produce') verdict = c.fb || '';
     body += answerBlock(c, verdict);
     if (SELF_RATED.has(c.type) && !c.retry && !drill) foot = rateRow(c, 3);
@@ -350,7 +350,7 @@ function render(dir) {
   const keys = c.type === 'intro' ? '<span class="kbd">Enter</span> 认识了'
     : phase === 'ask' ? (c.type === 'recognize' ? '<span class="kbd">空格</span> 显示答案' : c.type === 'choice' ? '<span class="kbd">1</span>–<span class="kbd">4</span> 选择' : '<span class="kbd">Enter</span> 检查')
     : SELF_RATED.has(c.type) && !c.retry && !drill ? '<span class="kbd">1</span>–<span class="kbd">4</span> 评分' : '<span class="kbd">Enter</span> 继续 · <span class="kbd">1</span>–<span class="kbd">4</span> 改评分';
-  $('#rv').innerHTML = `<div class="rvbar">${segs()}<span>${left > 0 ? `还剩 ${left} 张 · 约 ${mins} 分钟` : '最后补练几张'}</span>${drill ? '' : '<button class="linkbtn" id="pauseBtn" title="进度会保存，下次接着做">稍后继续</button>'}</div>
+  $('#rv').innerHTML = `<div class="rvbar">${segs()}<span>${left > 0 ? `还剩 ${left} 张 · 约 ${mins} 分钟` : '最后补练几张'}</span>${drill ? '' : '<button class="linkbtn" id="pauseBtn" title="保存进度，下次接着做">稍后继续</button>'}</div>
     <section class="card${c.type === 'intro' ? ' introcard' : ''}" id="card">${head}${body}</section>
     <div class="rvfoot"><div class="actions">${foot}</div><div class="keys"><span>${keys} <span class="kbd">Z</span> 撤销 <span class="kbd">L</span> 问 Tibi <span class="kbd">P</span> 发音</span><span>${history.length ? '<button class="linkbtn" id="undoBtn">撤销上一张</button>' : ''}</span></div></div>`;
   bind(c);
@@ -428,7 +428,7 @@ function produce(c) {
     const has = /no objection to/i.test(typed), ger = /no objection to\s+\w+ing\b/i.test(typed), base = /no objection to\s+(work|go|stay|help|wait|come|do|make|take|see|hear|read|meet)\b/i.test(typed);
     const ok = has && !base;
     c.fb = `<div class="tool"><div class="row"><code>grade_sentence</code><span>${base ? '有一处语法问题' : ok ? '用法正确' : '没有用到目标短语'}</span></div></div>
-      <div class="gloss">${base ? `这里的 <b>to</b> 是介词，后面要接名词或动名词：<i style="font-family:var(--f-read)">${esc(typed.replace(/no objection to\s+(\w+)/i, (m, v) => 'no objection to ' + v + 'ing'))}</i>` : ok ? `写得不错！${ger ? '介词 to 后面接了动名词，用法正确。' : '也可以接动名词，例如 <i style="font-family:var(--f-read)">have no objection to waiting</i>。'}` : '句子里没有用到 <b>have no objection to</b>，再试一次，或者看下面的例句。'}</div>`;
+      <div class="gloss">${base ? `这里的 <b>to</b> 是介词，后面要接名词或动名词：<i style="font-family:var(--f-read)">${esc(typed.replace(/no objection to\s+(\w+)/i, (m, v) => 'no objection to ' + v + 'ing'))}</i>` : ok ? `用法正确。${ger ? 'to 后面接动名词。' : '也可以接动名词，例如 <i style="font-family:var(--f-read)">have no objection to waiting</i>。'}` : '句子里没有用到 <b>have no objection to</b>，再试一次，或者看下面的例句。'}</div>`;
     pend = { ok, g: base ? 2 : ok ? 3 : 1, reason: base ? 'Tibi：用法有一处问题' : ok ? 'Tibi：用法正确' : 'Tibi：没有用到目标短语' };
     phase = 'shown'; showRates = false; render('reveal');
   }, 1100);
@@ -478,7 +478,7 @@ function renderResume(sv) {
   const left = leftOf(sv.Q, sv.results);
   const when = Math.max(1, Math.round((Date.now() - sv.at) / 60000));
   $('#rv').innerHTML = `<div class="rvbar"><div class="segs">${sv.Q.map((c, i) => `<i class="${c.res === 'i' ? 'ri' : c.res === 'o' ? 'ro' : c.res === 'x' ? 'rx' : c.res ? 'r' + c.res : i === sv.idx ? 'cur' : ''}"></i>`).join('')}</div><span>还剩 ${left} 张</span></div>
-    <section class="card resume"><div class="rfox" id="rfox"></div><div><h3>上次复习到一半</h3><p>${when < 60 ? when + ' 分钟' : Math.round(when / 60) + ' 小时'}前停在第 ${sv.idx + 1} 张，还剩 ${left} 张（约 ${Math.max(1, Math.round(left / 3))} 分钟）。已经做过的评分都保存了。</p></div></section>
+    <section class="card resume"><div class="rfox" id="rfox"></div><div><h3>上次复习到一半</h3><p>${when < 60 ? when + ' 分钟' : Math.round(when / 60) + ' 小时'}前停在第 ${sv.idx + 1} 张，还剩 ${left} 张（约 ${Math.max(1, Math.round(left / 3))} 分钟）。</p></div></section>
     <div class="rvfoot"><div class="actions"><button class="reveal" id="resumeBtn">接着复习 <span class="kbd">Enter</span></button><div class="footrow"><button class="linkbtn" id="restartBtn">从头开始</button></div></div></div>`;
   if (window.Fox) Fox.mount($('#rfox'), { state: 'idle', size: 72 });
   $('#resumeBtn').onclick = () => { Q = sv.Q; idx = sv.idx; results = sv.results || []; t0 = sv.t0 || Date.now(); phase = 'ask'; render('next'); };
@@ -495,11 +495,11 @@ function finish() {
   const retries = w => Q.filter(c => c.w === w && c.retry).length;
   const wrong = results.filter(r => r.g === 1);
   $('#rv').innerHTML = `<div class="rvbar">${segs()}<span>完成</span></div>
-    <section class="done"><div class="ill" id="ill"></div><h1>今天的复习完成了</h1><div class="sub">连续学习第 10 天。答错的词已经在本轮换着题型补练过，FSRS 也会让它们更早回来。</div>
+    <section class="done"><div class="ill" id="ill"></div><h1>今天的复习完成了</h1><div class="sub">连续学习第 10 天。</div>
     <div class="kpis3"><div><b>${n}</b><span>个词</span></div><div><b>${n ? Math.round(ok / n * 100) : 0}%</b><span>首次就答对</span></div><div><b>${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}</b><span>用时</span></div></div>
-    <div class="dbar"><div class="bar">${dist.map((d, i) => d ? `<i style="flex:${d};background:${col[i]}" title="${RATE_LAB[i]} ${d}"></i>` : '').join('')}</div><div class="lab">${dist.map((d, i) => `<span><i style="background:${col[i]}"></i>${RATE_LAB[i]} ${d}</span>`).join('')}<span class="lbl-i">评分只看第一次作答${results.some(r => r.auto) ? '；选择、填空、听写、拼写由系统评分' : ''}</span></div></div>
+    <div class="dbar"><div class="bar">${dist.map((d, i) => d ? `<i style="flex:${d};background:${col[i]}" title="${RATE_LAB[i]} ${d}"></i>` : '').join('')}</div><div class="lab">${dist.map((d, i) => `<span><i style="background:${col[i]}"></i>${RATE_LAB[i]} ${d}</span>`).join('')}</div></div>
     <div class="chg"><h5>每个词</h5>${results.map(u => `<div class="${u.g === 1 ? 'miss' : ''}"><b>${esc(u.w)}</b><span class="arrow"><span class="stage s${u.from}">${STAGES[u.from]}</span>${u.from === u.to ? '' : `→<span class="stage s${u.to}">${STAGES[u.to]}</span>`}</span><span class="lbl-i">${u.g === 1 ? `忘了 · 已补练 ${retries(u.w)} 次 · ` : ''}${u.days ? `${ivTxt(u.days, 3)}后再见` : '10 分钟后'}</span></div>`).join('')}</div>
-    <div class="nextup"><div><b>✦ 趁热读一篇</b><span>Tibi 找一篇用到今天这 ${n} 个词的短文；找不到就写一篇，其他词都在你的词汇量以内。</span></div><button class="btn pri" id="storyBtn">读一篇用到这些词的短文</button></div>
+    <div class="nextup"><div><b>读一篇用到这 ${n} 个词的短文</b><span>Tibi 先找现成文章，找不到就写一篇。</span></div><button class="btn pri" id="storyBtn">读一篇用到这些词的短文</button></div>
     <div class="row">${wrong.length ? `<button class="btn" id="drillBtn">再练 ${wrong.length} 个错词（不计分）</button>` : ''}<a class="btn" data-link="words" href="#">查看生词本</a><button class="linkbtn" id="again">重新演示</button></div></section>`;
   document.querySelectorAll('[data-link]').forEach(a => { a.href = URLS[a.dataset.link]; ext(a); });
   $('#again').onclick = () => { clearSave(); location.hash = ''; location.reload(); };
@@ -519,7 +519,7 @@ function startDrill(words) {   // 再练错词：调用 review.quiz，不改排�
 }
 function drillDone() {
   const ok = Q.filter(c => c.res === 'o').length;
-  $('#rv').innerHTML = `<div class="rvbar">${segs()}<span>错词再练</span></div><section class="card resume"><div class="rfox" id="rfox"></div><div><h3>错词再练完成：答对 ${ok} / ${Q.length}</h3><p>这一轮不计分，也不改动复习排期；它们按 FSRS 安排的时间再回来。</p></div></section>
+  $('#rv').innerHTML = `<div class="rvbar">${segs()}<span>错词再练</span></div><section class="card resume"><div class="rfox" id="rfox"></div><div><h3>错词再练完成：答对 ${ok} / ${Q.length}</h3><p>不计分，不影响复习排期。</p></div></section>
     <div class="rvfoot"><div class="actions"><button class="reveal" id="backDone">回到完成页 <span class="kbd">Enter</span></button></div></div>`;
   if (window.Fox) Fox.mount($('#rfox'), { state: ok === Q.length ? 'happy' : 'idle', size: 72 });
   $('#backDone').onclick = () => { drill = null; Q = doneState.Q; idx = doneState.idx; results = doneState.results; finish(); };
@@ -535,7 +535,7 @@ function story() {   // G7：用今天的词读一篇（选文技能先找，找
     const TXT = `Mira had always been a meticulous engineer. When the city museum asked her to verify its new climate system, she had no objection to working nights. Sensors were ubiquitous now, in the walls, under the floors, even inside the glass cases, and every one of them added a little overhead to the network.\n\nThe trouble was the tropical gallery. Its plants were notoriously hard to keep alive, and the frogs living there needed a stable habitat. For weeks Mira found herself grappling with readings that made no sense: whenever the doors opened, the humidity dropped, and the drop seemed to affect the whole wing.\n\nOn the last night she finally saw it. An old ventilation shaft was still open. She closed it, watched the numbers settle, and smiled. The director later acknowledged that nobody else had noticed it in ten years.`;
     const re = /\b(meticulous|verify|objection|ubiquitous|overhead|notoriously|habitat|grappling with|affect|acknowledged)\b/g;
     const paras = TXT.split('\n\n').map(p => `<p>${esc(p).replace(re, '<span class="tw s1">$1</span>')}</p>`).join('');
-    m.innerHTML = `<div class="msg a"><div class="tool"><div class="row"><code>search_feeds</code><span>找到 1 篇，只用到其中 2 个词</span></div></div><p>你订阅的来源里没有同时用到这些词的文章，我写了一篇短的：${words.length} 个词全用上了，其他词都在你的词汇量以内（生词率约 2%）。</p>
+    m.innerHTML = `<div class="msg a"><div class="tool"><div class="row"><code>search_feeds</code><span>找到 1 篇，只用到其中 2 个词</span></div></div><p>没找到合适的文章，写了一篇短文，用到全部 ${words.length} 个词。</p>
       <div class="story"><h4>The Night Shift at the Museum</h4>${paras}<div class="smeta">Tibi 写的 · 约 160 词 · 生词率约 2% · 放进书架时会标为"生成内容"</div></div>
       <div class="row" style="justify-content:flex-start"><button class="btn pri sm" id="toShelf">放进书架，开始读</button><button class="btn sm" id="another">换一篇</button></div></div>`;
     anim(m.lastElementChild, { opacity: [0, 1], y: [8, 0] }, SPRING);
@@ -567,7 +567,7 @@ function lcsMatch(t, u) {   // 目标句的每个词是否被写出来（按最�
 function renderPractice(dir) {
   renderQueue();
   if (!prun) {
-    $('#rv').innerHTML = `<div class="phead"><h2>练习</h2><p>用你读过的句子练听写和易混词。成绩单独记录，不会改动复习排期。</p></div>
+    $('#rv').innerHTML = `<div class="phead"><h2>练习</h2><p>不计分，不影响复习排期。</p></div>
       <div class="pmodes">${Object.entries(PMODES).map(([k, v]) => `<button class="pmode${k === pm ? ' on' : ''}" data-m="${k}"><span class="pic">${v[2]}</span><b>${v[0]}</b><small>${v[1]}</small></button>`).join('')}</div>
       <div class="prow"><span class="lbl-i">${pm === 'conf' ? '词来自' : '句子来自'}</span><div class="rvseg wrap">${PSRC.map((s, i) => `<button class="${i === psrc ? 'on' : ''}" data-s="${i}">${esc(s)}</button>`).join('')}</div></div>
       <div class="kpis3 two"><div><b>92%</b><span>听写准确率（最近 5 轮）</span></div><div><b>4</b><span>完成轮次</span></div></div>
@@ -584,7 +584,7 @@ function renderPractice(dir) {
   const head = `<div class="chead"><span class="ctype">${PMODES[r.m][2]} ${PMODES[r.m][0]}</span><span>不计分</span><span class="sp"></span><span>${r.i + 1} / ${r.items.length}</span></div>`;
   if (r.m === 'dict') {
     body = `<div class="prompt">听句子，写下整句（标点和大小写不算错）</div><div class="listen"><button class="play" id="playS"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg></button><button class="play small" id="playSlow">0.7×</button><div class="wave" id="wave">${'<i></i>'.repeat(14)}</div></div>`;
-    if (!r.shown) { body += `<textarea class="produce" id="pIn" placeholder="听到什么写什么，按 Enter 检查"></textarea>`; foot = `<button class="reveal" id="pCheck">检查 <span class="kbd">Enter</span></button><div class="footrow"><button class="linkbtn" id="pGive">听不出来，看原句</button></div>`; }
+    if (!r.shown) { body += `<textarea class="produce" id="pIn" placeholder="写下听到的句子"></textarea>`; foot = `<button class="reveal" id="pCheck">检查 <span class="kbd">Enter</span></button><div class="footrow"><button class="linkbtn" id="pGive">听不出来，看原句</button></div>`; }
     else { const t = it.split(' '), hit = lcsMatch(words(it), words(r.val)); let k = 0;
       body += `<div class="sentence pdiff">${t.map(w => { const ok = words(w).length ? hit[k++] : true; return ok ? esc(w) : `<span class="miss">${esc(w)}</span>`; }).join(' ')}</div><div class="hint">你写的：${esc(r.val || '（空）')}</div>`;
       foot = `<div class="gline"><span class="gtag">${r.acc}%</span><span>写对了 ${r.acc}% 的词${r.acc === 100 ? '，一个不差' : '；红色是漏掉或写错的'}</span></div><button class="reveal" id="pNext">继续 <span class="kbd">Enter</span></button>`; }
@@ -622,7 +622,7 @@ function pNext() { const r = prun; r.i++; r.shown = false; r.val = ''; renderPra
 function practiceDone() {
   const r = prun, acc = Math.round(r.score.reduce((a, b) => a + b, 0) / r.score.length), secs = Math.round((Date.now() - r.t0) / 1000);
   $('#rv').innerHTML = `<div class="rvbar"><div class="segs">${r.items.map((_, i) => `<i class="${r.score[i] >= 80 ? 'ro' : 'rx'}"></i>`).join('')}</div><span>练习完成</span></div>
-    <section class="card resume"><div class="rfox" id="rfox"></div><div><h3>${PMODES[r.m][0]} · 准确率 ${acc}%</h3><p>用时 ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}。练习成绩单独记录在统计里，不会改动这些词的复习排期。</p></div></section>
+    <section class="card resume"><div class="rfox" id="rfox"></div><div><h3>${PMODES[r.m][0]} · 准确率 ${acc}%</h3><p>用时 ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}。</p></div></section>
     <div class="rvfoot"><div class="actions"><button class="reveal" id="pAgain">再来一轮 <span class="kbd">Enter</span></button><div class="footrow"><button class="linkbtn" id="pBack">回到练习</button></div></div></div>`;
   if (window.Fox) Fox.mount($('#rfox'), { state: acc >= 80 ? 'happy' : 'idle', size: 72 });
   $('#pAgain').onclick = startPractice; $('#pBack').onclick = () => { prun = null; renderPractice('enter'); };
@@ -643,8 +643,8 @@ const LEXI = {
 function openLexi() {
   const c = Q[idx] || Q[0], qs = LEXI[c.w] || [['为什么是这个意思？', `<p>（原型）正式版会结合你遇到 <b>${esc(c.w)}</b> 的原句，解释它在这里的用法，并对比常见近义词。</p>`], ['再给我两个例句', '<p>（原型）正式版会生成两个难度合适的新例句，尽量用到你正在学的其他词。</p>']];
   $('#dSub').textContent = '· ' + c.w;
-  $('#dbody').innerHTML = `<div class="ctxline">正在复习 <b>${esc(c.w)}</b> · ${TYPE[c.type]}${phase === 'ask' && c.type !== 'intro' ? ' · 还没作答，我只给提示、不说答案' : ''}</div><div class="msgs" id="msgs"></div><div class="suggest" id="sugg">${qs.map((q, i) => `<button data-i="${i}">${q[0]}</button>`).join('')}</div>`;
-  document.querySelectorAll('#sugg button').forEach(b => b.onclick = () => ask(qs[+b.dataset.i][0], phase === 'ask' && c.type !== 'intro' ? '<p>先别急着看答案 🙂 提示一下：注意句子里它前后的词，它在这里充当什么成分？想好后再作答，答完再来问我细节。</p>' : qs[+b.dataset.i][1]));
+  $('#dbody').innerHTML = `<div class="ctxline">正在复习 <b>${esc(c.w)}</b> · ${TYPE[c.type]}${phase === 'ask' && c.type !== 'intro' ? ' · 作答前只给提示' : ''}</div><div class="msgs" id="msgs"></div><div class="suggest" id="sugg">${qs.map((q, i) => `<button data-i="${i}">${q[0]}</button>`).join('')}</div>`;
+  document.querySelectorAll('#sugg button').forEach(b => b.onclick = () => ask(qs[+b.dataset.i][0], phase === 'ask' && c.type !== 'intro' ? '<p>提示：看它前后的词，它在句子里是什么成分？</p>' : qs[+b.dataset.i][1]));
   $('#app').classList.add('drawer-open');
 }
 function ask(q, a) {
@@ -696,8 +696,7 @@ if (IS_EMPTY) {
   /* 空状态：今天没有要复习的卡片 */
   $('.crumb').innerHTML = '<b>复习</b> · 今天没有到期的卡片';
   $('#sideH').textContent = '今天要复习'; $('#recent').innerHTML = '<div class="lbl-i" style="padding:4px 12px">没有到期的词</div>';
-  emptyState($('#rv'), { img: 'empty-review', title: '今天的复习都做完了', desc: '明天有 9 张到期，后天 14 张。现在最好的安排是读点新东西——新文章里的生词会自动进入复习。', cls: 'card-like',
-    extra: '<div class="lbl-i" style="margin-top:6px">想多练一点也可以，不会打乱复习排期</div>',
+  emptyState($('#rv'), { img: 'empty-review', title: '今天的复习都做完了', desc: '明天 9 张到期，后天 14 张。', cls: 'card-like',
     actions: [{ t: '读一篇新文章', pri: true, link: 'home' }, { t: '提前复习明天的 9 张', onclick: () => { location.hash = ''; location.reload(); } }, { t: '去练习（听写、易混词）', onclick: () => setMode('practice') }] });
   const ring = $('#ringArc'); if (ring) ring.setAttribute('stroke-dashoffset', 0);
   const bd = document.querySelector('.nav .n.badge'); if (bd) bd.hidden = true;

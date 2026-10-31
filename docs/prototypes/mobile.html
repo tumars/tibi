@@ -157,7 +157,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   <!-- 首页 -->
   <section class="screen" id="s-home">
     <header class="top"><img class="logo" src="img/logo.svg" alt=""><h1>Tibi</h1><button class="ib" id="themeBtn" title="深浅色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button></header>
-    <div class="hero"><div class="fx" id="fox"></div><div><h1 id="greet">今天想读点什么？</h1><p>粘贴网址、分享到 Tibi，或者直接问</p></div></div>
+    <div class="hero"><div class="fx" id="fox"></div><div><h1 id="greet">今天想读点什么？</h1></div></div>
     <div class="ask"><input id="askIn" placeholder="粘贴网址，或问 Tibi…"><button class="send" id="askGo" aria-label="发送"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
     <div class="chips">
       <button class="chip" data-go="review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v4h-4"/></svg>复习 18 张（到期 14 + 新词 4）</button>
@@ -219,12 +219,12 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   <div class="sheet wc" id="wsheet"><div class="grab"></div><div class="sc" id="wbody"></div></div>
   <div class="sheet lgs" id="lsheet"><div class="grab"></div><div class="sc">
     <h2>标注说明</h2>
-    <div class="row"><span class="ex"><span class="w s0">upshot</span></span><span>生词：Tibi 猜你不认识，点开看释义</span></div>
-    <div class="row"><span class="ex"><span class="w s1">overhead</span></span><span>学习中：你标过的词，颜色越浅越接近掌握（见过 → 熟悉）</span></div>
-    <div class="row"><span class="ex"><span class="w s99">binding</span></span><span>待确认：可能不认识，点一下告诉 Tibi 认不认识</span></div>
+    <div class="row"><span class="ex"><span class="w s0">upshot</span></span><span>生词：可能不认识，点开看释义</span></div>
+    <div class="row"><span class="ex"><span class="w s1">overhead</span></span><span>学习中：越浅越熟（见过 → 熟悉）</span></div>
+    <div class="row"><span class="ex"><span class="w s99">binding</span></span><span>待确认：点一下确认认不认识</span></div>
     <div class="row"><span class="ex"><span class="w sel">borrow</span></span><span>选中：正在看它的词卡</span></div>
-    <div class="row"><span class="ex">enforces</span><span>没有标注：已知词，或已忽略的专有名词、代码</span></div>
-    <p>掌握了的词不再标注。可以在"我 → 设置"里把着色改成"只显示生词"或"纯净阅读"。</p>
+    <div class="row"><span class="ex">enforces</span><span>没有标注：已知词、专有名词和代码</span></div>
+    <p>掌握的词不再标注。</p>
   </div></div>
   <div class="sheet chat" id="csheet"><div class="grab"></div><div class="sc"><div class="msgs" id="msgs"></div><div class="sug" id="sug"></div></div><div class="in"><input id="cin" placeholder="问 Tibi…"><button class="btn pri" id="csend" style="height:44px;padding:0 16px">发送</button></div></div>
   <div class="toast" id="toast" hidden></div>
@@ -277,7 +277,7 @@ $('#cont').innerHTML = DOCS.filter(d => d.p > 0).slice(0, 2).map(docRow).join(''
 $('#shelf').innerHTML = DOCS.map(docRow).join('');
 document.querySelectorAll('.doc').forEach(b => b.onclick = () => +b.dataset.open ? show('read') : toast('原型里只有第一篇可以打开'));
 $('#allDocs').onclick = e => { e.preventDefault(); toast('原型：书架全部文章（按类型筛选）'); };
-$('#askGo').onclick = () => { const v = $('#askIn').value.trim(); if (!v) return; $('#askIn').value = ''; if (/^https?:\/\//i.test(v)) { fox.set('reading'); toast('Tibi 正在导入…完成后会出现在书架'); setTimeout(() => { fox.pulse('happy', 1800); toast('导入好了：' + v.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]); }, 2200); } else openChat(v); };
+$('#askGo').onclick = () => { const v = $('#askIn').value.trim(); if (!v) return; $('#askIn').value = ''; if (/^https?:\/\//i.test(v)) { fox.set('reading'); toast('正在导入…'); setTimeout(() => { fox.pulse('happy', 1800); toast('导入好了：' + v.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]); }, 2200); } else openChat(v); };
 $('#askIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('#askGo').click(); });
 $('#askIn').addEventListener('focus', () => fox.set('listening')); $('#askIn').addEventListener('blur', () => fox.set('idle'));
 document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => openChat(b.dataset.q));
@@ -308,10 +308,10 @@ function openWord(el) {
   if (selW) selW.classList.remove('sel'); selW = el; el.classList.add('sel');
   const k = el.dataset.w, [s] = TERMS[k], d = DICT[k] || ['', '', ''];
   $('#wbody').innerHTML = `<div class="h"><b>${esc(k)}</b><span class="ipa">${d[0]}</span><button class="say" data-say="播放发音"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 9a4.5 4.5 0 010 6"/></svg></button></div>
-    ${s === 99 ? '<div class="lbl" style="margin-top:4px">Tibi 猜你认识它，点一下熟练度确认</div>' : ''}
+    ${s === 99 ? '<div class="lbl" style="margin-top:4px">可能认识，选一个熟练度确认</div>' : ''}
     <div class="ai"><span class="tag">✦ 在这句里</span>${esc(d[2])}</div><div class="dict">${esc(d[1])}</div>
     <div class="stages">${STAGE.map((n, i) => `<button data-s="${i}" class="${s === i ? 'on' : ''}${s !== 99 && s >= i ? ' fill' : ''}"><i></i>${n}</button>`).join('')}</div>
-    <div class="row"><button class="btn" data-say="已忽略：以后不再标注">忽略</button><button class="btn pri" data-say="已加入生词本，会进入复习">加入生词本</button><button class="btn" id="askW">问 Tibi</button></div>`;
+    <div class="row"><button class="btn" data-say="已忽略：以后不再标注">忽略</button><button class="btn pri" data-say="已加入生词本">加入生词本</button><button class="btn" id="askW">问 Tibi</button></div>`;
   $('#wbody').querySelectorAll('[data-say]').forEach(b => b.onclick = () => toast(b.dataset.say));
   $('#wbody').querySelectorAll('[data-s]').forEach(b => b.onclick = () => { TERMS[k][0] = +b.dataset.s; renderRd(); closeSheets(); toast(`${k}：${STAGE[+b.dataset.s]}`); });
   $('#askW').onclick = () => { closeSheets(); setTimeout(() => openChat(`${k} 在这里为什么是这个意思？`), 200); };
@@ -324,7 +324,7 @@ $('#scrim').onclick = closeSheets;
 /* ---------- Tibi 对话（底部抽屉） ---------- */
 function openChat(q, ctx) {
   const m = $('#msgs');
-  if (!m.children.length) m.innerHTML = `<div class="a">我是 Tibi。${ctx ? ctx + '，' : ''}有什么想问的？</div>`;
+  if (!m.children.length) m.innerHTML = `<div class="a">${ctx ? ctx + '，' : ''}想问什么？</div>`;
   $('#sug').innerHTML = ['讲讲最难的那句', '出 3 道理解题', '我最近的薄弱点'].map(s => `<button class="chip" data-s="${s}">${s}</button>`).join('');
   $('#sug').querySelectorAll('[data-s]').forEach(b => b.onclick = () => send(b.dataset.s));
   openSheet('#csheet'); fox.set('thinking');
@@ -333,7 +333,7 @@ function openChat(q, ctx) {
 function send(q) {
   const m = $('#msgs'); m.insertAdjacentHTML('beforeend', `<div class="u">${esc(q)}</div>`);
   const a = document.createElement('div'); a.className = 'a'; a.textContent = '…'; m.appendChild(a); m.parentElement.scrollTop = 9999;
-  setTimeout(() => { a.innerHTML = /推荐|找/.test(q) ? '按你的水平挑了一篇：<b>A Gentle Introduction to Async Rust</b>，生词率 3.1%，约 9 分钟，复现 6 个你正在学的词。<br><span class="lbl">Tibi · 找文章 · 查看过程</span>' : /故事/.test(q) ? '用了你这周的 6 个生词写了一段，长按可以保存到书架。<br><span class="lbl">Tibi · 查看过程</span>' : '（原型）正式版会结合这篇文章、你的水平和记忆来回答。<br><span class="lbl">Tibi · 讲解 · 查看过程</span>'; m.parentElement.scrollTop = 9999; fox.pulse('happy', 1500); }, 900);
+  setTimeout(() => { a.innerHTML = /推荐|找/.test(q) ? '找到一篇：<b>A Gentle Introduction to Async Rust</b>，生词率 3.1%，约 9 分钟，含 6 个在学的词。<br><span class="lbl">Tibi · 找文章 · 查看过程</span>' : /故事/.test(q) ? '用这周的 6 个生词写了一段，长按可保存到书架。<br><span class="lbl">Tibi · 查看过程</span>' : '（原型）正式版会结合这篇文章、你的水平和记忆来回答。<br><span class="lbl">Tibi · 讲解 · 查看过程</span>'; m.parentElement.scrollTop = 9999; fox.pulse('happy', 1500); }, 900);
 }
 $('#fab').onclick = () => openChat('');
 $('#csend').onclick = () => { const v = $('#cin').value.trim(); if (!v) return; $('#cin').value = ''; send(v); };
@@ -366,7 +366,7 @@ function renderRv() {
   $('#rvN').textContent = qi < Q.length ? `还剩 ${Q.length - qi} 张` : '';
   const segs = `<div class="segs">${Q.map((_, i) => `<i class="${res[i] ? 'r' + res[i] : i === qi ? 'cur' : ''}"></i>`).join('')}</div>`;
   if (qi >= Q.length) {
-    $('#rv').innerHTML = segs + `<div class="done"><div class="fx">${mascotImg('celebrate-review')}</div><h3>今天的复习完成了</h3><p>连续学习第 10 天。忘了的词已经补练过。</p><div class="k3"><div><b>${Q.length}</b><span>复习了</span></div><div><b>${Math.round(res.filter(r => r >= 3).length / Q.length * 100)}%</b><span>记得或轻松</span></div><div><b>1:12</b><span>用时</span></div></div><button class="btn pri full" data-go="home">读一篇新文章</button></div>`;
+    $('#rv').innerHTML = segs + `<div class="done"><div class="fx">${mascotImg('celebrate-review')}</div><h3>今天的复习完成了</h3><p>连续学习第 10 天。</p><div class="k3"><div><b>${Q.length}</b><span>复习了</span></div><div><b>${Math.round(res.filter(r => r >= 3).length / Q.length * 100)}%</b><span>记得或轻松</span></div><div><b>1:12</b><span>用时</span></div></div><button class="btn pri full" data-go="home">读一篇新文章</button></div>`;
     $('#rv [data-go]').onclick = () => show('home'); return;
   }
   const c = Q[qi];

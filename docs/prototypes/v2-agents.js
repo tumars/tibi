@@ -10,7 +10,7 @@ const AGENT_ICON = {
   archivist: '<path d="M9 4a4 4 0 00-4 4c0 1 .3 1.8.8 2.5A4 4 0 007 18h2V4zM15 4a4 4 0 014 4c0 1-.3 1.8-.8 2.5A4 4 0 0117 18h-2V4z"/>',
 };
 const AGENTS = [
-  { id: 'tibi', skill: '对话', slash: '问 Tibi', name: 'Tibi', role: '主智能体', desc: '和你对话；自己能做的直接做，专门的工作交给下面的帮手', model: 'fast', tools: ['lookup_word', 'get_document', 'list_terms', 'mark_term', 'add_to_wordbook', 'search_memory', 'delegate', 'tool_search'], cost: 1.12 },
+  { id: 'tibi', skill: '对话', slash: '问 Tibi', name: 'Tibi', role: '主智能体', desc: '和你对话，按需调用下面的技能', model: 'fast', tools: ['lookup_word', 'get_document', 'list_terms', 'mark_term', 'add_to_wordbook', 'search_memory', 'delegate', 'tool_search'], cost: 1.12 },
   { id: 'importer', skill: '导入文章', slash: '导入', name: '导入', desc: '抓取或识别文章，提取正文，分句着色，判断类型与难度，写总结、挑短语和长难句', model: 'fast', tools: ['fetch_url', 'extract_pdf', 'ocr_image', 'segment_document', 'annotate_terms', 'estimate_difficulty', 'save_document'], cost: 1.46 },
   { id: 'scout', skill: '找文章', slash: '找文章', name: '选文', desc: '按你的水平、兴趣和正在学的词找文章，并说明推荐理由', model: 'fast', tools: ['search_feeds', 'web_search', 'fetch_url', 'estimate_difficulty', 'list_terms'], cost: 0.31 },
   { id: 'tutor', skill: '讲解', slash: '讲解', name: '伴读', desc: '阅读时讲解语境释义、长难句、语法和背景；读完出几道理解题', model: 'fast', tools: ['get_document', 'lookup_word', 'get_term_contexts', 'create_quiz', 'mark_term'], cost: 0.42 },

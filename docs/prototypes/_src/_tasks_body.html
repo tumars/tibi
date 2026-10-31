@@ -76,11 +76,10 @@
     <div class="scroll" id="scroll">
       <main class="tk">
         <section class="tkh">
-          <p>Tibi 在做的事。关掉应用后，运行中的任务会在下次打开时从断点继续。</p>
           <div class="seg" id="filter"></div>
         </section>
         <section class="kpis" id="kpis"></section>
-        <section class="tsec" id="secAppr"><h2>等你确认 <span class="n" id="nAppr"></span></h2><div class="desc">Tibi 要改动你的数据时，会按"设置 → Tibi"里的权限先问你</div><div class="appr-list" id="appr"></div></section>
+        <section class="tsec" id="secAppr"><h2>等你确认 <span class="n" id="nAppr"></span></h2><div class="appr-list" id="appr"></div></section>
         <section class="tsec" id="secRun"><h2>运行中 <span class="n" id="nRun"></span></h2><div class="list" id="run"></div></section>
         <section class="tsec" id="secHist"><h2>最近 <span class="n" id="nHist"></span></h2><div class="list" id="hist"></div></section>
       </main>
@@ -114,11 +113,11 @@ let TASKS = [
     tx: [['u', 'https://without.boats/blog/pin/'], ['c', 'fetch_url', '{ url: "https://without.boats/blog/pin/" }', '200 OK · 18.2 KB', '0.8s'], ['c', 'extract_article', '{ html: "…" }', '标题 "Pin, and Why It Exists" · 1,906 词 · 87 句', '1.1s']] },
   { id: 't2', state: 'run', agent: 'tibi', title: '找两篇周末读的小说章节', trigger: '你在对话里问 Tibi', model: 'fast', start: '1 分钟前', dur: 38, tokens: 5840, cost: 0.006,
     steps: [st('理解你的要求', 'ok', '1.4s'), st('找文章', 'run', '', [st('读取词汇画像与兴趣', 'ok', '0.3s'), st('扫描订阅源与公有领域书库', 'run'), st('按生词率排序', 'wait')], 'scout'), st('整理推荐理由并回复你', 'wait')],
-    tx: [['u', '周末想读点小说，帮我找两篇难度合适的章节'], ['a', '好的，我去找，优先选你在读的英国古典小说。'], ['c', 'delegate', '{ agent: "scout", task: "两篇小说章节，生词率 2–5%，约 15 分钟" }', '技能「找文章」运行中', ''], ['c', 'scout → search_feeds', '{ genre: "novel", source: "gutenberg" }', '候选 64 篇', '2.3s']] },
+    tx: [['u', '周末想读点小说，帮我找两篇难度合适的章节'], ['a', '优先找你在读的英国古典小说。'], ['c', 'delegate', '{ agent: "scout", task: "两篇小说章节，生词率 2–5%，约 15 分钟" }', '技能「找文章」运行中', ''], ['c', 'scout → search_feeds', '{ genre: "novel", source: "gutenberg" }', '候选 64 篇', '2.3s']] },
   { id: 't3', state: 'appr', agent: 'archivist', title: '整理今天的记忆', trigger: '你在首页输入 /整理记忆', model: 'fast', start: '3 分钟前', dur: 12, tokens: 2210, cost: 0.002,
     steps: [st('读取今天的学习事件（14 条）', 'ok', '0.2s'), st('对照已有记忆去重', 'ok', '2.1s'), st('写入新观察', 'appr'), st('标记过时的记忆', 'wait')],
     appr: { tool: 'remember', title: 'Tibi 想记住一条新观察', body: '经常混淆 <b>affect / effect</b>：今天复习时第 3 次选错，阅读时也查了 2 次。', edit: '经常混淆 affect / effect（复习第 3 次选错，阅读时查了 2 次）', src: '来自：复习记录、阅读记录 · 今天' },
-    tx: [['c', 'list_learning_events', '{ since: "today" }', '14 条事件', '0.2s'], ['c', 'search_memory', '{ query: "affect effect" }', '1 条相似：经常混淆 affect / effect（10/26）', '0.1s'], ['a', '这条和 10/26 的观察是同一件事，但又出现了一次，所以更新它并提高置信度。'], ['c', 'remember', '{ type: "semantic", content: "经常混淆 affect / effect…", supersedes: 18 }', '等你确认', '']] },
+    tx: [['c', 'list_learning_events', '{ since: "today" }', '14 条事件', '0.2s'], ['c', 'search_memory', '{ query: "affect effect" }', '1 条相似：经常混淆 affect / effect（10/26）', '0.1s'], ['a', '与 10/26 的观察相同，更新并提高置信度。'], ['c', 'remember', '{ type: "semantic", content: "经常混淆 affect / effect…", supersedes: 18 }', '等你确认', '']] },
   { id: 't4', state: 'appr', agent: 'importer', title: '从终端导入 3 篇博客', trigger: 'Codex 通过 MCP 调用', model: 'fast', start: '6 分钟前', dur: 41, tokens: 9600, cost: 0.011,
     steps: [st('获取 3 篇内容', 'ok', '2.6s'), st('分析与标注', 'ok', '14.8s'), st('保存到书架', 'appr')],
     appr: { tool: 'save_document', title: 'Tibi 想把 3 篇文章保存到书架', body: 'Codex 在终端里请求导入：<br>· Async Rust: Futures Explained<br>· The Tokio Runtime, Visually<br>· Cancellation in Async Rust', src: '来自：外部 AI 工具（MCP） · Codex' },
@@ -214,12 +213,12 @@ function renderLists() {
   $('#hist').innerHTML = hist.map(t => { const d = dayOf(t); const h = d !== lastDay ? `<div class="dayh">${d}</div>` : ''; lastDay = d; return h + rowHist(t); }).join('');
   document.querySelectorAll('.trow[data-id]').forEach(r => r.onclick = e => { if (e.target.closest('button')) return; openTask(r.dataset.id); });
   document.querySelectorAll('[data-pause]').forEach(b => b.onclick = () => { const t = TASKS.find(x => x.id === b.dataset.pause); t.paused = !t.paused; renderAll(); toast(t.paused ? '已暂停：完成当前这一步后停下' : '已继续'); });
-  document.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => { const t = TASKS.find(x => x.id === b.dataset.cancel); t.state = 'cancel'; t.start = '刚刚'; t.tx.push(['a', '（你取消了这个任务，已完成的步骤保留，正在用的技能一并停止）']); renderAll(); if (selId === t.id) renderDetail(); toast('已取消', () => { t.state = 'run'; renderAll(); }); });
+  document.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => { const t = TASKS.find(x => x.id === b.dataset.cancel); t.state = 'cancel'; t.start = '刚刚'; t.tx.push(['a', '（已取消，完成的步骤保留）']); renderAll(); if (selId === t.id) renderDetail(); toast('已取消', () => { t.state = 'run'; renderAll(); }); });
   document.querySelectorAll('[data-retry]').forEach(b => b.onclick = () => retry(b.dataset.retry));
 }
 function retry(id) {
   const t = TASKS.find(x => x.id === id); flat(t.steps).forEach(s => { if (s.s === 'err' || s.s === 'wait') s.s = 'wait'; }); const first = flat(t.steps).find(s => s.s === 'wait'); if (first) first.s = 'run';
-  t.state = 'run'; t.err = null; t.start = '刚刚'; t.tx.push(['a', '重试：从失败的那一步继续，已完成的步骤不再重跑。']); renderAll(); if (selId === id) renderDetail(); toast('已从失败的那一步重试');
+  t.state = 'run'; t.err = null; t.start = '刚刚'; t.tx.push(['a', '从失败的那一步重试。']); renderAll(); if (selId === id) renderDetail(); toast('已从失败的那一步重试');
 }
 function renderAll() { renderFilter(); renderKpis(); renderAppr(); renderLists(); markKb(); }
 
@@ -305,7 +304,7 @@ if (IS_EMPTY) { TASKS = []; }
 renderAll();
 if (IS_EMPTY) {
   $('#secAppr').hidden = true; $('#secHist').hidden = true; $('#filter').hidden = true;
-  emptyState($('#run'), { img: 'empty-tasks', title: 'Tibi 还没做过事', desc: '导入一篇文章、找文章，或者问 Tibi 一个问题，它做事的过程、要你确认的改动和花费都会出现在这里。', cls: '',
+  emptyState($('#run'), { img: 'empty-tasks', title: 'Tibi 还没做过事', desc: 'Tibi 做的事和需要你确认的改动会出现在这里。', cls: '',
     actions: [{ t: '去首页导入一篇文章', pri: true, link: 'home' }, { t: '看看 Tibi 的技能', link: 'settings' }] });
   $('#kpis').innerHTML = `<div class="kpi"><span class="k">运行中</span><span class="v">0<small>个</small></span></div><div class="kpi"><span class="k">本周完成</span><span class="v">0<small>个</small></span></div><div class="kpi"><span class="k">本月花费</span><span class="v">¥0.00<small>/ 预算 ¥20</small></span><div class="bar2"><i style="width:0%"></i></div></div><div class="kpi"><span class="k">花得最多的技能</span><span class="v" style="font-size:16px;margin-top:4px;color:var(--ink-3)">还没有</span></div>`;
   $('#secRun h2').innerHTML = '运行中 <span class="n">0</span>';

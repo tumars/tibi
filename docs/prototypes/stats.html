@@ -123,7 +123,7 @@
           <div class="panel">
             <div class="ph"><h2>接下来要复习</h2><span class="sub" id="fcSub">未来 14 天 · 张</span></div>
             <div class="chart" id="forecast" role="img"></div>
-            <div class="lbl-i">FSRS · 目标记忆保持率 90% · 实际 91.4%</div>
+            <div class="lbl-i">目标记得率 90% · 实际 91.4%</div>
           </div>
         </section>
 
@@ -142,7 +142,6 @@
           <div class="panel">
             <div class="ph"><h2>生词本熟练度</h2><a class="sub" data-link="words" href="#" style="text-decoration:none">共 33 个 →</a></div>
             <div class="dist"><div class="distbar" id="distbar"></div><div class="distlab" id="distlab"></div></div>
-            <div class="lbl-i">"掌握"表示已经不再标注；生词本里只保留你主动加入的词。</div>
           </div>
           <div class="panel">
             <div class="ph"><h2>按类型阅读量</h2><span class="sub" id="genreSub"></span></div>
@@ -191,7 +190,7 @@ function drawKpis() {
     ['复习', range === 30 ? 312 : range === 90 ? 941 : 1760, '次', '记得或轻松 <b>86%</b>'],
   ].map(([k, v, u, d], i) => { const sp = [spark(weekly(known.map((x, j) => j ? x - known[j - 1] : 0))), spark(weekly(minutes)), spark(weekly(minutes.map(m => m ? 1 : 0)), 'var(--ink-3)'), spark([84, 85, 83, 86, 88, 85, 87, 86, 85, 88, 87, 86], 'var(--ok)')][i]; return `<button class="tile" data-go="${['growthPanel', 'dailyPanel', 'heatPanel', 'perfPanel'][i]}"><span class="k">${k}</span><span class="v">${v}<small>${u}</small></span><span class="d">${d}</span>${sp}</button>`; }).join('');
   document.querySelectorAll('.tile[data-go]').forEach(t => t.onclick = () => { const el = document.getElementById(t.dataset.go); if (el) MAIN.scrollTo({ top: el.offsetTop - 12, behavior: REDUCE ? 'auto' : 'smooth' }); });
-  $('#insight').innerHTML = `最近 ${range} 天多认识了 <b>${gain}</b> 个词，学习天数 ${days} 天。技术类读得最多，生词率从 9% 降到了 7%；新闻类读得少，而且生词率仍在 8% 以上。建议这周每天读一篇 5 分钟左右的新闻，把它拉进学习区（2–5%）。`;
+  $('#insight').innerHTML = `最近 ${range} 天多认识了 <b>${gain}</b> 个词，学习天数 ${days} 天。技术类读得最多，生词率从 9% 降到了 7%；新闻类读得少，生词率仍在 8% 以上。`;
   $('#growSub').textContent = `${fmt(dayOf(s))} – 今天 · +${gain}`;
 }
 
@@ -332,7 +331,7 @@ const MAIN = osInit($('#scroll')); demoToggle();
 if (IS_EMPTY) {
   /* 空状态：还没有学习数据 */
   const m = document.querySelector('.st'); m.innerHTML = '';
-  emptyState(m, { state: 'idle', title: '还没有可以统计的东西', desc: '读完第一篇文章、复习过第一张卡片之后，这里会出现已知词曲线、每日阅读、复习表现和学习日历。', cls: 'card-like', actions: [{ t: '去首页读一篇', pri: true, link: 'home' }, { t: '看看示例数据', onclick: () => { location.hash = ''; location.reload(); } }] });
+  emptyState(m, { state: 'idle', title: '还没有可以统计的东西', desc: '读完第一篇文章后，这里会显示你的进度。', cls: 'card-like', actions: [{ t: '去首页读一篇', pri: true, link: 'home' }, { t: '看看示例数据', onclick: () => { location.hash = ''; location.reload(); } }] });
 } else { drawAll(true); moveThumb($('#range')); }
 let rT; addEventListener('resize', () => { if (IS_EMPTY) return; clearTimeout(rT); rT = setTimeout(() => { drawAll(); moveThumb($('#range')); }, 80); });
 shellHooks.theme.push(() => { if (!IS_EMPTY) drawAll(); });

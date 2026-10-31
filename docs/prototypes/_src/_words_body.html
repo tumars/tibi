@@ -198,7 +198,7 @@ function renderDetail() {
       const q = esc(s).replace(new RegExp(`\\b(${x.w.split(' ')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\w*)`, 'i'), '<mark>$1</mark>');
       return `<div class="ctx"><div class="from"><span>${DOCS[d].g}</span>${DOCS[d].open ? `<a href="${URLS.reader}" ${LOCAL ? '' : 'target="_blank" rel="noopener"'}>${esc(DOCS[d].t)} →</a>` : `<span>${esc(DOCS[d].t)}</span>`}</div><div class="quote">${q}</div></div>`; }).join('')}</div>
       <div class="memref">复习时会轮换使用这些原句，避免只记住某一句。</div></div>
-    <div class="sec"><h5>复习</h5><div class="kpis"><div><b>${x.s === 5 ? '—' : dueTxt(x.due)}</b><span>下次复习</span></div><div><b>${retention}%</b><span>记忆保持率</span></div><div><b>${reps}</b><span>复习次数</span></div></div>
+    <div class="sec"><h5>复习</h5><div class="kpis"><div><b>${x.s === 5 ? '—' : dueTxt(x.due)}</b><span>下次复习</span></div><div><b>${retention}%</b><span>记得率</span></div><div><b>${reps}</b><span>复习次数</span></div></div>
       ${reps ? `<div class="revs">${revs.reverse().map(v => `<span class="rev"><i class="r${v.r}">${R[v.r - 1]}</i>${fmtAgo(v.d)}</span>`).join('')}</div>` : '<div class="lbl-i">还没有复习过</div>'}</div>
     <div class="sec"><h5>熟练度变化</h5><div class="tl">${history(x).reverse().map(([t, d], i) => `<div class="${i === 0 ? 'now' : ''}"><span>${t}</span><span>${fmtAgo(d)}</span></div>`).join('')}</div></div>
     <div class="row"><button class="btn sm" id="askLexi">✦ 和近义词有什么区别</button><button class="btn sm" id="rmOne">移出生词本</button></div></div>`;
@@ -253,7 +253,7 @@ document.addEventListener('click', e => { if (!$('#exportMenu').contains(e.targe
 document.querySelectorAll('#exportMenu button').forEach(b => b.onclick = () => { $('#exportMenu').hidden = true; toast({ csv: `原型：正式版会保存 tibi-words.csv（${WORDS.length} 行）`, anki: `原型：正式版会生成 Anki 卡组，${WORDS.length} 张卡，例句来自你读过的文章`, txt: '原型：正式版会保存纯文本单词表' }[b.dataset.x]); });
 
 /* ---------- Tibi ---------- */
-const thread = [{ r: 'a', h: '<p>我可以帮你整理生词本：辨析近义词、用你的生词出题，或者找出一直没进步的词。</p>' }];
+const thread = [];
 function renderAsst() {
   const x = WORDS.find(w => w.id === selId);
   $('#pane-asst').innerHTML = `<div class="msgs"><div class="ctxline">正在看 <b>生词本</b>${x ? ` · 选中 <b>${esc(x.w)}</b>` : ''}</div>${thread.map(m => `<div class="msg ${m.r}">${m.h}</div>`).join('')}

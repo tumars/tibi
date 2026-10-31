@@ -108,7 +108,7 @@ pi-durable 要求"一个进程独占一份存储"，同时 MCP Server、后台�
 | **导入文章**（`importer`） | 抓取或识别 → 提取正文与结构 → 分句着色 → 判断类型与难度 → 总结、短语、长难句、学习建议 | 输入框"导入"、拖入文件、Tibi 自动判断、MCP | `fetch_url` `extract_pdf` `extract_epub` `extract_docx` `ocr_image` `segment_document` `annotate_terms` `estimate_difficulty` `save_document` `save_ai_result` `tag_document` | 快速（总结可选深入） | 任务进度抽屉 → 结果卡片；阅读器"总结"面板 |
 | **找文章**（`scout`） | 按你的水平、兴趣、正在学的词找文章，给推荐理由 | 输入框"找文章"、`/找文章`、首页建议 | `search_feeds` `web_search` `fetch_url` `estimate_difficulty` `list_terms` | 快速 | 推荐卡片；首页"今天推荐" |
 | **讲解**（`tutor`） | 阅读时讲解：语境释义、长难句、语法、背景知识；读完出几道理解题 | 选中文本"问 Tibi"、词卡"更多解释"、读完一篇、`/讲解` | `get_document` `lookup_word` `compare_words` `get_term_contexts` `set_context_meaning` `create_quiz` `mark_term` `speak` | 快速 | 词卡、阅读器 Tibi 面板 |
-| **出题与批改**（`coach`） | 生成填空 / 造句题的句子，批改造句，答错时解释；用生词出临时练习（"再练错词"）；完成页"趁热读一篇"找不到文章时写一篇用到今天这些词的短文 | 复习页（造句批改、"为什么"、完成页）、`/出题` | `get_term` `get_term_contexts` `grade_answer` `record_review` `pick_distractors` `create_quiz` `search_feeds` `save_document` `save_ai_result` | 快速 | 复习卡片、完成页、书架（Tibi 写的短文） |
+| **出题与批改**（`coach`） | 生成填空 / 造句题的句子，批改造句，答错时解释；用生词出临时练习（"再练错词"）；完成页"读一篇用到这些词的短文"找不到文章时写一篇用到今天这些词的短文 | 复习页（造句批改、"为什么"、完成页）、`/出题` | `get_term` `get_term_contexts` `grade_answer` `record_review` `pick_distractors` `create_quiz` `search_feeds` `save_document` `save_ai_result` | 快速 | 复习卡片、完成页、书架（Tibi 写的短文） |
 | **学习洞察**（`insight`） | 看统计数据写观察和建议 | 打开统计页、`/学习洞察` | `get_stats_series` `get_learning_stats` `get_review_stats` `list_terms` | 深入 | 统计页"Tibi 的洞察" |
 | **整理记忆**（`archivist`） | 把对话和学习事件整理成记忆：去重、合并、标记过时 | 手动：`/整理记忆`、记忆管理页 | `search_memory` `remember` `forget` `list_learning_events` | 快速 | 设置 → Tibi 记忆（每条带来源） |
 

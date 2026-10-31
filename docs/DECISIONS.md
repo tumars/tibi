@@ -103,7 +103,7 @@
 | 事项 | 为什么还开着 | 出处 |
 |---|---|---|
 | E1–E8 mac 原生感 | 建议全部采用，未确认 | [research/04 §3](research/04-mac-native-and-mascot.md#3-建议的决策e-组界面) |
-| E3（13px）、E6（6 / 10 / 11）的数值 | 与现行 13.5px、6 / 8 / 12 冲突，未重定 | [03 §9](design/03-visual-language.md#9-待讨论) |
+| E3（13px）、E6（6 / 10 / 11）的数值 | 与现行 13.5px、6 / 8 / 12 冲突，未重定 | [03 §10](design/03-visual-language.md#10-待讨论) |
 | 手机与桌面同步方案 | 局域网 / iCloud 文件夹 / 自建，排在 M7 | [00 §3.13](design/00-concept-design.md#313-手机端d8) |
 | 普惠体许可 | 若随软件分发，需核对 3.0 版许可 | [03 §2](design/03-visual-language.md#2-字体) |
 | 商标与域名 | 还没核查 | [overview 第 11 节](design/overview.html#decisions) |
@@ -114,7 +114,7 @@
 | 预算的默认值 | 规则已定，数值没定 | [05 §8](design/05-agent-architecture.md#8-权限审批与安全) |
 | 接口细节 | `chat.send` 的 context、长章节分页、MCP 资源、事件通道 | [06 §8](design/06-interface.md#8-待定) |
 | 数据细节 | `sections` 修订、`excerpt`、`learning_events` 是否派生 | [01 待定事项](design/01-database.md#待定事项) |
-| 视觉细节 | 手机壳深色与横屏、深色对比度 | [03 §9](design/03-visual-language.md#9-待讨论) |
+| 视觉细节 | 手机壳深色与横屏、深色对比度 | [03 §10](design/03-visual-language.md#10-待讨论) |
 
 ### 产品决策（2026-10-31 评审提出，未确认）
 
@@ -130,7 +130,7 @@
 | R11 | 手机端用不了 Tauri sidecar，自增主键也难同步，M7 要重写 Core 并迁主键 | Core 写成无 Node API 的 TS 包；可同步的表现在就用 UUIDv7 + `updated_at` + 墓碑；`review_logs` 只追加 | [00 §3.13](design/00-concept-design.md#313-手机端d8) |
 | R12 | 文档没提项目怎么持续 | 明确"纯开源 + 自带 Key"，不做托管 | — |
 | R13 | 首页"找文章"有模式、胶囊、卡片、`/` 四个入口，"继续阅读"权重不够 | 去掉模式分段自动判断；继续阅读升为主卡（M1 首页只有导入模式，这条从 M2 起才相关） | 改 [03 §1](design/03-visual-language.md#1-原则) |
-| R14 | "技能 / 让 Tibi 做什么 / 能帮你做这些 / 模式"指同一批事；FSRS、ECDICT、`save_document` 直接露给用户 | 统一叫"Tibi 能做的事"，术语收进"查看过程" | 原型多页 |
+| R14 | "技能 / 让 Tibi 做什么 / 能帮你做这些 / 模式"指同一批事；FSRS、ECDICT、`save_document` 直接露给用户 | 统一叫"Tibi 能做的事"，术语收进"查看过程"。2026-10-31 文案梳理已做一部分：删掉"能帮你做这些"卡片，`/` 菜单标题改为"选择要做的事"，统计和设置里不再出现 FSRS；"技能"与"模式"的叫法仍待定 | 原型多页 |
 | R15 | 设置 10 节 118 个控件（评审时的数，含已砍的新建技能、例行任务）；生词本筛选 7 层 | 模型、技能、MCP、预算收进"高级"；生词本左栏留 4 个视图（R5 的"标为已知"也要有去处） | `settings.html`、`words.html` |
 | R16 | 恢复阅读提示 8 秒就消失，底栏 0% 与"上次 45%"并存 | 自动跳回上次位置，给"回到开头" | `reader.html` |
 | R17 | 统计空状态只用 idle，不符合"要切换状态才用 SVG"；SVG 与软 3D 风格差异明显；首页 `#empty` 同页一 SVG 一插画 | 统计空状态改专属插画；问候时睁眼；校准 SVG 配色；首页 `#empty` 保留（分属不同区块） | [03 §7.2](design/03-visual-language.md#72-插画与封面) |

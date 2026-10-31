@@ -118,11 +118,11 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
         <div class="sbody">
           <section class="ssec" id="general"><h2>通用</h2>
             <div class="group">
-              <div class="item"><div><div class="t">外观</div><div class="d">跟随系统时会随 macOS / Windows 的深浅色自动切换</div></div><div class="ctl"><div class="seg" data-seg="theme"><button data-v="auto" class="on">跟随系统</button><button data-v="light">浅色</button><button data-v="dark">深色</button></div></div></div>
+              <div class="item"><div><div class="t">外观</div></div><div class="ctl"><div class="seg" data-seg="theme"><button data-v="auto" class="on">跟随系统</button><button data-v="light">浅色</button><button data-v="dark">深色</button></div></div></div>
               <div class="item"><div><div class="t">界面语言</div></div><div class="ctl"><select class="input" aria-label="界面语言"><option>简体中文</option><option>English</option></select></div></div>
-              <div class="item"><div><div class="t">英语水平与目标</div><div class="d">影响自动标注生词、难度评估和 Tibi 的讲解方式</div></div><div class="ctl"><select class="input" aria-label="目标"><option>雅思 7 分</option><option>托福 100</option><option>CET-6</option><option>工作阅读</option><option>兴趣</option></select><a class="btn sm" id="retest" href="#">重新测词汇量</a></div></div>
-              <div class="item"><div><div class="t">书架显示封面</div><div class="d">文章有封面时显示（EPUB 自带的封面、网页的配图，或图像模型生成的）；关闭时书架只显示标题和开头一句</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="书架显示封面"></button></div></div>
-              <div class="item"><div><div class="t">常读材料</div><div class="d">Tibi 推荐文章时会参考</div></div><div class="ctl"><div class="seg multi" data-seg="genre"><button class="on">技术</button><button class="on">新闻</button><button>文学</button><button>学术</button></div></div></div>
+              <div class="item"><div><div class="t">英语水平与目标</div><div class="d">影响生词标注和难度判断</div></div><div class="ctl"><select class="input" aria-label="目标"><option>雅思 7 分</option><option>托福 100</option><option>CET-6</option><option>工作阅读</option><option>兴趣</option></select><a class="btn sm" id="retest" href="#">重新测词汇量</a></div></div>
+              <div class="item"><div><div class="t">书架显示封面</div><div class="d">关闭时只显示标题和开头一句</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="书架显示封面"></button></div></div>
+              <div class="item"><div><div class="t">常读材料</div><div class="d">用于推荐文章</div></div><div class="ctl"><div class="seg multi" data-seg="genre"><button class="on">技术</button><button class="on">新闻</button><button>文学</button><button>学术</button></div></div></div>
             </div>
           </section>
 
@@ -131,61 +131,61 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
               <div class="item"><div><div class="t">正文字体</div></div><div class="ctl"><div class="seg" data-seg="font"><button class="on" style="font-family:var(--f-read)">Charter</button><button style="font-family:'Source Serif 4',serif">Source Serif</button><button>Geist</button></div></div></div>
               <div class="item"><div><div class="t">字号</div></div><div class="ctl"><div class="range"><input type="range" min="16" max="26" value="20" data-out="fsOut" data-unit=" px" aria-label="字号"><b id="fsOut">20 px</b></div></div></div>
               <div class="item"><div><div class="t">标注强度</div><div class="d">纯净阅读时不显示任何标注，点词仍可查词卡</div></div><div class="ctl"><div class="seg" data-seg="mark"><button class="on">全部</button><button>仅生词</button><button>纯净阅读</button></div></div></div>
-              <div class="item"><div><div class="t">默认显示译文</div><div class="d">每段下方显示中文译文，阅读时按 T 切换</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="默认显示译文"></button></div></div>
-              <div class="item"><div><div class="t">默认显示行间释义</div><div class="d">生词上方显示简短中文，阅读时按 G 切换</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="默认显示行间释义"></button></div></div>
+              <div class="item"><div><div class="t">默认显示译文</div><div class="d">阅读时按 T 切换</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="默认显示译文"></button></div></div>
+              <div class="item"><div><div class="t">默认显示行间释义</div><div class="d">阅读时按 G 切换</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="默认显示行间释义"></button></div></div>
               <div class="item"><div><div class="t">释义语言</div></div><div class="ctl"><div class="seg" data-seg="gloss"><button class="on">中文</button><button>英英</button><button>中英都显示</button></div></div></div>
-              <div class="item"><div><div class="t">读完一篇后，剩余生词标为已知</div><div class="d">让下一篇的自动标注更准；每次都会询问</div></div><div class="ctl"><div class="seg" data-seg="rest"><button class="on">询问</button><button>自动</button><button>从不</button></div></div></div>
+              <div class="item"><div><div class="t">读完一篇后，剩余生词标为已知</div></div><div class="ctl"><div class="seg" data-seg="rest"><button class="on">询问</button><button>自动</button><button>从不</button></div></div></div>
             </div>
           </section>
 
           <section class="ssec" id="learning"><h2>学习与复习</h2>
             <div class="group">
               <div class="item"><div><div class="t">每日阅读目标</div></div><div class="ctl"><div class="range"><input type="range" min="5" max="60" step="5" value="20" data-out="goalOut" data-unit=" 分钟" aria-label="每日阅读目标"><b id="goalOut">20 分钟</b></div></div></div>
-              <div class="item"><div><div class="t">每天最多新学的词</div><div class="d">超过的会排到第二天，避免复习量越滚越大</div></div><div class="ctl"><div class="range"><input type="range" min="5" max="50" step="5" value="20" data-out="newOut" data-unit=" 个" aria-label="每日新词上限"><b id="newOut">20 个</b></div></div></div>
-              <div class="item"><div><div class="t">目标记忆保持率</div><div class="d" id="retDesc"></div></div><div class="ctl"><div class="range"><input type="range" id="ret" min="80" max="97" value="90" aria-label="目标记忆保持率"><b id="retOut">90%</b></div></div></div>
-              <div class="item col"><div><div class="t">题型</div><div class="d">题型随熟练度递进：生词 / 见过 → 识别，眼熟 → 填空，认得 → 听写，熟悉 → 拼写或造句。关闭的题型会用前一种代替。</div></div>
-                <div class="ctl" style="justify-content:flex-start"><div class="seg multi" data-seg="types"><button class="on">识别</button><button class="on">填空</button><button class="on">听写</button><button class="on">拼写</button><button class="on">✦ 造句</button></div></div></div>
-              <div class="item"><div><div class="t">按个人复习记录优化 FSRS 参数</div><div class="d">已有 941 条复习记录（建议至少 400 条）· 上次优化：从未</div></div><div class="ctl"><button class="btn sm" id="optBtn">现在优化</button></div></div>
+              <div class="item"><div><div class="t">每天最多新学的词</div><div class="d">超过的排到第二天</div></div><div class="ctl"><div class="range"><input type="range" min="5" max="50" step="5" value="20" data-out="newOut" data-unit=" 个" aria-label="每日新词上限"><b id="newOut">20 个</b></div></div></div>
+              <div class="item"><div><div class="t">目标记得率</div><div class="d" id="retDesc"></div></div><div class="ctl"><div class="range"><input type="range" id="ret" min="80" max="97" value="90" aria-label="目标记忆保持率"><b id="retOut">90%</b></div></div></div>
+              <div class="item col"><div><div class="t">题型</div><div class="d">关闭的题型由前一种代替</div></div>
+                <div class="ctl" style="justify-content:flex-start"><div class="seg multi" data-seg="types"><button class="on">识别</button><button class="on">选义</button><button class="on">填空</button><button class="on">听写</button><button class="on">拼写</button><button class="on">造句</button></div></div></div>
+              <div class="item"><div><div class="t">按我的复习记录优化排期</div><div class="d">已有 941 条记录 · 从未优化</div></div><div class="ctl"><button class="btn sm" id="optBtn">现在优化</button></div></div>
             </div>
           </section>
 
-          <section class="ssec" id="ai"><h2>模型</h2><div class="desc">文章分析、语境释义和对话使用这里的模型。API Key 保存在系统钥匙串，不写入数据库。</div>
+          <section class="ssec" id="ai"><h2>模型</h2>
             <div class="group" id="provs">
               <div class="prov"><span class="ico">DS</span><div><div class="t">DeepSeek <span class="tag def">文本 · 默认</span><span class="tag ok">● 已连接</span></div><div class="d">deepseek-v4-flash · 本月用量约 ¥3.2</div></div><button class="btn sm" data-edit="ds">编辑</button>
                 <div class="pform" id="form-ds" hidden><span>Base URL</span><input class="input" value="https://api.deepseek.com/v1"><span>API Key</span><input class="input" type="password" value="sk-••••••••••••••••"><span>模型</span><select class="input"><option>deepseek-v4-flash</option><option>deepseek-v4-pro</option></select><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="ds">测试连接</button><button class="btn sm" data-close="ds">完成</button></div></div></div>
               <div class="prov"><span class="ico">👁</span><div><div class="t">视觉模型 <span class="tag off">未配置</span></div><div class="d">用于高质量识别图片和扫描版 PDF；不配置时使用本地 Tesseract</div></div><button class="btn sm" data-edit="vis">配置</button>
                 <div class="pform" id="form-vis" hidden><span>服务商</span><select class="input"><option>OpenAI 兼容接口</option><option>通义千问 VL</option><option>OpenAI</option></select><span>Base URL</span><input class="input" placeholder="https://…"><span>API Key</span><input class="input" type="password" placeholder="sk-…"><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="vis">测试连接</button><button class="btn sm" data-close="vis">完成</button></div></div></div>
-              <div class="prov"><span class="ico">🖼</span><div><div class="t">图像模型 <span class="tag off">未配置</span></div><div class="d">按文章主题生成涂鸦封面；不配置时用程序生成的涂鸦</div></div><button class="btn sm" data-edit="img">配置</button>
+              <div class="prov"><span class="ico">🖼</span><div><div class="t">图像模型 <span class="tag off">未配置</span></div><div class="d">为文章生成封面；不配置则不显示封面</div></div><button class="btn sm" data-edit="img">配置</button>
                 <div class="pform" id="form-img" hidden><span>服务商</span><select class="input"><option>OpenAI 图像模型</option><option>其他兼容接口</option></select><span>API Key</span><input class="input" type="password" placeholder="sk-…"><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="img">测试连接</button><button class="btn sm" data-close="img">完成</button></div></div></div>
               <div class="prov"><span class="ico">+</span><div><div class="t">添加服务商</div><div class="d">任何 OpenAI 兼容接口：通义、Kimi、智谱、Ollama 本地模型…</div></div><button class="btn sm" id="addProv">添加</button></div>
             </div>
-            <div class="desc" style="margin-top:14px">两档模型 · 每项技能用其中一档（在下面的"Tibi 的技能"里设置）</div>
+            <div class="desc" style="margin-top:14px">两档模型</div>
             <div class="group">
               <div class="item"><div><div class="t">快速</div><div class="d">对话、查词、导入分析等大多数工作</div></div><div class="ctl"><select class="input" aria-label="快速档模型"><option>DeepSeek · deepseek-v4-flash</option><option>本地 · Ollama qwen3</option></select></div></div>
               <div class="item"><div><div class="t">深入</div><div class="d">统计洞察、学习计划等需要仔细推理的工作</div></div><div class="ctl"><select class="input" aria-label="深入档模型"><option>DeepSeek · deepseek-v4-pro</option><option>DeepSeek · deepseek-v4-flash</option></select></div></div>
             </div>
-            <div class="desc" style="margin-top:14px">也可以用你已有的订阅（可选）· 使用前请确认该服务的条款允许在第三方应用中使用</div>
+            <div class="desc" style="margin-top:14px">或使用已有订阅 · 使用前请确认服务条款允许</div>
             <div class="radio" id="backend">
               <label><input type="radio" name="be" checked><div><b>使用上面配置的 API Key</b><span>默认。按量计费，花费按技能统计</span></div></label>
               <label><input type="radio" name="be" data-login="ChatGPT"><div><b>用 ChatGPT 账号登录</b><span>使用你的 ChatGPT 订阅额度</span></div></label>
             </div>
           </section>
 
-          <section class="ssec" id="tibi"><h2>Tibi</h2><div class="desc">它怎么对待你的数据、怎么称呼你，以及能不能被别的工具调用。它会做的事在下一组"技能"里。</div>
+          <section class="ssec" id="tibi"><h2>Tibi</h2>
             <div class="group">
-              <div class="item col"><div><div class="t">Tibi 修改学习数据时</div><div class="d">例如标记生词、加入生词本、导入文章、写入记忆。所有操作都可撤销</div></div>
+              <div class="item col"><div><div class="t">Tibi 修改学习数据时</div><div class="d">所有改动都可撤销</div></div>
                 <div class="ctl" style="justify-content:flex-start"><div class="seg" data-seg="perm"><button>每次都问</button><button class="on">标词自动，其余询问</button><button>全部自动</button></div></div></div>
-              <div class="item"><div><div class="t">Tibi 怎么称呼你，用什么语言聊</div><div class="d">Tibi 自己的名字不改——它就是这只藏狐</div></div><div class="ctl"><input class="input" value="你" style="width:90px" aria-label="称呼"><select class="input" aria-label="对话语言"><option>中英混合</option><option>中文</option><option>英文（练习用）</option></select></div></div>
-              <div class="item"><div><div class="t">允许其他 AI 工具使用 Tibi（MCP）</div><div class="d">开启后可在 Codex、Claude Code 等终端里查词、出题、导入文章；它们的写操作同样按上面的权限先问你，记录在任务中心</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="开启 MCP 服务" id="mcpSw"></button></div></div>
+              <div class="item"><div><div class="t">Tibi 怎么称呼你，用什么语言聊</div></div><div class="ctl"><input class="input" value="你" style="width:90px" aria-label="称呼"><select class="input" aria-label="对话语言"><option>中英混合</option><option>中文</option><option>英文（练习用）</option></select></div></div>
+              <div class="item"><div><div class="t">允许其他 AI 工具使用 Tibi（MCP）</div><div class="d">在 Codex、Claude Code 等工具里使用 Tibi；写操作同样先问你</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="false" aria-label="开启 MCP 服务" id="mcpSw"></button></div></div>
               <div class="item" id="mcpCfg" hidden><div><div class="t">接入配置</div><div class="mono">{"mcpServers":{"tibi":{"command":"tibi","args":["mcp"]}}}</div></div><div class="ctl"><button class="btn sm" id="copyMcp">复制</button></div></div>
             </div>
           </section>
 
-          <section class="ssec" id="agents"><h2>Tibi 的技能</h2><div class="desc">Tibi 会做的事。平时不用管；想让某项技能更合你心意，可以换模型档或加一句指令。Tibi 只用它自己的能力（查词、标词、导入、出题…），不会运行任意代码。在首页输入 / 可以直接选。</div>
+          <section class="ssec" id="agents"><h2>Tibi 的技能</h2>
             <div class="group" id="agList"></div>
             <div class="group" style="margin-top:12px">
-              <div class="item"><div><div class="t">每月预算</div><div class="d">本月已用 <b id="spent"></b>；超出后 Tibi 暂停调用模型，只保留不花钱的功能</div></div><div class="ctl"><input class="input" value="20" style="width:70px;text-align:right" aria-label="每月预算"> 元</div></div>
-              <div class="item"><div><div class="t">单个任务上限</div><div class="d">一次运行花费超过它会先停下来问你</div></div><div class="ctl"><input class="input" value="0.5" style="width:70px;text-align:right" aria-label="单个任务上限"> 元</div></div>
+              <div class="item"><div><div class="t">每月预算</div><div class="d">本月已用 <b id="spent"></b>；超出后暂停 AI 功能</div></div><div class="ctl"><input class="input" value="20" style="width:70px;text-align:right" aria-label="每月预算"> 元</div></div>
+              <div class="item"><div><div class="t">单个任务上限</div><div class="d">超过时先问你</div></div><div class="ctl"><input class="input" value="0.5" style="width:70px;text-align:right" aria-label="单个任务上限"> 元</div></div>
             </div>
           </section>
 
@@ -202,10 +202,10 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
             </div>
           </section>
 
-          <section class="ssec" id="memory"><h2>记忆</h2><div class="desc">Tibi 会记住关于你的这些事，用来调整讲解和推荐。悬停可编辑或删除；生词和复习记录不在这里，它们直接来自你的学习数据。</div>
+          <section class="ssec" id="memory"><h2>记忆</h2><div class="desc">用来调整讲解和推荐。</div>
             <div class="group" id="mems"></div>
             <div class="group" style="margin-top:12px">
-              <div class="item"><div><div class="t">记忆</div><div class="d">暂停后 Tibi 不再写入新记忆，已有记忆仍会使用</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="记忆开关"></button></div></div>
+              <div class="item"><div><div class="t">记忆</div><div class="d">暂停后不再记新的</div></div><div class="ctl"><button class="switch" role="switch" aria-checked="true" aria-label="记忆开关"></button></div></div>
               <div class="item"><div><div class="t">清空全部记忆</div></div><div class="ctl"><button class="btn sm danger" id="clearMem">清空</button></div></div>
             </div>
           </section>
@@ -254,7 +254,7 @@ document.querySelectorAll('.seg').forEach(g => g.addEventListener('click', e => 
 }));
 document.querySelectorAll('.switch').forEach(s => s.onclick = () => { const on = s.getAttribute('aria-checked') !== 'true'; s.setAttribute('aria-checked', on); if (s.id === 'mcpSw') { $('#mcpCfg').hidden = !on; if (on) anim($('#mcpCfg'), { opacity: [0, 1], y: [-4, 0] }, { duration: 0.3, ease: EASE }); } saved(); });
 document.querySelectorAll('input[type=range][data-out]').forEach(r => r.oninput = () => { $('#' + r.dataset.out).textContent = r.value + r.dataset.unit; saved(); });
-function retDesc() { const v = +$('#ret').value; $('#retOut').textContent = v + '%'; const load = Math.round(18 * Math.pow((1 / v * 100 - 1) / (1 / 0.9 - 1), -0.55)); $('#retDesc').innerHTML = `复习时希望记得的比例。越高，复习越频繁：按你现在的生词量，每天约 <b>${load}</b> 张卡`; }
+function retDesc() { const v = +$('#ret').value; $('#retOut').textContent = v + '%'; const load = Math.round(18 * Math.pow((1 / v * 100 - 1) / (1 / 0.9 - 1), -0.55)); $('#retDesc').innerHTML = `越高复习越频繁，按现在约每天 <b>${load}</b> 张`; }
 $('#ret').oninput = () => { retDesc(); saved(); }; retDesc();
 
 /* 服务商 */
@@ -353,7 +353,7 @@ function searchSettings(q) {
     const old = sec.querySelector('h2 .n'); if (old) old.remove(); if (q && n) sec.querySelector('h2').insertAdjacentHTML('beforeend', `<span class="n">${n}</span>`) ; total += n;
   });
   let nr = $('#snores'); if (!nr) { nr = document.createElement('div'); nr.id = 'snores'; nr.className = 'snores'; body.appendChild(nr); }
-  nr.hidden = !q || total > 0; nr.innerHTML = `没有叫 <b>${esc(q)}</b> 的设置。试试 <span class="kbd">⌘K</span>，它也能搜到页面和操作。`;
+  nr.hidden = !q || total > 0; nr.innerHTML = `没有找到「${esc(q)}」`;
   document.querySelectorAll('#snav a').forEach(a => { const sec = $(a.getAttribute('href')); a.style.opacity = sec && sec.hidden ? .35 : ''; });
 }
 $('#sq').addEventListener('input', () => searchSettings($('#sq').value));
