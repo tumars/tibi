@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """按 docs/design/07-mascot-assets.md 里的提示词批量生成吉祥物插画。
 
-用法（在仓库根目录，需要 OPENAI_API_KEY）：
+实际出图走 Codex 命令行（ChatGPT 登录，不需要 API Key）：用 --print 拼提示词后交给
+`codex exec`，命令与归档步骤见 07 §1.1。直接调 Images API 是有 API Key 时的备用路径。
+
+用法（在仓库根目录，除 --list / --print 外需要 OPENAI_API_KEY）：
   python3 tools/gen-mascot.py --list                 # 列出提示词 id
   python3 tools/gen-mascot.py ref-sheet              # 先出角色设定图，挑一张存为 docs/design/mascot/ref-sheet.png
   python3 tools/gen-mascot.py hero-day empty-review  # 指定几张；自动带 ref-sheet.png 做参考图
   python3 tools/gen-mascot.py --all                  # 除 ref-sheet 外全部
   选项：--model gpt-image-1.5 --quality high --n 2 --out docs/design/mascot/out
 
-没有 API Key 时，用 --print 把拼好的提示词打印出来，贴到 ChatGPT（附上设定图）即可。
+没有 API Key 时，用 --print 把拼好的提示词打印出来，交给 Codex，或贴到 ChatGPT（附上设定图）。
 只用标准库，不依赖 openai 包。
 """
 import argparse, base64, json, os, pathlib, re, sys, time, urllib.request, uuid
@@ -16,6 +19,7 @@ import argparse, base64, json, os, pathlib, re, sys, time, urllib.request, uuid
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DOC = ROOT / 'docs/design/07-mascot-assets.md'
 REF = ROOT / 'docs/design/mascot/ref-sheet.png'
+# 其余都是 1024x1024。sticker 是 3×2 整张，生成后再切成单张（07 §1.1）。
 SIZES = {'hero-morning': '1536x1024', 'hero-day': '1536x1024', 'hero-night': '1536x1024'}
 
 def load_prompts():

@@ -147,7 +147,7 @@
 
 ## 7. 动效
 
-**库：Motion**（motion.dev，原 Framer Motion，MIT）。正式版用 React 绑定 `motion/react`，原型用其原生 JS 版本（`Motion.animate / stagger`）。选择理由见 [技术选型 §9](../research/03-tech-survey.md#9-动效库)。
+**库：Motion**（motion.dev，原 Framer Motion，MIT）。正式版用 React 绑定 `motion/react`，原型用其原生 JS 版本（`Motion.animate / stagger`）。选择理由见 [技术选型 §9](../../research/03-tech-survey.md#9-动效库)。
 
 **参数约定**：常规过渡 0.25–0.55s，缓动 `cubic-bezier(.22,.8,.24,1)`；弹簧 `bounce 0.18–0.3`；列表错峰 30–60ms；`prefers-reduced-motion` 时全部跳过；库加载失败时界面照常工作，只是没有动效。
 

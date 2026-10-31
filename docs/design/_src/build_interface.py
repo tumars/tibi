@@ -19,11 +19,14 @@ type TaskState = 'run' | 'appr' | 'paused' | 'done' | 'err' | 'cancel';
 type Page<T> = { items: T[]; total: number; cursor?: string };
 type Undo = { undo_id: Id; expires_at: Ts };       // 写操作的撤销凭据；system.undo 用
 type Ok = { ok: true };
+type AiStatus = 'none' | 'deferred' | 'running' | 'done' | 'failed';   // deferred = 离线、没配模型或超预算，"稍后补做"
+type AiTask = 'summary' | 'phrases' | 'hard_sentences' | 'advice' | 'glossary' | 'characters' | 'recap' | 'background' | 'translate' | 'explain' | 'grade_sentence';   // 与 ai_results.task 一致
+type LearningEventType = 'document_imported' | 'section_finished' | 'term_marked' | 'review_session' | 'vocab_test' | 'quiz_done';   // 与 learning_events.type 一致
 
 // 文档
 interface DocumentSummary { id: Id; kind: Kind; genre: Genre; title: string; author?: string; source: string; tags: string[];
-  minutes: number; unknown_ratio: number; difficulty: 'ok' | 'mid' | 'hard'; progress: number;          // 0–100
-  book?: { chapter: number; chapters: number; chapter_progress: number }; status: 'processing' | 'ready' | 'failed';
+  minutes: number; unknown_ratio: number; difficulty: 'ok' | 'mid' | 'hard'; progress: number;          // 0–1
+  book?: { chapter: number; chapters: number; chapter_progress: number }; status: 'processing' | 'ready' | 'failed'; ai_status: AiStatus;
   excerpt: string; cover_path?: string; added_at: Ts; opened_at?: Ts; finished_at?: Ts }
 interface Document extends DocumentSummary { sections: { id: Id; idx: number; title: string; status: string; progress: number; word_count: number }[];
   ai?: { summary?: AiResult; glossary?: AiResult; characters?: AiResult } }
@@ -35,9 +38,9 @@ interface AiResult { task: string; output: unknown; model: string; prompt_versio
 
 // 词汇
 interface Term { id: Id; kind: 'word' | 'phrase'; text: string; display: string; ipa?: string; meaning: string; short_gloss?: string; status: Status;
-  parent_id?: Id; forms: string[]; star?: number; exam: string[]; tags: string[]; encounter_count: number; doc_count: number;
+  forms: string[]; star?: number; exam: string[]; tags: string[]; encounter_count: number; doc_count: number;
   due?: Ts; retention?: number; lapses: number; added_at: Ts; last_seen_at?: Ts }
-interface TermDetail extends Term { en?: string; note?: string; contexts: { id: Id; document_id: Id; document_title: string; sentence_id: Id; sentence: string; surface: string;
+interface TermDetail extends Term { en?: string; note?: string; contexts: { id: Id; source: 'article' | 'dictionary' | 'manual'; document_id?: Id; document_title?: string; sentence_id?: Id; sentence: string; surface?: string;
   meaning_in_context?: string; is_primary: boolean; unknown_others: number }[];   // unknown_others = 0 即 i+1 句
   card?: CardState; reviews: { rating: Rating; card_type: CardType; reviewed_at: Ts }[]; history: { status: Status; at: Ts; source: string }[] }
 interface DictEntry { word: string; phonetic?: string; translation: string; definition?: string; pos?: string; collins?: number; oxford?: boolean; exam: string[]; frequency?: number; forms: string[] }
@@ -68,31 +71,33 @@ interface TaskSummary { id: TaskId; state: TaskState; skill_id: SkillId; title: 
   step: { index: number; total: number; label: string }; started_at: Ts; duration_ms: number; cost: number; error?: string }
 interface TaskStep { id: string; label: string; state: 'wait' | 'run' | 'ok' | 'err' | 'appr'; duration_ms?: number; skill_id?: SkillId; children?: TaskStep[] }
 interface Task extends TaskSummary { conversation_id: ConvId; steps: TaskStep[]; transcript: Message[]; usage: { tokens_in: number; tokens_out: number; cost: number }; approval?: Approval }
-interface Approval { task_id: TaskId; skill_id: SkillId; tool: string; title: string; body: string; impact: string; undoable: boolean; editable?: { field: string; value: string }; requested_at: Ts }
+interface Approval { task_id: TaskId; skill_id?: SkillId; tool: string; title: string; body: string; impact: string; undoable: boolean; untrusted: boolean; expires_at?: Ts;   // untrusted = 任务读过不可信内容；expires_at 只有例行任务有
+  editable?: { field: string; value: string }; requested_at: Ts }
 
 // 技能、记忆、配置
 interface Skill { id: SkillId; title: string; description: string; source: 'builtin' | 'custom'; tools: string[]; model_tier: Tier; extra_instructions?: string;
   write_permission: 'inherit' | 'ask'; schedule?: { cron: string; enabled: boolean; next_run?: Ts; label: string }; enabled: boolean; month_cost: number }
 interface Memory { id: Id; type: 'profile' | 'semantic' | 'episodic' | 'procedural'; content: string; subject?: string; confidence: number;
-  source: { type: 'user' | 'agent' | 'consolidation'; ref?: string; label: string }; status: 'active' | 'superseded' | 'deleted'; created_at: Ts; updated_at: Ts }
+  source: { type: 'user' | 'agent' | 'consolidation'; ref?: string; label: string }; status: 'active' | 'superseded'; created_at: Ts; updated_at: Ts }
+// model 是配置项（默认 deepseek-v4-flash / deepseek-v4-pro），代码不写死
 interface Provider { id: Id; kind: 'llm' | 'vision' | 'image' | 'tts'; name: string; protocol: string; base_url?: string; auth: 'api_key' | 'oauth'; tier?: Tier; model: string;
   has_secret: boolean; is_default: boolean; month_cost?: number }
 interface Profile { display_name: string; goal: string; level_self: string; interests: string[]; vocab_estimate: number; vocab_tested_at?: Ts;
   daily_goal_minutes: number; daily_new_cards: number; desired_retention: number; assistant_prefs: { nickname: string; language: 'mixed' | 'zh' | 'en'; permission: 'ask' | 'default' | 'auto' } }
 
 // 错误（JSON-RPC error.data.code）
-type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavailable' | 'budget_exceeded' | 'offline' | 'invalid_source' | 'busy';
+type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavailable' | 'budget_exceeded' | 'offline' | 'invalid_source' | 'busy' | 'approval_timeout';
 """
 
 # (分组, 说明, [(方法, 参数, 返回, 备注)])
 API = [
   ('documents', '文档与书架', [
-    ('documents.import', "{ source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] } }", '{ task_id: TaskId }', '长任务；进度走 task.update，完成走 task.done（载荷含 document_id）'),
+    ('documents.import', "{ source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] } }", '{ task_id: TaskId }', '长任务；进度走 task.update，完成走 task.done（载荷含 document_id）；path 与 url 按 §1 校验'),
     ('documents.list', "{ kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; cursor?: string; limit?: number }", 'Page<DocumentSummary>', '书架页与首页书架；tags 多选为同时满足'),
     ('documents.get', '{ id: Id }', 'Document', '含章节列表与文档级 AI 结果'),
     ('documents.update', "{ id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean } }", 'Document', '改 genre 会让相关 ai_results 失效'),
-    ('documents.delete', '{ id: Id }', 'Undo', '可撤销；原始文件副本一并移入回收区'),
-    ('documents.reanalyze', '{ id: Id; ai?: boolean }', '{ task_id: TaskId }', '按当前词库重新标注；ai=true 时重新生成总结等'),
+    ('documents.delete', '{ id: Id }', 'Undo', '软删（documents.deleted_at），书架不再显示，可撤销；原始文件副本一并移入回收区'),
+    ('documents.reanalyze', '{ id: Id; ai?: boolean }', '{ task_id: TaskId }', '按当前词库重新标注；ai=true 时重新生成总结等，也用于"稍后补做"（ai_status = deferred）'),
     ('documents.export', "{ id: Id; format: 'markdown' }", '{ path: string }', '含标注与笔记'),
     ('sections.get', "{ id: Id; with?: ('translations' | 'ai')[] }", 'SectionContent', '阅读器一次取齐：句子、tokens、词状态、短语、计数'),
     ('sections.progress', '{ id: Id; sentence_id: Id; progress: number }', 'Ok', '阅读位置；节流后调用'),
@@ -101,16 +106,15 @@ API = [
   ]),
   ('terms', '词汇与生词本', [
     ('terms.lookup', '{ text: string; sentence_id?: Id }', '{ dict?: DictEntry; term?: Term; context_meaning?: string }', '词卡：词典 + 本地状态 + 语境释义缓存（没有则由讲解技能异步补）'),
-    ('terms.list', "{ view?: 'all' | 'due' | 'late' | 'new' | 'leech' | 'stuck' | 'stale' | 'unsure' | 'ignored' | 'mastered'; status?: Status[]; kind?: 'word' | 'phrase'; document_id?: Id; tags?: string[]; q?: string; sort?: 'due' | 'added' | 'enc' | 'alpha' | 'stage' | 'freq'; cursor?: string; limit?: number }", 'Page<Term> & { counts: Record<string, number> }', 'counts 给左栏视图计数与标签计数'),
+    ('terms.list', "{ view?: 'all' | 'due' | 'late' | 'new' | 'leech' | 'stuck' | 'stale' | 'unsure' | 'ignored' | 'mastered'; status?: Status[]; kind?: 'word' | 'phrase'; document_id?: Id; tags?: string[]; q?: string; sort?: 'due' | 'added' | 'enc' | 'alpha' | 'stage' | 'freq'; cursor?: string; limit?: number }", 'Page<Term> & { counts: Record<string, number> }', 'counts 给左栏视图计数与标签计数；词条不单独打标签，tags 继承来源文章（01 §2）'),
     ('terms.get', '{ id: Id } | { text: string }', 'TermDetail', '详情抽屉；contexts 已按 i+1 适合度排序'),
     ('terms.setStatus', "{ ids: Id[]; status: Status; source?: 'user' | 'page_done' }", '{ changed: number; undo: Undo }', '0–5、98 忽略；5 会暂停卡片'),
     ('terms.addPhrase', '{ text: string; sentence_id: Id; surface: string }', 'Term', '选中多个词标为短语；之后全文自动识别'),
     ('terms.add', '{ entries: { text: string; meaning?: string }[] }', '{ created: Term[]; undo: Undo }', '生词本"添加"：查词典补音标释义，用词典例句做卡'),
-    ('terms.tag', '{ ids: Id[]; tags: string[]; remove?: boolean }', '{ changed: number }', ''),
     ('terms.pause', '{ ids: Id[]; days: number }', '{ changed: number; undo: Undo }', '难词暂停复习'),
     ('terms.setCardType', '{ id: Id; card_type?: CardType }', 'CardState', '难词换题型；undefined 恢复默认'),
-    ('terms.remove', '{ ids: Id[] }', 'Undo', '移出生词本（词条保留，卡片删除）'),
-    ('terms.import', "{ path: string; format: 'csv' | 'txt' | 'anki' | 'known' }", '{ task_id: TaskId }', 'known = 已知词表，直接标为掌握'),
+    ('terms.remove', '{ ids: Id[] }', 'Undo', '移出生词本：in_wordbook = 0，卡片软删（cards.deleted_at），review_logs 保留；再次加入时恢复原卡片'),
+    ('terms.import', "{ path: string; format: 'csv' | 'txt' | 'anki' | 'known' }", '{ task_id: TaskId }', 'known = 已知词表，直接标为掌握；path 按 §1 校验'),
     ('terms.export', "{ format: 'csv' | 'anki' | 'txt'; ids?: Id[]; with_contexts?: boolean }", '{ path: string }', ''),
   ]),
   ('review', '复习', [
@@ -123,7 +127,7 @@ API = [
     ('review.pause', '{ session_id: Id }', 'Ok', '"稍后继续"；每次作答已自动保存，这里只标记暂停'),
     ('review.grade', '{ session_id: Id; step: number; text: string }', '{ task_id: TaskId }', '造句题交给出题与批改技能；结果（含建议评分）走 task.done'),
     ('review.quiz', '{ term_ids?: Id[]; count?: number; from?: "session_mistakes" }', 'ReviewSession', '不计分的会话（kind = drill，graded = false）：完成页"再练错词"、空状态"用生词出题"（G7）'),
-    ('review.story', '{ term_ids: Id[] }', '{ task_id: TaskId }', '完成页"读一篇用到这些词的短文"（G7）：找文章技能先找；找不到由 Tibi 写一篇（≤ 300 词、生词率 ≤ 5%），保存时 source = tibi_generated'),
+    ('review.story', '{ term_ids: Id[] }', '{ task_id: TaskId }', '完成页"读一篇用到这些词的短文"（G7）：找文章技能先找；找不到由 Tibi 写一篇（≤ 300 词、生词率 ≤ 5%），保存时 source_type = tibi_generated'),
     ('review.optimize', '{}', '{ task_id: TaskId }', '按个人记录优化 FSRS 参数（≥ 400 条）'),
   ]),
   ('practice', '练习（不计分，G8）', [
@@ -144,7 +148,7 @@ API = [
     ('chat.history', '{ conversation_id: ConvId; cursor?: string }', 'Page<Message>', ''),
     ('chat.cancel', '{ submission_id: TaskId }', 'Ok', ''),
     ('chat.rename', '{ conversation_id: ConvId; title: string }', 'Conversation', ''),
-    ('chat.delete', '{ conversation_id: ConvId }', 'Ok', ''),
+    ('chat.delete', '{ conversation_id: ConvId }', 'Ok', '硬删：对话、thread_links，以及 skill_audit 里引用它的 args 与 undo_payload；不可撤销'),
   ]),
   ('tasks', '任务中心', [
     ('tasks.list', '{ state?: TaskState[]; limit?: number }', '{ running: TaskSummary[]; pending: Approval[]; history: TaskSummary[]; kpis: { running: number; week_done: number; week_failed: number; month_cost: number; budget: number; top_skill: { id: SkillId; cost: number } } }', '一次取齐页面所需'),
@@ -153,7 +157,7 @@ API = [
     ('tasks.resume', '{ id: TaskId }', 'TaskSummary', ''),
     ('tasks.cancel', '{ id: TaskId }', 'TaskSummary', '已完成步骤保留'),
     ('tasks.retry', '{ id: TaskId }', 'TaskSummary', '从失败的那一步继续'),
-    ('tasks.approve', "{ id: TaskId; decision: 'allow' | 'deny' | 'edit'; edited?: Record<string, unknown>; always?: boolean }", 'TaskSummary', '解除 beforeTool 挂起；always 写入该工具的自动允许规则'),
+    ('tasks.approve', "{ id: TaskId; decision: 'allow' | 'deny' | 'edit'; edited?: Record<string, unknown>; always?: boolean }", 'TaskSummary', '解除 beforeTool 挂起；always 写入该工具的自动允许规则（对读过不可信内容的任务不生效）'),
     ('tasks.diagnostics', '{ id: TaskId }', '{ text: string }', '复制诊断信息（不含密钥与正文）'),
   ]),
   ('skills', '技能与例行任务', [
@@ -161,6 +165,7 @@ API = [
     ('skills.update', "{ id: SkillId; patch: { model_tier?: Tier; extra_instructions?: string; write_permission?: 'inherit' | 'ask'; schedule?: { enabled?: boolean; cron?: string }; enabled?: boolean } }", 'Skill', ''),
     ('skills.create', '{ title: string; description: string; instructions: string; tools: string[]; model_tier: Tier }', 'Skill', '写 ~/Tibi/skills/<name>/SKILL.md 并热加载'),
     ('skills.preview', '{ title: string; description: string; instructions: string; tools: string[]; model_tier: Tier }', '{ skill_md: string }', '新建表单实时预览'),
+    ('skills.install', '{ path: string }', '{ task_id: TaskId }', '安装社区技能或手动放入的 SKILL.md：审批卡列出它要的工具集，确认后才启用'),
     ('skills.delete', '{ id: SkillId }', 'Undo', '只对自定义技能'),
     ('skills.reset', '{ id: SkillId }', 'Skill', '恢复默认（清空附加指令与覆盖）'),
     ('skills.runNow', '{ id: SkillId; input?: string }', '{ task_id: TaskId }', '例行任务"立即运行"或 / 直接调用'),
@@ -169,9 +174,9 @@ API = [
   ('memory', 'Tibi 记忆', [
     ('memory.list', "{ type?: Memory['type']; q?: string }", 'Memory[]', '每条带来源，可跳到对话或文章'),
     ('memory.update', '{ id: Id; content: string }', 'Memory', '用户修改后 source 变为 user'),
-    ('memory.delete', '{ id: Id }', 'Undo', ''),
+    ('memory.delete', '{ id: Id }', 'Undo', '撤销窗口过后硬删，连同 skill_audit 里的内容副本'),
     ('memory.pause', '{ paused: boolean }', 'Ok', '暂停写入新记忆，已有仍使用'),
-    ('memory.clear', '{}', 'Undo', ''),
+    ('memory.clear', '{}', 'Undo', '同 memory.delete'),
   ]),
   ('settings', '设置与账户', [
     ('profile.get', '{}', 'Profile', ''),
@@ -181,7 +186,7 @@ API = [
     ('providers.list', '{}', 'Provider[]', '密钥不返回，只有 has_secret'),
     ('providers.upsert', '{ provider: Omit<Provider, \'id\' | \'has_secret\' | \'month_cost\'> & { id?: Id }; secret_ref?: string }', 'Provider', '密钥先由 Rust 写入钥匙串，这里只传引用'),
     ('providers.test', '{ id: Id }', '{ ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string }', '连接测试'),
-    ('providers.login', "{ service: 'chatgpt' | 'claude' }", '{ task_id: TaskId }', '打开浏览器 OAuth；令牌入钥匙串'),
+    ('providers.login', "{ service: 'chatgpt' }", '{ task_id: TaskId }', '打开浏览器 OAuth；令牌入钥匙串。条款待核实；不提供 Claude 订阅登录（05 §10）'),
     ('vocab.start', '{}', '{ bands: { label: string; words: string[] }[] }', '词汇量测试：5 组 × 8 词，含伪词（不标出）'),
     ('vocab.submit', '{ picks: string[][] }', '{ estimate: number; cefr: string; bands: number[]; pseudo_hits: number }', '估算并初始化已知词库（terms.status 99 / 推断已知）'),
   ]),
@@ -208,11 +213,12 @@ EVENTS = [
 ]
 
 RUST = [
-  ('keyring_set', '{ ref: string; secret: string }', 'Ok', '密钥只经 WebView → Rust → 钥匙串，不进 Core 的 RPC'),
+  ('keyring_set', '{ ref: string; secret: string }', 'Ok', '写入密钥只走 WebView → Rust → 钥匙串，不进 Core 的 RPC'),
   ('keyring_delete', '{ ref: string }', 'Ok', ''),
+  ('secret_get', '{ ref: string }', '{ secret: string }', '只给 Core：经 sidecar 通道按需取，只留内存，不写库、不写日志；WebView 不能调用'),
   ('core_status / core_restart', '{}', '{ pid: number; uptime_ms: number }', 'sidecar 守护'),
   ('open_path', '{ path: string }', 'Ok', '在 Finder / 资源管理器中显示'),
-  ('pick_file', "{ kinds: ('pdf' | 'epub' | 'docx' | 'txt' | 'image' | 'csv' | 'apkg')[] ; multiple?: boolean }", '{ paths: string[] }', '文件选择对话框'),
+  ('pick_file', "{ kinds: ('pdf' | 'epub' | 'docx' | 'txt' | 'image' | 'csv' | 'apkg')[] ; multiple?: boolean }", '{ paths: string[] }', '文件选择对话框；所选路径（含拖入的文件）由 Rust 登记给 Core，能力层的 path 只认登记过的'),
   ('window_set_tray_mode', '{ keep_running: boolean }', 'Ok', '关窗口后 Core 是否留在托盘'),
 ]
 
@@ -233,24 +239,26 @@ CAPS = [
     ('tag_document', '{ id: Id; tags?: string[]; genre?: Genre; replace?: boolean }', '{ document: DocumentSummary; undo: Undo }', 'write', "导入技能写建议标签时 source = 'tibi'"),
   ]),
   ('导入流水线', [
-    ('fetch_url', '{ url: string }', "{ url: string; site: string; title: string; author?: string; published_at?: Ts; lang: string; text: string; html?: string; images: string[] }", 'read', '只抓用户给的网址或白名单来源；正文抽取用可读性算法；结果视为数据不当指令'),
-    ('extract_pdf', '{ path: string; pages?: [number, number] }', '{ pages: number; text: string; needs_ocr: boolean; toc?: { title: string; page: number }[]; images: string[] }', 'read', ''),
-    ('ocr_image', '{ paths: string[] }', '{ text: string; confidence: number; lang: string }', 'read', '本地或视觉模型，按设置'),
+    ('fetch_url', '{ url: string }', "{ url: string; site: string; title: string; author?: string; published_at?: Ts; lang: string; text: string; html?: string; images: string[] }", 'read', '只抓用户给的网址或白名单来源；Core 校验 URL：只收 http(s)，解析后拒绝回环、内网、链路本地地址，重定向每跳重查；正文抽取用可读性算法；结果视为不可信数据，不当指令'),
+    ('extract_pdf', '{ path: string; pages?: [number, number] }', '{ pages: number; text: string; needs_ocr: boolean; toc?: { title: string; page: number }[]; images: string[] }', 'read', 'path 按 §1 校验'),
+    ('extract_epub', '{ path: string }', '{ title?: string; author?: string; text: string; toc: { title: string; href: string }[]; cover_path?: string; images: string[] }', 'read', 'path 按 §1 校验；书的章节由 segment_document 切分'),
+    ('extract_docx', '{ path: string }', '{ title?: string; text: string; images: string[] }', 'read', 'path 按 §1 校验'),
+    ('ocr_image', '{ paths: string[] }', '{ text: string; confidence: number; lang: string }', 'read', '本地或视觉模型，按设置；path 按 §1 校验'),
     ('segment_document', "{ text: string; kind?: Kind; toc?: { title: string; page?: number }[] }", "{ kind: Kind; lang: string; word_count: number; sections: { idx: number; title: string; paragraphs: { idx: number; text: string; block_type: 'prose' | 'heading' | 'list_item' | 'quote' | 'code'; lang?: string }[] }[] }", 'read', '规则切分章节 / 段落 / 句子，识别代码块；不调模型'),
     ('annotate_terms', '{ sentences: string[] }', '{ sentences: { text: string; tokens: Token[] }[]; phrases: { text: string; sentence_idx: number[] }[]; counts: { total: number; new: number; learning: number; unsure: number }; unknown_ratio: number }', 'read', '分词、词形还原、按已知词库标状态、识别已有短语'),
     ('estimate_difficulty', '{ text?: string; document_id?: Id }', "{ unknown_ratio: number; difficulty: 'ok' | 'mid' | 'hard'; cefr: string; minutes: number; hard_sentence_ratio: number; top_unknown: string[] }", 'read', '按用户当前词库算，所以对每个人不同'),
     ('save_document', "{ kind: Kind; genre: Genre; title: string; author?: string; source: string; lang: string; sections: { title: string; paragraphs: { text: string; block_type: string }[] }[]; tags?: string[]; cover_path?: string; original_path?: string }", '{ document_id: Id; section_ids: Id[]; undo: Undo }', 'confirm', '保存到书架需确认（默认权限模式下）；审批卡展示标题、类型、字数'),
-    ('save_ai_result', "{ document_id: Id; section_id?: Id; task: 'summary' | 'glossary' | 'characters' | 'hard_sentences' | 'translation' | 'context_meaning'; output: unknown; prompt_version: string }", '{ id: Id }', 'write', '模型产出的结构化结果入 ai_results 缓存，自动、可覆盖'),
+    ('save_ai_result', "{ scope: 'document' | 'section' | 'sentence' | 'term_context'; target_id: Id; task: AiTask; output: unknown; prompt_version: string }", '{ id: Id }', 'write', '模型产出的结构化结果入 ai_results 缓存，自动、可覆盖（同一键只留一条，01 §9）；导入流水线的固定步骤不受不可信内容规则影响，因为它只写缓存'),
     ('import_document', "{ source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] } }", '{ task_id: TaskId }', 'confirm', '复合能力：主对话与 MCP 用，内部运行导入技能（上面几步）'),
   ]),
-  ('选文', [
+  ('找文章', [
     ('search_feeds', "{ interests?: string[]; genres?: Genre[]; max_unknown_ratio?: number; since?: Ts; limit?: number }", "{ url: string; title: string; site: string; published_at?: Ts; excerpt: string; est_minutes: number; est_unknown_ratio?: number }[]", 'read', '从用户订阅的来源与内置推荐源拉取候选；难度估算用摘要粗算'),
     ('web_search', '{ q: string; limit?: number }', '{ url: string; title: string; snippet: string }[]', 'read', '可选，需在设置里配置搜索服务'),
   ]),
   ('词汇', [
     ('get_term', '{ text: string } | { id: Id }', 'TermDetail', 'read', ''),
     ('list_terms', "{ view?: 'due' | 'late' | 'new' | 'leech' | 'stuck' | 'stale' | 'unsure'; status?: Status[]; document_id?: Id; tags?: string[]; limit?: number }", '{ items: Term[]; counts: Record<string, number> }', 'read', '与 terms.list 同一实现，默认 limit 50'),
-    ('get_term_contexts', '{ term_id: Id; limit?: number; prefer_i1?: boolean }', "{ sentence_id: Id; document_id: Id; document_title: string; sentence: string; surface: string; unknown_others: number; meaning_in_context?: string }[]", 'read', 'prefer_i1 时只剩一个生词的句子排前面'),
+    ('get_term_contexts', '{ term_id: Id; limit?: number; prefer_i1?: boolean }', "{ source: 'article' | 'dictionary' | 'manual'; sentence_id?: Id; document_id?: Id; document_title?: string; sentence: string; surface?: string; unknown_others: number; meaning_in_context?: string }[]", 'read', 'prefer_i1 时只剩一个生词的句子排前面'),
     ('mark_term', '{ term: string; status: Status; sentence_id?: Id }', '{ term_id: Id; previous: Status; undo: Undo }', 'write', '默认权限模式下自动执行；阅读器按钮直接调它，不经模型'),
     ('add_to_wordbook', '{ words: { text: string; meaning?: string; sentence_id?: Id }[] }', '{ created: Id[]; existed: Id[]; undo: Undo }', 'write', '查词典补音标释义，建卡片'),
     ('add_phrase', '{ text: string; sentence_id: Id; surface: string; meaning?: string }', '{ term_id: Id; undo: Undo }', 'write', ''),
@@ -268,24 +276,24 @@ CAPS = [
     ('get_stats_series', "{ metrics: ('known' | 'minutes' | 'words' | 'reviews')[]; days: number }", 'stats.series 的返回', 'read', '洞察技能用'),
   ]),
   ('记忆', [
-    ('search_memory', "{ q?: string; type?: Memory['type']; limit?: number }", 'Memory[]', 'read', '向量 + 关键词；每条带来源'),
-    ('list_learning_events', "{ since?: Ts; types?: ('read' | 'review' | 'mark' | 'import' | 'chat')[]; limit?: number }", '{ type: string; at: Ts; ref: { table: string; id: Id | string }; summary: string }[]', 'read', '整理记忆的例行任务读一周的事件'),
+    ('search_memory', "{ q?: string; type?: Memory['type']; limit?: number }", 'Memory[]', 'read', 'FTS5 关键词 + 时间衰减（A4）；每条带来源'),
+    ('list_learning_events', "{ since?: Ts; types?: LearningEventType[]; limit?: number }", '{ type: LearningEventType; at: Ts; ref: { table: string; id: Id | string }; summary: string }[]', 'read', '整理记忆的例行任务读一周的事件；对话内容经 pi-durable 另读'),
     ('remember', "{ type: Memory['type']; content: string; subject?: string; confidence?: number; source_ref?: string }", '{ memory_id: Id; superseded?: Id; undo: Undo }', 'confirm', '需确认；整理记忆的例行任务内部合并（consolidation）不弹卡，但写审计'),
     ('forget', '{ id: Id }', '{ undo: Undo }', 'confirm', ''),
   ]),
   ('音频', [
-    ('speak', "{ text: string; voice?: string; rate?: number }", '{ audio_path: string; duration_ms: number; cached: boolean }', 'read', '系统 TTS 或配置的引擎，结果缓存到 media/audio'),
+    ('speak', "{ text: string; voice?: string; rate?: number }", '{ engine: string; file_path?: string; duration_ms?: number; cached: boolean }', 'read', '配置的引擎合成并缓存到 media/audio（字段同 audio_cache）；系统语音由 WebView 直接播放，没有 file_path'),
   ]),
   ('调度', [
-    ('run_skill', '{ skill_id: SkillId; input: string; context?: unknown; wait?: boolean }', '{ task_id: TaskId; result?: string }', 'read', '主对话专用：创建子对话；wait=true 时等结果（有超时）'),
+    ('run_skill', '{ skill_id: SkillId; input: string; context?: unknown; wait?: boolean }', '{ task_id: TaskId; result?: string }', 'write', '主对话专用：创建子对话；wait=true 时等结果（有超时）。会花钱，所以不算读；子对话的写操作各自过审批；嵌套深度上限 1，子对话不能再调它'),
     ('tool_search', '{ q: string }', '{ name: string; description: string }[]', 'read', '命中的工具加载进当前对话'),
-    ('schedule', "{ skill_id: SkillId; cron: string; input?: string; enabled?: boolean }", '{ schedule_id: string; next_run: Ts }', 'confirm', '新建或改例行任务，需确认'),
+    ('schedule', "{ skill_id: SkillId; cron: string; enabled?: boolean }", '{ skill_id: SkillId; next_run: Ts }', 'confirm', '改一项技能的例行任务（一项技能一个时间，存 skills 表），需确认'),
   ]),
 ]
 
-# MCP Server：工具 = 能力层（除 run_skill / tool_search / schedule），名称、参数、返回一致。
+# MCP Server：工具 = 能力层（除 run_skill / tool_search / schedule），名称、参数、返回一致；默认只开读能力白名单。
 MCP_RESULT = r"""
-// 读工具：直接返回能力的返回值（JSON）。
+// 读工具：直接返回能力的返回值（JSON）。外部工具开场先调 get_context，拿当前页面与学习快照。
 // 写 / 需确认工具：按当前权限模式。自动执行时同上；需要用户点头时先返回——
 type McpPending = { status: 'pending_approval'; task_id: TaskId; approval: Approval; poll: 'tibi_task_status' };
 // 调用方再调 tibi_task_status({ task_id }) 直到：
@@ -296,7 +304,6 @@ type McpTaskStatus = { status: 'running' | 'pending_approval'; step?: string }
 """
 MCP_EXTRA = [
   ('tibi_task_status', '{ task_id: TaskId }', 'McpTaskStatus', '只对 MCP 暴露，对应内部 tasks.get'),
-  ('get_context', '{}', '同能力层', '外部工具开场先调它，拿当前页面与学习快照'),
 ]
 MCP_RESOURCES = [
   ('tibi://document/{id}', 'text/markdown', '文章正文（含章节标题），只读'),
@@ -319,7 +326,15 @@ def md():
            '- 分页用 `cursor`（不透明字符串）+ `limit`，返回 `Page<T>`。',
            '- 时间一律毫秒时间戳；ID 为领域表主键，对话与任务 ID 为 pi-durable 的字符串。',
            '- 错误：JSON-RPC `error.code` 用标准值，`error.data.code` 为业务码（见下方 `ErrorCode`），`error.message` 可直接显示给用户。',
-           '- 这些方法都是能力层的薄封装：技能、MCP 工具调用的是同一批能力，所以参数与返回的形状与 05 §4.2 的能力定义一致。', '',
+           '- 这些方法都是能力层的薄封装：技能、MCP 工具调用的是同一批能力，所以参数与返回的形状与本文 §5 的能力定义一致。',
+           '- 文件路径：`path` 只接受 `pick_file` 所选或拖入后由 Rust 登记的路径，否则返回 `permission_denied`；MCP 调用方不能传本地路径。',
+           '- 网址：由 Core 校验（只收 http(s)，拒绝回环、内网、链路本地地址，重定向每跳重查），否则返回 `invalid_source`。', '',
+           '失败路径：', '',
+           '- 预算：调用模型前按估算预留，超出月预算或单任务上限返回 `budget_exceeded`；新装就有默认上限，不存在"没配就不限"。',
+           '- 模型不可用：确定性步骤照常完成，`ai_status = deferred`，界面显示"稍后补做"，之后经 `documents.reanalyze` 补。',
+           '- 例行任务无人值守：审批超时（`Approval.expires_at`）即失败，返回 `approval_timeout`，不静默放行。',
+           '- 错过的定时任务：重启后只补跑一次，不逐次补。',
+           '- 写能力带幂等键（由 pi-durable 工具任务 ID 派生，存 `skill_audit`），崩溃重跑不会写两次。', '',
            '## 2. 共享类型', '', '```ts' + TYPES + '```', '', '## 3. 方法', '']
     for g, title, ms in API:
         out.append(f'### {g} · {title}'); out.append('')
@@ -330,10 +345,10 @@ def md():
     out += ['## 4. Core → WebView 事件', '', '| 事件 | 载荷 | 谁在听 |', '|---|---|---|']
     for e, p, n in EVENTS: out.append(f'| `{e}` | `{cell(p)}` | {n} |')
     out += ['', '## 5. 能力层（技能工具 / MCP 工具 / 界面直接调用）', '',
-            '一份定义（名称、说明、TypeBox 参数、结构化返回、权限、是否可撤销、replay）生成三种出口。下面用 TypeScript 写法给出参数与返回；实现时参数即 TypeBox schema，pi-ai 自动校验。权限：**读** 不动数据；**写** 可设自动（默认模式下自动执行，可撤销）；**需确认** 弹审批卡（放手模式除外）。', '',
+            '一份定义（名称、说明、TypeBox 参数、结构化返回、权限、是否可撤销、replay）生成三种出口。下面用 TypeScript 写法给出参数与返回；实现时参数即 TypeBox schema，pi-ai 自动校验。权限：**读** 不动数据；**写** 可设自动（默认模式下自动执行，可撤销）；**需确认** 弹审批卡（全部自动模式除外）。任务读过不可信内容（抓取的网页、导入正文、搜索结果）后，它的写入和外联（`fetch_url`、`web_search`）一律弹审批卡，全部自动和"以后都自动"也不放行。', '',
             '- 能力是确定性的（查库、规则、本地算法），不在能力里调语言模型；需要模型判断的（评语、对比解释、推荐理由）由技能完成。',
             '- 每项技能只拿自己那组能力（SKILL.md 的 `allowed-tools`）；主对话默认带常用能力，其余 deferred，用 `tool_search` 加载。',
-            '- 所有写能力写 `skill_audit`（技能、参数、undo_payload），返回 `Undo`。', '']
+            '- 所有写能力写 `skill_audit`（技能、参数、undo_payload、幂等键），返回 `Undo`；界面直接调用时任务和技能为空。', '']
     for g, caps in CAPS:
         out.append(f'### {g}'); out.append('')
         out.append('| 能力 | 参数 | 返回 | 权限 | 说明 |'); out.append('|---|---|---|---|---|')
@@ -341,14 +356,16 @@ def md():
             out.append(f'| `{c}` | `{cell(p)}` | `{cell(r)}` | {PERM[perm][0]} | {n} |')
         out.append('')
     out += ['## 6. MCP Server', '',
-            '- 传输 stdio，命令 `tibi mcp`；设置里开关 + 可复制的接入配置。外部工具触发的任务 `trigger = mcp`，审批卡注明来源（如 Codex）。',
-            '- 工具 = 能力层（名称、参数、返回与 §5 一致），不暴露 `run_skill`、`tool_search`、`schedule`；另加两项：', '',
+            '- 外部工具以 stdio 启动 `tibi mcp`。它只是代理：经本地 socket 加令牌连运行中的 Core，自己不开数据库。Core 持单实例锁，保证 `app.db` 只有一个写入者。',
+            '- 设置里开关 + 可复制的接入配置（令牌在这里生成，存钥匙串）。外部工具触发的任务 `trigger = mcp`，审批卡注明来源（如 Codex）。',
+            '- 默认只开读能力白名单；写能力由用户逐项开启，开启后仍按权限模式审批。',
+            '- 工具 = 能力层（名称、参数、返回与 §5 一致），不暴露 `run_skill`、`tool_search`、`schedule`；另加一项：', '',
             '| 工具 | 参数 | 返回 | 说明 |', '|---|---|---|---|']
     for c, p, r, n in MCP_EXTRA: out.append(f'| `{c}` | `{cell(p)}` | `{cell(r)}` | {n} |')
     out += ['', '写工具的返回约定：', '', '```ts' + MCP_RESULT + '```', '',
             '资源（建议，M3 再定）：', '', '| URI | 类型 | 内容 |', '|---|---|---|']
     for u, t, n in MCP_RESOURCES: out.append(f'| `{u}` | `{t}` | {n} |')
-    out += ['', '## 7. Tauri（Rust）命令', '', '只做系统能力，不碰业务数据。', '', '| 命令 | 参数 | 返回 | 说明 |', '|---|---|---|---|']
+    out += ['', '## 7. Tauri（Rust）命令', '', '只做系统能力，不碰业务数据。WebView 只能调这些命令里标给它的；严格 CSP，见 05 §8。', '', '| 命令 | 参数 | 返回 | 说明 |', '|---|---|---|---|']
     for c, p, r, n in RUST: out.append(f'| `{c}` | `{cell(p)}` | `{cell(r)}` | {n} |')
     out += ['',
             '## 8. 待定', '',
@@ -360,7 +377,7 @@ def md():
 
 def html():
     parts = []
-    parts.append('<h3>约定</h3><ul><li>JSON-RPC 2.0：WebView 经 Tauri <code>invoke("core_call")</code> 发请求，Rust 转发到 Core 的 stdio；事件经 Rust 转成 Tauri 事件 <code>core_event</code>。</li><li>长任务一律返回 <code>{ task_id }</code>，进度走 <code>task.update</code>，结果走 <code>task.done</code>。</li><li>写操作返回 <code>Undo</code>，统一用 <code>system.undo</code> 撤销，同时写入 skill_audit。</li><li>分页 <code>cursor + limit → Page&lt;T&gt;</code>；时间为毫秒时间戳；错误用标准 JSON-RPC 码 + <code>error.data.code</code> 业务码。</li></ul>')
+    parts.append('<h3>约定</h3><ul><li>JSON-RPC 2.0：WebView 经 Tauri <code>invoke("core_call")</code> 发请求，Rust 转发到 Core 的 stdio；事件经 Rust 转成 Tauri 事件 <code>core_event</code>。</li><li>长任务一律返回 <code>{ task_id }</code>，进度走 <code>task.update</code>，结果走 <code>task.done</code>。</li><li>写操作返回 <code>Undo</code>，统一用 <code>system.undo</code> 撤销，同时写入 skill_audit。</li><li>分页 <code>cursor + limit → Page&lt;T&gt;</code>；时间为毫秒时间戳；错误用标准 JSON-RPC 码 + <code>error.data.code</code> 业务码。</li><li><code>path</code> 只接受 <code>pick_file</code> 或拖入后登记的路径；网址由 Core 校验，禁内网地址。</li><li>失败路径：调用前预留预算；模型不可用时 <code>ai_status = deferred</code>（稍后补做）；例行任务审批超时即失败；错过的定时任务只补跑一次；写能力带幂等键。</li></ul>')
     parts.append('<details class="tbl api"><summary><code>共享类型</code><span class="d">TypeScript 声明：实体、枚举、错误码</span></summary><pre style="margin:0 16px 14px">' + esc(TYPES.strip()) + '</pre></details>')
     parts.append('<h3>方法（按分组展开）</h3><div class="apis">')
     for g, title, ms in API:
@@ -383,7 +400,7 @@ def caps_html():
     return '\n'.join(parts)
 
 def mcp_html():
-    parts = ['<div class="grid2"><div class="card"><div class="kv"><code>传输</code><span>stdio，命令 <code>tibi mcp</code>；设置里开关 + 可复制的接入配置</span><code>工具</code><span>= 能力层（名称、参数、返回与第 04 节一致），不暴露 <code>run_skill</code> / <code>tool_search</code> / <code>schedule</code>；写走同一套审批，记录在任务中心，trigger = mcp</span><code>安全</code><span>不暴露任意代码执行；抓取内容视为数据不当指令</span></div></div>',
+    parts = ['<div class="grid2"><div class="card"><div class="kv"><code>传输</code><span>stdio 启动 <code>tibi mcp</code>；它只是代理，经本地 socket 加令牌连运行中的 Core（单实例锁）；设置里开关 + 可复制的接入配置</span><code>工具</code><span>= 能力层（名称、参数、返回与第 04 节一致），不暴露 <code>run_skill</code> / <code>tool_search</code> / <code>schedule</code>；默认只开读能力白名单，写能力逐项开启，走同一套审批，记录在任务中心，trigger = mcp</span><code>安全</code><span>不暴露任意代码执行；抓取内容视为数据不当指令</span></div></div>',
              '<div class="card"><pre style="margin:0">{ "mcpServers": { "tibi": {\n    "command": "tibi", "args": ["mcp"] } } }\n<span class="c">// Codex / Claude Code 里：查词、出题、导入文章</span></pre></div></div>',
              '<div class="tblwrap"><table><tr><th>MCP 专有</th><th>参数</th><th>返回</th><th>说明</th></tr>']
     for c, p, r, n in MCP_EXTRA: parts.append(f'<tr><td><code>{esc(c)}</code></td><td><code class="sig">{esc(p)}</code></td><td><code class="sig">{esc(r)}</code></td><td>{esc(n)}</td></tr>')
