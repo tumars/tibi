@@ -1,0 +1,86 @@
+docs/prototypes/stats.html
+  s_5f1cdd5954dca1::t_f6ac2789119875 1-6,82,91,108
+  s_5f1cdd5954dca1::t_dc7058a42320ee 136
+docs/prototypes/library.html
+  s_5f1cdd5954dca1::t_f6ac2789119875 1-6,84,93,193
+docs/prototypes/_src/_build_side.py
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 33,38-44
+  s_5f1cdd5954dca1::t_d9d26af25b09cb 20
+docs/prototypes/mascot.html
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 1-6
+docs/prototypes/mobile.html
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 1-6,15-16
+  s_5f1cdd5954dca1::t_f6ac2789119875 163,173,268,271-272,348-361,366,374
+  s_5f1cdd5954dca1::t_96fd982a058562 70
+docs/prototypes/v2.css
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 28,42,51
+  s_5f1cdd5954dca1::t_d9d26af25b09cb 97,102,221-222,230,468-469
+  s_5f1cdd5954dca1::t_ecec37931fffd7 91,96
+docs/prototypes/_src/README.md
+  s_5f1cdd5954dca1::t_f6ac2789119875 6,13,16,21,23
+docs/prototypes/home.html
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 1-6,24,33,113
+  s_5f1cdd5954dca1::t_d9d26af25b09cb 69,103,329-330,333,354-372,376-391,397,399-401,403-408,410-422,426,429,460,499,573,578-579
+  s_5f1cdd5954dca1::t_f929d2e59bceb6 151
+docs/prototypes/_src/_search.js
+  s_5f1cdd5954dca1::t_d9d26af25b09cb 46
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 6,28
+docs/prototypes/settings.html
+  s_5f1cdd5954dca1::t_f6ac2789119875 1-6,118,127,189-190,199-200,285-286,306
+docs/prototypes/_src/_settings_body.html
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 158-159,168-169,273
+  s_5f1cdd5954dca1::t_f6ac2789119875 252-253
+docs/prototypes/onboarding.html
+  s_5f1cdd5954dca1::t_ab114c98cb34a3 15
+  s_5f1cdd5954dca1::t_f6ac2789119875 177-178
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 1-6,167,174,288
+docs/prototypes/tasks.html
+  s_5f1cdd5954dca1::t_1dd2edd552ceb1 23
+  s_5f1cdd5954dca1::t_f6ac2789119875 1-6,89,98
+docs/prototypes/native-mac.html
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 6
+docs/prototypes/_src/_library_body.html
+  s_5f1cdd5954dca1::t_d9d26af25b09cb 160
+docs/prototypes/v2-shell.js
+  s_5f1cdd5954dca1::t_f929d2e59bceb6 77
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 5
+docs/prototypes/v2-theme.js
+  s_5f1cdd5954dca1::t_359d3f3045de3b 1-19
+docs/prototypes/v2-search.js
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 6,28
+  s_5f1cdd5954dca1::t_d9d26af25b09cb 46
+docs/prototypes/_src/_stats_body.html
+  s_5f1cdd5954dca1::t_dc7058a42320ee 105
+  s_5f1cdd5954dca1::t_d9d26af25b09cb 77
+docs/prototypes/review.html
+  s_5f1cdd5954dca1::t_f6ac2789119875 1-6,171,180,186,247-254,296,309,383,387,512,514-515,677,743,745
+docs/prototypes/words.html
+  s_5f1cdd5954dca1::t_a25c306a4294a2 217
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 1-6,152,161
+  s_5f1cdd5954dca1::t_d9d26af25b09cb 293,346-347
+docs/prototypes/reader.html
+  s_5f1cdd5954dca1::t_0463fb6f78c1d4 1-6,181,191,210,275-276,278,849
+  s_5f1cdd5954dca1::t_f6ac2789119875 122-123,762,782,1076
+  s_5f1cdd5954dca1::t_f929d2e59bceb6 277
+  s_5f1cdd5954dca1::t_28c403afd0c59b 164-168
+docs/prototypes/_src/_review_body.html
+  s_5f1cdd5954dca1::t_d9d26af25b09cb 155,214-221,263,276,350,354,479,481-482,644,710,712
+docs/prototypes/_src/_tasks_body.html
+  s_5f1cdd5954dca1::t_1dd2edd552ceb1 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e0e42b3c554cc72ea66788bdcc258493bb594e37",
+  "prompts": {},
+  "sessions": {
+    "s_5f1cdd5954dca1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2f8c40b4-4724-49db-8cdc-59bc7f69ec72",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
