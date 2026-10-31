@@ -5,11 +5,12 @@ import { useNavigate } from 'react-router';
 import { Top } from '../components/Shell';
 import { saveProvider } from '../lib/providers';
 import { BackupItems, ExportSummaryItem } from '../settings/DataItems';
+import { MemoryItems } from '../settings/MemoryItems';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
 
-const SECTIONS = [['general', '通用'], ['learning', '学习与复习'], ['advanced', '高级'], ['data', '数据'], ['about', '关于']] as const;
+const SECTIONS = [['general', '通用'], ['learning', '学习与复习'], ['memory', '记忆'], ['advanced', '高级'], ['data', '数据'], ['about', '关于']] as const;
 
 export function Settings() {
   const nav = useNavigate();
@@ -95,6 +96,10 @@ export function Settings() {
               </div>
             </>}
           </section>
+
+          <section className="ssec" id="s-memory"><h2>记忆</h2><div className="group">
+            <MemoryItems />
+          </div></section>
 
           <section className="ssec" id="s-data"><h2>数据</h2><div className="group">
             <div className="item"><div><div className="t">数据库位置</div><div className="mono" style={{ marginTop: 6 }}>{status?.db_path ?? '—'}</div></div><div className="ctl"><button className="btn sm" onClick={async () => { if (!isTauri() || !status) return toast('浏览器模式不能打开'); const { invoke } = await import('@tauri-apps/api/core'); await invoke('open_path', { path: status.db_path }).catch(e => toast(String(e), { kind: 'err' })); }}>在文件夹中显示</button></div></div>

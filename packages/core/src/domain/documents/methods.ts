@@ -7,7 +7,7 @@ import { difficultyOfRatio } from '../text/prelabel.js';
 import type { ImportInput } from './pipeline.js';
 import { DOC_COLS, getDocument, listSections, listSentences, setDocumentTags, toDocument, toSummary, type DocumentRow } from './repo.js';
 import { finishSection, sectionContent, setProgress, softDeleteDocument } from './sections.js';
-import { listSamples } from './samples.js';
+import { getSample, listSamples } from './samples.js';
 
 /** documents.* / sections.*（06 §3） */
 
@@ -38,7 +38,7 @@ export async function submitImport(ctx: Ctx, input: ImportInput): Promise<{ task
     input.source = { type: 'url', url: c.url! };
   }
   if (input.source.type === 'file' && !ctx.platform.isPathAllowed(input.source.path)) throw new TibiError('permission_denied', '这个文件没有经过选择或拖入');
-  const title = input.source.type === 'url' ? checkUrlShape(input.source.url).host ?? '网页' : input.source.type === 'text' ? (input.source.title || '粘贴的文字') : input.source.type === 'file' ? input.source.path.split(/[\\/]/).pop()! : '导入';
+  const title = input.source.type === 'url' ? checkUrlShape(input.source.url).host ?? '网页' : input.source.type === 'text' ? (input.source.title || '粘贴的文字') : input.source.type === 'file' ? input.source.path.split(/[\\/]/).pop()! : input.source.type === 'sample' ? (getSample(input.source.id)?.title ?? '示例') : '图片';
   return ctx.jobs.submit('import', { kind: 'import', title: `导入 ${title}`, trigger: input.origin === 'mcp' ? 'mcp' : input.origin === 'share' || input.origin === 'deeplink' ? 'share' : 'user', input });
 }
 

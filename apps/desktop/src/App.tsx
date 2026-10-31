@@ -10,6 +10,7 @@ import { Placeholder } from './pages/Placeholder';
 import { Reader } from './pages/Reader';
 import { Review } from './pages/Review';
 import { Settings } from './pages/Settings';
+import { Tasks } from './pages/Tasks';
 import { Words } from './pages/Words';
 import { isTauri, rpc } from './rpc';
 import { bindCoreEvents, useCore } from './store/core';
@@ -58,7 +59,7 @@ export function App() {
           <Route path="words" element={<Words />} />
           <Route path="review" element={<Review />} />
           <Route path="stats" element={<Placeholder title="统计" text="M3 起提供。" />} />
-          <Route path="tasks" element={<Placeholder title="任务" text="M2 起提供。" />} />
+          <Route path="tasks" element={<Tasks />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

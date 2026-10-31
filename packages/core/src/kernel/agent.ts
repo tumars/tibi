@@ -149,6 +149,13 @@ export async function buildSystemPrompt(deps: AgentDeps, ctx: Ctx, skill: Resolv
     const snap = await deps.registry.call<Record<string, unknown>>('get_context', {}, ctx);
     parts.push(`## 当前状态\n${JSON.stringify({ page: snap['page'], document: snap['document'], selection: snap['selection'], card: snap['card'], today: snap['today'], recent_documents: snap['recent_documents'] })}`);
   } catch { /* get_context 没注册时跳过 */ }
+  // ④ 学习日志：最近 7 天的计数（不含具体的词和正文），让 Tibi 知道用户最近在做什么
+  try {
+    const since = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+    const w = await db.get<{ days: number; ms: number; words: number; newt: number; rev: number; ok: number }>('SELECT count(*) AS days, COALESCE(sum(reading_ms), 0) AS ms, COALESCE(sum(words_read), 0) AS words, COALESCE(sum(new_terms), 0) AS newt, COALESCE(sum(reviews), 0) AS rev, COALESCE(sum(review_correct), 0) AS ok FROM daily_stats WHERE date >= ? AND (reading_ms > 0 OR reviews > 0)', [since]);
+    const docs = await db.all<{ title: string }>('SELECT title FROM documents WHERE deleted_at IS NULL AND last_read_at IS NOT NULL ORDER BY last_read_at DESC LIMIT 5');
+    if (w && (Number(w.days) || docs.length)) parts.push(`## 最近 7 天\n学习 ${w.days} 天，阅读约 ${Math.round(Number(w.ms) / 60000)} 分钟、${w.words} 词；新认识 ${w.newt} 个词；复习 ${w.rev} 次${Number(w.rev) ? `，答对率 ${Math.round(Number(w.ok) / Number(w.rev) * 100)}%` : ''}。${docs.length ? `最近读的：${docs.map(d => `《${d.title}》`).join('、')}` : ''}`);
+  } catch { /* 统计表还没有数据 */ }
   if (args.context !== undefined) parts.push(`## 调用方给的上下文\n${typeof args.context === 'string' ? args.context : JSON.stringify(args.context)}`);
   const q = args.input.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(w => w.length > 1).slice(0, 8);
   if (q.length) {

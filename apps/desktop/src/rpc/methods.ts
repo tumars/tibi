@@ -2,8 +2,8 @@
  * 界面用到的方法签名（06 §3 的子集，M0 / M1）。类型只从 @tibi/core 取类型，不引运行时。
  */
 import type {
-  Answer, AnswerResult, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Message, Ok, Page, Profile, Provider, Rating, ReviewSession,
-  SampleInfo, SectionContent, Status, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval,
+  Answer, AnswerResult, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession,
+  SampleInfo, SectionContent, Status, Task, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval,
 } from '@tibi/core';
 
 export interface MethodTable {
@@ -52,12 +52,20 @@ export interface MethodTable {
   'providers.test': { params: { id: Id }; result: { ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string } };
   'tasks.list': { params: { limit?: number }; result: { running: TaskSummary[]; pending: Approval[]; history: TaskSummary[]; kpis: { running: number; week_done: number; week_failed: number; month_cost: number; budget: number; top_skill: { id: string; cost: number } } } };
   'chat.list': { params: { limit?: number }; result: Conversation[] };
+  'memory.list': { params: { type?: Memory['type']; q?: string }; result: Memory[] };
+  'memory.update': { params: { id: Id; content: string }; result: Memory };
+  'memory.delete': { params: { id: Id }; result: Undo };
+  'memory.pause': { params: { paused: boolean }; result: Ok };
+  'memory.clear': { params: Record<string, never>; result: Undo };
   'chat.open': { params: { conversation_id?: Id; document_id?: Id; today?: boolean }; result: Conversation & { messages: Message[] } };
   'chat.send': { params: { conversation_id: Id; text: string; context?: { page: string; document_id?: Id; section_id?: Id; sentence_id?: Id; selection?: string; card_id?: Id }; skill?: string; tier?: 'fast' | 'deep' }; result: { submission_id: TaskId } };
   'chat.cancel': { params: { submission_id: TaskId }; result: Ok };
   'chat.rename': { params: { conversation_id: Id; title: string }; result: Conversation };
   'chat.delete': { params: { conversation_id: Id }; result: Ok };
   'tasks.approve': { params: { id: TaskId; decision: 'allow' | 'deny' | 'edit'; edited?: Record<string, unknown>; always?: boolean }; result: TaskSummary };
+  'tasks.get': { params: { id: TaskId }; result: Task };
+  'tasks.cancel': { params: { id: TaskId }; result: TaskSummary };
+  'tasks.retry': { params: { id: TaskId }; result: TaskSummary };
   'chat.history': { params: { conversation_id: Id; cursor?: string }; result: Page<Message> };
 }
 

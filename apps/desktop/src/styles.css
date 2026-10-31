@@ -490,3 +490,27 @@ h2.st .sp { flex: 1; }
 .tibi-empty { margin-top: 24px; font-size: 13.5px; color: var(--ink-2); line-height: 1.7; }
 .tibi-empty p { margin: 0 0 6px; }
 .selask { position: fixed; z-index: 40; transform: translate(-50%, calc(-100% - 8px)); height: 30px; padding: 0 12px; border-radius: 15px; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; background: var(--ink); color: var(--surface); box-shadow: 0 6px 18px -8px rgba(0,0,0,.4); }
+
+/* 设置 → 记忆 */
+.memlist { display: flex; flex-direction: column; gap: 2px; }
+.mem { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; min-height: 32px; font-size: 13.5px; }
+.mem .memc { text-align: left; padding: 4px 6px; margin-left: -6px; border-radius: 6px; }
+.mem .memc:hover { background: var(--hover); }
+.mem .input { height: 30px; }
+
+/* 任务中心（M2 最小版） */
+.page.tasks { max-width: 860px; }
+.trow { border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); margin-bottom: 8px; background: var(--surface); }
+.trow.open { box-shadow: inset 0 0 0 1px var(--line-2); }
+.thead { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 14px; text-align: left; font-size: 13.5px; }
+.thead .sp { flex: 1; }
+.ttitle { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+.tstate { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--sunken); color: var(--ink-2); white-space: nowrap; }
+.tstate.run, .tstate.appr { background: var(--accent-wash); color: var(--accent); }
+.tstate.err { background: color-mix(in srgb, var(--hard) 14%, transparent); color: var(--hard); }
+.tbody { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.tsteps { display: flex; flex-direction: column; gap: 2px; }
+.tstep { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); padding: 3px 0; }
+.tstep .sp { flex: 1; }
+.tstep i { width: 8px; height: 8px; border-radius: 50%; background: var(--line-2); flex: none; }
+.tstep.ok i { background: var(--ok); } .tstep.err i { background: var(--hard); } .tstep.run i, .tstep.appr i { background: var(--accent); }
