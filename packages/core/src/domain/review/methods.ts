@@ -38,19 +38,22 @@ async function drillSteps(ctx: Ctx, term_ids: string[] | undefined, count: numbe
 export const reviewMethods: MethodMap = {
   'review.start': method(Type.Object({ resume: Type.Optional(Type.Boolean()), ahead: Type.Optional(Type.Boolean()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })) }), async (p, ctx) => {
     const fc = await forecast(ctx.db);
-    if (p.resume !== false) {
-      const open = await openSession(ctx.db);
-      if (open) {
-        if (open.status === 'paused') await ctx.db.run("UPDATE review_sessions SET status = 'active', updated_at = ? WHERE id = ?", [now(), open.id]);
-        return toReviewSession({ ...open, status: 'active' }, sessionSteps(open), true, fc);
+    // 查"有没有未完成的一轮"和新建放在同一个事务里：界面同时发两次 review.start 时，第二次续上第一次建的那轮
+    return ctx.db.transaction(async tx => {
+      if (p.resume !== false) {
+        const open = await openSession(tx);
+        if (open) {
+          if (open.status === 'paused') await tx.run("UPDATE review_sessions SET status = 'active', updated_at = ? WHERE id = ?", [now(), open.id]);
+          return toReviewSession({ ...open, status: 'active' }, sessionSteps(open), true, fc);
+        }
+      } else {
+        // 从头开始：把未完成的那轮标记为结束
+        await tx.run("UPDATE review_sessions SET status = 'finished', finished_at = ?, updated_at = ? WHERE kind = 'review' AND status IN ('active', 'paused')", [now(), now()]);
       }
-    } else {
-      // 从头开始：把未完成的那轮标记为结束
-      await ctx.db.run("UPDATE review_sessions SET status = 'finished', finished_at = ?, updated_at = ? WHERE kind = 'review' AND status IN ('active', 'paused')", [now(), now()]);
-    }
-    const steps = await buildSteps(ctx.db, ctx.dict, { ahead: p.ahead, limit: p.limit });
-    const s = await insertSession(ctx.db, 'review', true, steps);
-    return toReviewSession(s, steps, false, fc);
+      const steps = await buildSteps(tx, ctx.dict, { ahead: p.ahead, limit: p.limit });
+      const s = await insertSession(tx, 'review', true, steps);
+      return toReviewSession(s, steps, false, fc);
+    });
   }, '默认先续上未完成的会话（G6）；否则按"先到期、后新词，新词 5 个一组先初见再回忆"排好步骤'),
 
   'review.preview': method(Type.Object({ card_id: S.id }), async (p, ctx) => {

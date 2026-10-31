@@ -33,7 +33,7 @@ describe('ECDICT 入库', () => {
     expect(e).toMatchObject({ word: 'upshot', phonetic: 'ˈʌpʃɒt', exam: ['cet4', 'ielts'], frequency: 15000, oxford: true, collins: 3 });
     expect(e!.translation).toMatch(/^n\. 结果/);
     expect(await dict.lemmas('went')).toEqual(['go']);
-    expect(await dict.lemmas('left')).toEqual(['left', 'leave']);     // 自己是词头排前面
+    expect(await dict.lemmas('left')).toEqual(['left', 'leave']);     // 有自己词频的词头保留并排前面；挑哪个由 lemmatize 按词频定
     expect(await dict.lemmas('verifies')).toEqual(['verify']);
     expect(await dict.lemmas('cities')).toEqual(['city']);
     expect(await dict.lemmas('bigger')).toEqual(['big']);

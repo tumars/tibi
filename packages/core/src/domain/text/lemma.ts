@@ -85,7 +85,14 @@ export async function lemmatize(form: string, dict: Dict): Promise<string> {
   const w = form.toLowerCase();
   if (!/^[a-z]/.test(w)) return form;
   const fromDict = await dict.lemmas(w);
-  if (fromDict.length) return fromDict[0]!;
+  if (fromDict.length === 1) return fromDict[0]!;
+  if (fromDict.length > 1) {
+    // 多个候选（was → was / be）：取有词频且最常见的那个；都没有词频时按词典给的顺序
+    const ranks = await Promise.all(fromDict.map(l => dict.frequencyRank(l)));
+    let best = -1;
+    ranks.forEach((r, i) => { if (r && (best < 0 || r < ranks[best]!)) best = i; });
+    return fromDict[best >= 0 ? best : 0]!;
+  }
   return ruleLemma(w);
 }
 

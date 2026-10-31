@@ -66,6 +66,8 @@ export async function buildDict(csvPath: string, outPath: string, opts: BuildOpt
   const insForm = db.prepare('INSERT OR IGNORE INTO lemma_map(form, lemma, rank) VALUES (?,?,?)');
   let header: string[] | undefined; let n = 0; let forms = 0;
   const headwords = new Set<string>();
+  /** 只是别的词的变形页、自己没有词频的词头（makes → 0:make）；left 这种有自己词频的不算 */
+  const inflectionPages = new Set<string>();
   const pending: [string, string, number][] = [];
   const toInt = (s: string | undefined) => { const v = Number(s); return s && Number.isFinite(v) ? v : null; };
   db.exec('BEGIN');
@@ -73,10 +75,19 @@ export async function buildDict(csvPath: string, outPath: string, opts: BuildOpt
     if (!header) { header = row; continue; }
     const rec: Record<string, string> = {}; header.forEach((h, i) => rec[h] = row[i] ?? '');
     const word = (rec.word ?? '').trim(); if (!word) continue;
-    ins.run(word, rec.phonetic || null, rec.definition || null, rec.translation || null, rec.pos || null, toInt(rec.collins), toInt(rec.oxford), rec.tag || null, toInt(rec.bnc), toInt(rec.frq), rec.exchange || null);
+    // ECDICT 的 CSV 里换行写成字面的 \\n，入库时还原成真换行
+    const nl = (v: string | undefined) => v ? v.replace(/\\n/g, '\n') : null;
+    ins.run(word, rec.phonetic || null, nl(rec.definition), nl(rec.translation), rec.pos || null, toInt(rec.collins), toInt(rec.oxford), rec.tag || null, toInt(rec.bnc), toInt(rec.frq), rec.exchange || null);
     const lw = word.toLowerCase(); headwords.add(lw);
     for (const { type, form } of parseExchangeForms(rec.exchange ?? '')) {
-      if (type === '0' || type === '1') continue;                 // 0:原形 1:类型，不是变形
+      if (type === '0') {
+        if (form.toLowerCase() !== lw) {
+          if (!toInt(rec.frq) && !toInt(rec.bnc)) inflectionPages.add(lw);
+          pending.push([lw, form.toLowerCase(), 0]);
+        }
+        continue;
+      }
+      if (type === '1') continue;                                   // 1:类型，不是变形
       const f = form.toLowerCase(); if (f === lw) continue;
       pending.push([f, lw, regularForm(lw, type, form) ? 2 : 1]);
     }
@@ -84,10 +95,12 @@ export async function buildDict(csvPath: string, outPath: string, opts: BuildOpt
     if (n % 50_000 === 0) { db.exec('COMMIT'); db.exec('BEGIN'); log(`${n} 词条…`); }
     if (opts.limit && n >= opts.limit) break;
   }
-  // 变形里本身也是词头的（left 既是 leave 的过去式也是词头），加一条指向自己的 rank 0
+  // 变形里本身也是独立词头的（left 既是 leave 的过去式，也是"左"），加一条指向自己的 rank 0；
+  // 但只是变形页、自己没有词频的词头（makes：exchange 里写着 0:make）不加，免得被当成没有词频的生词；
+  // 多个候选时由 Core 的 lemmatize 按词频挑最常见的（was → be，left → leave）
   for (const [f, lemma, rank] of pending) {
     insForm.run(f, lemma, rank); forms++;
-    if (headwords.has(f)) insForm.run(f, f, 0);
+    if (headwords.has(f) && !inflectionPages.has(f)) insForm.run(f, f, 0);
   }
   db.prepare('INSERT INTO meta(key, value) VALUES (?, ?)').run('source', CSV_URL);
   db.prepare('INSERT INTO meta(key, value) VALUES (?, ?)').run('built_at', new Date().toISOString());

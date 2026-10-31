@@ -143,6 +143,10 @@
 | T8 | 网址校验在 core-node：只收 http(s)，DNS 解析后拒绝回环 / 内网 / 链路本地地址，重定向每跳重查（05 §8） | — |
 | T9 | 词典 `dict.db` 由 `pnpm ecdict` 从 ECDICT 生成，不进仓库；Core 经 `Dict` 接口查词、还原、取词频，没有词典时退化为规则还原 | 01 §8 |
 | T11 | sidecar 用 Bun `--compile` 打单文件（SQLite 走内置 `bun:sqlite`），不用 Node SEA；迁移 SQL 由 `scripts/build-sql.mjs` 内嵌进 Core | 实测 Linux：Bun 105 MB / 114 ms，SEA 119 MB 且原生模块要另放；单文件省掉分发 `.node` 的麻烦 |
+| T12 | 事务嵌套按调用链判断：事务体拿到专门的事务句柄，只有在它上面再开事务才复用；外层句柄上的事务一律排队（修正 T3 的实现：原来用全局计数，并发的两个流程会被误当成嵌套而绕过互斥） | 导入流水线并行写步骤时撞了唯一索引 |
+| T13 | ECDICT 入库：只是变形页、自己没有词频的词头（makes → 0:make）不映射到自己；词形有多个候选原形时，Core 按词频挑最常见的（was → be，left → leave）。CSV 里字面的 `\n` 入库时还原成换行 | 带完整词典后 is、makes、languages 被当成生词 |
+| T14 | 桌面界面用 HashRouter（Tauri 下没有服务端路由）；开发时 `?mock=1` 用内存假数据，不依赖 Core | — |
+| T15 | 复习：`review.answer` 不推进游标，看完评分行后调 `review.next`；每日新卡上限按"今天首次作答的新卡数"计；`review.start` 在一个事务里查找或新建会话（界面重复调用时续上同一轮） | 实现中定下 |
 | T10 | 复习用 ts-fsrs 6.0 的 `DefaultScheduler`（FSRS-7 默认），卡片字段按库的命名映射到表（`stability_fast` ← `stabilityFast`、`learning_steps` ← `learningStep`） | 01 §4 |
 
 ## 待决定

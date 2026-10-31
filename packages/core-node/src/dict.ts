@@ -13,7 +13,7 @@ export class SqliteDict implements Dict {
     const r = await this.db.get<StardictRow>('SELECT word, phonetic, definition, translation, pos, collins, oxford, tag, bnc, frq, exchange FROM stardict WHERE word = ? COLLATE NOCASE LIMIT 1', [w]);
     if (!r) return undefined;
     return {
-      word: r.word, phonetic: r.phonetic ?? undefined, translation: r.translation ?? '', definition: r.definition ?? undefined, pos: r.pos ?? undefined,
+      word: r.word, phonetic: r.phonetic ?? undefined, translation: (r.translation ?? '').replace(/\\n/g, '\n'), definition: r.definition?.replace(/\\n/g, '\n') ?? undefined, pos: r.pos ?? undefined,
       collins: r.collins ?? undefined, oxford: !!r.oxford, exam: (r.tag ?? '').split(/\s+/).filter(Boolean),
       frequency: r.frq || r.bnc || undefined, forms: parseExchange(r.exchange),
     };

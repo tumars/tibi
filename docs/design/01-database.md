@@ -404,7 +404,11 @@ learning_events        audio_cache        daily_stats
 | skill_id | TEXT NULL | `kind = skill` 时 |
 | parent_job_id | TEXT NULL | 子任务（导入里并行的总结、短语等；主对话运行的技能） |
 | conversation_id | TEXT NULL | 结果写回哪次对话 |
-| status | TEXT | `queued` / `running` / `waiting_approval` / `done` / `failed` / `cancelled` / `deferred`（稍后补做） |
+| status | TEXT | `queued` / `running` / `waiting_approval` / `paused`（完成当前步后停下）/ `done` / `failed` / `cancelled` / `deferred`（稍后补做） |
+| pipeline | TEXT | 流水线名（`import` / `reanalyze` / `skill`），重开后按它续跑（迁移 0002） |
+| tainted | INTEGER | 是否读过不可信内容（05 §8）；读过之后写入与外联一律审批（0002） |
+| approval | TEXT(JSON) NULL | 挂起中的审批卡，重开后能恢复（0002） |
+| progress | TEXT(JSON) NULL | 当前步骤文案 `{label, index, total}`（0002） |
 | trigger | TEXT | `user` / `auto` / `mcp` / `share`（手机分享或剪藏） |
 | input / output | TEXT(JSON) | |
 | error | TEXT NULL | |
@@ -549,3 +553,4 @@ learning_events        audio_cache        daily_stats
 - 是否需要 `sections` 的版本/修订（用户编辑正文后，句子与语境如何保持关联）。
 - 书架卡片的"开头一句"直接取该文档第一个 `prose` 句子，不另存字段；若要支持用户改摘要再加 `documents.excerpt`。
 - `learning_events` 与 `reading_sessions` / `review_logs` 存在部分信息重叠，实现时确认是否由后两者派生事件即可。
+- **M0 的已知偏差**：`review.undo`（撤销上一张）会删掉刚写的那条 `review_logs`，与"只追加"不符。同步（M7）上线前改成追加一条撤销记录，FSRS 重算时跳过被撤销的作答。

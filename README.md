@@ -31,6 +31,7 @@
 - [05 技能架构：以 pi 为 harness 底座](docs/design/05-agent-architecture.md)
 - [06 接口定义：WebView ↔ Core 方法、事件、能力层与 MCP 工具的参数与返回](docs/design/06-interface.md)（由 `docs/design/_src/build_interface.py` 生成，总览页第 04 / 08 节同源）
 - [07 吉祥物素材：清单、规格与提示词](docs/design/07-mascot-assets.md)（出图脚本 `tools/gen-mascot.py`）
+- [开发说明：仓库结构、怎么跑、怎么改](docs/dev/README.md)
 - [08 同步：手机与电脑之间（iCloud Drive / WebDAV 共享文件夹、合并规则、界面）](docs/design/08-sync.md)
 - 归档：[v1 视觉语言「纸与墨」](docs/design/archive/03-visual-language-v1.md)
 
