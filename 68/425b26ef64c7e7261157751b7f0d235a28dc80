@@ -1,0 +1,21 @@
+docs/prototypes/v2.css
+  s_5f1cdd5954dca1::t_defd2510b11518 417-418
+docs/prototypes/mobile.html
+  s_5f1cdd5954dca1::t_defd2510b11518 51-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "68425b26ef64c7e7261157751b7f0d235a28dc80",
+  "prompts": {},
+  "sessions": {
+    "s_5f1cdd5954dca1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2f8c40b4-4724-49db-8cdc-59bc7f69ec72",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
