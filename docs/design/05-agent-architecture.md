@@ -1,6 +1,6 @@
 # 技能架构 v0.1：以 pi 为 harness 底座
 
-> 状态：**已确认**（2026-10-29，决策 B1–B8 见 §12）。已同步到 [`00-concept-design.md` §3.10 / §4](./00-concept-design.md#4-系统架构)、[`01-database.md` §7](./01-database.md#7-技能tibi-的能力扩展) 和 [`02-ai-assistant.md`](./02-ai-assistant.md)。
+> 状态：**已确认**（2026-10-29，决策 B1–B8 见 §12；2026-10-31 按 R9 改为不用 `pi-durable`，对话与任务自建，见 §1、§6、§11）。已同步到 [`00-concept-design.md` §3.10 / §4](./00-concept-design.md#4-系统架构)、[`01-database.md` §7](./01-database.md#7-技能tibi-的能力扩展) 和 [`02-ai-assistant.md`](./02-ai-assistant.md)。
 > 原型：[任务中心](../prototypes/tasks.html) · [首页 `/` 技能与过程卡](../prototypes/home.html) · [设置 → Tibi 的技能](../prototypes/settings.html#agents) · [统计页洞察来源](../prototypes/stats.html)；技能目录 [`v2-agents.js`](../prototypes/v2-agents.js)。
 > 目标：把 Tibi 从"应用里带一个 AI 助手"改成"一只会多项技能的 Tibi"——导入文章、找文章、讲解、出题与批改、学习洞察、整理记忆都是技能，内部各自是一个专职 agent（子对话），用户只面对 Tibi 一个角色（§13）；底座使用开源 harness **pi**。
 > 术语（2026-10-29 复审统一）：**技能** = 用户看到的、也是内部的单位，每项一份 `SKILL.md`；本文 §2 讲 pi 时仍用它自己的词"agent / subagent"；§12、§13 记录决策经过时会提到旧称"智能体"。术语表见 [`DECISIONS.md`](../DECISIONS.md#术语)。
@@ -9,10 +9,10 @@
 
 ## 1. 一句话结论
 
-- **底座**：用 pi 的两个库——`pi-ai`（统一模型接口，支持 DeepSeek 和任意 OpenAI 兼容接口）和 `pi-durable`（持久化的 agent 运行时：会话、任务、subagent、断点续跑、SQLite 存储）。不直接用 `pi-coding-agent`（它是编程 agent，带文件和 shell 工具）。
+- **底座**（R9，2026-10-31 改）：用 pi 的两个稳定的库——`pi-ai`（统一模型接口，支持 DeepSeek 和任意 OpenAI 兼容接口）和 `pi-agent-core`（最小的 agent 循环）。对话、任务、步骤检查点、用量**自己存**在 `app.db` 的几张表里（`conversations`、`messages`、`jobs`、`job_steps`、`usage_records`，见 [01 §7](./01-database.md#7-技能tibi-的能力扩展)），由 Core 里的 `TibiKernel` 管。不用 `pi-durable`（实验性、迁库不可回退，见 §11），也不直接用 `pi-coding-agent`（它是编程 agent，带文件和 shell 工具）。
 - **进程**：新增一个 **Tibi Core** 后台进程（TypeScript，Tauri sidecar），它独占 `app.db`，承载领域服务、技能运行时和 MCP Server；界面只负责展示和调用。
 - **能力与技能分层**：确定性的事情（分词、词形还原、查词、FSRS 排期、统计）仍然是普通代码，包装成**能力**（工具）；需要判断和生成的事情交给**技能**（由模型完成）。同一个能力可以被界面直接调用、被技能调用、被外部 AI 工具经 MCP 调用。
-- **对用户暴露**：只有 Tibi 一个角色，它会 6 项技能；按钮即运行、过程默认收起可展开、输入 `/` 可选技能、可以在设置里配置模型和指令（§13）。所有技能都由用户触发（2026-10-31 砍掉例行任务和自定义技能）。
+- **对用户暴露**：只有 Tibi 一个角色，它会 6 件事（导入是固定流水线，其余 5 项是技能，R10）；按钮即运行、过程默认收起可展开、输入 `/` 可选技能、可以在设置里配置模型和指令（§13）。所有技能都由用户触发（2026-10-31 砍掉例行任务和自定义技能）。
 
 ---
 
@@ -23,8 +23,8 @@ pi 是 Mario Zechner（libGDX 作者）发起的开源 agent 工具集，MIT 协
 | 包 | 作用 | 与 Tibi 的关系 |
 |---|---|---|
 | `pi-ai` | 统一多家模型的流式接口：OpenAI、Anthropic、Google、**DeepSeek**、OpenRouter、Ollama / vLLM / LM Studio 等任意 OpenAI 兼容接口；TypeBox 定义工具参数并自动校验；统一的思考档位；每次调用返回 token 与费用；对话中途可换模型；可在浏览器运行；提供 ChatGPT / Claude / Copilot 账号登录（OAuth） | ⭐ 取代我们自己写的 provider 抽象 |
-| `pi-agent-core` | 最小的 agent 循环：`Agent` 类、工具并行 / 串行执行、`beforeToolCall` / `afterToolCall` 钩子、steer（插话）/ followUp（排队）、事件流 | 备选底座（稳定、简单，但持久化要自己做） |
-| `pi-durable` | 持久化 harness：对话、模型轮次、工具调用、自定义状态**先写入存储再显示**，进程崩溃后从断点继续；扩展（工具 + 提示词片段 + 钩子 + 任务）；subagent（由任务拥有的对话）；子任务与任务图；定时休眠任务；代码模式；延迟加载工具与 `tool_search`；自动压缩上下文；SQLite / IndexedDB / JSONL 存储，SQLite 可加表前缀与宿主表共用一个库 | ⭐ 选作运行时；**标注为实验性**，API 可能不经通知变化（见 §11） |
+| `pi-agent-core` | 最小的 agent 循环：`Agent` 类、工具并行 / 串行执行、`beforeToolCall` / `afterToolCall` 钩子、steer（插话）/ followUp（排队）、事件流 | ⭐ 选作 agent 循环（R9）；持久化由 `TibiKernel` 自己做 |
+| `pi-durable` | 持久化 harness：对话、模型轮次、工具调用、自定义状态**先写入存储再显示**，进程崩溃后从断点继续；扩展（工具 + 提示词片段 + 钩子 + 任务）；subagent（由任务拥有的对话）；子任务与任务图；定时休眠任务；代码模式；延迟加载工具与 `tool_search`；自动压缩上下文；SQLite / IndexedDB / JSONL 存储，SQLite 可加表前缀与宿主表共用一个库 | 不用（R9，2026-10-31）：**标注为实验性**，API 可能不经通知变化，1.4.0 迁库后不可回退（见 §11）；它的设计（先写存储再显示、任务拥有子对话、检查点续跑）由 `TibiKernel` 照着做 |
 | `pi-coding-agent` | 终端编程 agent（read / write / edit / bash 四个工具）、JSONL 树形会话、扩展、技能（Agent Skills 规范）、MCP、RPC 模式、SDK | 不作底座；借鉴它的技能和扩展格式 |
 | `pi-web-ui` | 基于 mini-lit 的聊天界面组件 | 不用（风格不符；最新版仍是 0.75，没有随 1.x 更新） |
 
@@ -40,13 +40,13 @@ pi 是 Mario Zechner（libGDX 作者）发起的开源 agent 工具集，MIT 协
 | 自己写 tool-use 循环（原方案） | 持久化、子对话、并发工具、压缩、断点续跑都要自己做 |
 | Vercel AI SDK / OpenAI Agents SDK | 偏无状态调用，没有持久化任务和断点续跑 |
 | Mastra / LangGraph.js | 体量大、概念多，偏服务端工作流；本地桌面应用用不上 |
-| pi | 小而透明；多模型（含 DeepSeek）；`pi-durable` 正好提供"后台任务 + 子对话 + 本地 SQLite"；MIT |
+| pi | 小而透明；多模型（含 DeepSeek）；`pi-agent-core` 稳定、够用；MIT。持久化自己做，表结构归我们管，迁移与同步（R11）都可控 |
 
 ---
 
 ## 3. 进程架构
 
-pi-durable 要求"一个进程独占一份存储"，同时 MCP Server、后台任务都需要一个常驻的 Node 环境。所以新增 **Tibi Core**：
+数据库要有唯一的写入者，MCP Server、后台任务又需要一个常驻的 JS 运行环境，所以新增 **Tibi Core**。Core 写成**不依赖 Node 专有 API 的 TS 包**（R11）：桌面上作为 sidecar 运行，手机上把同一个包放进应用自己的 JS 运行时（见 [00 §3.13](./00-concept-design.md#313-手机端d8)）：
 
 ```
 ┌──────────────────────────── Tauri App ────────────────────────────┐
@@ -57,19 +57,19 @@ pi-durable 要求"一个进程独占一份存储"，同时 MCP Server、后台�
          ▼
 ┌──────────────────── Tibi Core（Node 单文件可执行，sidecar）────────────┐
 │  技能层     Tibi 主对话 · 导入文章 · 找文章 · 讲解 · 出题与批改 · 学习洞察 · 整理记忆 │
-│             每项技能 = 一份 SKILL.md = 一个 pi-durable 扩展（提示词片段 + 工具子集 + 钩子 + 任务） │
-│  运行时     pi-durable Harness：对话 · 任务图 · 子对话 · 压缩              │
+│             每项技能 = 一份 SKILL.md = 一次 pi-agent-core Agent 配置（提示词 + 工具子集 + 钩子） │
+│  运行时     TibiKernel：对话 · 任务 · 子对话 · 检查点 · 压缩（自建表）+ pi-agent-core 循环 │
 │             pi-ai：DeepSeek / OpenAI 兼容 / 账号登录                      │
 │  能力层     一份 TypeBox 定义 → 技能可用的 pi 工具 / MCP 工具 / 界面直接调用   │
 │  领域服务   导入解析 · 分词词形 · 词典 · 词汇 · FSRS · 统计 · TTS · 记忆     │
 │  对外       MCP Server（经本地 socket 接 `tibi mcp` 代理，给 Codex / Claude Code 用）│
 └────────┬──────────────────────────────────────────────────────────┘
          ▼
-   app.db（领域表 + pi_ 前缀的对话 / 任务表，同一个文件、同一个连接）· dict.db · media/
+   app.db（领域表 + 对话 / 任务表，同一个文件、同一个连接，表结构都归我们）· dict.db · media/
 ```
 
 要点：
-- **数据库只有一个写入者**：Tibi Core。界面不再直接连 SQLite（原方案的 `tauri-plugin-sql` + Drizzle sqlite-proxy 改为 Tibi Core 内的 Drizzle）。pi-durable 的表用 `pi_` 前缀与领域表放在同一个 `app.db`，这样"导入一篇文章 + 记录任务步骤"可以在一个事务里提交。
+- **数据库只有一个写入者**：Tibi Core。界面不再直接连 SQLite（原方案的 `tauri-plugin-sql` + Drizzle sqlite-proxy 改为 Tibi Core 内的 Drizzle）。对话与任务表和领域表放在同一个 `app.db`，这样"导入一篇文章 + 记录任务步骤"可以在一个事务里提交。
 - **打包**：Node 22 的单文件可执行（SEA）或 Bun `--compile`，体积约 50–90 MB。Tauri 用 `externalBin` 打包为 sidecar。
 - **界面与 Core 的通信**：JSON-RPC 2.0；请求走 `invoke`，事件（文本增量、工具开始 / 结束、任务状态）走 Tauri 事件。全部方法、参数、返回值与事件载荷见 [06 接口定义](06-interface.md)。窗口关闭时 Core 可以留在托盘继续跑后台任务（可设置）。
 - **单实例**：Core 持单实例锁。`tibi mcp` 只是代理，经本地 socket 加令牌连运行中的 Core，自己不开数据库，见 [06 §6](06-interface.md#6-mcp-server)。
@@ -92,7 +92,7 @@ pi-durable 要求"一个进程独占一份存储"，同时 MCP Server、后台�
 
 每个能力定义一次：名称、说明、TypeBox 参数、结构化返回值、**权限级别**（读 / 写 / 需确认）、是否可撤销、`replay`（崩溃后能否安全重跑）。同一份定义生成三种出口：
 
-1. **pi 工具**：注册进 pi-durable，供技能调用；
+1. **pi 工具**：注册进 `pi-agent-core` 的工具表，供技能调用；
 2. **MCP 工具**：Tibi Core 内置 MCP Server，供外部 AI 工具调用（A6）；
 3. **界面直接调用**：按钮直接调用能力，不经过模型（例如"标为生词"）。
 
@@ -105,7 +105,7 @@ pi-durable 要求"一个进程独占一份存储"，同时 MCP Server、后台�
 | 技能（内部 id） | 职责 | 怎么触发 | 主要能力 | 默认模型档 | 产出在哪里 |
 |---|---|---|---|---|---|
 | **Tibi 主对话**（`tibi`） | 和你对话；理解意图后自己做，或运行一项技能 | 输入框"问 Tibi"、⌘K 问 Tibi、阅读器 / 生词本 / 复习页的 Tibi 面板 | 常用读写工具 + `run_skill` + `tool_search` | 快速 | 对话面板 |
-| **导入文章**（`importer`） | 抓取或识别 → 提取正文与结构 → 分句着色 → 判断类型与难度 → 总结、短语、长难句、学习建议 | 输入框"导入"、拖入文件、Tibi 自动判断、MCP | `fetch_url` `extract_pdf` `extract_epub` `extract_docx` `ocr_image` `segment_document` `annotate_terms` `estimate_difficulty` `save_document` `save_ai_result` `tag_document` | 快速（总结可选深入） | 任务进度抽屉 → 结果卡片；阅读器"总结"面板 |
+| **导入文章**（`importer`，**固定流水线，不是模型驱动的技能**，R10） | 抓取或识别 → 提取正文与结构 → 分句着色 → 判断类型与难度（以上是代码，离线可完成）→ 总结、短语、长难句、学习建议（可选的 AI 补充，没连模型或离线时记"稍后补做"） | 输入框粘贴网址或文字、拖入文件、剪藏插件、手机分享、Tibi 主对话调用、MCP；**用户自己触发的导入不再审批** | `fetch_url` `extract_pdf` `extract_epub` `extract_docx` `ocr_image` `segment_document` `annotate_terms` `estimate_difficulty` `save_document` `save_ai_result` `tag_document` | 快速（总结可选深入） | 任务进度抽屉 → 结果卡片；阅读器"总结"面板 |
 | **找文章**（`scout`） | 按你的水平、兴趣、正在学的词找文章，给推荐理由 | 输入框"找文章"、`/找文章`、首页建议 | `search_feeds` `web_search` `fetch_url` `estimate_difficulty` `list_terms` | 快速 | 推荐卡片；首页"今天推荐" |
 | **讲解**（`tutor`） | 阅读时讲解：语境释义、长难句、语法、背景知识；读完出几道理解题 | 选中文本"问 Tibi"、词卡"更多解释"、读完一篇、`/讲解` | `get_document` `lookup_word` `compare_words` `get_term_contexts` `set_context_meaning` `create_quiz` `mark_term` `speak` | 快速 | 词卡、阅读器 Tibi 面板 |
 | **出题与批改**（`coach`） | 生成填空 / 造句题的句子，批改造句，答错时解释；用生词出临时练习（"再练错词"）；完成页"读一篇用到这些词的短文"找不到文章时写一篇用到今天这些词的短文 | 复习页（造句批改、"为什么"、完成页）、`/出题` | `get_term` `get_term_contexts` `grade_answer` `record_review` `pick_distractors` `create_quiz` `search_feeds` `save_document` `save_ai_result` | 快速 | 复习卡片、完成页、书架（Tibi 写的短文） |
@@ -114,7 +114,8 @@ pi-durable 要求"一个进程独占一份存储"，同时 MCP Server、后台�
 
 说明：
 - 导入时固定的那部分（总结、短语、长难句）由"导入文章"一次跑完并缓存到 `ai_results`；"讲解"只处理你临时问的问题。
-- Tibi 主对话通过 `run_skill(skill, task)` 运行技能：pi-durable 为它创建一个由当前任务拥有的子对话，跑完把结果交回；界面上显示为收起的过程卡"Tibi 正在…"，中途可以展开看步骤或取消。
+- **导入是流水线而不是技能**（R10，2026-10-31）：步骤固定，由代码按顺序执行，模型只负责其中几个生成步骤，不由模型决定调哪个工具。所以它没有 `SKILL.md`，也不经"技能审批"；在界面上仍和其他几项一起列为"Tibi 能做的事"。其余 5 项（找文章、讲解、出题与批改、学习洞察、整理记忆）是技能。
+- Tibi 主对话通过 `run_skill(skill, task)` 运行技能：`TibiKernel` 为它创建一个由当前任务拥有的子对话，跑完把结果交回；界面上显示为收起的过程卡"Tibi 正在…"，中途可以展开看步骤或取消。
 - 用户看到的始终是 Tibi 一个角色；想控制的用户可以在设置里逐项配置技能。
 
 ---
@@ -138,33 +139,33 @@ metadata:
 ```
 
 - 早先文档里的 `AGENT.md` + `SKILL.md`（提示词技能）两套格式已合并为这一种（2026-10-29 复审）：一个技能既有指令也有工具子集和模型档，没必要再分两层。
-- **加载方式**：Tibi Core 把每份 `SKILL.md` 转成一个 pi-durable 扩展（正文 → `sections`，`allowed-tools` → 工具子集），运行时为每次调用创建或复用一个子对话，用 `configure()` 设定模型、工具和指令。启动时只把技能的名称和说明放进 Tibi 主对话的上下文，运行时才加载全文。
+- **加载方式**：Tibi Core 把每份 `SKILL.md` 转成一份 `pi-agent-core` 的 Agent 配置（正文 → 系统提示片段，`allowed-tools` → 工具子集），运行时为每次调用创建或复用一个子对话，设定模型、工具和指令。启动时只把技能的名称和说明放进 Tibi 主对话的上下文，运行时才加载全文。
 - **用户能改什么**：内置技能可以追加指令、换模型档，不能删掉安全规则。**技能只能使用能力层的工具，不能执行任意代码。**
 - **不做用户自定义**（B5 已砍，2026-10-31）：用户不能新建或安装技能，也没有社区技能包；`SKILL.md` 只是内部实现。
 
 ---
 
-## 6. 运行机制（映射到 pi-durable）
+## 6. 运行机制（TibiKernel，R9 后自建）
 
-| Tibi 概念 | pi-durable 实现 |
+| Tibi 概念 | 实现 |
 |---|---|
-| 一次对话线程（全局线程、某篇文章的线程） | Conversation；线程与文章的绑定存在我们自己的小表里 |
-| 一次技能运行（例如导入一篇文章） | 一个 submission 及其 generation / tool 任务 |
-| Tibi 主对话运行一项技能 | `run_skill` 工具创建由当前任务拥有的子对话（pi-durable 的 subagent） |
-| 导入流水线中并行的几步（总结、短语、长难句） | 子任务（child tasks），`allSettled` 等待 |
-| 任务进度抽屉 / 任务中心 | `harness.watchTaskGraph()` 实时任务树 |
-| 关掉应用后继续 | 任务每一步都有检查点；重新打开时 `resume()` |
+| 一次对话线程（全局线程、某篇文章的线程、手机上的"今天"） | `conversations` 一行，消息存 `messages`（先写库再显示） |
+| 一次技能运行（例如出一组题） | `jobs` 一行（`kind = skill`），每轮模型调用和每次工具调用是一条 `job_steps` |
+| Tibi 主对话运行一项技能 | `run_skill` 工具创建子任务（`parent_job_id`）和它自己的子对话 |
+| 导入流水线中并行的几步（总结、短语、长难句） | 子任务，全部结束（成功或失败）再汇总 |
+| 任务进度抽屉 / 任务中心 | 订阅 `jobs` / `job_steps` 的变更事件 |
+| 关掉应用后继续 | 每一步写完才算完成（检查点）；重新打开时把 `running` 的任务从最后一个完成的步骤接着跑，写工具靠幂等键不会重复写 |
 | 学习事件触发（读完一篇 → 出题建议） | Core 内事件总线 → 写入对话或创建任务 |
 | 权限与审批 | `beforeTool` 钩子：按权限档放行、拦截，或挂起等待界面确认 |
 | 撤销 | 写类能力返回撤销信息，记入审计日志（`afterTool` 钩子） |
-| 每项技能的花费 | `pi.usage` 文档按模型、按工具累计 → 设置和任务中心展示 |
+| 每项技能的花费 | 每次模型调用后 `pi-ai` 返回 token 与费用，写 `usage_records` → 设置和任务中心展示 |
 | 长对话 | 自动压缩（摘要旧内容，原文仍保留） |
 
 ---
 
 ## 7. 上下文工程
 
-沿用 [`02-ai-assistant.md` §4](./02-ai-assistant.md#4-上下文工程每轮注入什么) 的七个区块，按 pi-durable 的特点重新安排，目的是**让模型提示缓存命中**（DeepSeek 有缓存折扣）：
+沿用 [`02-ai-assistant.md` §4](./02-ai-assistant.md#4-上下文工程每轮注入什么) 的七个区块，按自建对话表的特点重新安排，目的是**让模型提示缓存命中**（DeepSeek 有缓存折扣）：
 
 | 放在哪里 | 内容 | 变化频率 |
 |---|---|---|
@@ -179,7 +180,7 @@ metadata:
 - 三档权限模式不变（每次都问 / 标词自动其余询问 / 全部自动），由 `beforeTool` 统一执行；技能的 `SKILL.md` 可以收紧，不能放宽。
 - 需要确认时，对话里或任务中心出现一张**审批卡**（"Tibi 想把《…》保存到书架" → 允许 / 拒绝 / 修改后允许 / 以后这类都自动允许）。
 - 所有写操作进审计日志，词汇类写操作和导入都可撤销。
-- **没有任意代码执行**：不注册 bash、文件读写这类工具；pi-durable 的代码模式暂不启用（需要时用 QuickJS 沙箱，只能调用能力层工具）。
+- **没有任意代码执行**：不注册 bash、文件读写这类工具；不做代码模式（以后需要时用 QuickJS 沙箱，只能调用能力层工具）。
 
 **不可信内容**：
 
@@ -204,7 +205,7 @@ metadata:
 
 **失败路径**（细节见 [06 §1](06-interface.md#1-约定)）：
 
-- 调用模型前预留预算；新装就有默认上限，数值待定（[`DECISIONS.md`](../DECISIONS.md#待决定)）。
+- 调用模型前预留预算；新装就有默认上限：**每月 ¥20、单个任务 ¥1**（2026-10-31 定，起始值）。按 DeepSeek 的价格，导入一篇文章的 AI 部分通常不到 ¥0.05，¥20 够一个月正常使用；超出时记 `deferred`（稍后补做），用户可在设置 → 高级里调整。
 - 模型不可用时记 `ai_status = deferred`，界面显示"稍后补做"。
 - 嵌套深度上限 1；写工具带幂等键。
 
@@ -219,7 +220,7 @@ metadata:
 ## 10. 外部 AI 工具（对 A2、A6 的影响）
 
 - **MCP Server（A6）**：不变，并且更自然——就在 Tibi Core 里，暴露能力层，`tibi mcp` 只做代理。用户在 Codex / Claude Code 里说"把我今天的生词出 10 道题"即可。
-- **账号登录**：pi-ai 支持用 ChatGPT（Codex）、Claude、GitHub Copilot 账号登录。**Tibi 不提供 Claude 订阅登录**：Anthropic 条款禁止第三方使用 Claude 订阅的 OAuth（[The Register，2026-02-20](https://www.theregister.com/2026/02/20/anthropic_clarifies_ban_third_party_claude_access)）；Anthropic API Key 照常可用。**ChatGPT 登录的条款未核实，标为待核实**，只作为可选项。
+- **账号登录**：pi-ai 支持用 ChatGPT（Codex）、Claude、GitHub Copilot 账号登录。**Tibi 不提供 Claude 订阅登录**：Anthropic 条款禁止第三方使用 Claude 订阅的 OAuth（[The Register，2026-02-20](https://www.theregister.com/2026/02/20/anthropic_clarifies_ban_third_party_claude_access)）；Anthropic API Key 照常可用。**ChatGPT 登录也先不做**（2026-10-31）：条款未核实，从 M5 计划里拿掉；以后 OpenAI 明确允许第三方应用使用再加。
 - **ACP 客户端（A2）**：价值下降——它原本是为了"用用户已有的订阅"和"接入本地 harness"。建议 v1 先不做 ACP，用户想用 Codex / Claude Code 时走 MCP 反向接入；以后有需要再加。
 
 ---
@@ -228,18 +229,18 @@ metadata:
 
 | 风险 | 应对 |
 |---|---|
-| `pi-durable` 标注实验性，API 会变。事实（2026-10-31 核对 [npm](https://www.npmjs.com/package/@earendil-works/pi-durable)）：MIT；1.x 已发 9 个版本（1.0.0 到 1.4.0，全在 2026-10）；README 写明 API 可能不经通知变化；1.4.0 打开 SQLite 时自动迁库（升到 schema 2），迁移后 1.3.0 及更早版本打不开，不可回退。结论留待决策 | 锁定版本；Core 内用一层自己的接口（`TibiKernel`：openConversation / submit / delegate / watchTasks）隔离；升级前跑我们的集成测试；**退路**：换成稳定的 `pi-agent-core` + 自己做持久化，接口不变 |
+| ~~`pi-durable` 实验性~~：已按 R9 不用（2026-10-31）。当时核对的事实（[npm](https://www.npmjs.com/package/@earendil-works/pi-durable)）：MIT；1.x 一个月内发了 9 个版本；README 写明 API 可能不经通知变化；1.4.0 打开 SQLite 时自动迁库，迁移后旧版打不开，不可回退 | 改用 `pi-ai` + `pi-agent-core`，对话与任务自建（§1、§6）。代价：检查点、续跑、子对话、上下文压缩要自己写，约 1–2 周，M0 验证 |
+| 自建持久化的工作量与正确性 | `TibiKernel` 只做 Tibi 需要的：对话、任务树、步骤检查点、审批挂起、用量；用集成测试覆盖"中途杀进程再打开" |
 | sidecar 体积和启动时间 | 先测 Node SEA 与 Bun 两种打包；Core 随应用启动，界面先显示本地数据 |
-| Bun 下 SQLite 驱动兼容性 | pi-durable 的 SQLite 核心支持自定义异步数据库外壳，可接 `bun:sqlite` 或 `better-sqlite3` |
+| SQLite 驱动 | 桌面用 `better-sqlite3` 或 `bun:sqlite`；手机用平台的 SQLite（经 Tauri 插件）。Core 只通过一层薄的数据库接口访问，三处都能接 |
 | DeepSeek 的工具调用稳定性 | 每项技能工具少而精；能力返回结构化结果；关键流水线（导入）用固定步骤 + 模型只做其中的生成环节 |
 | 后台任务花费失控 | 月度预算与单次上限；技能都由用户触发，没有定时运行；花费按技能在设置页和任务中心可见 |
-| 删除对话要求硬删（01 §9），但 pi-durable 1.4.0 的 README 未写删除对话的 API（未读源码） | M0 确认；没有的话要和上游或 `TibiKernel` 一起解决 |
 | 多个内部 agent 让用户困惑 | 用户只看到 Tibi 和它的技能（§13）；进阶用户才去配置 |
 
 **第一步建议做一个技术验证（spike）**，一周内回答：
-1. Tibi Core（Node SEA / Bun）+ pi-durable + `bun:sqlite`（或 better-sqlite3）以 `pi_` 前缀与领域表共用 `app.db`，崩溃后能续跑；
+1. Tibi Core（Node SEA / Bun）+ `pi-agent-core` + 自建 `conversations` / `jobs` / `job_steps` 表，与领域表共用 `app.db`；中途杀进程后能从检查点续跑；
 2. pi-ai 调 DeepSeek 的工具调用与流式输出；
-3. 导入流水线做成 durable 任务（含并行子任务），任务图驱动进度抽屉；
+3. 导入流水线做成可续跑的任务（含并行子任务），任务表驱动进度抽屉；
 4. `beforeTool` 挂起等待界面审批的做法；
 5. Tauri sidecar 打包体积、冷启动时间、Windows / macOS / Linux 三平台可运行。
 
@@ -249,12 +250,12 @@ metadata:
 
 | # | 问题 | 结论 | 状态 |
 |---|---|---|---|
-| **B1** | harness 底座 | `pi-ai` + `pi-durable`，外包一层 `TibiKernel`；`pi-agent-core` 作为退路 | ✅ 已确认（2026-10-29） |
+| **B1** | harness 底座 | `pi-ai` + `pi-agent-core`，对话与任务由 `TibiKernel` 自建（R9，2026-10-31 改；原为 `pi-durable`） | ✅ 已确认（2026-10-29，2026-10-31 调整） |
 | **B2** | 进程架构 | 新增 Tibi Core sidecar，独占 `app.db`；界面不再直连数据库（改动原 §4 架构与数据访问方式） | ✅ 已确认（2026-10-29） |
-| **B3** | 技能清单 | Tibi（主）+ 6 项技能：导入文章、找文章、讲解、出题与批改、学习洞察、整理记忆（初稿称"6 个专职智能体"，复审统一） | ✅ 已确认（2026-10-29） |
+| **B3** | 技能清单 | Tibi（主）+ 5 项技能：找文章、讲解、出题与批改、学习洞察、整理记忆；导入文章改为固定流水线（R10，2026-10-31），界面上仍一起列为"Tibi 能做的事"（初稿称"6 个专职智能体"，复审统一） | ✅ 已确认（2026-10-29，2026-10-31 调整） |
 | **B4** | 用户如何接触技能 | 默认只感知 Tibi；任务中心、设置里的技能配置面向进阶用户（初稿的 @ 点名已被 C1–C5 取代，界面统一为"Tibi 的技能"） | ✅ 已确认（2026-10-29） |
 | **B5** | 自定义技能 | **已砍**（R2）：用户不能新建或安装技能；内置技能仍用 `SKILL.md`（Agent Skills 格式），这是内部实现 | 🚫 已砍（2026-10-31，原 2026-10-29 确认） |
-| **B6** | ACP 客户端（调整 A2） | v1 不做；外部 AI 工具走 MCP 反向接入；pi-ai 账号登录作为可选项（只 ChatGPT，条款待核实；Claude 订阅登录不做，见 §10） | ✅ 已确认（2026-10-29） |
+| **B6** | ACP 客户端（调整 A2） | v1 不做；外部 AI 工具走 MCP 反向接入。账号登录不做（2026-10-31：ChatGPT 条款未核实，先从计划拿掉；Claude 订阅登录本来就不做，见 §10） | ✅ 已确认（2026-10-29，2026-10-31 调整） |
 | **B7** | 定时任务 | **已砍**（R2）：没有例行任务；找文章、整理记忆改为手动触发 | 🚫 已砍（2026-10-31，原 2026-10-29 确认） |
 | **B8** | 先做技术验证 | 是，按 §11 的 5 项 | ✅ 已确认（2026-10-29） |
 

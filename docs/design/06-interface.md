@@ -8,7 +8,7 @@
 - 长任务一律返回 `{ task_id }`，进度走 `task.update`，结果走 `task.done`。
 - 所有写操作返回 `Undo`（或在结果里带 `undo`），统一用 `system.undo` 撤销；同时写入 `skill_audit`。例外：`terms.lookup` 的自动 0 → 1 不返回 `Undo`、不写 `skill_audit`，只记 `term_status_log`。
 - 分页用 `cursor`（不透明字符串）+ `limit`，返回 `Page<T>`。
-- 时间一律毫秒时间戳；ID 为领域表主键，对话与任务 ID 为 pi-durable 的字符串。
+- 时间一律毫秒时间戳；所有 ID 都是 UUIDv7 字符串（R11），对话与任务也是我们自己的表（R9）。
 - 错误：JSON-RPC `error.code` 用标准值，`error.data.code` 为业务码（见下方 `ErrorCode`），`error.message` 可直接显示给用户。
 - 这些方法都是能力层的薄封装：技能、MCP 工具调用的是同一批能力，所以参数与返回的形状与本文 §5 的能力定义一致。
 - 文件路径：`path` 只接受 `pick_file` 所选或拖入后由 Rust 登记的路径，否则返回 `permission_denied`；MCP 调用方不能传本地路径。
@@ -19,22 +19,23 @@
 
 - 预算：调用模型前按估算预留，超出月预算或单任务上限返回 `budget_exceeded`；新装就有默认上限，不存在"没配就不限"。
 - 模型不可用：确定性步骤照常完成，`ai_status = deferred`，界面显示"稍后补做"，之后经 `documents.reanalyze` 补。
-- 写能力带幂等键（由 pi-durable 工具任务 ID 派生，存 `skill_audit`），崩溃重跑不会写两次。
+- 写能力带幂等键（由任务步骤 `job_steps.id` 派生，存 `skill_audit`），崩溃重跑不会写两次。
 
 ## 2. 共享类型
 
 ```ts
 // 基础
-type Id = number;            // 领域表主键
+type Id = string;            // 领域表主键，UUIDv7（R11：手机与电脑各自生成不冲突）
 type Ts = number;            // 毫秒时间戳
-type ConvId = string;        // pi-durable 对话 ID
-type TaskId = string;        // pi-durable 任务 ID
+type ConvId = string;        // conversations.id（UUIDv7）
+type TaskId = string;        // jobs.id（UUIDv7；R9 后对话与任务自建）
 type SkillId = 'tibi' | 'importer' | 'scout' | 'tutor' | 'coach' | 'insight' | 'archivist';
 type Tier = 'fast' | 'deep';
 type Status = 0 | 1 | 2 | 3 | 4 | 5 | 97 | 98 | 99;   // 生词…掌握、标为已知（不建卡，不等于掌握）、忽略、待确认
 type Kind = 'article' | 'book';
 type Genre = 'tech' | 'news' | 'lit' | 'academic' | 'general';
-type CardType = 'recognize' | 'choice' | 'cloze' | 'listen' | 'spell' | 'produce';   // choice = 选义四选一（G2）；M1 只有 choice、cloze，M3 补齐
+type CardType = 'recognize' | 'choice' | 'cloze';   // 计分复习只有这三种（R6）；choice = 选义四选一（G2）；M1 只有 choice、cloze，M3 加 recognize
+type PracticeMode = 'dictation' | 'spell' | 'confusable' | 'produce';   // 不计分练习：听写原句 / 拼写 / 易混词辨析 / 造句（R6 把拼写、造句移到这里）
 type Rating = 1 | 2 | 3 | 4;                       // 忘了 / 模糊 / 记得 / 轻松
 type TaskState = 'run' | 'appr' | 'paused' | 'done' | 'err' | 'cancel';
 type Page<T> = { items: T[]; total: number; cursor?: string };
@@ -81,12 +82,12 @@ interface AnswerResult { step: number; correct: boolean; near_miss: boolean;
   card?: CardState; status_change?: { from: Status; to: Status }; next?: { days: number; label: string };
   retry_step?: number;                 // 答错时插入的重练步序号
   undo: Undo }
-interface PracticeItem { id: string; mode: 'dictation' | 'confusable'; sentence: string; audio?: string; options?: [string, string]; answer?: string; explain?: string; source: { document_id?: Id; term_id?: Id } }
+interface PracticeItem { id: string; mode: PracticeMode; sentence: string; audio?: string; options?: [string, string]; answer?: string; explain?: string; source: { document_id?: Id; term_id?: Id } }
 interface PracticeResult { practice_id: Id; accuracy: number; duration_ms: number; best: { dictation_accuracy: number; rounds: number } }
 interface IntervalPreview { 1: string; 2: string; 3: string; 4: string }   // 每档评分对应的下次间隔文案
 
 // 对话与任务
-interface Conversation { id: ConvId; skill_id: SkillId; title: string; document_id?: Id; trigger: 'user' | 'auto' | 'event' | 'mcp'; created_at: Ts; updated_at: Ts }
+interface Conversation { id: ConvId; kind: 'chat' | 'day' | 'document' | 'skill'; day?: string; device: 'desktop' | 'mobile'; skill_id: SkillId; title: string; document_id?: Id; trigger: 'user' | 'auto' | 'event' | 'mcp'; created_at: Ts; updated_at: Ts }
 interface Message { id: string; role: 'user' | 'assistant' | 'tool'; text?: string; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; task_id?: TaskId; created_at: Ts }
 interface TaskSummary { id: TaskId; state: TaskState; skill_id: SkillId; title: string; document_title?: string; trigger: string; model: string;
   step: { index: number; total: number; label: string }; started_at: Ts; duration_ms: number; cost: number; error?: string }
@@ -101,7 +102,7 @@ interface Skill { id: SkillId; title: string; description: string; tools: string
 interface Memory { id: Id; type: 'profile' | 'semantic' | 'episodic' | 'procedural'; content: string; subject?: string; confidence: number;
   source: { type: 'user' | 'agent' | 'consolidation'; ref?: string; label: string }; status: 'active' | 'superseded'; created_at: Ts; updated_at: Ts }
 // model 是配置项（默认 deepseek-v4-flash / deepseek-v4-pro），代码不写死
-interface Provider { id: Id; kind: 'llm' | 'vision' | 'image' | 'tts'; name: string; protocol: string; base_url?: string; auth: 'api_key' | 'oauth'; tier?: Tier; model: string;
+interface Provider { id: Id; kind: 'llm' | 'vision' | 'image' | 'tts'; name: string; protocol: string; base_url?: string; auth: 'api_key'; tier?: Tier; model: string;
   has_secret: boolean; is_default: boolean; month_cost?: number }
 interface Profile { display_name: string; goal: string; level_self: string; interests: string[]; vocab_estimate: number; vocab_source: 'self' | 'test' | 'manual'; vocab_tested_at?: Ts;
   daily_goal_minutes: number; daily_new_cards: number; desired_retention: number; assistant_prefs: { nickname: string; language: 'mixed' | 'zh' | 'en'; permission: 'ask' | 'default' | 'auto' } }
@@ -173,7 +174,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `practice.start` | `{ mode: 'dictation' \| 'confusable'; source: 'recent' \| 'mistakes' \| 'leech' \| 'document'; document_id?: Id; count?: number }` | `{ practice_id: Id; items: PracticeItem[] }` | 句子来自用户读过的文章；易混词来自生词本与词典的易混提示 |
+| `practice.start` | `{ mode: PracticeMode; source: 'recent' \| 'mistakes' \| 'leech' \| 'document'; document_id?: Id; count?: number }` | `{ practice_id: Id; items: PracticeItem[] }` | 句子来自用户读过的文章；易混词来自生词本与词典的易混提示 |
 | `practice.finish` | `{ practice_id: Id; results: { item_id: string; accuracy: number; duration_ms: number }[] }` | `PracticeResult` | 写 practice_logs，不改 cards / review_logs |
 
 ### stats · 统计
@@ -191,7 +192,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `chat.open` | `{ conversation_id?: ConvId; document_id?: Id }` | `Conversation & { messages: Message[] }` | 给 document_id 时续上该文章的线程；都不给则新建全局线程 |
+| `chat.open` | `{ conversation_id?: ConvId; document_id?: Id; today?: boolean }` | `Conversation & { messages: Message[] }` | 给 document_id 时续上该文章的线程；today 为 true（手机首页，J9）时打开或新建当天的 day 对话；都不给则新建全局线程 |
 | `chat.send` | `{ conversation_id: ConvId; text: string; context?: { page: string; document_id?: Id; section_id?: Id; sentence_id?: Id; selection?: string; card_id?: Id }; skill?: SkillId; tier?: Tier }` | `{ submission_id: TaskId }` | 立即返回；文本增量与工具调用走事件；skill 对应 / 选择 |
 | `chat.list` | `{ limit?: number }` | `Conversation[]` | 左栏"最近" |
 | `chat.history` | `{ conversation_id: ConvId; cursor?: string }` | `Page<Message>` |  |
@@ -242,7 +243,6 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `providers.list` | `{}` | `Provider[]` | 密钥不返回，只有 has_secret |
 | `providers.upsert` | `{ provider: Omit<Provider, 'id' \| 'has_secret' \| 'month_cost'> & { id?: Id }; secret_ref?: string }` | `Provider` | 密钥先由 Rust 写入钥匙串，这里只传引用 |
 | `providers.test` | `{ id: Id }` | `{ ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string }` | 连接测试 |
-| `providers.login` | `{ service: 'chatgpt' }` | `{ task_id: TaskId }` | 打开浏览器 OAuth；令牌入钥匙串。条款待核实；不提供 Claude 订阅登录（05 §10） |
 | `vocab.start` | `{}` | `{ bands: { label: string; words: string[] }[] }` | 词汇量测试：5 组 × 8 词，含伪词（不标出） |
 | `vocab.submit` | `{ picks: string[][] }` | `{ estimate: number; cefr: string; bands: number[]; pseudo_hits: number }` | 估算并初始化已知词库（terms.status 99 / 推断已知）；vocab_source 记为 test，并按新估算重新标注 |
 
@@ -343,7 +343,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `get_review_stats` | `{ range?: 7 \| 30 \| 90 }` | `{ due: number; overdue: number; new_available: number; today_reviews: number; retention: number; streak: number; forecast: number[]; leeches: number }` | 读 |  |
 | `create_quiz` | `{ term_ids?: Id[]; count?: number; types?: CardType[]; document_id?: Id }` | `{ items: { term_id: Id; term: string; card_type: CardType; prompt: string; answer: string[]; options?: { text: string; from?: string }[]; context?: { sentence_id: Id; sentence: string } }[] }` | 读 | 临时练习，不影响 FSRS 排期；对话里做的"考我"、完成页"再练错词"用它 |
 | `pick_distractors` | `{ term_id: Id; card_type: 'choice'; count?: number }` | `{ options: { text: string; from: string }[] }` | 读 | 选义题干扰项（G2）：同词性同难度、中文不重叠；优先同一篇文章里的生词、易混词、生词本里的词 |
-| `grade_answer` | `{ term_id: Id; card_type: CardType; expected: string[]; answer: string; hints?: number; duration_ms?: number }` | `{ correct: boolean; near_miss: boolean; distance?: number; rating: Rating; reason: string; uses_target: boolean; issues: ('missing_target' \| 'wrong_form' \| 'too_short')[] }` | 读 | 规则判定 + 系统评分（G1 的阈值：选义 9 秒、填空 / 听写 15 秒、拼写 20 秒算慢，拼写 6 秒内算快）；评语与修改建议由技能用模型写 |
+| `grade_answer` | `{ term_id: Id; card_type: CardType \| PracticeMode; expected: string[]; answer: string; hints?: number; duration_ms?: number }` | `{ correct: boolean; near_miss: boolean; distance?: number; rating: Rating; reason: string; uses_target: boolean; issues: ('missing_target' \| 'wrong_form' \| 'too_short')[] }` | 读 | 规则判定 + 系统评分（G1 的阈值：选义 9 秒、填空 / 听写 15 秒、拼写 20 秒算慢，拼写 6 秒内算快）；评语与修改建议由技能用模型写 |
 | `record_review` | `{ card_id: Id; card_type: CardType; rating: Rating; suggested_rating?: Rating; auto: boolean; hints?: number; context_id?: Id; typed?: string; duration_ms?: number; session_id?: Id }` | `AnswerResult` | 写 · 可设自动 | 只记首次作答（G3）；复习页经 review.answer 调它；对话里完成的练习由教练技能记录 |
 
 ### 统计
