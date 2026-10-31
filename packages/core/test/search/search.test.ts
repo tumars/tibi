@@ -4,7 +4,7 @@ import { assembleCore, fakePlatform, type Dict, type SearchResult } from '../../
 
 const WORDS: Record<string, string> = { compiler: 'n. 编译器', enforce: 'v. 强制执行', rule: 'n. 规则', parser: 'n. 解析器' };
 const dict: Dict = {
-  async lookup(w) { return WORDS[w] ? { word: w, translation: WORDS[w]!, exam: [], forms: [] } : undefined; },
+  async lookup(w) { return WORDS[w] ? { word: w, translation: WORDS[w]!, exam: [], forms: [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`, `${w}${w.slice(-1)}ed`, `${w}${w.slice(-1)}ing`, `${w.slice(0, -1)}ing`] } : undefined; },
   async lemmas(f) { return f === 'parsers' ? ['parser'] : []; }, async frequencyRank() { return 9000; },
 };
 

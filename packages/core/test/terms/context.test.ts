@@ -6,7 +6,7 @@ import { cleanMeaning } from '../../src/domain/terms/methods.js';
 import { FAKE_MODEL, scriptedStream, type Turn } from '../kernel/helpers.js';
 
 const FREQ: Record<string, number> = { the: 1, compiler: 2000, enforce: 7000, rule: 500, a: 3, set: 80, of: 4 };
-const dict: Dict = { async lookup(w) { return FREQ[w] ? { word: w, translation: `v. ${w}的词典义`, exam: [], forms: [] } : undefined; }, async lemmas() { return []; }, async frequencyRank(l) { return FREQ[l]; } };
+const dict: Dict = { async lookup(w) { return FREQ[w] ? { word: w, translation: `v. ${w}的词典义`, exam: [], forms: [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`, `${w}${w.slice(-1)}ed`, `${w}${w.slice(-1)}ing`, `${w.slice(0, -1)}ing`] } : undefined; }, async lemmas() { return []; }, async frequencyRank(l) { return FREQ[l]; } };
 
 async function setup(turns: Turn[] | null, online = true) {
   const db = await openAppDb(':memory:');

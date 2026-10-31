@@ -6,7 +6,7 @@ import { undoMethods } from '../../src/domain/shared/undo.js';
 import { makeCore, InlineJobRunner } from '../helpers.js';
 
 const FREQ: Record<string, number> = { the: 1, is: 2, a: 3, of: 4, and: 5, to: 6, that: 7, it: 8, rust: 3000, feature: 400, make: 50, among: 900, system: 300, language: 200, instead: 700, rely: 2500, on: 9, garbage: 4000, collector: 6500, compiler: 2000, enforce: 7000, small: 100, set: 80, rule: 500, at: 10, compile: 5000, time: 30, program: 600, violate: 6800, them: 20, simply: 1500, won: 300, not: 15, upshot: 15000, memory: 800, safety: 1200, without: 150, runtime: 9500, overhead: 7500, usually: 400, come: 60, with: 12, each: 90, value: 250, have: 14, exactly: 1300, one: 16, owner: 2200, when: 25, go: 100, out: 40, scope: 6200, be: 2, drop: 1100, its: 50, reclaim: 11000, deterministically: 20000, this: 13, distinctive: 8800 };
-const dict: Dict = { async lookup(w) { return FREQ[w] ? { word: w, translation: `n. ${w}的意思；另一义`, exam: [], forms: [] } : undefined; }, async lemmas() { return []; }, async frequencyRank(l) { return FREQ[l]; } };
+const dict: Dict = { async lookup(w) { return FREQ[w] ? { word: w, translation: `n. ${w}的意思；另一义`, exam: [], forms: [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`, `${w}${w.slice(-1)}ed`, `${w}${w.slice(-1)}ing`, `${w.slice(0, -1)}ing`] } : undefined; }, async lemmas() { return []; }, async frequencyRank(l) { return FREQ[l]; } };
 
 const TEXT = `# Understanding Ownership in Rust
 
