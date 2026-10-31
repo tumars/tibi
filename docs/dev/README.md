@@ -109,11 +109,15 @@ pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式�
 2. `cd apps/desktop && pnpm tauri android init`（生成 `src-tauri/gen/android/`，提交）
 3. 词典同上；`pnpm tauri android dev` / `pnpm tauri android build --target aarch64 --apk`
 
-2026-10-31 在 Linux 上（SDK 命令行工具 + NDK 27）跑过：`tauri android init` 生成的 `gen/android/` 已提交；Rust 部分交叉编译通过（`libtibi_lib.so`，aarch64）；最后一步 Gradle 拉 Maven 依赖时被 Maven Central 限流（429），APK 还没打出来，换个网络重跑即可。没有 KVM，没在模拟器里跑过。
+2026-10-31 在 Linux 上（SDK 命令行工具 + NDK 27 + JDK 21）跑通：`tauri android init` 生成的 `gen/android/` 已提交；`pnpm tauri android build --target aarch64 --apk` 打出 `gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk`（约 56 MB：`libtibi_lib.so` 15 MB 内嵌界面，`assets/dict.db` 90 MB 压缩后），Manifest 里带着备份规则。发布前要签名（`apksigner`，密钥放 `gen/android/keystore.properties`，已在 `.gitignore`）。没有 KVM，没在模拟器或真机上跑过。
+
+- Gradle 拉依赖时如果 Maven Central 返回 429（共享出口 IP 被限流），可以在本机 `~/.gradle/init.d/` 放一个脚本把 `repo.maven.apache.org` 换成 Google 的镜像 `https://maven-central.storage-download.googleapis.com/maven2/`，不用改工程。
+- CI 的 `android` job 只做 `cargo check --target aarch64-linux-android`（用 runner 自带的 NDK），保证 Rust 这部分能编译。
+- `gen/android` 的 `res/xml/backup_rules.xml`、`data_extraction_rules.xml` 是手加的（把 `secrets.json` 排除在云端备份和换机迁移之外），重新 `tauri android init` 时要保留。
 
 **iOS 扩展**（Safari 分享、小组件，J3 / J7）：Swift 代码在 `src-tauri/ios-extensions/`，要在 Xcode 里加成 target，步骤见那里的 README。主应用和扩展经 App Group `group.app.tibi` 交换数据：壳的 `app_group.rs` 提供 `share_take_pending`（取走分享进来的网址）和 `widget_write`（写小组件快照），`src/mobile/native.ts` 在打开 / 回到前台时导入、状态变了写快照。不是 iOS 时这两条命令什么都不做；测试时 `TIBI_APP_GROUP_DIR` 可以指一个目录。
 
-**还没做 / 没验证**：iOS 上的 iCloud 同步代码写好了（`sync_fs.rs` 的 iOS 分支调 NSFileManager），但这台 Linux 机器编译不了 iOS，要在 Mac 上验证；Android 上 API Key 存在应用私有目录的 `secrets.json`（0600，`keys.rs`），还没接 Android Keystore 再加一层加密；扫描版 PDF 的 OCR（照片可以）；Safari 分享扩展和小组件的 Swift 代码没在 Xcode 里编译过（主应用这一侧在浏览器里模拟壳验证过：分享的网址经 http 插件抓取、进书架，小组件快照写出）。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
+**还没做 / 没验证**：iOS 上的 iCloud 同步代码写好了（`sync_fs.rs` 的 iOS 分支调 NSFileManager），但这台 Linux 机器编译不了 iOS，要在 Mac 上验证；Android 上 API Key 存在应用私有目录的 `secrets.json`（0600，`keys.rs`；`gen/android` 的备份规则把它排除在云端备份和换机迁移之外），还没接 Android Keystore 再加一层加密；扫描版 PDF 的 OCR（照片可以）；Safari 分享扩展和小组件的 Swift 代码没在 Xcode 里编译过（主应用这一侧在浏览器里模拟壳验证过：分享的网址经 http 插件抓取、进书架，小组件快照写出）。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
 
 ## 7. M0 的技术决定（T 组）
 

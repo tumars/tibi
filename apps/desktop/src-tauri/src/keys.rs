@@ -2,6 +2,7 @@
 //! WebView 只能写入和删除；读取只给 sidecar 的 secret.get 反向请求（手机上 Core 在 WebView 里，经 keyring_get）。
 //! - macOS / iOS：系统钥匙串；Windows：凭据管理器；Linux：Secret Service（GNOME 钥匙串 / KWallet）
 //! - Android：keyring 没有后端（只存在内存里，重启就丢），改存应用私有目录里的 secrets.json（权限 0600，别的应用读不到）。
+//!   gen/android 的备份规则（res/xml/backup_rules.xml、data_extraction_rules.xml）把它排除在云端备份和换机迁移之外。
 //!   以后接 Android Keystore 插件再加一层加密。
 
 #[cfg(not(target_os = "android"))]

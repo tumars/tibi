@@ -54,3 +54,23 @@ jobs:
       - run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings
       - name: 手机那条路（Core 在 WebView 里、local_db）也能编译
         run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --features mobile-preview
+
+  android:
+    # 手机 Android 目标的 Rust 部分能编译（runner 自带 NDK；APK 打包要 Gradle，留给发布流程 / 本机，见开发说明 §6）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: 前端产物占位（不打包，只让 frontendDist 指的目录存在）
+        run: mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html apps/desktop/dist/mobile.html
+      - name: cargo check（aarch64-linux-android）
+        run: |
+          TC=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+          export CC_aarch64_linux_android=$TC/aarch64-linux-android24-clang AR_aarch64_linux_android=$TC/llvm-ar
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$TC/aarch64-linux-android24-clang
+          cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --lib --target aarch64-linux-android

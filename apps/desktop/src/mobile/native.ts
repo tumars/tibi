@@ -20,13 +20,19 @@ export async function takeSharedImports() {
   if (items.length) toast(tl('正在导入从 Safari 分享的 {n} 篇', { n: items.length }));
 }
 
+type SnapState = Pick<ReturnType<typeof useCore.getState>, 'due' | 'streak' | 'todayMinutes' | 'goal' | 'recentDocs'>;
+/** 小组件读的快照（ios-extensions/TibiWidget）：继续读的文章取最近一篇读了一部分的 */
+export function widgetSnapshot(st: SnapState) {
+  const lead = st.recentDocs.find(d => d.progress > 0 && d.progress < 1);
+  return { due: st.due, streak: st.streak, todayMinutes: st.todayMinutes, goal: st.goal, readingTitle: lead?.title ?? null, readingProgress: lead?.progress ?? null };
+}
+
 let timer: ReturnType<typeof setTimeout> | undefined;
 export function startWidgetSnapshots() {
   if (!isTauri()) return () => undefined;
   const write = async () => {
-    const st = useCore.getState(); const lead = st.recentDocs.find(d => d.progress > 0 && d.progress < 1);
     const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('widget_write', { snapshot: { due: st.due, streak: st.streak, todayMinutes: st.todayMinutes, goal: st.goal, readingTitle: lead?.title ?? null, readingProgress: lead?.progress ?? null } }).catch(() => undefined);
+    await invoke('widget_write', { snapshot: widgetSnapshot(useCore.getState()) }).catch(() => undefined);
   };
   return useCore.subscribe(() => { if (timer) clearTimeout(timer); timer = setTimeout(() => void write(), 1000); });
 }
