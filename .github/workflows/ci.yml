@@ -66,8 +66,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
-      - name: 前端产物占位（不打包，只让 frontendDist 指的目录存在）
-        run: mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html apps/desktop/dist/mobile.html
+      - name: 占位：前端产物和词典（不打包；手机配置把 resources/dict.db 列为资源，tauri-build 要求文件存在）
+        run: mkdir -p apps/desktop/dist apps/desktop/src-tauri/resources && touch apps/desktop/dist/index.html apps/desktop/dist/mobile.html apps/desktop/src-tauri/resources/dict.db
       - name: cargo check（aarch64-linux-android）
         run: |
           TC=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
@@ -88,8 +88,8 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
           key: ios
-      - name: 前端产物占位（不打包，只让 frontendDist 指的目录存在）
-        run: mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html apps/desktop/dist/mobile.html
+      - name: 占位：前端产物和词典（不打包；手机配置把 resources/dict.db 列为资源，tauri-build 要求文件存在）
+        run: mkdir -p apps/desktop/dist apps/desktop/src-tauri/resources && touch apps/desktop/dist/index.html apps/desktop/dist/mobile.html apps/desktop/src-tauri/resources/dict.db
       - name: cargo check（aarch64-apple-ios）
         run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --lib --target aarch64-apple-ios
       - name: Safari 分享扩展、小组件（Swift）类型检查
