@@ -33,19 +33,19 @@ Character reference sheet of CHARACTER on a plain light grey (#f2f2f1) backgroun
 
 | id | 用在哪 | 尺寸 | 状态 |
 |---|---|---|---|
-| hero-morning | 首页标题上方，6:00–12:00 | 1536×1024 | 已出 |
-| hero-day | 首页，12:00–18:00 | 1536×1024 | 已出 |
-| hero-night | 首页，18:00–6:00（23 点后用 sleeping） | 1536×1024 | 已出 |
-| empty-library | 书架为空 | 1024×1024 | 已出 |
-| empty-review | 没有到期卡片 | 1024×1024 | 已出 |
-| empty-tasks | 任务中心为空 | 1024×1024 | 已出 |
-| empty-words | 生词本为空 | 1024×1024 | 已出 |
-| celebrate-review | 复习完成页 | 1024×1024 | 已出 |
+| hero-morning | 首页标题上方，6:00–12:00 | 1536×1024 | 已落地 |
+| hero-day | 首页，12:00–18:00 | 1536×1024 | 已落地 |
+| hero-night | 首页，18:00–6:00（23 点后用 sleeping） | 1536×1024 | 已落地 |
+| empty-library | 书架为空 | 1024×1024 | 已落地 |
+| empty-review | 没有到期卡片 | 1024×1024 | 已落地 |
+| empty-tasks | 任务中心为空 | 1024×1024 | 已落地 |
+| empty-words | 生词本为空 | 1024×1024 | 已落地 |
+| celebrate-review | 复习完成页 | 1024×1024 | 已落地 |
 | celebrate-streak | 连续学习 7 / 30 / 100 天 | 1024×1024 | 已出 |
-| onboarding-hello | 引导第 1 步 认识一下 | 1024×1024 | 已出 |
-| onboarding-test | 引导第 2 步 词汇量测试 | 1024×1024 | 已出 |
-| onboarding-model | 引导第 3 步 连接模型 | 1024×1024 | 已出 |
-| onboarding-read | 引导第 4 步 读第一篇 | 1024×1024 | 已出 |
+| onboarding-hello | 引导第 1 步 认识一下 | 1024×1024 | 已落地 |
+| onboarding-test | 引导第 2 步 词汇量测试 | 1024×1024 | 已落地 |
+| onboarding-model | 引导第 3 步 连接模型 | 1024×1024 | 已落地 |
+| onboarding-read | 引导第 4 步 读第一篇 | 1024×1024 | 已落地 |
 | error-offline | 模型不可用 / 离线 | 1024×1024 | 已出 |
 | error-generic | 出错了 | 1024×1024 | 已出 |
 | sticker-* | 对话里的贴纸反应（6 张：赞、笑、疑问、加油、睡、惊） | 512×512 | 已出 |

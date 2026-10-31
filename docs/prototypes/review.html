@@ -74,7 +74,8 @@
 .stagechg { position: absolute; top: 22px; right: 26px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2); }
 /* 完成页 */
 .done { display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center; padding-top: 8px; }
-.done .ill { width: 160px; height: 160px; margin-bottom: -10px; }
+.done .ill { width: 220px; height: 220px; margin-bottom: -10px; }
+.done .ill img { display: block; width: 100%; height: 100%; }
 .done h1 { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
 .done .sub { color: var(--ink-2); font-size: 14px; margin-top: -10px; }
 .kpis3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
@@ -528,7 +529,7 @@ function finish() {
   const st = document.querySelector('.streak .t'); if (st) st.textContent = '连续 10 天';
   const ring = $('#ringArc'); if (ring) { ring.setAttribute('stroke-dashoffset', 0); anim(ring, { strokeDashoffset: [87.96 * 0.4, 0] }, { duration: 0.9, ease: EASE, delay: 0.3 }); }
 }
-function drawIll() { const el = $('#ill'); if (!el || el.firstChild) return; Fox.mount(el, { state: 'happy', size: 160, interactive: true }); }
+function drawIll() { const el = $('#ill'); if (!el || el.firstChild) return; el.innerHTML = mascotImg('celebrate-review'); }
 let doneState = null;
 function startDrill(words) {   // 再练错词：调用 review.quiz，不改排期
   doneState = { Q, idx, results };
@@ -724,7 +725,7 @@ if (IS_EMPTY) {
   /* 空状态：今天没有要复习的卡片 */
   $('.crumb').innerHTML = '<b>复习</b> · 今天没有到期的卡片';
   $('#sideH').textContent = '今天要复习'; $('#recent').innerHTML = '<div class="lbl-i" style="padding:4px 12px">没有到期的词</div>';
-  emptyState($('#rv'), { state: 'happy', title: '今天的复习都做完了', desc: '明天有 6 张到期，后天 9 张。现在最好的安排是读点新东西——新文章里的生词会自动进入复习。', cls: 'card-like',
+  emptyState($('#rv'), { img: 'empty-review', title: '今天的复习都做完了', desc: '明天有 6 张到期，后天 9 张。现在最好的安排是读点新东西——新文章里的生词会自动进入复习。', cls: 'card-like',
     extra: '<div class="lbl-i" style="margin-top:6px">想多练一点也可以，不会打乱复习排期</div>',
     actions: [{ t: '读一篇新文章', pri: true, link: 'home' }, { t: '提前复习明天的 6 张', onclick: () => { location.hash = ''; location.reload(); } }, { t: '去练习（听写、易混词）', onclick: () => setMode('practice') }] });
   const ring = $('#ringArc'); if (ring) ring.setAttribute('stroke-dashoffset', 0);

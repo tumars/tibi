@@ -77,7 +77,8 @@
 .ck { width: 17px; height: 17px; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--line-2); display: grid; place-items: center; color: var(--surface); font-size: 10px; flex: none; transition: background .15s; }
 .ck.on { background: var(--ink); box-shadow: none; }
 .wr .ckc .ck { opacity: 0; } .wr:hover .ckc .ck, .wr.kb .ckc .ck, .wr .ckc .ck.on, body.bulk-on .wr .ckc .ck { opacity: 1; }
-.nores { padding: 48px 14px; color: var(--ink-3); font-size: 13.5px; text-align: center; }
+.nores { padding: 28px 14px 48px; color: var(--ink-3); font-size: 13.5px; text-align: center; }
+.nores img { display: block; width: 180px; height: 180px; margin: 0 auto 2px; }
 .bulk { position: sticky; bottom: 20px; margin-top: 18px; align-self: center; display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 18px; border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 13px; z-index: 5; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
 .bulk span { margin-right: 8px; }
 .bulk select { border: 0; border-radius: 999px; height: 32px; padding: 0 10px; font: inherit; font-size: 12.5px; background: color-mix(in srgb, var(--surface), transparent 86%); color: var(--surface); }
@@ -372,7 +373,7 @@ function renderRows(animate) {
       <span class="ckc"><button class="ck${checked.has(x.id) ? ' on' : ''}" data-ck="${x.id}" aria-label="选择 ${esc(x.w)}">${checked.has(x.id) ? '✓' : ''}</button></span>
       ${visCols().map(c => cell(x, c[0])).join('')}<span></span>
       <span class="ra">${x.kind === 'word' && x.s !== 98 ? `<button data-ra="say" title="发音">${IC.say}</button>` : ''}<button data-ra="ask" title="问 Tibi">${IC.ask}</button><button data-ra="more" title="更多">${IC.more}</button></span></div>`).join('')
-    : `<div class="nores">${view === 'all' ? '没有符合条件的词，换个筛选条件试试。' : '这个视图现在是空的。'}</div>`;
+    : `<div class="nores">${mascotImg('empty-words')}${view === 'all' ? '没有符合条件的词，换个筛选条件试试。' : '这个视图现在是空的。'}</div>`;
   document.querySelectorAll('.wr').forEach(r => { r.onclick = e => { if (e.target.closest('.ck, .ra')) return; select(+r.dataset.id); }; r.onkeydown = e => { if (e.key === 'Enter') select(+r.dataset.id); }; });
   document.querySelectorAll('[data-ck]').forEach(c => c.onclick = () => { const id = +c.dataset.ck; checked.has(id) ? checked.delete(id) : checked.add(id); renderRows(false); renderBulk(); });
   document.querySelectorAll('[data-ra]').forEach(b => b.onclick = e => { e.stopPropagation(); const id = +b.closest('.wr').dataset.id, x = WORDS.find(w => w.id === id); if (b.dataset.ra === 'say') speakW(x.w); else if (b.dataset.ra === 'ask') { selId = id; switchTab('asst'); openDrawer(); } else openRowMenu(b, x); });
