@@ -179,7 +179,7 @@ async function markDeferred(db: Database, document_id: string) {
   await db.run("UPDATE sections SET ai_status = 'deferred', updated_at = ? WHERE document_id = ? AND ai_status IN ('none', 'running')", [t, document_id]);
 }
 
-export async function runImport(job: JobContext, ctx: Ctx, input: ImportInput): Promise<{ document_id: string; duplicate: boolean; title: string; unknown_ratio: number; minutes: number }> {
+export async function runImport(job: JobContext, ctx: Ctx, input: ImportInput): Promise<{ summary: string; action: { label: string; route: string }; document_id: string; duplicate: boolean; title: string; unknown_ratio: number; minutes: number }> {
   const fetched = await job.step('fetch', () => fetchStep(job, ctx, input), { kind: 'pipeline', label: '取正文' });
   const seg = await job.step('segment', async () => segmentMarkdown(fetched.markdown, { kind: input.hints?.kind ?? fetched.kind ?? 'article', title: fetched.title }), { kind: 'pipeline', label: '切分' });
   if (seg.lang !== 'en') throw new TibiError('invalid_source', '目前只支持英文文章');
