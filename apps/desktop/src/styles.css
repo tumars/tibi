@@ -442,7 +442,7 @@ h2.st .sp { flex: 1; }
 .ob .foot .btn.pri:disabled { opacity: .4; }
 
 /* 设置 → 数据：备份列表、学习汇总 */
-.item.col { flex-direction: column; align-items: stretch; gap: 8px; }
+.item.col { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 .bklist { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .bk { display: flex; align-items: center; gap: 10px; min-height: 30px; }
 .bk .sp { flex: 1; }
@@ -577,3 +577,18 @@ h2.st .sp { flex: 1; }
 .aloud .ibtn.on { color: var(--accent); background: var(--accent-wash); }
 .aloud .vsep { width: 1px; height: 18px; background: var(--line-2); margin: 0 4px; }
 [data-sid].speaking { background: var(--accent-wash); border-radius: 4px; box-shadow: 0 0 0 2px var(--accent-wash); transition: background .2s; }
+
+/* 设置 → Tibi 能做的事 */
+.skrow { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; }
+.skrow .t { font-size: 14px; font-weight: 500; }
+.skbody { display: flex; flex-direction: column; gap: 12px; padding: 4px 0 6px; }
+.skbody .lbl { margin: 0; }
+.skf { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.skf > span:first-child { width: 96px; color: var(--ink-2); flex: none; }
+.skf.col { flex-direction: column; align-items: stretch; gap: 6px; }
+.skf.col > span:first-child { width: auto; }
+.skf textarea { width: 100%; height: auto; padding: 8px 10px; resize: vertical; }
+.skacts { display: flex; gap: 8px; }
+.feeds { display: flex; flex-direction: column; gap: 6px; }
+.feed { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.feed .ft { font-weight: 500; white-space: nowrap; } .feed .fu { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

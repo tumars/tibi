@@ -8,6 +8,7 @@ import { saveProvider } from '../lib/providers';
 import { BackupItems, ExportSummaryItem } from '../settings/DataItems';
 import { MemoryItems } from '../settings/MemoryItems';
 import { VoiceItems } from '../settings/VoiceItems';
+import { SkillItems } from '../settings/SkillItems';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
@@ -61,6 +62,7 @@ export function Settings() {
           <section className="ssec" id="s-general"><h2>通用</h2><div className="group">
             <div className="item"><div><div className="t">外观</div></div><div className="ctl"><div className="seg">{(['auto', 'light', 'dark'] as const).map(t => <button key={t} className={theme === t ? 'on' : ''} onClick={() => setTheme(t)}>{{ auto: '跟随系统', light: '浅色', dark: '深色' }[t]}</button>)}</div></div></div>
             <div className="item"><div><div className="t">Tibi 怎么称呼你</div></div><div className="ctl"><input className="input" style={{ width: 120 }} value={profile?.assistant_prefs?.nickname ?? profile?.display_name ?? ''} onChange={e => setProfile(p => p && { ...p, display_name: e.target.value })} onBlur={e => patch({ display_name: e.target.value, assistant_prefs: { ...(profile?.assistant_prefs ?? { language: 'mixed', permission: 'default' }), nickname: e.target.value } })} /></div></div>
+            <div className="item"><div><div className="t">权限模式</div><div className="d">Tibi 要写入数据（记住一件事、改熟练度等）之前要不要先问你。读过网页内容的任务写入时一律先问</div></div><div className="ctl"><div className="seg">{([['ask', '每次都问'], ['default', '标词自动，其余问'], ['auto', '全部自动']] as const).map(([v, l]) => <button key={v} className={(profile?.assistant_prefs?.permission ?? 'default') === v ? 'on' : ''} onClick={() => patch({ assistant_prefs: { ...(profile?.assistant_prefs ?? { nickname: '你', language: 'mixed' }), permission: v } })}>{l}</button>)}</div></div></div>
             <div className="item"><div><div className="t">英语水平与目标</div><div className="d">影响生词标注和难度判断</div></div><div className="ctl">
               <select className="input" value={profile?.level_self ?? 'intermediate'} onChange={e => patch({ level_self: e.target.value })} aria-label="水平"><option value="beginner">入门</option><option value="intermediate">中级</option><option value="upper">中高级</option><option value="advanced">高级</option></select>
               <select className="input" value={profile?.goal ?? 'work'} onChange={e => patch({ goal: e.target.value })} aria-label="目标"><option value="work">工作阅读</option><option value="novel">读原版书</option><option value="ielts">雅思 / 托福</option><option value="cet">考研 / CET</option><option value="interest">兴趣</option></select>
@@ -95,6 +97,8 @@ export function Settings() {
                 </div>}
                 {providers.length > 0 && !editing && <div className="item"><div className="lbl">添加其他 OpenAI 兼容服务</div><div className="ctl"><button className="btn sm" onClick={() => setEditing({ name: '', kind: 'llm', protocol: 'openai_compatible', base_url: '', model: '', tier: 'deep', is_default: false })}>添加</button></div></div>}
               </div>
+              <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>Tibi 能做的事</h3>
+              <div className="group"><SkillItems /></div>
               <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>花费上限</h3>
               <div className="group">
                 <div className="item"><div><div className="t">每月预算</div><div className="d">本月已用 ¥{status?.budget.month_spent.toFixed(2) ?? '0.00'}；超出后 AI 功能改为稍后补做</div></div><div className="ctl"><input className="input" type="number" value={budget.month} min={0} style={{ width: 80, textAlign: 'right' }} onChange={e => setBudgetKey('month', Number(e.target.value))} /> 元</div></div>

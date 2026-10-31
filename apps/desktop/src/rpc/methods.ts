@@ -2,7 +2,7 @@
  * 界面用到的方法签名（06 §3 的子集，M0 / M1）。类型只从 @tibi/core 取类型，不引运行时。
  */
 import type {
-  Answer, AnswerResult, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession,
+  Answer, AnswerResult, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession, Skill,
   SampleInfo, SectionContent, Status, Task, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval,
 } from '@tibi/core';
 
@@ -63,6 +63,12 @@ export interface MethodTable {
   'providers.test': { params: { id: Id }; result: { ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string } };
   'tasks.list': { params: { limit?: number }; result: { running: TaskSummary[]; pending: Approval[]; history: TaskSummary[]; kpis: { running: number; week_done: number; week_failed: number; month_cost: number; budget: number; top_skill: { id: string; cost: number } } } };
   'chat.list': { params: { limit?: number }; result: Conversation[] };
+  'skills.list': { params: Record<string, never>; result: Skill[] };
+  'skills.update': { params: { id: string; patch: { model_tier?: 'fast' | 'deep'; extra_instructions?: string; write_permission?: 'inherit' | 'ask'; enabled?: boolean } }; result: Skill };
+  'skills.reset': { params: { id: string }; result: Skill };
+  'skills.runNow': { params: { id: string; input?: string }; result: { task_id: TaskId } };
+  'feeds.list': { params: Record<string, never>; result: { url: string; title: string; builtin: boolean; enabled: boolean }[] };
+  'feeds.update': { params: { add?: { url: string; title?: string }; remove?: string; toggle?: { url: string; enabled: boolean } }; result: { url: string; title: string; builtin: boolean; enabled: boolean }[] };
   'memory.list': { params: { type?: Memory['type']; q?: string }; result: Memory[] };
   'memory.update': { params: { id: Id; content: string }; result: Memory };
   'memory.delete': { params: { id: Id }; result: Undo };
