@@ -43,11 +43,9 @@
     </header>
     <div class="scroll" id="scroll">
       <div class="page">
-        <section class="lead-wrap" id="leadWrap"><a class="lead" id="lead" href="#"></a><div class="also" id="also"></div></section>
         <section class="hero">
-          <h1 id="greet" hidden>先读点什么？</h1>
-          <div class="sub" hidden></div>
-          <div class="askrow"><div class="hero-fox" id="heroFox"></div>
+          <div class="welcome"><div class="hero-fox" id="heroFox"></div><h1 id="greet">下午好</h1><div class="sub" id="welcomeSub"></div></div>
+          <div class="askrow">
           <div class="composer" id="composer">
             <div class="agsel" id="agSel" hidden></div>
             <textarea id="input" rows="2" placeholder="粘贴网址或一段英文就会导入，也可以直接问 Tibi；输入 / 选择要做的事" aria-label="输入"></textarea>
@@ -64,6 +62,7 @@
             <button class="chip" data-c="story"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>用这周的生词写个小故事</button>
           </div>
         </section>
+        <section class="lead-wrap" id="leadWrap"><a class="lead" id="lead" href="#"></a><div class="also" id="also"></div></section>
 
         <section>
           <div class="sech"><h2>今天</h2></div>
@@ -503,9 +502,11 @@ addEventListener('keydown', e => {
 const h = new Date().getHours();
 $('#week').innerHTML = Array.from({ length: 7 }, (_, i) => { const d = (new Date().getDay() + 6) % 7; return `<i class="${i < d ? 'on' : i === d ? 'now' : ''}"></i>`; }).join('');
 renderCont(); renderGrid(false); renderRecent(); covers(); demoToggle();
+/* 欢迎语：时段问候 + 一句邀请。不报状态：在读的文章、待复习、没读的文章下面的卡片都有，这里再说就重复了 */
+$('#greet').textContent = h < 5 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好';
+$('#welcomeSub').textContent = h < 5 ? '睡前读一小段？' : '今天想读点什么？';
 if (IS_EMPTY) {
-  $('#greet').hidden = false;
-  $('.hero .sub').textContent = '读过的文章里的生词会自动进入复习'; $('.hero .sub').hidden = false;
+  $('#welcomeSub').textContent = '读过的文章里的生词会自动进入复习';
   $('#chips').innerHTML = `<button class="chip" data-c="sample"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 5v14l11-7z"/></svg>读一篇示例文章</button><button class="chip" data-c="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>按我的水平推荐一篇</button><button class="chip" data-c="test"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>先测一下我的词汇量</button>`;
   $('#chips [data-c="sample"]').onclick = () => runImport('sample:' + SAMPLES[0].t); $('#chips [data-c="news"]').onclick = () => runFind('按我的水平推荐一篇'); $('#chips [data-c="test"]').onclick = () => toast('原型：正式版会打开 3–4 分钟的词汇量测试（首次启动引导里也有）');
   document.querySelectorAll('.tile').forEach((t, i) => { const v = t.querySelector('[data-count]'); if (i === 0) { v.dataset.count = '0'; t.querySelector('.d').textContent = '读过文章后会有'; t.querySelector('.go').hidden = true; } if (i === 1) { v.dataset.count = '0'; t.querySelector('.bar2 i').style.width = '0%'; } if (i === 2) { t.querySelector('.d').textContent = '来自词汇量测试'; t.querySelector('#week').hidden = true; } });
@@ -516,7 +517,7 @@ if (IS_EMPTY) {
 /* 第一次使用：告诉用户 Tibi 能做什么（用示例代替概念） */
 /* 吉祥物：深夜睡觉；输入时倾听；Tibi 干活时思考 / 阅读；完成时开心 */
 const NIGHT = h >= 23 || h < 5, FOX_BASE = NIGHT ? 'sleeping' : 'idle';
-const fox = Fox.mount($('#heroFox'), { state: FOX_BASE, size: 64, interactive: true });
+const fox = Fox.mount($('#heroFox'), { state: FOX_BASE, size: 104, interactive: true });
 let foxBusy = 0;
 function foxWork(st) { foxBusy++; fox.set(st); }
 function foxDone(ok = true) { foxBusy = Math.max(0, foxBusy - 1); if (!foxBusy) { fox.set(document.activeElement === input ? 'listening' : 'idle'); fox.pulse(ok ? 'happy' : 'surprised', 2200); } }

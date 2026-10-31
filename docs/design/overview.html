@@ -178,7 +178,7 @@ footer { font-size: 12.5px; color: var(--ink-3); padding-top: 24px; border-top: 
         <tr><td>核心进程</td><td><code>Tibi Core</code>：Node 22 单文件可执行（SEA）或 Bun <code>--compile</code>，作为 Tauri sidecar</td><td>数据库只能有一个写入者；MCP Server、后台任务都需要常驻的 JS 环境。Core 写成不依赖 Node 专有 API 的 TS 包，手机可复用（R11）</td></tr>
         <tr><td>Agent harness</td><td><code>@earendil-works/pi-ai</code> + <code>pi-agent-core</code>；对话、任务、检查点由 <code>TibiKernel</code> 自建表</td><td>R9：不用实验性的 pi-durable（迁库不可回退）；表结构归我们，迁移与同步可控</td></tr>
         <tr><td>模型</td><td>默认 <code>DeepSeek</code>（<code>deepseek-v4-flash</code> / <code>deepseek-v4-pro</code> 两档，模型名是配置项，不写死）；任何 OpenAI 兼容接口；只用 API Key，不做账号登录（ChatGPT 条款未核实；Claude 订阅登录被条款禁止）</td><td>便宜、中文好、有提示缓存折扣；两档对应"快速 / 深入"</td></tr>
-        <tr><td>存储</td><td><code>SQLite</code> + <code>Drizzle ORM</code>；<code>app.db</code>（领域表 + 对话 / 任务表，主键 UUIDv7）、<code>dict.db</code>（ECDICT 只读）、<code>media/</code></td><td>单文件、可备份；领域写入与任务记录可在同一事务提交</td></tr>
+        <tr><td>存储</td><td><code>SQLite</code>，Core 经 <code>Driver</code> 接口访问（T2：不用 ORM，迁移 SQL 是表结构真相源）；<code>app.db</code>（领域表 + 对话 / 任务表，主键 UUIDv7）、<code>dict.db</code>（ECDICT 只读）、<code>media/</code></td><td>单文件、可备份；领域写入与任务记录可在同一事务提交</td></tr>
         <tr><td>NLP（本地）</td><td>分句 / 分词 / 词形还原（compromise 或 wink 系，待 M0 定）；词典 <code>ECDICT</code>（约 340 万词条，含 COCA 词频、柯林斯星级、考试标签）</td><td>毫秒级、零成本、离线</td></tr>
         <tr><td>导入</td><td>网页 <code>Defuddle</code> 提取正文；PDF / EPUB / DOCX 解析；OCR 本地 <code>Tesseract</code>，可选视觉模型</td><td>保留标题、作者、封面、原文链接；扫描版走 OCR</td></tr>
         <tr><td>复习</td><td><code>ts-fsrs 6.x</code>，跟随默认的 FSRS-7，目标保持率默认 90%，可按个人记录优化参数</td><td>一词一卡；计分复习只有识别、选义、填空（R6），听写、拼写、造句在不计分的练习里；M1 只有选义、填空</td></tr>
@@ -229,7 +229,7 @@ footer { font-size: 12.5px; color: var(--ink-3); padding-top: 24px; border-top: 
           <text class="t" x="470" y="354">对外</text><text x="520" y="354">MCP Server（tibi mcp 代理经本地 socket 连入）</text>
           <text class="s" x="520" y="370">Codex / Claude Code 等调用能力，默认只读，写操作走同一套审批</text>
           <rect class="box" x="36" y="386" width="828" height="40" rx="8"/>
-          <text class="t" x="50" y="402">数据访问</text><text x="130" y="402">Drizzle ORM · 唯一写入者 · 领域表与对话 / 任务表同库同连接，可在一个事务里提交</text>
+          <text class="t" x="50" y="402">数据访问</text><text x="130" y="402">Driver 接口 · 唯一写入者 · 领域表与对话 / 任务表同库同连接，可在一个事务里提交</text>
           <text class="s" x="130" y="418">TibiKernel：openConversation / submit / delegate / watchTasks，对话与任务存自己的表</text>
           <!-- arrow to storage -->
           <path class="arrow" d="M450 450 L450 486"/>
@@ -505,7 +505,7 @@ interface Skill { id: SkillId; title: string; description: string; tools: string
   write_permission: 'inherit' | 'ask'; enabled: boolean; month_cost: number }
 interface Memory { id: Id; type: 'profile' | 'semantic' | 'episodic' | 'procedural'; content: string; subject?: string; confidence: number;
   source: { type: 'user' | 'agent' | 'consolidation'; ref?: string; label: string }; status: 'active' | 'superseded'; created_at: Ts; updated_at: Ts }
-// model 是配置项（默认 deepseek-v4-flash / deepseek-v4-pro），代码不写死
+// model 是配置项（默认跟随 pi-ai 目录：deepseek-flash / deepseek-v4-pro），代码不写死
 interface Provider { id: Id; kind: 'llm' | 'vision' | 'image' | 'tts'; name: string; protocol: string; base_url?: string; auth: 'api_key'; tier?: Tier; model: string;
   has_secret: boolean; is_default: boolean; month_cost?: number }
 interface Profile { display_name: string; goal: string; level_self: string; interests: string[]; vocab_estimate: number; vocab_source: 'self' | 'test' | 'manual'; vocab_tested_at?: Ts;

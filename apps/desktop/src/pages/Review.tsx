@@ -1,0 +1,208 @@
+import type { AnswerResult, QueueItem, Rating, ReviewSession } from '@tibi/core';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { Empty } from '../components/Empty';
+import { Top } from '../components/Shell';
+import { speak, STATUS_NAMES } from '../lib/util';
+import { errorInfo, rpc } from '../rpc';
+import { toast } from '../store/ui';
+
+const RATING = { 1: '忘了', 2: '模糊', 3: '记得', 4: '轻松' } as const;
+
+type Phase = { kind: 'ask' } | { kind: 'reveal' } | { kind: 'answered'; result: AnswerResult; chosen?: string; typed?: string };
+
+/** 复习（00 §3.3，G1–G8）：题目在卡片里，所有操作固定在底部 */
+export function Review() {
+  const nav = useNavigate();
+  const [session, setSession] = useState<ReviewSession>();
+  const [err, setErr] = useState<string>();
+  const [phase, setPhase] = useState<Phase>({ kind: 'ask' });
+  const [typed, setTyped] = useState('');
+  const [hints, setHints] = useState(0);
+  const [results, setResults] = useState<Record<number, { rating?: Rating; correct: boolean; retry: boolean; intro: boolean }>>({});
+  const [done, setDone] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const t0 = useRef(Date.now()); const start = useRef(Date.now());
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async (opts: Parameters<typeof rpc.call<'review.start'>>[1] = { resume: true }) => {
+    setErr(undefined);
+    try {
+      const s = await rpc.call('review.start', opts);
+      setSession(s); setDone(s.steps.length === 0 || s.cursor >= s.steps.length); setPhase({ kind: 'ask' }); setTyped(''); setHints(0); t0.current = Date.now(); start.current = Date.now();
+      const r: typeof results = {}; s.steps.forEach(st => { if (st.result) r[st.step] = { rating: st.result.rating, correct: st.result.correct, retry: st.retry > 0, intro: st.intro }; }); setResults(r);
+      if (s.resumed) toast(`上次复习到一半，还剩 ${s.steps.length - s.cursor} 张`);
+    } catch (e) { setErr(errorInfo(e).message); }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const item: QueueItem | undefined = session?.steps[session.cursor];
+
+  const advance = useCallback((s: ReviewSession) => {
+    const next = s.cursor + 1;
+    if (next >= s.steps.length) { setDone(true); setElapsed(Date.now() - start.current); }
+    setSession({ ...s, cursor: next }); setPhase({ kind: 'ask' }); setTyped(''); setHints(0); t0.current = Date.now();
+  }, []);
+
+  const answer = useCallback(async (a: { choice?: string; typed?: string; self_rating?: Rating }) => {
+    if (!session || !item) return;
+    try {
+      const r = await rpc.call('review.answer', { session_id: session.session_id, step: item.step, answer: a, hints, duration_ms: Date.now() - t0.current });
+      setResults(p => ({ ...p, [item.step]: { rating: r.rating, correct: r.correct, retry: item.retry > 0, intro: false } }));
+      if (r.retry_step !== undefined && !session.steps.some(s => s.step === r.retry_step)) {
+        // 答错插入的重练步：重新拉会话拿到完整步骤
+        const s2 = await rpc.call('review.start', { resume: true }); setSession({ ...s2, cursor: session.cursor });
+      }
+      setPhase({ kind: 'answered', result: r, chosen: a.choice, typed: a.typed });
+    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+  }, [session, item, hints]);
+
+  const next = useCallback(async () => {
+    if (!session || !item) return;
+    if (phase.kind !== 'answered') { try { await rpc.call('review.next', { session_id: session.session_id, step: item.step }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); return; } }
+    advance(session);
+  }, [session, item, phase, advance]);
+
+  const override = async (rating: Rating) => {
+    if (!session || !item || phase.kind !== 'answered') return;
+    try { const r = await rpc.call('review.override', { session_id: session.session_id, step: item.step, rating }); setResults(p => ({ ...p, [item.step]: { ...p[item.step]!, rating } })); setPhase({ ...phase, result: r }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+  };
+  const undo = async () => {
+    if (!session || session.cursor === 0) return;
+    try { await rpc.call('review.undo', { session_id: session.session_id }); await load(); toast('已撤销上一张'); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+  };
+  const pause = async () => { if (session) { try { await rpc.call('review.pause', { session_id: session.session_id }); } catch { /* */ } } nav('/'); };
+
+  // 键盘：空格显示答案、Enter 检查 / 继续、1–4 选项或评分、Z 撤销、P 播放
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!item || done) return;
+      const inInput = e.target instanceof HTMLInputElement;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (phase.kind === 'answered' || item.intro) void next();
+        else if (item.card_type === 'cloze' && phase.kind === 'ask') void answer({ typed });
+        else if (item.card_type === 'recognize' && phase.kind === 'ask') setPhase({ kind: 'reveal' });
+        return;
+      }
+      if (inInput) return;
+      if (e.key === ' ' && item.card_type === 'recognize' && phase.kind === 'ask') { e.preventDefault(); setPhase({ kind: 'reveal' }); }
+      if (/^[1-4]$/.test(e.key)) {
+        const n = Number(e.key) as Rating;
+        if (item.card_type === 'choice' && phase.kind === 'ask' && item.options?.[n - 1]) void answer({ choice: item.options[n - 1]!.id });
+        else if (item.card_type === 'recognize' && phase.kind === 'reveal') void answer({ self_rating: n });
+        else if (phase.kind === 'answered' && phase.result.auto) void override(n);
+      }
+      if (e.key.toLowerCase() === 'z') void undo();
+      if (e.key.toLowerCase() === 'p') speak(item.context.sentence);
+    };
+    addEventListener('keydown', onKey); return () => removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item, phase, typed, done, next, answer]);
+
+  useEffect(() => { if (item?.card_type === 'cloze' && phase.kind === 'ask') inputRef.current?.focus(); }, [item, phase]);
+
+  if (err) return <><Top crumbs={[{ label: '复习' }]} /><Empty title="复习还没准备好" text={err} action={<button className="btn" onClick={() => load()}>重试</button>} /></>;
+  if (!session) return <><Top crumbs={[{ label: '复习' }]} /><div className="scroll" /></>;
+  if (done || !item) {
+    const graded = Object.entries(results).filter(([, r]) => !r.retry && !r.intro);
+    const correct = graded.filter(([, r]) => r.correct).length;
+    const wrong = session.steps.filter(s => results[s.step] && !results[s.step]!.correct && !s.retry && !s.intro).map(s => s.term.id);
+    return <>
+      <Top crumbs={[{ label: '复习' }]} />
+      <div className="scroll"><div className="rv">
+        {session.steps.length === 0 ? <Empty title="今天没有要复习的" text="读文章时点开的生词会排进来。" action={<button className="btn" onClick={() => nav('/library')}>去读点什么</button>} /> : (
+          <div className="done">
+            <img src="/logo.svg" alt="" style={{ width: 96, height: 96, borderRadius: 24 }} />
+            <h3>{session.kind === 'drill' ? '练完了' : '今天的复习完成了'}</h3>
+            <div className="k3">
+              <div><b>{graded.length}</b><span>张卡</span></div>
+              <div><b>{graded.length ? Math.round(correct / graded.length * 100) : 0}%</b><span>首次就答对</span></div>
+              <div><b>{Math.max(1, Math.round(elapsed / 60000))}</b><span>分钟</span></div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              {wrong.length > 0 && <button className="btn" onClick={() => load({}).then(() => rpc.call('review.quiz', { term_ids: wrong }).then(s => { setSession(s); setDone(false); setResults({}); setPhase({ kind: 'ask' }); }, e => toast(errorInfo(e).message, { kind: 'err' })))}>再练 {wrong.length} 个错词（不计分）</button>}
+              <button className="btn pri" onClick={() => nav('/')}>回首页</button>
+            </div>
+          </div>
+        )}
+      </div></div>
+    </>;
+  }
+
+  const ctx = item.context;
+  const sentHtml = () => {
+    const sent = ctx.sentence; const ans = ctx.answer[0] ?? item.term.display;
+    const i = sent.toLowerCase().indexOf(ans.toLowerCase());
+    const before = i >= 0 ? sent.slice(0, i) : sent, mid = i >= 0 ? sent.slice(i, i + ans.length) : '', after = i >= 0 ? sent.slice(i + ans.length) : '';
+    if (item.card_type === 'cloze' && phase.kind === 'ask') return <>{before}<input ref={inputRef} value={typed} onChange={e => setTyped(e.target.value)} placeholder={hints ? ans.slice(0, hints) : undefined} aria-label="填空" />{after}</>;
+    if (item.card_type === 'cloze' && phase.kind === 'answered') return <>{before}{phase.result.correct ? <span className="fix">{mid || ans}</span> : <><span className="bad">{phase.typed || '—'}</span> <span className="fix">{mid || ans}</span></>}{after}</>;
+    return <>{before}<mark>{mid || ans}</mark>{after}</>;
+  };
+  const r = phase.kind === 'answered' ? phase.result : undefined;
+  const stepLeft = session.steps.length - session.cursor;
+
+  return (
+    <>
+      <Top crumbs={[{ label: '复习' }]} right={<button className="btn sm" onClick={pause}>稍后继续</button>} />
+      <div className="scroll"><div className="rv">
+        <div className="rvhead">
+          <div className="segs">{session.steps.map(s => { const res = results[s.step]; const cls = s.step === item.step ? 'cur' : res ? (s.intro ? 'ri' : res.retry ? (res.correct ? 'ro' : 'rx') : `r${res.rating ?? (res.correct ? 3 : 1)}`) : ''; return <i key={s.step} className={`${cls}${s.retry ? ' rt' : ''}`} />; })}</div>
+          <span className="lbl" style={{ fontVariantNumeric: 'tabular-nums' }}>第 {session.cursor + 1} / {session.steps.length} 步 · 还剩约 {Math.max(1, Math.round(stepLeft * 20 / 60))} 分钟</span>
+        </div>
+        <div className="rvcard">
+          <div className="k">
+            <span>{item.intro ? '初见' : { choice: '选义', cloze: '语境填空', recognize: '识别' }[item.card_type]}</span>
+            {item.retry > 0 && <span className="rt">重练 · 不计分</span>}
+            <span>· 熟练度 <span className={`stage s${item.term.status}`}>{STATUS_NAMES[item.term.status]}</span></span>
+            {item.is_new && !item.retry && <span>· 新词</span>}
+            <span className="sp" />
+            <button className="linkbtn" onClick={() => speak(item.intro ? item.term.display : ctx.sentence)}>播放 <span className="kbd">P</span></button>
+          </div>
+          {item.intro ? (
+            <>
+              <div className="ihw">{item.term.display}{item.term.ipa && <small>/{item.term.ipa}/</small>}</div>
+              <p style={{ fontSize: 15, marginTop: 8 }}>{item.term.meaning}</p>
+              <div className="sent" style={{ fontSize: 17, color: 'var(--ink-2)' }}>{ctx.sentence}</div>
+              {ctx.translation && <div className="lbl" style={{ marginTop: 4 }}>{ctx.translation}</div>}
+            </>
+          ) : (
+            <>
+              <div className="q">{item.card_type === 'choice' ? '它在这句话里是什么意思？' : item.card_type === 'cloze' ? `填上这个词${item.hint ? `：${item.hint}` : ''}` : '看着这个词，想一想它的意思'}</div>
+              <div className="sent">{sentHtml()}</div>
+              {(phase.kind !== 'ask' || item.card_type !== 'recognize') && phase.kind !== 'ask' && (
+                <div className="ans">
+                  {r && <div className={`verdict ${r.correct ? 'ok' : 'bad'}`}>{item.card_type === 'recognize' ? '' : r.correct ? (r.near_miss ? '差一点' : '答对了') : '选错了'}</div>}
+                  <b>{item.term.display}</b>{item.term.ipa && <span className="ipa">/{item.term.ipa}/</span>}
+                  <p>{item.term.meaning}</p>
+                  {ctx.translation && <p className="zh">{ctx.translation}</p>}
+                  {item.note && <p className="zh">{item.note}</p>}
+                  {ctx.document_title && <p className="lbl">{ctx.document_title}{ctx.document_id && <> · <a className="linkbtn" href={`#/read/${ctx.document_id}`}>回到原文</a></>}</p>}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        <div className="rvfoot">
+          {item.intro && <button className="btn pri" style={{ height: 44 }} onClick={next}>认识了 <span className="kbd" style={{ marginLeft: 6 }}>Enter</span></button>}
+          {!item.intro && item.card_type === 'choice' && phase.kind === 'ask' && <div className="opts">{item.options?.map((o, i) => <button key={o.id} className="ropt" onClick={() => answer({ choice: o.id })}><span className="k">{i + 1}</span>{o.text}</button>)}</div>}
+          {!item.intro && item.card_type === 'choice' && phase.kind === 'answered' && <div className="opts">{item.options?.map((o, i) => { const correct = ctx.answer.includes(o.text) || o.id === ctx.answer[0]; const chosen = phase.chosen === o.id; return <button key={o.id} className={`ropt${correct ? ' ok' : chosen ? ' bad' : ' dim'}`} disabled><span className="k">{i + 1}</span>{o.text}{chosen && !correct && o.from && <span className="from">{o.from}</span>}</button>; })}</div>}
+          {!item.intro && item.card_type === 'cloze' && phase.kind === 'ask' && <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn pri" style={{ height: 44, flex: 1, justifyContent: 'center' }} onClick={() => answer({ typed })}>检查 <span className="kbd" style={{ marginLeft: 6 }}>Enter</span></button>
+            <button className="btn" style={{ height: 44 }} onClick={() => setHints(h => h + 1)}>提示一个字母{hints ? ` (${hints})` : ''}</button>
+          </div>}
+          {!item.intro && item.card_type === 'recognize' && phase.kind === 'ask' && <button className="btn pri" style={{ height: 44 }} onClick={() => setPhase({ kind: 'reveal' })}>显示答案 <span className="kbd" style={{ marginLeft: 6 }}>空格</span></button>}
+          {!item.intro && item.card_type === 'recognize' && phase.kind === 'reveal' && <div className="rates">{([1, 2, 3, 4] as Rating[]).map(n => <button key={n} className={`r${n}`} onClick={() => answer({ self_rating: n })}>{RATING[n]}<small>{n} 键</small></button>)}</div>}
+          {phase.kind === 'answered' && r && <>
+            {r.rating && <div className="gline"><span className={`gtag r${r.rating}`}>{RATING[r.rating]}</span><span>{r.reason}{r.next ? ` · ${r.next.label}` : ''}</span>{r.auto && <span className="sp" />}{r.auto && <span className="lbl">改评分：按 1–4</span>}</div>}
+            {r.status_change && <div className="lbl">{STATUS_NAMES[r.status_change.from]} → {STATUS_NAMES[r.status_change.to]}</div>}
+            <button className="btn pri" style={{ height: 44 }} onClick={next}>继续 <span className="kbd" style={{ marginLeft: 6 }}>Enter</span></button>
+          </>}
+          <div className="lbl" style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 4 }}>
+            <span><span className="kbd">Z</span> 撤销上一张</span><span><span className="kbd">P</span> 播放</span>
+          </div>
+        </div>
+      </div></div>
+    </>
+  );
+}

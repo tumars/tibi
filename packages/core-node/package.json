@@ -1,0 +1,33 @@
+{
+  "name": "@tibi/core-node",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tibi Core 的 Node 运行时：better-sqlite3 驱动、stdio JSON-RPC、开发用 WebSocket 桥、ECDICT 入库；打包成 Tauri sidecar",
+  "type": "module",
+  "bin": {
+    "tibi-core": "./dist/tibi-core.js"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/bin.ts --dev",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "node build.mjs",
+    "ecdict": "tsx src/ecdict/ingest.ts",
+    "sidecar": "node scripts/sidecar.mjs"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "@tibi/core": "workspace:*",
+    "better-sqlite3": "^13.0.3",
+    "linkedom": "^0.18.14",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.21.0"
+  }
+}

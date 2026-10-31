@@ -67,7 +67,7 @@ learning_events        audio_cache        daily_stats
 | base_url | TEXT | HTTP 类 provider 的地址 |
 | auth | TEXT | `api_key`（账号登录不做：ChatGPT 条款未核实，Claude 订阅登录被条款禁止，见 05 §10） |
 | tier | TEXT NULL | 作为哪一档的默认：`fast` / `deep`（只对 `llm`） |
-| model | TEXT | 如 `deepseek-v4-flash`；模型名是配置项，不写死 |
+| model | TEXT | 如 `deepseek-flash`；模型名是配置项，不写死 |
 | secret_ref | TEXT | **密钥不入库**，存系统钥匙串中的引用名 |
 | options | TEXT(JSON) | 温度、音色等 |
 | is_default | INTEGER | 每个 kind 一个默认 |
@@ -338,7 +338,7 @@ learning_events        audio_cache        daily_stats
 | new_terms | INTEGER | |
 | known_terms_total | INTEGER | 当天结束时已知词总数；含标为已知（97） |
 | known_confirmed | INTEGER | 其中**实测**的部分（R8）：用户亲手标过、测试里点亮、或在复习里答对过的词 |
-| known_estimated | INTEGER | 其中**估算**的部分（R8）：按词汇量与词频规则推断、用户没碰过的词。统计页的已知词曲线拆成实测（实线）和估算（虚线）两条 |
+| known_estimated | INTEGER | 其中**估算**的部分（R8）：按词汇量与词频规则推断、用户没碰过的词。算法（2026-10-31 实现时定）：词频排在词汇量估算 N 以内的常见词默认已知、不入库，所以估算 = N − 其中被标成 0–2 的 − 其中已算进实测的 + N 以外的待确认（99）与 auto_rule 已知行；没有词典时把库里的行都当作在 N 以内。统计页的已知词曲线拆成实测（实线）和估算（虚线）两条 |
 | reviews | INTEGER | |
 | review_correct | INTEGER | |
 
@@ -404,7 +404,11 @@ learning_events        audio_cache        daily_stats
 | skill_id | TEXT NULL | `kind = skill` 时 |
 | parent_job_id | TEXT NULL | 子任务（导入里并行的总结、短语等；主对话运行的技能） |
 | conversation_id | TEXT NULL | 结果写回哪次对话 |
-| status | TEXT | `queued` / `running` / `waiting_approval` / `done` / `failed` / `cancelled` / `deferred`（稍后补做） |
+| status | TEXT | `queued` / `running` / `waiting_approval` / `paused`（完成当前步后停下）/ `done` / `failed` / `cancelled` / `deferred`（稍后补做） |
+| pipeline | TEXT | 流水线名（`import` / `reanalyze` / `skill`），重开后按它续跑（迁移 0002） |
+| tainted | INTEGER | 是否读过不可信内容（05 §8）；读过之后写入与外联一律审批（0002） |
+| approval | TEXT(JSON) NULL | 挂起中的审批卡，重开后能恢复（0002） |
+| progress | TEXT(JSON) NULL | 当前步骤文案 `{label, index, total}`（0002） |
 | trigger | TEXT | `user` / `auto` / `mcp` / `share`（手机分享或剪藏） |
 | input / output | TEXT(JSON) | |
 | error | TEXT NULL | |
@@ -549,3 +553,4 @@ learning_events        audio_cache        daily_stats
 - 是否需要 `sections` 的版本/修订（用户编辑正文后，句子与语境如何保持关联）。
 - 书架卡片的"开头一句"直接取该文档第一个 `prose` 句子，不另存字段；若要支持用户改摘要再加 `documents.excerpt`。
 - `learning_events` 与 `reading_sessions` / `review_logs` 存在部分信息重叠，实现时确认是否由后两者派生事件即可。
+- **M0 的已知偏差**：`review.undo`（撤销上一张）会删掉刚写的那条 `review_logs`，与"只追加"不符。同步（M7）上线前改成追加一条撤销记录，FSRS 重算时跳过被撤销的作答。

@@ -419,7 +419,7 @@ select.input { cursor: pointer; padding-right: 8px; }
 .mark-img { width: 26px; height: 26px; border-radius: 7px; object-fit: cover; display: block; flex: none; }
 .hero .hero-fox { width: 128px; height: 128px; margin: 0 auto -14px; }
 /* 首页（R13）：最上面是"继续读"主卡；输入框不分模式，由内容判断（网址或整段英文 = 导入，"推荐 / 找一篇…" = 找文章，其余 = 问 Tibi） */
-.lead-wrap { max-width: 760px; width: 100%; margin: 20px auto 0; }
+.lead-wrap { max-width: 760px; width: 100%; margin: 0 auto; }
 .lead { display: block; padding: 22px 24px 20px; border-radius: 20px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); text-decoration: none; color: inherit; transition: box-shadow .15s; }
 .lead:hover { box-shadow: inset 0 0 0 1px var(--line-2); }
 .lead .k { font-size: 12.5px; color: var(--ink-3); }
@@ -432,6 +432,11 @@ select.input { cursor: pointer; padding-right: 8px; }
 .also a { color: var(--ink-2); text-decoration: none; } .also a:hover { color: var(--ink); }
 .askrow { display: flex; gap: 14px; align-items: flex-start; } .askrow .composer { flex: 1; min-width: 0; }
 .hero .askrow .hero-fox { width: 64px; height: 64px; flex: none; margin: 4px 0 0; }
+/* 欢迎区（2026-10-31）：狐狸在上、时段问候、一句最该做的事；继续读主卡挪到建议胶囊下面 */
+.welcome { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 8px; }
+.welcome .hero-fox { width: 104px; height: 104px; margin: 0 0 2px; }
+.welcome h1 { margin: 0; text-align: center; font-size: 32px; font-weight: 600; letter-spacing: -.025em; line-height: 1.2; }
+.welcome .sub { font-size: 15px; color: var(--ink-3); text-align: center; margin: 0; }
 /* 无封面的书架卡片（默认） */
 .card .ex, .ccard .ex { display: none; }
 .card.nocv { padding: 16px 16px 14px; gap: 8px; box-shadow: inset 0 0 0 1px var(--line); min-height: 196px; }

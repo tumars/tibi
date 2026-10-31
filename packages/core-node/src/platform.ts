@@ -1,0 +1,90 @@
+import { Readability } from '@mozilla/readability';
+import { parseHTML } from 'linkedom';
+import { readFile } from 'node:fs/promises';
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
+import { TibiError, type FetchedPage, type Platform, type ReadableArticle } from '@tibi/core';
+import { htmlToMarkdown } from './html2md.js';
+
+/** 桌面运行时的 Platform 实现（05 §8 的网址规则在这里落地） */
+export interface NodePlatformOptions {
+  app_version: string;
+  db_path: string;
+  /** 取密钥：sidecar 模式下经壳的通道；dev 模式读环境变量 */
+  getSecret: (ref: string) => Promise<string | undefined>;
+}
+
+const PRIVATE_V4 = [/^10\./, /^127\./, /^169\.254\./, /^192\.168\./, /^172\.(1[6-9]|2\d|3[01])\./, /^0\./, /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./];
+function isPrivateAddress(ip: string): boolean {
+  if (isIP(ip) === 4) return PRIVATE_V4.some(r => r.test(ip));
+  const v6 = ip.toLowerCase();
+  return v6 === '::1' || v6 === '::' || v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe80') || v6.startsWith('::ffff:');
+}
+
+/** 校验网址：只收 http(s)，解析后拒绝回环、内网、链路本地地址 */
+export async function checkUrl(raw: string): Promise<URL> {
+  let u: URL;
+  try { u = new URL(raw); } catch { throw new TibiError('invalid_source', '网址格式不对'); }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new TibiError('invalid_source', '只支持 http 和 https 网址');
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host.endsWith('.local')) throw new TibiError('invalid_source', '不能抓取本机或局域网地址');
+  if (isIP(host)) { if (isPrivateAddress(host)) throw new TibiError('invalid_source', '不能抓取本机或局域网地址'); return u; }
+  try {
+    const addrs = await lookup(host, { all: true });
+    if (addrs.length === 0 || addrs.some(a => isPrivateAddress(a.address))) throw new TibiError('invalid_source', '不能抓取本机或局域网地址');
+  } catch (e) {
+    if (e instanceof TibiError) throw e;
+    throw new TibiError('offline', '解析不了这个域名。检查网络后再试');
+  }
+  return u;
+}
+
+export function nodePlatform(opts: NodePlatformOptions): Platform {
+  const allowed = new Set<string>();
+  return {
+    registerPaths(paths) { for (const p of paths) allowed.add(p); },
+    isPathAllowed(path) { return allowed.has(path) || !!process.env.TIBI_DEV_ALLOW_ANY_PATH; },
+    async fetchUrl(url, o = {}): Promise<FetchedPage> {
+      let current = await checkUrl(url);
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), o.timeout_ms ?? 20_000);
+      o.signal?.addEventListener('abort', () => ctrl.abort());
+      try {
+        for (let hop = 0; hop < 5; hop++) {
+          const res = await fetch(current, { redirect: 'manual', signal: ctrl.signal, headers: { 'user-agent': `Tibi/${opts.app_version} (+https://github.com/tumars/tibi)`, accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5' } });
+          if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+            current = await checkUrl(new URL(res.headers.get('location')!, current).toString());   // 重定向每跳重查
+            continue;
+          }
+          const content_type = res.headers.get('content-type') ?? '';
+          const body = await res.text();
+          return { status: res.status, final_url: current.toString(), content_type, body };
+        }
+        throw new TibiError('invalid_source', '重定向次数太多');
+      } finally { clearTimeout(timer); }
+    },
+    async extractReadable(html, url): Promise<ReadableArticle> {
+      const { document } = parseHTML(html);
+      try { (document as unknown as { location: unknown }).location = new URL(url); } catch { /* linkedom 不需要 */ }
+      const meta = (name: string) => document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.getAttribute('content') ?? undefined;
+      const reader = new Readability(document as never, { keepClasses: false });
+      const art = reader.parse();
+      const contentHtml = art?.content ?? document.body?.innerHTML ?? '';
+      const markdown = htmlToMarkdown(contentHtml, url);
+      const images: string[] = [...new Set((contentHtml.match(/<img[^>]+src="([^"]+)"/g) ?? []).map((m: string) => m.replace(/.*src="([^"]+)".*/, '$1')))];
+      const published = meta('article:published_time') ?? meta('date') ?? meta('pubdate');
+      return {
+        title: art?.title || document.title || url,
+        byline: art?.byline ?? meta('author') ?? undefined,
+        excerpt: art?.excerpt ?? meta('description') ?? undefined,
+        lang: art?.lang ?? document.documentElement?.getAttribute('lang') ?? undefined,
+        markdown, images,
+        published_at: published ? (Date.parse(published) || undefined) : undefined,
+      };
+    },
+    readFile: (path) => readFile(path).then(b => new Uint8Array(b)),
+    getSecret: opts.getSecret,
+    info: () => ({ app_version: opts.app_version, platform: process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux', db_path: opts.db_path }),
+    isOnline: () => true,
+  };
+}

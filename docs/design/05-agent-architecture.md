@@ -69,8 +69,8 @@ pi 是 Mario Zechner（libGDX 作者）发起的开源 agent 工具集，MIT 协
 ```
 
 要点：
-- **数据库只有一个写入者**：Tibi Core。界面不再直接连 SQLite（原方案的 `tauri-plugin-sql` + Drizzle sqlite-proxy 改为 Tibi Core 内的 Drizzle）。对话与任务表和领域表放在同一个 `app.db`，这样"导入一篇文章 + 记录任务步骤"可以在一个事务里提交。
-- **打包**：Node 22 的单文件可执行（SEA）或 Bun `--compile`，体积约 50–90 MB。Tauri 用 `externalBin` 打包为 sidecar。
+- **数据库只有一个写入者**：Tibi Core。界面不再直接连 SQLite。Core 通过一层很薄的 `Driver` 接口访问 SQLite（T2，2026-10-31 开工时定：不用 Drizzle，表结构以 `packages/core/sql/*.sql` 为唯一真相源，查询手写 SQL；桌面接 better-sqlite3，手机接平台 SQLite，测试用内存库）。对话与任务表和领域表放在同一个 `app.db`，这样"导入一篇文章 + 记录任务步骤"可以在一个事务里提交。
+- **打包**（T11，2026-10-31 实测）：**Bun `--compile` 单文件**，SQLite 用 Bun 内置的 `bun:sqlite`，不带原生模块；Linux x64 约 105 MB，启动到响应第一条 JSON-RPC 114 ms。对照：Node SEA 119 MB 且 better-sqlite3 的 `.node` 还得放在旁边；Node + JS 包 139 ms。开发时用 Node + tsx 跑同一份代码（Driver 接口按运行时选 better-sqlite3 或 bun:sqlite）。Tauri 用 `externalBin` 打包为 sidecar，`pnpm --filter @tibi/core-node sidecar` 生成 `apps/desktop/src-tauri/binaries/tibi-core-<triple>`。
 - **界面与 Core 的通信**：JSON-RPC 2.0；请求走 `invoke`，事件（文本增量、工具开始 / 结束、任务状态）走 Tauri 事件。全部方法、参数、返回值与事件载荷见 [06 接口定义](06-interface.md)。窗口关闭时 Core 可以留在托盘继续跑后台任务（可设置）。
 - **单实例**：Core 持单实例锁。`tibi mcp` 只是代理，经本地 socket 加令牌连运行中的 Core，自己不开数据库，见 [06 §6](06-interface.md#6-mcp-server)。
 - **业务逻辑仍在 TypeScript**，开源贡献门槛不变；Rust 只更薄了。
@@ -242,7 +242,7 @@ metadata:
 2. pi-ai 调 DeepSeek 的工具调用与流式输出；
 3. 导入流水线做成可续跑的任务（含并行子任务），任务表驱动进度抽屉；
 4. `beforeTool` 挂起等待界面审批的做法；
-5. Tauri sidecar 打包体积、冷启动时间、Windows / macOS / Linux 三平台可运行。
+5. Tauri sidecar 打包体积、冷启动时间、Windows / macOS / Linux 三平台可运行。（2026-10-31：Linux 已测，Bun 单文件 105 MB / 114 ms；macOS、Windows 待在对应机器上跑 `pnpm --filter @tibi/core-node sidecar`）
 
 ---
 
