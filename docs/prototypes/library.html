@@ -174,7 +174,7 @@ function render(animate) {
   const body = $('#body');
   if (!DOCS.length) {
     $('#tools').hidden = true; $('#tagbar').hidden = true; $('#sum').textContent = ''; const nb = document.querySelector('.nav a.cur .n'); if (nb) nb.textContent = '0';
-    emptyState(body, { state: 'listening', img: 'empty-library', title: '书架还是空的', desc: '去首页把你想读的英文交给 Tibi：粘贴网址或一段文字，拖入 PDF、EPUB 或截图，也可以先读三篇公有领域的示例。', actions: [{ t: '去首页导入', pri: true, link: 'home' }, { t: '让 Tibi 找几篇', link: 'home' }] });
+    emptyState(body, { img: 'empty-library', title: '书架还是空的', desc: '去首页把你想读的英文交给 Tibi：粘贴网址或一段文字，拖入 PDF、EPUB 或截图，也可以先读三篇公有领域的示例。', actions: [{ t: '去首页导入', pri: true, link: 'home' }, { t: '让 Tibi 找几篇', link: 'home' }] });
     return;
   }
   $('#tools').hidden = false; $('#tagbar').hidden = false;
