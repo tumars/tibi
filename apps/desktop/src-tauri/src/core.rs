@@ -93,6 +93,10 @@ impl CoreProcess {
             cmd.arg("--dict").arg(d);
         }
         cmd.env("TIBI_VERSION", self.app.package_info().version.to_string());
+        // OCR 的 worker 和 wasm 随安装包放在 resources/ocr/（scripts/sidecar.mjs 拷进去）
+        if let Ok(r) = self.app.path().resource_dir() {
+            cmd.env("TIBI_RESOURCE_DIR", r.join("ocr"));
+        }
         cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::inherit());
         #[cfg(windows)]
         {

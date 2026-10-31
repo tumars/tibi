@@ -45,7 +45,8 @@ pnpm core:dev -- --fake-model      # 同上，但用假模型（不联网、不�
 pnpm --filter @tibi/desktop web    # 浏览器里跑界面，连上面的开发桥（无需编译 Rust）
 pnpm dev                           # tauri dev（需要 Rust 工具链与系统库）
 pnpm --filter @tibi/core-node build   # 打包 dist/tibi-core.js（sidecar 的 JS）
-pnpm --filter @tibi/core-node sidecar # Bun --compile 单文件 sidecar → apps/desktop/src-tauri/binaries/
+pnpm --filter @tibi/core-node sidecar # Bun --compile 单文件 sidecar → apps/desktop/src-tauri/binaries/（另把 OCR 的 worker 与 wasm 拷到 binaries/ocr/）
+TIBI_TEST_OCR=1 pnpm --filter @tibi/core-node test   # 连带跑 OCR 测试（要下载约 10 MB 的语言包）
 pnpm --filter @tibi/core gen          # 改了 sql/*.sql、skills/*.md 或 samples/ 后重新生成内嵌文件
 pnpm ecdict                        # 下载 ECDICT 并生成 data/dict.db（不进仓库）
 pnpm clipper:zip                   # 打包剪藏插件 extensions/clipper/dist/*.zip

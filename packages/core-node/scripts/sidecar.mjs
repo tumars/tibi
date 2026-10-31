@@ -2,7 +2,7 @@
 // 用法：node scripts/sidecar.mjs [--target <rust triple>] [--out <dir>]
 //   默认 target = 本机；out = ../../apps/desktop/src-tauri/binaries；文件名 tibi-core-<triple>[.exe]（Tauri externalBin 的约定）
 import { execSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const TRIPLES = {
@@ -27,3 +27,7 @@ const outfile = join(outDir, `tibi-core-${triple}${triple.includes('windows') ? 
 execSync('node build.mjs', { stdio: 'inherit' });
 execSync(`bun build --compile --target=${bunTarget} --minify dist/tibi-core.js --outfile "${outfile}"`, { stdio: 'inherit' });
 console.log(`sidecar → ${outfile}`);
+// OCR：tesseract 的 worker 和 wasm 放进 binaries/ocr/，tauri.conf 的 bundle.resources 把它带进安装包（壳用 TIBI_RESOURCE_DIR 告诉 Core）
+const ocrDir = join(outDir, 'ocr'); mkdirSync(ocrDir, { recursive: true });
+for (const f of readdirSync('dist').filter(f => f === 'tesseract-worker.cjs' || f.endsWith('.wasm'))) copyFileSync(join('dist', f), join(ocrDir, f));
+console.log(`ocr → ${ocrDir}`);

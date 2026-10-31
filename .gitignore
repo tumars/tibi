@@ -30,3 +30,5 @@ data/ecdict/
 apps/desktop/src-tauri/resources/dict.db
 apps/desktop/src-tauri/binaries/tibi-core-*
 apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/binaries/ocr/*.wasm
+apps/desktop/src-tauri/binaries/ocr/*.cjs

@@ -71,7 +71,17 @@ async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise
     if (!text) throw new TibiError('invalid_source', '文件是空的');
     return { title: /^#\s/.test(text) ? titleFromMarkdown(text) : name, markdown: text, source_type: 'file', source_uri: name };
   }
-  if (s.type === 'images') throw new TibiError('invalid_source', '图片识别还没做好（M4）');
+  if (s.type === 'images') {
+    for (const p of s.paths) if (!ctx.platform.isPathAllowed(p)) throw new TibiError('permission_denied', '有图片没有经过选择或拖入');
+    if (!ctx.platform.ocr) throw new TibiError('invalid_source', '这里不能识别图片里的文字');
+    job.progress('正在识别图片里的文字（第一次要下载约 10 MB 的英文语言包）');
+    const o = await ctx.platform.ocr({ images: s.paths }, { signal: job.signal, onProgress: (d, t) => job.progress(`正在识别第 ${d} / ${t} 张`, { index: d, total: t }) })
+      .catch(e => { throw new TibiError('invalid_source', `图片识别失败：${e instanceof Error ? e.message : String(e)}`); });
+    if (countWords(o.text) < 5) throw new TibiError('invalid_source', '图片里没有识别出英文');
+    const first = o.text.split('\n').find(l => l.trim())!.trim();
+    const title = first.length <= 80 && !/[.!?]$/.test(first) ? first : `${s.paths.length} 张图片`;
+    return { title, markdown: o.text, source_type: 'image', source_uri: s.paths[0]!.split(/[\\/]/).pop() };
+  }
   const sample = getSample(s.id);
   if (!sample) throw new TibiError('not_found', '没有这篇示例');
   return { title: sample.title, author: sample.author, markdown: sample.markdown, source_type: 'sample', source_uri: sampleUri(sample.id), genre: sample.genre, kind: 'article' };
