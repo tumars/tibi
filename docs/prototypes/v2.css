@@ -437,8 +437,6 @@ select.input { cursor: pointer; padding-right: 8px; }
 .welcome .hero-fox { width: 104px; height: 104px; margin: 0 0 2px; }
 .welcome h1 { margin: 0; text-align: center; font-size: 32px; font-weight: 600; letter-spacing: -.025em; line-height: 1.2; }
 .welcome .sub { font-size: 15px; color: var(--ink-3); text-align: center; margin: 0; }
-.welcome .sub a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--line-2); }
-.welcome .sub a:hover { color: var(--ink); border-color: var(--ink-3); }
 /* 无封面的书架卡片（默认） */
 .card .ex, .ccard .ex { display: none; }
 .card.nocv { padding: 16px 16px 14px; gap: 8px; box-shadow: inset 0 0 0 1px var(--line); min-height: 196px; }

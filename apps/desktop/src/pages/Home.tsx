@@ -88,12 +88,8 @@ export function Home() {
   const foxState = task ? 'reading' : focus ? 'listening' : 'idle';
   const hour = new Date().getHours();
   const greeting = hour < 5 ? '夜深了' : hour < 11 ? '早上好' : hour < 13 ? '中午好' : hour < 18 ? '下午好' : '晚上好';
-  // 欢迎语第二行：只说一件最该做的事（03 §9：一句话、不打气）
-  const welcomeLine: React.ReactNode = lead && lead.progress > 0
-    ? <>上次读到<a href={`#/read/${lead.id}`}>{lead.title}</a>的 {fmtPct(lead.progress)}</>
-    : due > 0 ? <>今天有 {due} 张卡要复习</>
-    : lead ? <>书架里有<a href={`#/read/${lead.id}`}>{lead.title}</a>还没开始读</>
-    : '先读点什么？粘贴一个网址或一段英文';
+  // 欢迎语第二行只是一句邀请，不报状态：在读的文章、待复习、没读的文章下面的卡片都有，这里再说就重复了（00 §3.5）
+  const welcomeLine = docs.length === 0 ? '读过的文章里的生词会自动进入复习' : hour < 5 ? '睡前读一小段？' : '今天想读点什么？';
 
   return (
     <>

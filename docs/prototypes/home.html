@@ -502,13 +502,11 @@ addEventListener('keydown', e => {
 const h = new Date().getHours();
 $('#week').innerHTML = Array.from({ length: 7 }, (_, i) => { const d = (new Date().getDay() + 6) % 7; return `<i class="${i < d ? 'on' : i === d ? 'now' : ''}"></i>`; }).join('');
 renderCont(); renderGrid(false); renderRecent(); covers(); demoToggle();
-/* 欢迎语：时段问候 + 一句最该做的事（03 §9：一句话、不打气） */
+/* 欢迎语：时段问候 + 一句邀请。不报状态：在读的文章、待复习、没读的文章下面的卡片都有，这里再说就重复了 */
 $('#greet').textContent = h < 5 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好';
-{ const r = DOCS.find(d => d.p > 0 && d.p < 100);
-  $('#welcomeSub').innerHTML = r ? `上次读到<a href="#" id="welcomeDoc">${esc(r.t)}</a>的 ${r.p}%` : '今天有 18 张卡要复习';
-  const a = $('#welcomeDoc'); if (a) { a.href = r.open ? URLS.reader : '#'; ext(a); } }
+$('#welcomeSub').textContent = h < 5 ? '睡前读一小段？' : '今天想读点什么？';
 if (IS_EMPTY) {
-  $('#welcomeSub').textContent = '先读点什么？粘贴一个网址或一段英文';
+  $('#welcomeSub').textContent = '读过的文章里的生词会自动进入复习';
   $('#chips').innerHTML = `<button class="chip" data-c="sample"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 5v14l11-7z"/></svg>读一篇示例文章</button><button class="chip" data-c="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>按我的水平推荐一篇</button><button class="chip" data-c="test"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>先测一下我的词汇量</button>`;
   $('#chips [data-c="sample"]').onclick = () => runImport('sample:' + SAMPLES[0].t); $('#chips [data-c="news"]').onclick = () => runFind('按我的水平推荐一篇'); $('#chips [data-c="test"]').onclick = () => toast('原型：正式版会打开 3–4 分钟的词汇量测试（首次启动引导里也有）');
   document.querySelectorAll('.tile').forEach((t, i) => { const v = t.querySelector('[data-count]'); if (i === 0) { v.dataset.count = '0'; t.querySelector('.d').textContent = '读过文章后会有'; t.querySelector('.go').hidden = true; } if (i === 1) { v.dataset.count = '0'; t.querySelector('.bar2 i').style.width = '0%'; } if (i === 2) { t.querySelector('.d').textContent = '来自词汇量测试'; t.querySelector('#week').hidden = true; } });
