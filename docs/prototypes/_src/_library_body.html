@@ -157,7 +157,7 @@ function render(animate) {
   const list = DOCS.filter(matches).sort(SORTS[sort]);
   if (!list.length) { body.innerHTML = `<div class="nores">没有符合的${kind === 'book' ? '书' : '文章'}${q ? `：“${esc(q)}”` : ''}${sel.size ? '，试试去掉一个标签' : ''}</div>`; return; }
   if (view === 'grid') {
-    const groups = sort === 'fit' ? [['现在读正合适', list.filter(d => d.p < 100)], ['读完了', list.filter(d => d.p >= 100)]] : [['', list]];
+    const groups = sort === 'fit' ? [['未读完', list.filter(d => d.p < 100)], ['读完了', list.filter(d => d.p >= 100)]] : [['', list]];
     body.innerHTML = groups.filter(g => g[1].length).map(([h, ds]) => `<section class="lbsec">${h ? `<h2>${h} <span class="n">${ds.length}</span></h2>` : ''}<div class="grid">${ds.map(cardHtml).join('')}</div></section>`).join('');
   } else {
     body.innerHTML = `<div class="rows"><div class="hd"><span>标题</span><span>类型 · 标签</span><span>时长</span><span>难度</span><span>进度</span><span>最近打开</span><span></span></div>${list.map(rowHtml).join('')}</div>`;

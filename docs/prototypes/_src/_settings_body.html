@@ -155,8 +155,8 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
 
           <section class="ssec" id="ai"><h2>模型</h2><div class="desc">文章分析、语境释义和对话使用这里的模型。API Key 保存在系统钥匙串，不写入数据库。</div>
             <div class="group" id="provs">
-              <div class="prov"><span class="ico">DS</span><div><div class="t">DeepSeek <span class="tag def">文本 · 默认</span><span class="tag ok">● 已连接</span></div><div class="d">deepseek-chat · 本月用量约 ¥3.2</div></div><button class="btn sm" data-edit="ds">编辑</button>
-                <div class="pform" id="form-ds" hidden><span>Base URL</span><input class="input" value="https://api.deepseek.com/v1"><span>API Key</span><input class="input" type="password" value="sk-••••••••••••••••"><span>模型</span><select class="input"><option>deepseek-chat</option><option>deepseek-reasoner</option></select><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="ds">测试连接</button><button class="btn sm" data-close="ds">完成</button></div></div></div>
+              <div class="prov"><span class="ico">DS</span><div><div class="t">DeepSeek <span class="tag def">文本 · 默认</span><span class="tag ok">● 已连接</span></div><div class="d">deepseek-v4-flash · 本月用量约 ¥3.2</div></div><button class="btn sm" data-edit="ds">编辑</button>
+                <div class="pform" id="form-ds" hidden><span>Base URL</span><input class="input" value="https://api.deepseek.com/v1"><span>API Key</span><input class="input" type="password" value="sk-••••••••••••••••"><span>模型</span><select class="input"><option>deepseek-v4-flash</option><option>deepseek-v4-pro</option></select><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="ds">测试连接</button><button class="btn sm" data-close="ds">完成</button></div></div></div>
               <div class="prov"><span class="ico">👁</span><div><div class="t">视觉模型 <span class="tag off">未配置</span></div><div class="d">用于高质量识别图片和扫描版 PDF；不配置时使用本地 Tesseract</div></div><button class="btn sm" data-edit="vis">配置</button>
                 <div class="pform" id="form-vis" hidden><span>服务商</span><select class="input"><option>OpenAI 兼容接口</option><option>通义千问 VL</option><option>OpenAI</option></select><span>Base URL</span><input class="input" placeholder="https://…"><span>API Key</span><input class="input" type="password" placeholder="sk-…"><div class="row" style="display:flex;gap:8px"><button class="btn sm pri" data-test="vis">测试连接</button><button class="btn sm" data-close="vis">完成</button></div></div></div>
               <div class="prov"><span class="ico">🖼</span><div><div class="t">图像模型 <span class="tag off">未配置</span></div><div class="d">按文章主题生成涂鸦封面；不配置时用程序生成的涂鸦</div></div><button class="btn sm" data-edit="img">配置</button>
@@ -165,14 +165,13 @@ mark.sm { background: var(--hl-1); color: inherit; border-radius: 2px; padding: 
             </div>
             <div class="desc" style="margin-top:14px">两档模型 · 每项技能用其中一档（在下面的"Tibi 的技能"里设置）</div>
             <div class="group">
-              <div class="item"><div><div class="t">快速</div><div class="d">对话、查词、导入分析等大多数工作</div></div><div class="ctl"><select class="input" aria-label="快速档模型"><option>DeepSeek · deepseek-chat</option><option>本地 · Ollama qwen3</option></select></div></div>
-              <div class="item"><div><div class="t">深入</div><div class="d">统计洞察、学习计划等需要仔细推理的工作</div></div><div class="ctl"><select class="input" aria-label="深入档模型"><option>DeepSeek · deepseek-reasoner</option><option>DeepSeek · deepseek-chat</option></select></div></div>
+              <div class="item"><div><div class="t">快速</div><div class="d">对话、查词、导入分析等大多数工作</div></div><div class="ctl"><select class="input" aria-label="快速档模型"><option>DeepSeek · deepseek-v4-flash</option><option>本地 · Ollama qwen3</option></select></div></div>
+              <div class="item"><div><div class="t">深入</div><div class="d">统计洞察、学习计划等需要仔细推理的工作</div></div><div class="ctl"><select class="input" aria-label="深入档模型"><option>DeepSeek · deepseek-v4-pro</option><option>DeepSeek · deepseek-v4-flash</option></select></div></div>
             </div>
             <div class="desc" style="margin-top:14px">也可以用你已有的订阅（可选）· 使用前请确认该服务的条款允许在第三方应用中使用</div>
             <div class="radio" id="backend">
               <label><input type="radio" name="be" checked><div><b>使用上面配置的 API Key</b><span>默认。按量计费，花费按技能统计</span></div></label>
               <label><input type="radio" name="be" data-login="ChatGPT"><div><b>用 ChatGPT 账号登录</b><span>使用你的 ChatGPT 订阅额度</span></div></label>
-              <label><input type="radio" name="be" data-login="Claude"><div><b>用 Claude 账号登录</b><span>使用你的 Claude 订阅额度</span></div></label>
             </div>
           </section>
 
@@ -250,6 +249,8 @@ const MAIN = osInit($('#scroll'));
 let savedT;
 function saved(msg) { const s = $('#saved'); s.textContent = '✓ ' + (msg || '已保存'); anim(s, { opacity: [0.3, 1] }, { duration: 0.3 }); clearTimeout(savedT); savedT = setTimeout(() => s.textContent = '✓ 修改会自动保存', 2000); }
 
+/* 外观分段跟随已保存的主题 */
+document.querySelectorAll('[data-seg="theme"] button').forEach(b => b.classList.toggle('on', b.dataset.v === (document.documentElement.dataset.theme || 'auto')));
 /* 分段、多选、开关、滑块 */
 document.querySelectorAll('.seg').forEach(g => g.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -269,7 +270,7 @@ document.querySelectorAll('[data-test]').forEach(b => b.onclick = () => {
   const f = $('#form-' + b.dataset.test); f.querySelector('.log') && f.querySelector('.log').remove();
   const log = document.createElement('div'); log.className = 'log'; f.appendChild(log);
   const ok = b.dataset.test === 'ds';
-  const lines = ok ? ['连接 api.deepseek.com … 200 OK', '模型 deepseek-chat 可用 · 延迟 412 ms', '结构化输出（JSON）测试通过'] : ['请先填写 API Key', '连接失败：401 未授权'];
+  const lines = ok ? ['连接 api.deepseek.com … 200 OK', '模型 deepseek-v4-flash 可用 · 延迟 412 ms', '结构化输出（JSON）测试通过'] : ['请先填写 API Key', '连接失败：401 未授权'];
   lines.forEach((l, i) => setTimeout(() => { const d = document.createElement('div'); d.textContent = l; if (!ok && i === 1) d.style.color = 'var(--hard)'; log.appendChild(d); }, 300 + i * 350));
   setTimeout(() => toast(ok ? '连接成功' : '连接失败：请检查 API Key'), 400 + lines.length * 350);
 });

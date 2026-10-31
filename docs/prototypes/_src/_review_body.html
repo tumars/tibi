@@ -152,7 +152,7 @@
   <section class="main">
     <header class="top">
       <button class="ibtn" id="menuBtn" title="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
-      <span class="crumb"><b>复习</b> · 今日 18 张 = 到期 14 + 新词 4（原型演示其中 10 个词）</span>
+      <span class="crumb"><b>复习</b> · 今日 18 张 = 到期 14 + 新词 4</span>
       <span class="sp"></span>
       <div class="rvseg" id="rvseg" role="group" aria-label="复习或练习"><button class="on" data-m="review">复习</button><button data-m="practice">练习</button></div>
       <button class="pill" id="themeBtn" title="切换深浅色"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></button>
@@ -211,6 +211,14 @@ const BASE = [
   { w: 'notoriously', ipa: '/nəʊˈtɔːriəsli/', zh: 'adv. 出了名地（多含贬义）', s: 0, type: 'recognize', isNew: true, src: 'Understanding Ownership in Rust', sent: '…dangling pointers, that are {notoriously} hard to track down in C and C++.', tr: '……悬垂指针，这类问题在 C 和 C++ 中出了名地难以排查。', hint: '出了名地' },
   { w: 'grapple with', ipa: '', zh: '努力应对；与…较劲', s: 0, type: 'choice', isNew: true, phrase: true, src: 'Understanding Ownership in Rust', sent: 'Newcomers often find themselves {grappling with} the borrow checker…', tr: '新手常常发现自己在和借用检查器较劲……', hint: '较劲',
     opts: [{ t: '努力应对；与…较劲', ok: 1 }, { t: '抓住（机会）', from: '形近短语 grab at' }, { t: '逐渐习惯', from: '生词本里的短语 get used to' }, { t: '回避；绕开', from: '同一篇文章里的短语 steer clear of' }] },
+  { w: 'upshot', ipa: '/ˈʌpʃɒt/', zh: 'n. 最终结果', s: 1, type: 'recognize', S: 1.5, D: 7.2, t: 2, src: 'Understanding Ownership in Rust', sent: 'The {upshot} is memory safety without the runtime overhead that usually comes with it.', tr: '最终结果是：内存安全，而且没有通常随之而来的运行时开销。', hint: '最终结果' },
+  { w: 'deterministically', ipa: '/dɪˌtɜːmɪˈnɪstɪkli/', zh: 'adv. 确定性地', s: 1, type: 'recognize', S: 1.4, D: 7.8, t: 2, src: 'Understanding Ownership in Rust', sent: 'When the owner goes out of scope, the value is dropped and its memory is reclaimed {deterministically}.', tr: '所有者离开作用域时，值被丢弃，内存被确定性地回收。', hint: '确定性地' },
+  { w: 'reclaim', ipa: '/rɪˈkleɪm/', zh: 'v. 回收；收回', s: 1, type: 'recognize', S: 1.6, D: 6.8, t: 2, src: 'Understanding Ownership in Rust', sent: '…the value is dropped and its memory is {reclaimed} deterministically.', tr: '……值被丢弃，内存被确定性地回收。', hint: '回收' },
+  { w: 'intuitive', ipa: '/ɪnˈtjuːɪtɪv/', zh: 'adj. 直观的；易懂的', s: 1, type: 'recognize', S: 2.2, D: 6.4, t: 3, src: 'Understanding Ownership in Rust', sent: '…the constraints become {intuitive} after a few weeks of practice.', tr: '……练习几周之后，这些约束就变得直观了。', hint: '直观的' },
+  { w: 'permeable', ipa: '/ˈpɜːmiəbl/', zh: 'adj. 可渗透的', s: 1, type: 'recognize', S: 1.5, D: 7.1, t: 2, src: 'Cities Turn to Sponge Design as Floods Intensify', sent: 'The approach relies on {permeable} pavements, rooftop gardens and restored wetlands.', tr: '这种做法依靠透水路面、屋顶花园和修复的湿地。', hint: '可渗透的' },
+  { w: 'retrofit', ipa: '/ˈretrəʊfɪt/', zh: 'v. 改造，翻新', s: 1, type: 'recognize', S: 1.7, D: 6.9, t: 2, src: 'Cities Turn to Sponge Design as Floods Intensify', sent: '…{retrofitting} existing neighborhoods can be slow and costly.', tr: '……改造现有街区可能又慢又贵。', hint: '改造' },
+  { w: 'ascertain', ipa: '/ˌæsəˈteɪn/', zh: 'v. 查明，弄清', s: 1, type: 'recognize', S: 1.4, D: 7.5, t: 2, src: 'A Scandal in Bohemia', sent: 'I was anxious to {ascertain} what my friend had been doing.', tr: '我急于弄清我的朋友一直在做什么。', hint: '查明' },
+  { w: 'make a dent in', ipa: '', zh: '对…产生明显影响', s: 1, type: 'recognize', phrase: true, S: 1.6, D: 7.0, t: 2, src: 'Cities Turn to Sponge Design as Floods Intensify', sent: '…not enough open land to {make a dent in} peak runoff…', tr: '……没有足够的空地来明显削减径流峰值……', hint: '产生明显影响' },
   { w: 'meticulous', ipa: '/məˈtɪkjələs/', zh: 'adj. 一丝不苟的；极仔细的', s: 0, type: 'intro', isNew: true, added: '你在生词本里手动添加的', src: '词典例句（还没在你的文章里遇到过）', sent: 'She keeps {meticulous} records of every experiment.', tr: '她把每次实验都记录得一丝不苟。', hint: '一丝不苟的' },
   { w: 'ubiquitous', ipa: '/juːˈbɪkwɪtəs/', zh: 'adj. 无处不在的', s: 0, type: 'intro', isNew: true, added: '来自导入的词表《雅思核心词》', src: '词典例句（还没在你的文章里遇到过）', sent: 'Smartphones have become {ubiquitous} in daily life.', tr: '智能手机在日常生活中已无处不在。', hint: '无处不在的' },
 ];
@@ -252,6 +260,7 @@ function retryOf(c) {   // G3：换一种题型再见一面，不计分
   const type = c.type === 'choice' || c.type === 'recognize' || c.type === 'produce' ? 'cloze' : 'choice';
   return Object.assign({}, c, { type, retry: (c.retry || 0) + 1, res: undefined, opts: type === 'choice' ? optsFor(c) : c.opts });
 }
+const leftOf = (q, res) => new Set(q.map(c => c.w)).size - (res || []).length;   // 还剩几张：每个词算一张（今天 18 张），答错补练和初见后的回忆不另算
 function save() { try { localStorage.setItem(KEY, JSON.stringify({ Q, idx, results, t0, at: Date.now() })); } catch (e) {} }
 function clearSave() { try { localStorage.removeItem(KEY); } catch (e) {} }
 function snapshot() { history.push(JSON.stringify({ Q, idx, results })); }
@@ -264,7 +273,7 @@ function renderQueue() {
   const seen = [];
   Q.forEach(c => { if (!seen.includes(c.w)) seen.push(c.w); });
   const cur = Q[idx] && phase !== 'done' ? Q[idx].w : '';
-  $('#recent').innerHTML = seen.map(w => { const r = results.find(x => x.w === w); const intro = BASE.find(b => b.w === w).type === 'intro'; return `<a href="#" class="${w === cur ? 'cur' : ''}"><span class="dot ${r ? 'r' + r.g : ''}"></span>${esc(w)}${intro ? '<span class="qtag">新</span>' : ''}</a>`; }).join('');
+  $('#recent').innerHTML = seen.map(w => { const r = results.find(x => x.w === w); const intro = BASE.find(b => b.w === w).isNew; return `<a href="#" class="${w === cur ? 'cur' : ''}"><span class="dot ${r ? 'r' + r.g : ''}"></span>${esc(w)}${intro ? '<span class="qtag">新</span>' : ''}</a>`; }).join('');
   document.querySelectorAll('#recent a').forEach(a => a.onclick = e => e.preventDefault());
 }
 function segs() { return `<div class="segs">${Q.map((c, i) => `<i class="${c.res === 'i' ? 'ri' : c.res === 'o' ? 'ro' : c.res === 'x' ? 'rx' : c.res ? 'r' + c.res : i === idx ? 'cur' : ''}${c.retry ? ' rt' : ''}"></i>`).join('')}</div>`; }
@@ -338,11 +347,11 @@ function render(dir) {
     if (SELF_RATED.has(c.type) && !c.retry && !drill) foot = rateRow(c, 3);
     else foot = gradeLine(c) + (showRates && !c.retry && !drill ? rateRow(c, pend.g) : '') + `<button class="reveal" id="contBtn">继续 <span class="kbd">Enter</span></button>`;
   }
-  const left = n - idx, mins = Math.max(1, Math.round(left * 0.4));
+  const left = drill ? n - idx : leftOf(Q, results), mins = Math.max(1, Math.round(left / 3));
   const keys = c.type === 'intro' ? '<span class="kbd">Enter</span> 认识了'
     : phase === 'ask' ? (c.type === 'recognize' ? '<span class="kbd">空格</span> 显示答案' : c.type === 'choice' ? '<span class="kbd">1</span>–<span class="kbd">4</span> 选择' : '<span class="kbd">Enter</span> 检查')
     : SELF_RATED.has(c.type) && !c.retry && !drill ? '<span class="kbd">1</span>–<span class="kbd">4</span> 评分' : '<span class="kbd">Enter</span> 继续 · <span class="kbd">1</span>–<span class="kbd">4</span> 改评分';
-  $('#rv').innerHTML = `<div class="rvbar">${segs()}<span>${idx + 1} / ${n} · 还剩约 ${mins} 分钟</span>${drill ? '' : '<button class="linkbtn" id="pauseBtn" title="进度会保存，下次接着做">稍后继续</button>'}</div>
+  $('#rv').innerHTML = `<div class="rvbar">${segs()}<span>${left > 0 ? `还剩 ${left} 张 · 约 ${mins} 分钟` : '最后补练几张'}</span>${drill ? '' : '<button class="linkbtn" id="pauseBtn" title="进度会保存，下次接着做">稍后继续</button>'}</div>
     <section class="card${c.type === 'intro' ? ' introcard' : ''}" id="card">${head}${body}</section>
     <div class="rvfoot"><div class="actions">${foot}</div><div class="keys"><span>${keys} <span class="kbd">Z</span> 撤销 <span class="kbd">L</span> 问 Tibi <span class="kbd">P</span> 发音</span><span>${history.length ? '<button class="linkbtn" id="undoBtn">撤销上一张</button>' : ''}</span></div></div>`;
   bind(c);
@@ -467,10 +476,10 @@ function undo() {
 
 /* ============ 可续（G6） ============ */
 function renderResume(sv) {
-  const left = sv.Q.length - sv.idx, words = new Set(sv.Q.slice(sv.idx).map(c => c.w)).size;
+  const left = leftOf(sv.Q, sv.results);
   const when = Math.max(1, Math.round((Date.now() - sv.at) / 60000));
-  $('#rv').innerHTML = `<div class="rvbar"><div class="segs">${sv.Q.map((c, i) => `<i class="${c.res === 'i' ? 'ri' : c.res === 'o' ? 'ro' : c.res === 'x' ? 'rx' : c.res ? 'r' + c.res : i === sv.idx ? 'cur' : ''}"></i>`).join('')}</div><span>已做 ${sv.idx} / ${sv.Q.length}</span></div>
-    <section class="card resume"><div class="rfox" id="rfox"></div><div><h3>上次复习到一半</h3><p>${when < 60 ? when + ' 分钟' : Math.round(when / 60) + ' 小时'}前停在第 ${sv.idx + 1} 张，还剩 ${left} 张（${words} 个词，约 ${Math.max(1, Math.round(left * 0.4))} 分钟）。已经做过的评分都保存了。</p></div></section>
+  $('#rv').innerHTML = `<div class="rvbar"><div class="segs">${sv.Q.map((c, i) => `<i class="${c.res === 'i' ? 'ri' : c.res === 'o' ? 'ro' : c.res === 'x' ? 'rx' : c.res ? 'r' + c.res : i === sv.idx ? 'cur' : ''}"></i>`).join('')}</div><span>还剩 ${left} 张</span></div>
+    <section class="card resume"><div class="rfox" id="rfox"></div><div><h3>上次复习到一半</h3><p>${when < 60 ? when + ' 分钟' : Math.round(when / 60) + ' 小时'}前停在第 ${sv.idx + 1} 张，还剩 ${left} 张（约 ${Math.max(1, Math.round(left / 3))} 分钟）。已经做过的评分都保存了。</p></div></section>
     <div class="rvfoot"><div class="actions"><button class="reveal" id="resumeBtn">接着复习 <span class="kbd">Enter</span></button><div class="footrow"><button class="linkbtn" id="restartBtn">从头开始</button></div></div></div>`;
   if (window.Fox) Fox.mount($('#rfox'), { state: 'idle', size: 72 });
   $('#resumeBtn').onclick = () => { Q = sv.Q; idx = sv.idx; results = sv.results || []; t0 = sv.t0 || Date.now(); phase = 'ask'; render('next'); };
@@ -632,7 +641,7 @@ function practiceDone() {
 }
 function setMode(m) {
   mode = m; document.querySelectorAll('#rvseg button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
-  $('.crumb').innerHTML = m === 'practice' ? '<b>复习</b> · 练习不计分' : '<b>复习</b> · 今日 18 张 = 到期 14 + 新词 4（原型演示其中 10 个词）';
+  $('.crumb').innerHTML = m === 'practice' ? '<b>复习</b> · 练习不计分' : '<b>复习</b> · 今日 18 张 = 到期 14 + 新词 4';
   if (m === 'practice') renderPractice('enter'); else render('next');
 }
 document.querySelectorAll('#rvseg button').forEach(b => b.onclick = () => setMode(b.dataset.m));
@@ -698,9 +707,9 @@ if (IS_EMPTY) {
   /* 空状态：今天没有要复习的卡片 */
   $('.crumb').innerHTML = '<b>复习</b> · 今天没有到期的卡片';
   $('#sideH').textContent = '今天要复习'; $('#recent').innerHTML = '<div class="lbl-i" style="padding:4px 12px">没有到期的词</div>';
-  emptyState($('#rv'), { img: 'empty-review', title: '今天的复习都做完了', desc: '明天有 6 张到期，后天 9 张。现在最好的安排是读点新东西——新文章里的生词会自动进入复习。', cls: 'card-like',
+  emptyState($('#rv'), { img: 'empty-review', title: '今天的复习都做完了', desc: '明天有 9 张到期，后天 14 张。现在最好的安排是读点新东西——新文章里的生词会自动进入复习。', cls: 'card-like',
     extra: '<div class="lbl-i" style="margin-top:6px">想多练一点也可以，不会打乱复习排期</div>',
-    actions: [{ t: '读一篇新文章', pri: true, link: 'home' }, { t: '提前复习明天的 6 张', onclick: () => { location.hash = ''; location.reload(); } }, { t: '去练习（听写、易混词）', onclick: () => setMode('practice') }] });
+    actions: [{ t: '读一篇新文章', pri: true, link: 'home' }, { t: '提前复习明天的 9 张', onclick: () => { location.hash = ''; location.reload(); } }, { t: '去练习（听写、易混词）', onclick: () => setMode('practice') }] });
   const ring = $('#ringArc'); if (ring) ring.setAttribute('stroke-dashoffset', 0);
   const bd = document.querySelector('.nav .n.badge'); if (bd) bd.hidden = true;
 } else {

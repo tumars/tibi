@@ -25,7 +25,7 @@
 /* v2「安静的 AI 工作台」：中性浅灰底 + 白色圆角主区；界面全无衬线，书名与正文用 Charter；一个电光蓝强调色；大输入框是首页主角 */
 :root {
   --bg: #f6f6f5; --surface: #ffffff; --sunken: #f2f2f1; --hover: rgba(0,0,0,.04); --line: rgba(0,0,0,.08); --line-2: rgba(0,0,0,.13);
-  --ink: #18181b; --ink-2: #55555c; --ink-3: #9d9da6;
+  --ink: #18181b; --ink-2: #55555c; --ink-3: #6b6b74;
   --accent: #3b5bfd; --accent-ink: #ffffff; --accent-wash: rgba(59,91,253,.08);
   --warm: #f5a043; --warm-wash: rgba(245,160,67,.14); /* 品牌暖色：只用于吉祥物、庆祝、连续学习、logo 书签 */
   --ok: #2f8a4c; --mid: #b07a12; --hard: #c2452f;
@@ -39,7 +39,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0b0b0c; --surface: #141416; --sunken: #1b1b1e; --hover: rgba(255,255,255,.05); --line: rgba(255,255,255,.09); --line-2: rgba(255,255,255,.15);
-    --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #6b6b74; --accent: #6f86ff; --accent-ink: #0b0b0c; --accent-wash: rgba(111,134,255,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16);
+    --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #8e8e97; --accent: #6f86ff; --accent-ink: #0b0b0c; --accent-wash: rgba(111,134,255,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16);
     --ok: #6cc28a; --mid: #e2b04f; --hard: #ef8a76; --hl-new: rgba(110,155,230,.30); --hl-1: rgba(230,180,70,.40); --hl-2: rgba(230,180,70,.28); --hl-3: rgba(230,180,70,.18); --hl-4: rgba(230,180,70,.09); --play: rgba(111,134,255,.10);
     --c-tech: #1c2136; --c-news: #2a2118; --c-novel: #1b2619; --c-ink: #d9d9de;
     --scroll: rgba(255,255,255,.14); --scroll-hover: rgba(255,255,255,.28); --scroll-active: rgba(255,255,255,.4);
@@ -48,7 +48,7 @@
 }
 :root[data-theme="dark"] {
   --bg: #0b0b0c; --surface: #141416; --sunken: #1b1b1e; --hover: rgba(255,255,255,.05); --line: rgba(255,255,255,.09); --line-2: rgba(255,255,255,.15);
-  --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #6b6b74; --accent: #6f86ff; --accent-ink: #0b0b0c; --accent-wash: rgba(111,134,255,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16);
+  --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #8e8e97; --accent: #6f86ff; --accent-ink: #0b0b0c; --accent-wash: rgba(111,134,255,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16);
   --ok: #6cc28a; --mid: #e2b04f; --hard: #ef8a76; --hl-new: rgba(110,155,230,.30); --hl-1: rgba(230,180,70,.40); --hl-2: rgba(230,180,70,.28); --hl-3: rgba(230,180,70,.18); --hl-4: rgba(230,180,70,.09); --play: rgba(111,134,255,.10);
   --c-tech: #1c2136; --c-news: #2a2118; --c-novel: #1b2619; --c-ink: #d9d9de;
   --scroll: rgba(255,255,255,.14); --scroll-hover: rgba(255,255,255,.28); --scroll-active: rgba(255,255,255,.4);
@@ -88,16 +88,18 @@ svg { flex: none; }
 .nav a .n { margin-left: auto; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .nav a .n.badge { font-weight: 500; color: var(--ink-2); }   /* 到期 / 待审批计数：只加粗，不做实心徽标 */
 .sideh { font-size: 11.5px; color: var(--ink-3); padding: 16px 12px 6px; white-space: nowrap; }
+.recent { min-height: 0; overflow-y: auto; }   /* 列表再长也要露出底部的头像和设置 */
 .recent a { display: block; padding: 6px 10px; border-radius: 8px; text-decoration: none; font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recent a svg { width: 14px; height: 14px; flex: none; color: var(--ink-3); vertical-align: -2px; margin-right: 7px; }
 .recent a.cur { background: var(--accent-wash); color: var(--accent); }
 .recent a:hover { background: var(--hover); color: var(--ink); }
-.sidefoot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
-.streak { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; white-space: nowrap; margin-bottom: 30px; }   /* 底部留出原型演示开关的位置 */
+.sidefoot { flex: none; margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+.streak { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; white-space: nowrap;  }
 .streak .ring { width: 30px; height: 30px; flex: none; }
 .streak .t { font-size: 12.5px; font-weight: 500; } .streak .s { font-size: 11.5px; color: var(--ink-3); }
 .user { display: flex; align-items: center; gap: 10px; padding: 6px 6px 0 8px; white-space: nowrap; }
 .user .av { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(var(--accent), var(--accent)); color: var(--accent-ink); display: grid; place-items: center; font-size: 12px; font-weight: 600; flex: none; }
+a.av { text-decoration: none; } a.av:hover { filter: brightness(1.12); }
 .user .t { font-size: 13px; } .user .ibtn { margin-left: auto; }
 .app.collapsed .side .hide-c { display: none !important; }
 .app.collapsed .nav a, .app.collapsed .newbtn { justify-content: center; padding: 0; }
@@ -216,6 +218,8 @@ svg { flex: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .log { border-radius: 12px; background: var(--sunken); padding: 12px 14px; font-family: var(--f-mono); font-size: 11.5px; line-height: 1.75; color: var(--ink-2); max-height: 220px; overflow: auto; }
 .log div::before { content: "› "; color: var(--ink-3); }
+.logfold { max-width: 640px; } .logfold summary { padding: 0 10px; } .logfold .log { margin-top: 8px; }
+.step.err { color: var(--ink); } .step.err .ic { background: var(--hard); color: #fff; box-shadow: none; }
 .result { border-radius: 16px; box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
 .result .cv { aspect-ratio: 16 / 8; }
 .result .rb { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; }
@@ -223,6 +227,7 @@ svg { flex: none; }
 .result .m { font-size: 12.5px; color: var(--ink-3); display: flex; gap: 10px; flex-wrap: wrap; }
 .result .sum { font-size: 13.5px; color: var(--ink-2); line-height: 1.7; margin-top: 4px; }
 .result .acts { display: flex; gap: 8px; margin-top: 8px; }
+.result .bgnote { font-size: 12.5px; color: var(--ink-3); line-height: 1.6; margin-top: 2px; }
 .btn { height: 30px; padding: 0 14px; border-radius: 8px; font-size: 13px; font-weight: 500; box-shadow: inset 0 0 0 1px var(--line-2); display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .btn:hover { background: var(--hover); }
 .btn.pri { background: var(--ink); color: var(--surface); box-shadow: none; }
@@ -460,7 +465,8 @@ select.input { cursor: pointer; padding-right: 8px; }
 .sample:hover { background: var(--hover); box-shadow: inset 0 0 0 1px var(--line-2); }
 .sample .g { font-size: 11.5px; color: var(--ink-3); } .sample .t { font-family: var(--f-read); font-weight: 700; font-size: 15px; line-height: 1.3; } .sample .m { font-size: 12px; color: var(--ink-3); }
 /* 原型演示开关（只在原型里出现） */
-.demo-tog { position: fixed; left: 14px; bottom: 14px; z-index: 70; height: 30px; padding: 0 12px; border-radius: 999px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 6px 20px -8px rgba(0,0,0,.2); font-size: 12px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.demo-tog { position: fixed; right: 14px; bottom: 14px; z-index: 70; height: 30px; padding: 0 12px; border-radius: 999px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2), 0 6px 20px -8px rgba(0,0,0,.2); font-size: 12px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.app.drawer-open ~ .demo-tog, .app.chat-open ~ .demo-tog { display: none; }   /* 右下角是对话框的发送按钮，让开 */
 .demo-tog:hover { color: var(--ink); } .demo-tog b { font-weight: 500; color: var(--ink); }
 .grid.is-empty { display: block; }
 .phone-hint { position: fixed; left: 0; right: 0; top: 0; z-index: 80; background: var(--ink); color: var(--surface); font-size: 13px; padding: 10px 14px; text-align: center; }

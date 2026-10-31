@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="v2-theme.js"></script>
 <title>Tibi 首次使用</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -6,7 +12,7 @@
 <style>
 /* 首次启动引导（3.9）：没有侧栏，一张居中的卡片，左边是步骤与藏狐，右边是当前这一步 */
 body { display: grid; place-items: center; padding: 24px; }
-.ob { width: min(960px, 100%); min-height: 600px; background: var(--surface); border-radius: 20px; box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: 300px minmax(0, 1fr); overflow: hidden; }
+.ob { width: min(960px, 100%); height: min(712px, calc(100vh - 48px)); background: var(--surface); border-radius: 20px; box-shadow: inset 0 0 0 1px var(--line); display: grid; grid-template-columns: 300px minmax(0, 1fr); overflow: hidden; }
 .ob .left { background: var(--sunken); padding: 28px 26px; display: flex; flex-direction: column; gap: 18px; }
 .ob .obbrand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; }
 .ob .obbrand img { width: 26px; height: 26px; border-radius: 7px; }
@@ -158,18 +164,18 @@ body { display: grid; place-items: center; padding: 24px; }
       <div class="seg" id="mseg"><button class="on" data-m="key">填 API Key</button><button data-m="login">用账号登录</button><button data-m="local">本地模型</button></div>
       <div class="mp on" data-m="key">
         <div class="prov" id="prov">
-          <button class="on" data-v="deepseek"><b>DeepSeek <span class="tag">推荐</span></b><span>便宜、中文好；快速档 deepseek-chat，深入档 deepseek-reasoner</span></button>
+          <button class="on" data-v="deepseek"><b>DeepSeek <span class="tag">推荐</span></b><span>便宜、中文好；快速档 deepseek-v4-flash，深入档 deepseek-v4-pro</span></button>
           <button data-v="openai"><b>OpenAI</b><span>gpt-4.1-mini / gpt-4.1</span></button>
           <button data-v="anthropic"><b>Anthropic</b><span>claude-haiku / claude-sonnet</span></button>
           <button data-v="custom"><b>其他兼容 OpenAI 的服务</b><span>自己填 Base URL 和模型名</span></button>
         </div>
         <div class="keyrow"><input class="input" id="key" type="password" placeholder="sk-…（只存在本机，不会上传）" autocomplete="off"><button class="btn" id="testBtn">测试连接</button></div>
         <div class="conn" id="conn"></div>
-        <div class="tiers" id="tiers"><div><span>快速档 · 查词、标注、日常问答</span><span>deepseek-chat</span></div><div><span>深入档 · 长难句、学习洞察、出题</span><span>deepseek-reasoner</span></div></div>
+        <div class="tiers" id="tiers"><div><span>快速档 · 查词、标注、日常问答</span><span>deepseek-v4-flash</span></div><div><span>深入档 · 长难句、学习洞察、出题</span><span>deepseek-v4-pro</span></div></div>
       </div>
       <div class="mp" data-m="login">
-        <div class="login"><button class="btn" data-login="ChatGPT">用 ChatGPT 账号登录</button><button class="btn" data-login="Claude">用 Claude 账号登录</button></div>
-        <div class="note">用你已有的订阅，不另外付费。这两家的条款对第三方应用的限制还在核对，正式版可能只保留其中一种。</div>
+        <div class="login"><button class="btn" data-login="ChatGPT">用 ChatGPT 账号登录</button></div>
+        <div class="note">用你已有的 ChatGPT 订阅，不另外付费。它的条款对第三方应用的限制还在核对。想用 Claude，请在“填 API Key”里选 Anthropic。</div>
       </div>
       <div class="mp" data-m="local">
         <div class="note">检测到本机没有在运行 Ollama。装好后（`ollama run qwen3:8b`）回到这里，Tibi 会自动找到它。本地模型适合查词和标注，讲解和洞察建议还是用云端模型。</div>
@@ -279,7 +285,7 @@ function showResult() {
 renderBand();
 /* ---------- 第 3 步：模型 ---------- */
 $('#mseg').querySelectorAll('button').forEach(b => b.onclick = () => { $('#mseg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); document.querySelectorAll('.mp').forEach(p => p.classList.toggle('on', p.dataset.m === b.dataset.m)); });
-const TIERS = { deepseek: ['deepseek-chat', 'deepseek-reasoner'], openai: ['gpt-4.1-mini', 'gpt-4.1'], anthropic: ['claude-haiku', 'claude-sonnet'], custom: ['（填模型名）', '（填模型名）'] };
+const TIERS = { deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro'], openai: ['gpt-4.1-mini', 'gpt-4.1'], anthropic: ['claude-haiku', 'claude-sonnet'], custom: ['（填模型名）', '（填模型名）'] };
 $('#prov').querySelectorAll('button').forEach(b => b.onclick = () => { $('#prov').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); ans.model = b.dataset.v; const t = TIERS[ans.model]; $('#tiers').querySelectorAll('div span:last-child').forEach((s, i) => s.textContent = t[i]); $('#conn').className = 'conn'; $('#conn').textContent = ''; ans.connected = false; });
 $('#testBtn').onclick = () => {
   const c = $('#conn'); if (!$('#key').value.trim()) { c.className = 'conn err'; c.textContent = '先填 API Key'; fox.pulse('surprised', 1200); return; }
