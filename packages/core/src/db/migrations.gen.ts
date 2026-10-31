@@ -16,5 +16,10 @@ export const MIGRATIONS: Migration[] = [
     "version": 3,
     "name": "review_undo",
     "sql": "-- 0003：复习记录只追加（01 §8，08 §9）。撤销一次作答不再删 review_logs，而是追加一条撤销记录：\n-- rating = 0、undoes_id = 被撤销那条的 id。统计、FSRS 历史、\"今天新卡数\"等一律读 review_logs_valid，\n-- 它排除撤销记录本身和被撤销的作答。\nALTER TABLE review_logs ADD COLUMN undoes_id TEXT;\nCREATE INDEX review_logs_undoes ON review_logs(undoes_id) WHERE undoes_id IS NOT NULL;\nCREATE VIEW review_logs_valid AS\n  SELECT * FROM review_logs l\n  WHERE l.undoes_id IS NULL\n    AND NOT EXISTS (SELECT 1 FROM review_logs u WHERE u.undoes_id = l.id);\n"
+  },
+  {
+    "version": 4,
+    "name": "sync",
+    "sql": "-- 同步（08，M7）：共享文件夹 + 变更文件。触发器在开启同步时由 Core 按表结构生成（sync/capture.ts），这里只建表。\n-- sync_state：本机同步配置与游标（enabled、backend、device_id、library_id、hlc、push_seq、applying 等），键值对。\nCREATE TABLE sync_state (\n  key TEXT PRIMARY KEY,\n  value TEXT\n);\n-- sync_outbox：触发器记下的本机改动，推送成功后删除。f = 改动后的整行（JSON），chg = 改了的字段（JSON 数组，INSERT 为 null 表示全部）\nCREATE TABLE sync_outbox (\n  seq INTEGER PRIMARY KEY AUTOINCREMENT,\n  t TEXT NOT NULL,\n  id TEXT NOT NULL,\n  op TEXT NOT NULL,                 -- put / add / del\n  f TEXT,\n  chg TEXT,\n  ms INTEGER NOT NULL               -- 改动时的本机时间，推送时据此分配 HLC\n);\n-- sync_clocks：每个字段最后一次改动的 HLC；f = '*' 是整行默认（新建、初始推送），具体字段的记录优先\nCREATE TABLE sync_clocks (\n  t TEXT NOT NULL,\n  id TEXT NOT NULL,\n  f TEXT NOT NULL,\n  c TEXT NOT NULL,\n  PRIMARY KEY (t, id, f)\n) WITHOUT ROWID;\n-- sync_peers：其他设备，以及读到了它的第几批\nCREATE TABLE sync_peers (\n  device_id TEXT PRIMARY KEY,\n  name TEXT,\n  platform TEXT,\n  app_version TEXT,\n  last_read_seq INTEGER NOT NULL DEFAULT 0,\n  last_seen_at INTEGER,\n  removed INTEGER NOT NULL DEFAULT 0\n);\n-- sync_aliases：两台设备各建了\"同一个\"东西（自然键相同）时，较新的 ID 指向留下的那条（08 §4）\nCREATE TABLE sync_aliases (\n  t TEXT NOT NULL,\n  from_id TEXT NOT NULL,\n  to_id TEXT NOT NULL,\n  PRIMARY KEY (t, from_id)\n) WITHOUT ROWID;\n"
   }
 ];

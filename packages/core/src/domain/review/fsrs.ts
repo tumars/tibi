@@ -14,7 +14,7 @@ export interface CardRow extends Row {
 
 type Scheduler = Awaited<ReturnType<typeof DefaultScheduler>>;
 /** ts-fsrs 6 的卡片对象（FSRS-7 字段），按运行时实际形状写，类型层面用 unknown 过桥 */
-export interface FsrsCard { cardId: string | number; stability: number; stabilityFast: number; difficulty: number; state: 0 | 1 | 2 | 3; scheduleStatus: 'new' | 'learning' | 'review' | 'relearning'; dueAt: Date; lastReviewAt: Date | null; reps: number; lapses: number; scheduledDays: number; learningStep: number }
+export interface FsrsCard { cardId: string | number; stability: number; stabilityFast: number; difficulty: number; state: 0 | 1 | 2 | 3; scheduleStatus: 'new' | 'learning' | 'review'; dueAt: Date; lastReviewAt: Date | null; reps: number; lapses: number; scheduledDays: number; learningStep: number }
 
 const cache = new Map<string, Promise<Scheduler>>();
 
@@ -43,7 +43,8 @@ export function getScheduler(params: FsrsParams): Promise<Scheduler> {
 /** 卡片行 → ts-fsrs 卡片对象 */
 export function toFsrsCard(row: CardRow): FsrsCard {
   const state = row.state as 0 | 1 | 2 | 3;
-  const status = (['new', 'learning', 'review', 'relearning'] as const)[state] ?? 'new';
+  // srs-kit 只认 new / learning / review：重学（state 3）在它那里是 learning（遗忘后的学习步骤）
+  const status = state === 0 ? 'new' : state === 2 ? 'review' : 'learning';
   // 非新卡两种稳定度都必须为正（FSRS-7 校验）；旧数据只有一个时互相补上
   const stability = state === 0 ? row.stability : (row.stability > 0 ? row.stability : row.stability_fast > 0 ? row.stability_fast : 0.1);
   const stabilityFast = state === 0 ? row.stability_fast : (row.stability_fast > 0 ? row.stability_fast : stability);

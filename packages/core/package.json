@@ -18,6 +18,7 @@
     "@earendil-works/pi-agent-core": "1.4.0",
     "@earendil-works/pi-ai": "1.4.0",
     "@sinclair/typebox": "^0.34.52",
+    "fflate": "0.8.2",
     "ts-fsrs": "^6.0.0"
   },
   "devDependencies": {

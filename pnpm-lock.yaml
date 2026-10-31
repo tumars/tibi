@@ -105,6 +105,9 @@ importers:
       '@sinclair/typebox':
         specifier: ^0.34.52
         version: 0.34.52
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
       ts-fsrs:
         specifier: ^6.0.0
         version: 6.0.0
