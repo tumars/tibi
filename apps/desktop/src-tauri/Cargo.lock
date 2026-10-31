@@ -4754,9 +4754,11 @@ dependencies = [
 name = "tibi"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "env_logger",
  "keyring",
  "log",
+ "objc2-foundation",
  "rusqlite",
  "serde",
  "serde_json",

@@ -2,6 +2,7 @@ import { assembleCore, documents, SqliteDict, sync, TibiError, web, type Core, t
 import { RpcError, type Transport } from '../../rpc/client';
 import { openLocalDbs, type Invoke } from './driver';
 import { browserExtractDeps, ocrImages } from './files';
+import { invokeFolderBackend } from './syncfs';
 
 /**
  * 手机上的 Core（00 §3.13、R11、T28）：同一个 @tibi/core 跑在 WebView 里，没有 sidecar。
@@ -31,7 +32,8 @@ async function start(): Promise<Transport> {
   }) as typeof fetch;
 
   const { db, dict, path } = await openLocalDbs(inv);
-  const readBytes = async (p: string) => new Uint8Array(await invoke<ArrayBuffer>('read_file', { path: p }));
+  const bytesOf = async (cmd: string, args: Record<string, unknown>) => new Uint8Array(await invoke<ArrayBuffer>(cmd, args));
+  const readBytes = (p: string) => bytesOf('read_file', { path: p });
   const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
   const platform: Platform = {
     async fetchUrl(url, opts) {
@@ -56,9 +58,13 @@ async function start(): Promise<Transport> {
       if (!input.images?.length) throw new TibiError('conflict', '手机上还不能识别扫描版 PDF，可以拍成照片再导入');
       return ocrImages(await Promise.all(input.images.map(readBytes)), opts?.onProgress);
     },
+    // iCloud Drive（iOS：应用的 iCloud 容器）；"文件夹"只在桌面预览里有（手机上没有可选的共享文件夹）
     async syncFolder(o) {
-      if (o.kind === 'icloud') throw new sync.SyncError('other', '这个版本还不能用 iCloud Drive 同步（需要原生插件），请先用 WebDAV。');
-      throw new sync.SyncError('other', '手机上不能选同步文件夹，请用 iCloud Drive 或 WebDAV。');
+      if (o.kind === 'icloud') {
+        const { path: root } = await inv<{ path: string }>('sync_icloud_root', {}).catch(e => { throw new sync.SyncError('other', String(e)); });
+        return invokeFolderBackend(inv, root, 'icloud', bytesOf);
+      }
+      return invokeFolderBackend(inv, o.path.endsWith('Tibi Sync') ? o.path : `${o.path.replace(/\/$/, '')}/Tibi Sync`, 'folder', bytesOf);
     },
     deviceName: () => (isIos ? 'iPhone' : 'Android'),
   };

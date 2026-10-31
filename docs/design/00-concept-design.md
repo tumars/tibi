@@ -458,7 +458,7 @@
 
 与桌面端同步见 [`08-sync.md`](08-sync.md)（2026-10-31 第一版：iCloud Drive / WebDAV 共享文件夹，按字段合并，暂不加密），排在 M7；手机端 Core 怎么跑见 R11。
 
-**实现状态（M7，2026-10-31）**：手机壳是 `apps/desktop` 的第二个入口 `mobile.html`（`src/mobile/`，样式取自原型 `mobile.html`），和桌面共用 Core 方法、rpc、界面语言，以及复习（`useReviewSession`）和对话（`useChat`）的逻辑。做了：今天（进度行、继续读、复习卡、两条建议、今天的对话、输入条：网址 / 长英文导入，其余问 Tibi）、书架（搜索、分段、导入面板：网址 / 文字、从"文件"选 EPUB / PDF / Word、书页照片）、阅读器（全屏、滚动收起、译文 / 释义 / 朗读 / Tibi、词卡面板（上拉全屏看遇到过的句子和复习数据）、标注说明、读完了）、复习（入口页、做题、自评、改评分、做完页；练习直接用桌面的组件）、我（生词本、对话记录、记忆、任务确认、同步、模型、外观与语言）。电脑浏览器里打开 `mobile.html` 会放在手机框里预览。手机上 Core 跑在 WebView 里（T28：SQLite 走壳里的 rusqlite，网络走 http 插件），第一次打开选水平并放一篇示例；在电脑上可以用 `mobile:preview` 按手机的方式跑。还没做：iCloud 同步（要 Swift 插件，现在用 WebDAV）、Android 上安全存 API Key、扫描版 PDF 的 OCR、Safari 分享扩展、小组件、提醒、拍书页。iOS / Android 工程要在装了 Xcode / Android SDK 的机器上 `tauri ios|android init` 生成，步骤见开发说明 §6。
+**实现状态（M7，2026-10-31）**：手机壳是 `apps/desktop` 的第二个入口 `mobile.html`（`src/mobile/`，样式取自原型 `mobile.html`），和桌面共用 Core 方法、rpc、界面语言，以及复习（`useReviewSession`）和对话（`useChat`）的逻辑。做了：今天（进度行、继续读、复习卡、两条建议、今天的对话、输入条：网址 / 长英文导入，其余问 Tibi）、书架（搜索、分段、导入面板：网址 / 文字、从"文件"选 EPUB / PDF / Word、书页照片）、阅读器（全屏、滚动收起、译文 / 释义 / 朗读 / Tibi、词卡面板（上拉全屏看遇到过的句子和复习数据）、标注说明、读完了）、复习（入口页、做题、自评、改评分、做完页；练习直接用桌面的组件）、我（生词本、对话记录、记忆、任务确认、同步、模型、外观与语言）。电脑浏览器里打开 `mobile.html` 会放在手机框里预览。手机上 Core 跑在 WebView 里（T28：SQLite 走壳里的 rusqlite，网络走 http 插件），第一次打开选水平并放一篇示例；在电脑上可以用 `mobile:preview` 按手机的方式跑。还没做或没验证：iCloud 同步（代码写好，要在 Mac 上编译、真机验证）、Android 上 API Key 用 Keystore 加密（现在存在应用私有目录）、扫描版 PDF 的 OCR、Safari 分享扩展、小组件、提醒、拍书页。iOS / Android 工程要在装了 Xcode / Android SDK 的机器上 `tauri ios|android init` 生成，步骤见开发说明 §6。
 
 ## 4. 系统架构
 

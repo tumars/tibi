@@ -97,7 +97,7 @@ pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式�
 
 1. `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`
 2. `cd apps/desktop && pnpm tauri ios init`，生成 `src-tauri/gen/apple/`（提交进仓库；`.gitignore` 只忽略 `gen/schemas`）
-3. 在 `src-tauri/tauri.ios.conf.json` 的 `bundle.iOS` 里填 `developmentTeam`（Apple 开发者账号的 Team ID）
+3. 在 `src-tauri/tauri.ios.conf.json` 的 `bundle.iOS` 里填 `developmentTeam`（Apple 开发者账号的 Team ID）；在 Xcode 里给 target 加 iCloud 能力，勾 iCloud Documents，容器填 `iCloud.app.tibi`（同步用，`sync_fs.rs` 经 NSFileManager 找这个容器）
 4. 词典：`node apps/desktop/scripts/bundle-prep.mjs --skip-sidecar`（没有词典时先跑 `pnpm ecdict`，再拷到 `src-tauri/resources/dict.db`；`tauri.ios.conf.json` 会把它带进包）
 5. `pnpm tauri ios dev`（模拟器或真机）/ `pnpm tauri ios build`
 
@@ -107,7 +107,7 @@ pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式�
 2. `cd apps/desktop && pnpm tauri android init`（生成 `src-tauri/gen/android/`，提交）
 3. 词典同上；`pnpm tauri android dev` / `pnpm tauri android build`
 
-**还没做（要原生代码或真机验证）**：iCloud Drive 同步（Swift 小插件：取容器路径、`startDownloadingUbiquitousItem`、`NSMetadataQuery`，08 §8；现在手机上同步只能用 WebDAV）；Android 上 API Key 的安全存储（`keyring` 在 Android 上没有后端，要接 Keystore 插件）；扫描版 PDF 的 OCR（照片可以）；Safari 分享扩展、小组件、每日提醒。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
+**还没做 / 没验证**：iOS 上的 iCloud 同步代码写好了（`sync_fs.rs` 的 iOS 分支调 NSFileManager），但这台 Linux 机器编译不了 iOS，要在 Mac 上验证；Android 上 API Key 存在应用私有目录的 `secrets.json`（0600，`keys.rs`），还没接 Android Keystore 再加一层加密；扫描版 PDF 的 OCR（照片可以）；Safari 分享扩展、小组件、每日提醒。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
 
 ## 7. M0 的技术决定（T 组）
 

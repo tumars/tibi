@@ -130,3 +130,4 @@
 | 2026-10-31 | WebDAV 同步对真服务器（wsgidav）验证：修资料库目录不存在时第一次写 409（先逐级 MKCOL）、列目录把目录自己当文件；加协议级测试。08 §13 同步 |
 | 2026-10-31 | 手机从"文件"导入：壳加 `read_file`（原始字节），文件抽取移进 core（依赖注入），手机接浏览器版 pdfjs / mammoth / tesseract；浏览器里模拟手机桥端到端导入了 EPUB、Word、PDF、书页照片。T28、开发说明 §6、00 §3.13 同步 |
 | 2026-10-31 | 在 Xvfb 里跑真正装好的应用（.deb）验证：首次引导、导入示例、阅读、词卡、深链（第二个实例把链接交给开着的窗口、弹确认卡、真的抓网页）、⌘K、钥匙串。发现并修了两个只在打包后出现的问题：① Linux 钥匙串用的是内核 keyutils（重启丢、容器里写不进），改用 Secret Service；② 打包后的 sidecar 调模型报 `ModelsImpl is not a constructor`（esbuild 把 pi-ai 包成惰性初始化），改成静态导入，加 `bundle.test.ts` 用本地 OpenAI 兼容服务器经打包后的 sidecar 走一次模型调用 |
+| 2026-10-31 | 手机原生部分：iCloud 同步（壳的 `sync_fs.rs`：iOS 经 NSFileManager 取容器，`sync_fs_*` 读写，处理 `.icloud` 占位；JS `invokeFolderBackend`）；Android 上 API Key 存应用私有目录的 `secrets.json`（keyring 在 Android 上只在内存里）。Rust 单测 + 两台模拟手机经这组命令同步的测试。开发说明 §6、08 §13、00 §3.13 同步 |

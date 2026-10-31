@@ -5,6 +5,8 @@ mod core;
 mod keys;
 #[cfg(any(mobile, feature = "mobile-preview"))]
 mod local_db;
+#[cfg(any(mobile, feature = "mobile-preview", test))]
+mod sync_fs;
 
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -210,6 +212,10 @@ fn run_mobile() {
         .manage(Allowed::default())
         .manage(local_db::Dbs::default())
         .setup(|app| {
+            // Android 的密钥存在应用私有目录（keys.rs）
+            if let Ok(dir) = app.path().app_data_dir() {
+                keys::file_store::init(dir);
+            }
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 if let Ok(Some(urls)) = app.deep_link().get_current() {
@@ -227,6 +233,7 @@ fn run_mobile() {
         })
         .invoke_handler(tauri::generate_handler![
             local_db::db_open, local_db::db_exec, local_db::db_run, local_db::db_all, local_db::keyring_get, local_db::read_file,
+            sync_fs::sync_fs_read, sync_fs::sync_fs_write, sync_fs::sync_fs_list, sync_fs::sync_fs_remove, sync_fs::sync_icloud_root,
             keyring_set, keyring_delete, pick_file, save_text_file
         ])
         .run(tauri::generate_context!())
