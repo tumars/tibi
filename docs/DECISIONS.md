@@ -92,7 +92,7 @@
 
 | # | 决定 | 真相源 |
 |---|---|---|
-| V1–V3 | 采用 v2"安静的 AI 工作台"，强调色电光蓝，词卡浮层 | [04 §5](design/04-design-direction-v2.md#5-决策2026-10-29) |
+| V1–V3 | 采用 v2"安静的 AI 工作台"，强调色靛蓝 `#3d52e0`（原电光蓝，2026-10-31 收一档），词卡浮层 | [04 §5](design/04-design-direction-v2.md#5-决策2026-10-29) |
 | — | 字体、色板、圆角 6 / 8 / 12 | [03](design/03-visual-language.md) |
 | F1–F4 | 插画软 3D + 设定图参考；3D 只做三处；Rive 留给有设计师时 | [research/04 §4.4](research/04-mac-native-and-mascot.md#44-建议的决策f-组吉祥物) |
 | F5 | SVG 与插画不同框，按位置分用 | [03 §7.2](design/03-visual-language.md#72-插画与封面) |
