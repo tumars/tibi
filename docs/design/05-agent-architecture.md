@@ -69,7 +69,7 @@ pi 是 Mario Zechner（libGDX 作者）发起的开源 agent 工具集，MIT 协
 ```
 
 要点：
-- **数据库只有一个写入者**：Tibi Core。界面不再直接连 SQLite（原方案的 `tauri-plugin-sql` + Drizzle sqlite-proxy 改为 Tibi Core 内的 Drizzle）。对话与任务表和领域表放在同一个 `app.db`，这样"导入一篇文章 + 记录任务步骤"可以在一个事务里提交。
+- **数据库只有一个写入者**：Tibi Core。界面不再直接连 SQLite。Core 通过一层很薄的 `Driver` 接口访问 SQLite（T2，2026-10-31 开工时定：不用 Drizzle，表结构以 `packages/core/sql/*.sql` 为唯一真相源，查询手写 SQL；桌面接 better-sqlite3，手机接平台 SQLite，测试用内存库）。对话与任务表和领域表放在同一个 `app.db`，这样"导入一篇文章 + 记录任务步骤"可以在一个事务里提交。
 - **打包**：Node 22 的单文件可执行（SEA）或 Bun `--compile`，体积约 50–90 MB。Tauri 用 `externalBin` 打包为 sidecar。
 - **界面与 Core 的通信**：JSON-RPC 2.0；请求走 `invoke`，事件（文本增量、工具开始 / 结束、任务状态）走 Tauri 事件。全部方法、参数、返回值与事件载荷见 [06 接口定义](06-interface.md)。窗口关闭时 Core 可以留在托盘继续跑后台任务（可设置）。
 - **单实例**：Core 持单实例锁。`tibi mcp` 只是代理，经本地 socket 加令牌连运行中的 Core，自己不开数据库，见 [06 §6](06-interface.md#6-mcp-server)。

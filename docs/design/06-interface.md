@@ -101,7 +101,7 @@ interface Skill { id: SkillId; title: string; description: string; tools: string
   write_permission: 'inherit' | 'ask'; enabled: boolean; month_cost: number }
 interface Memory { id: Id; type: 'profile' | 'semantic' | 'episodic' | 'procedural'; content: string; subject?: string; confidence: number;
   source: { type: 'user' | 'agent' | 'consolidation'; ref?: string; label: string }; status: 'active' | 'superseded'; created_at: Ts; updated_at: Ts }
-// model 是配置项（默认 deepseek-v4-flash / deepseek-v4-pro），代码不写死
+// model 是配置项（默认跟随 pi-ai 目录：deepseek-flash / deepseek-v4-pro），代码不写死
 interface Provider { id: Id; kind: 'llm' | 'vision' | 'image' | 'tts'; name: string; protocol: string; base_url?: string; auth: 'api_key'; tier?: Tier; model: string;
   has_secret: boolean; is_default: boolean; month_cost?: number }
 interface Profile { display_name: string; goal: string; level_self: string; interests: string[]; vocab_estimate: number; vocab_source: 'self' | 'test' | 'manual'; vocab_tested_at?: Ts;

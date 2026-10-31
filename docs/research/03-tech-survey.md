@@ -118,7 +118,7 @@
 | 要点 | 方案 |
 |---|---|
 | 数据库 | SQLite，文件位于用户数据目录（可在设置中查看/迁移/备份） |
-| 访问方式 | ⭐ **Tibi Core 进程独占数据库**，内用 **Drizzle ORM**（`better-sqlite3` 或 `bun:sqlite`），pi-durable 的表用 `pi_` 前缀共用同一个连接（2026-10-29 确认，见 05 §3）；~~界面经 `tauri-plugin-sql` + Drizzle sqlite-proxy 直连~~ |
+| 访问方式 | ⭐ **Tibi Core 进程独占数据库**，内用一层 `Driver` 接口（2026-10-31 开工时把 Drizzle 换掉了，见 DECISIONS T2；桌面接 `better-sqlite3`），pi-durable 的表用 `pi_` 前缀共用同一个连接（2026-10-29 确认，见 05 §3）；~~界面经 `tauri-plugin-sql` + Drizzle sqlite-proxy 直连~~ |
 | 词典库 | ECDICT 单独一个只读 `dict.db`，与用户数据 `app.db` 分离（便于升级词典不影响用户数据） |
 | 全文搜索 | SQLite FTS5（搜索文章、生词） |
 | 备份/迁移 | 导出 `.db` 文件；生词本导出 CSV / Anki |

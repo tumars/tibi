@@ -63,7 +63,7 @@
 
 | # | 决定 | 真相源 |
 |---|---|---|
-| A1 | 默认 DeepSeek；模型名是配置项，默认 `deepseek-v4-flash` / `deepseek-v4-pro` | [00 §3.7](design/00-concept-design.md#37-设置settings) |
+| A1 | 默认 DeepSeek；模型名是配置项，默认跟随 pi-ai 目录（`deepseek-flash` / `deepseek-v4-pro`，T6） | [00 §3.7](design/00-concept-design.md#37-设置settings) |
 | A2、B6 | v1 不做 ACP；外部工具走 MCP；不做账号登录 | [05 §10](design/05-agent-architecture.md#10-外部-ai-工具对-a2a6-的影响) |
 | A3 | 三档权限，默认标词自动、其余询问 | [02 §6](design/02-ai-assistant.md#6-工具learning-tools) |
 | A4 | 记忆检索 v1 用 FTS5，不用向量 | [02 §5.2](design/02-ai-assistant.md#52-检索) |
@@ -126,6 +126,23 @@
 | — | 排期跟随 ts-fsrs 6 默认的 FSRS-7（多一个短期稳定度、按小数天） | [01 §4](design/01-database.md#4-复习fsrs) |
 | — | 预算默认每月 ¥20、单个任务 ¥1 | [05 §8](design/05-agent-architecture.md#8-权限审批与安全) |
 | — | Anki 导出放进 M3，和完整生词本一起做 | [00 §6](design/00-concept-design.md#里程碑) |
+
+## M0 技术决定（T 组）
+
+2026-10-31 开工时定，细节见 [`docs/dev/README.md`](dev/README.md)。
+
+| # | 决定 | 原因 |
+|---|---|---|
+| T1 | pnpm 工作区：`packages/core`（纯 TS 业务逻辑，不依赖 Node 专有 API）、`packages/core-node`（Node 运行时与 sidecar）、`apps/desktop`（Tauri 2 + React） | R11：同一份 Core 以后放进手机 |
+| T2 | 不用 Drizzle：Core 经 `Driver` 接口（exec / run / all / get，全异步）访问 SQLite；表结构以 `packages/core/sql/NNNN_*.sql` 为唯一真相源，查询手写 SQL | 避免 30 张表的重复定义；换驱动（better-sqlite3 / 手机 SQLite / 内存）不碰业务代码 |
+| T3 | 事务串行化：`Database.transaction()` 用一把互斥锁 + `BEGIN IMMEDIATE`，事务体可以是 async | Core 是唯一写入者（B2），串行最简单也最稳 |
+| T4 | 迁移只向前，版本记 `PRAGMA user_version`；SQL 由运行时读入再交给 Core | 01 §9 |
+| T5 | 传输：stdio 每行一条 JSON-RPC；事件帧 `method: 'event'`；Core 向壳取密钥用反向请求 `secret.get`（id 以 `h-` 开头）；开发时另有同协议的 WebSocket 桥（`pnpm core:dev`），界面可在浏览器里开发。回答了 06 §8 "事件是否改 WebSocket"：M0 不改，桥只用于开发 | 05 §8 密钥不进 Core 的持久化；开发不必每次编译 Rust |
+| T6 | 默认模型名跟随 pi-ai 的目录：DeepSeek 目录里是 `deepseek-flash`（V4.1 Flash）与 `deepseek-v4-pro`，没有文档原来写的 `deepseek-v4-flash` | 模型名本来就是配置项（A1），以库的目录为准，少一处手写 |
+| T7 | HTML → Markdown 自己写了一个小转换器（标题、段落、列表、引用、代码块、行内代码、强调），不引入 turndown；正文抽取用 Readability + linkedom | 只需要 01 §2 约定的那几种结构；少一个依赖 |
+| T8 | 网址校验在 core-node：只收 http(s)，DNS 解析后拒绝回环 / 内网 / 链路本地地址，重定向每跳重查（05 §8） | — |
+| T9 | 词典 `dict.db` 由 `pnpm ecdict` 从 ECDICT 生成，不进仓库；Core 经 `Dict` 接口查词、还原、取词频，没有词典时退化为规则还原 | 01 §8 |
+| T10 | 复习用 ts-fsrs 6.0 的 `DefaultScheduler`（FSRS-7 默认），卡片字段按库的命名映射到表（`stability_fast` ← `stabilityFast`、`learning_steps` ← `learningStep`） | 01 §4 |
 
 ## 待决定
 

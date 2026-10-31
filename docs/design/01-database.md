@@ -67,7 +67,7 @@ learning_events        audio_cache        daily_stats
 | base_url | TEXT | HTTP 类 provider 的地址 |
 | auth | TEXT | `api_key`（账号登录不做：ChatGPT 条款未核实，Claude 订阅登录被条款禁止，见 05 §10） |
 | tier | TEXT NULL | 作为哪一档的默认：`fast` / `deep`（只对 `llm`） |
-| model | TEXT | 如 `deepseek-v4-flash`；模型名是配置项，不写死 |
+| model | TEXT | 如 `deepseek-flash`；模型名是配置项，不写死 |
 | secret_ref | TEXT | **密钥不入库**，存系统钥匙串中的引用名 |
 | options | TEXT(JSON) | 温度、音色等 |
 | is_default | INTEGER | 每个 kind 一个默认 |
