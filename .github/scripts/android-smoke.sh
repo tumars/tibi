@@ -14,7 +14,7 @@ sock=""
 for _ in $(seq 1 60); do sock=$(adb shell cat /proc/net/unix | grep -o 'webview_devtools_remote_[0-9]*' | head -1); [ -n "$sock" ] && break; sleep 3; done
 echo "devtools socket: ${sock:-没找到}"
 ui=1
-if [ -n "$sock" ]; then adb forward tcp:9222 "localabstract:$sock" && timeout 420 node "$(dirname "$0")/android-smoke-cdp.mjs" 9222 "$OUT" && ui=0; fi
+if [ -n "$sock" ]; then adb forward tcp:9222 "localabstract:$sock" && ADB_SHOTS=1 timeout 420 node "$(dirname "$0")/android-smoke-cdp.mjs" 9222 "$OUT" && ui=0; fi
 texts final
 timeout 60 adb logcat -d > "$OUT/logcat.txt"
 echo "== Tibi 的日志（WebView 控制台、Rust）"

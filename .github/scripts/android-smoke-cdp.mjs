@@ -1,6 +1,7 @@
 // Android 冒烟测试的界面部分（android-smoke.sh 调）：经 Chrome DevTools 协议连上 debug 包里的 WebView，像用户一样走一遍：
 //   欢迎面板点「开始」→ 书架里出现示例文章 → 打开 → 点一个生词 → 词卡里有词典释义（词典 dict.db 从安装包的资源里读）
 // 用法：node android-smoke-cdp.mjs <本机端口> <输出目录>。每一步打一行日志；有一步不对就退出 1。
+import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
 const [port = '9222', out = 'smoke'] = process.argv.slice(2);
@@ -29,7 +30,10 @@ const waitFor = async (expr, ms, what) => {
   console.log('✗', what); return false;
 };
 const text = () => ev('document.body.innerText');
-const shot = async name => { const r = await send('Page.captureScreenshot', { format: 'png' }); if (r.result?.data) writeFileSync(`${out}/${name}.png`, Buffer.from(r.result.data, 'base64')); };
+// 截图不走 DevTools：模拟器里对长页面 Page.captureScreenshot 会把模拟器（软件 GPU）弄崩；要截图用环境变量 SMOKE_CDP_SHOTS=1（浏览器里跑时）
+const shot = async name => {
+  if (process.env.ADB_SHOTS) { try { writeFileSync(`${out}/${name}.png`, execFileSync('adb', ['exec-out', 'screencap', '-p'], { timeout: 30_000 })); } catch { /* 截不到不影响测试 */ } return; }
+  if (!process.env.SMOKE_CDP_SHOTS) return; const r = await send('Page.captureScreenshot', { format: 'png' }); if (r.result?.data) writeFileSync(`${out}/${name}.png`, Buffer.from(r.result.data, 'base64')); };
 const fail = async (why) => { console.log('失败：', why); console.log('--- 诊断', await ev(`JSON.stringify({ hash: location.hash, w: document.querySelectorAll('.w').length, spans: document.querySelectorAll('.rd span').length, sid: document.querySelectorAll('[data-sid]').length, first: document.querySelector('[data-sid]')?.outerHTML.slice(0, 300), cls: [...new Set([...document.querySelectorAll('.rd *')].map(e => e.className).filter(Boolean))].slice(0, 15) })`)); console.log('--- 页面文字\n' + String(await text()).slice(0, 1500)); console.log('--- 页面错误', errors.slice(0, 10)); await shot('fail'); process.exit(1); };
 await send('Runtime.enable'); await send('Page.enable');
 

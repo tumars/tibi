@@ -220,6 +220,7 @@ jobs:
           arch: x86_64
           target: default
           disk-size: 4096M
+          ram-size: 4096M
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
