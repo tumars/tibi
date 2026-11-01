@@ -1,0 +1,19 @@
+apps/desktop/src/pages/Reader.tsx
+  s_9365c7c680b0af::t_0b5ca55c180fb3 91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "1cf0b179cc2c9b3b8b95b81a588fe3571d514321",
+  "prompts": {},
+  "sessions": {
+    "s_9365c7c680b0af": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "79a88bc3-a946-4afb-910c-4c8600e4bd84",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
