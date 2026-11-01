@@ -115,7 +115,7 @@ pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式�
 - Gradle 拉依赖时如果 Maven Central 返回 429（共享出口 IP 被限流），可以在本机 `~/.gradle/init.d/` 放一个脚本把 `repo.maven.apache.org` 换成 Google 的镜像 `https://maven-central.storage-download.googleapis.com/maven2/`，不用改工程。
 - 词典在 Android 上：随包资源在 APK 的 assets 里不是文件，`local_db.rs` 第一次用（或升级后）经 fs 插件读出来拷到 `app_data_dir/dict.db`（旁边 `dict.db.version` 记版本）；桌面、iOS 直接打开资源目录里的文件。2026-11-01 冒烟测试查出之前 Android 上词典一直打不开。
 - CI 的 `android` job 只做 `cargo check --target aarch64-linux-android`（用 runner 自带的 NDK），保证 Rust 这部分能编译。
-- `gen/android` 的 `res/xml/backup_rules.xml`、`data_extraction_rules.xml` 是手加的（把 `secrets.json` 排除在云端备份和换机迁移之外），重新 `tauri android init` 时要保留。
+- `gen/android` 的 `res/xml/backup_rules.xml`、`data_extraction_rules.xml`、`app/src/main/java/app/tibi/KeystorePlugin.kt` 是手加的（把 `secrets.json` 排除在云端备份和换机迁移之外），重新 `tauri android init` 时要保留。
 
 **iOS 冒烟测试**（发布流程 `ios-smoke`，macOS runner）：`tauri ios init` 生成工程，`tauri ios dev <模拟器>` 在 iPhone 模拟器里编译、安装、打开（模拟器不用签名、不用开发者账号；界面从 dev server 加载，Rust 壳、插件、WKWebView、WebView 里的 Core 都是真的），截图后用 macOS 的 Vision 识别屏幕文字（`.github/scripts/ocr.swift`），看到欢迎面板、进程活着、没有崩溃报告就算过（`.github/scripts/ios-smoke.sh`）。2026-11-01 在 iPhone 模拟器（iOS 26.5）上第一次跑起来：打开 10 秒后屏幕上识别出欢迎面板（"你好，我是 Tibi。"、四档水平、"开始"）和「今天」页（"今日 0/20 分钟"、"今天没有要复习的"），没有崩溃报告。
 
@@ -123,7 +123,7 @@ pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式�
 
 **拍书页**：导入面板的「拍书页」是带 `capture` 的 `<input type="file">`（iOS、Android 都直接开相机；Android 的 WebView 走系统相机应用，不用声明 CAMERA 权限），「从相册选」可多选；拿到的是内存里的 File，登记成 `mem:` 路径交给导入流水线（`mobile/local/files.ts`）。iOS 的相机 / 相册用途说明在 `src-tauri/Info.ios.plist`（Tauri 合并进 Info.plist）。
 
-**还没做 / 没验证**：iOS 上的 iCloud 同步代码写好了（`sync_fs.rs` 的 iOS 分支调 NSFileManager），CI 里 `cargo check --target aarch64-apple-ios` 通过，但没在真机上跑过（要 iCloud 权限和开发者账号）；Android 上 API Key 存在应用私有目录的 `secrets.json`（0600，`keys.rs`；`gen/android` 的备份规则把它排除在云端备份和换机迁移之外），还没接 Android Keystore 再加一层加密；Safari 分享扩展和小组件：`ios-smoke` 在 iPhone 模拟器里验证了两个扩展编进应用、被系统登记，App Group 里有主应用写的小组件快照、分享收件箱里的网址被主应用取走；分享面板里点「导入」、主屏小组件的显示没在模拟器里点过（要真机或手动）。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
+**还没做 / 没验证**：iOS 上的 iCloud 同步代码写好了（`sync_fs.rs` 的 iOS 分支调 NSFileManager），CI 里 `cargo check --target aarch64-apple-ios` 通过，但没在真机上跑过（要 iCloud 权限和开发者账号）；Android 上 API Key 存在应用私有目录的 `secrets.json`（0600，`keys.rs`；`gen/android` 的备份规则把它排除在云端备份和换机迁移之外），值经 Android Keystore 加密（AES-256-GCM，密钥不出系统；壳里的小插件 `tibi-keystore`，Kotlin 在 `gen/android/app/src/main/java/app/tibi/KeystorePlugin.kt`），以前的明文读到时加密写回；`android-smoke` 会存一个假 Key、`run-as` 看文件里是不是密文（Actions 恢复后才跑过）；Safari 分享扩展和小组件：`ios-smoke` 在 iPhone 模拟器里验证了两个扩展编进应用、被系统登记，App Group 里有主应用写的小组件快照、分享收件箱里的网址被主应用取走；分享面板里点「导入」、主屏小组件的显示没在模拟器里点过（要真机或手动）。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
 
 ## 7. M0 的技术决定（T 组）
 

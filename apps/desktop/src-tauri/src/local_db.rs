@@ -168,7 +168,7 @@ pub fn db_all(dbs: State<'_, Dbs>, name: String, sql: String, params: Option<Vec
 
 /// 手机上 Core 自己取 API Key（桌面上是 Core 进程经 stdio 向壳要，界面拿不到）
 #[tauri::command]
-pub fn keyring_get(r#ref: String) -> Result<Value, String> {
+pub async fn keyring_get(r#ref: String) -> Result<Value, String> {
     Ok(json!({ "secret": crate::keys::get(&r#ref).ok().flatten() }))
 }
 

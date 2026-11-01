@@ -27,6 +27,14 @@ if [ "$ui" != 0 ]; then
   sudo dmesg 2>/dev/null | grep -i -E "killed process|out of memory|oom" | tail -5
   pgrep -a qemu | cut -c1-120 || echo "qemu 进程不在了"
 fi
+# secrets.json 里应该是 Keystore 加密后的密文（ks1:…），不该有明文（debug 包可以 run-as 读应用私有目录）
+if [ "$ui" = 0 ]; then
+  sec=$(timeout 30 adb shell run-as app.tibi cat secrets.json 2>&1 | tr -d '\r')
+  echo "secrets.json：$(echo "$sec" | cut -c1-120)"
+  if grep -q "sk-smoke-123456" <<< "$sec"; then echo "✗ secrets.json 里是明文"; ui=1
+  elif grep -q '"smoke.test":"ks1:' <<< "$sec"; then echo "✓ secrets.json 里是 Keystore 密文"
+  else echo "✗ secrets.json 里没找到加密的 smoke.test"; ui=1; fi
+fi
 texts final
 timeout 60 adb logcat -d > "$OUT/logcat.txt"
 echo "== Tibi 的日志（WebView 控制台、Rust）"

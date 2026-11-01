@@ -47,8 +47,9 @@ fn core_restart(core: State<'_, Arc<core::CoreProcess>>) -> Result<Value, String
     Ok(core.status())
 }
 
+// async：Android 上要经 Keystore 插件（run_mobile_plugin 会等 Kotlin 那边），不能占着主线程
 #[tauri::command]
-fn keyring_set(r#ref: String, secret: String) -> Result<Value, String> {
+async fn keyring_set(r#ref: String, secret: String) -> Result<Value, String> {
     if r#ref.is_empty() || secret.is_empty() {
         return Err("引用名和密钥不能为空".into());
     }
@@ -57,7 +58,7 @@ fn keyring_set(r#ref: String, secret: String) -> Result<Value, String> {
 }
 
 #[tauri::command]
-fn keyring_delete(r#ref: String) -> Result<Value, String> {
+async fn keyring_delete(r#ref: String) -> Result<Value, String> {
     keys::delete(&r#ref)?;
     Ok(json!({ "ok": true }))
 }
@@ -219,6 +220,9 @@ fn run_mobile() {
     // Android：随包资源（词典）在 APK 的 assets 里，经 fs 插件读出来（local_db.rs）
     #[cfg(target_os = "android")]
     let builder = builder.plugin(tauri_plugin_fs::init());
+    // Android：API Key 再经 Keystore 加密（keys.rs、gen/android 的 KeystorePlugin.kt）
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(keys::keystore::plugin());
     builder
         .manage(Allowed::default())
         .manage(local_db::Dbs::default())

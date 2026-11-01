@@ -51,6 +51,10 @@ const dict = await ev(`(async () => { const inv = window.__TAURI_INTERNALS__?.in
 console.log('词典：', dict);
 if (!/编/.test(String(dict))) await fail('安装包里的词典打不开或查不到');
 console.log('✓ 安装包里的词典能打开、能查（compiler）');
+// 密钥：经壳存一个假的 Key 再取回来（Android 上经 Keystore 加密存进 secrets.json；android-smoke.sh 再看文件里是不是密文）
+const ks = await ev(`(async () => { const inv = window.__TAURI_INTERNALS__.invoke; await inv('keyring_set', { ref: 'smoke.test', secret: 'sk-smoke-123456' }); const r = await inv('keyring_get', { ref: 'smoke.test' }); return r?.secret ?? null; })()`);
+if (ks !== 'sk-smoke-123456') await fail(`密钥存取不对：${ks}`);
+console.log('✓ 密钥存进去、取回来一致');
 console.log('STAGE core-ok');
 await ev(`document.querySelector('.doc')?.click()`);
 if (!await waitFor(`document.querySelectorAll('.w').length > 20`, 30000, '阅读器打开，正文分好词')) await fail('阅读器没打开');
