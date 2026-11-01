@@ -269,18 +269,20 @@ jobs:
       - name: tauri ios init
         working-directory: apps/desktop
         run: pnpm tauri ios init --ci
-      - name: 选一个 iPhone 模拟器并开机
+      - name: 建一个专用的 iPhone 模拟器并开机
+        # 同一个机型在 runner 上有好几个 iOS 版本，tauri ios dev 按名字找会挑到没开机的那个；建一个名字唯一的
         run: |
-          read -r UDID NAME < <(xcrun simctl list devices available -j | python3 -c "
+          read -r RT DT < <(xcrun simctl list -j | python3 -c "
           import json, sys
-          d = json.load(sys.stdin)['devices']
-          rt = sorted([k for k in d if 'iOS' in k], key=lambda k: [int(x) for x in k.rsplit('iOS-', 1)[-1].split('-')])
-          for k in reversed(rt):
-              for x in d[k]:
-                  if x['name'].startswith('iPhone'): print(x['udid'], x['name']); sys.exit()
+          j = json.load(sys.stdin)
+          rts = [r for r in j['runtimes'] if r.get('isAvailable') and r.get('platform', r['name']).startswith('iOS')]
+          rt = max(rts, key=lambda r: [int(x) for x in r['version'].split('.')])
+          dts = [d for d in rt.get('supportedDeviceTypes', []) if d['name'].startswith('iPhone')]
+          print(rt['identifier'], (dts[-1] if dts else {'identifier': 'com.apple.CoreSimulator.SimDeviceType.iPhone-16'})['identifier'])
           ")
-          echo "模拟器：$NAME ($UDID)"
-          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"; echo "SIM_NAME=$NAME" >> "$GITHUB_ENV"
+          echo "运行时 $RT，机型 $DT"
+          UDID=$(xcrun simctl create "Tibi Smoke" "$DT" "$RT")
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"; echo "SIM_NAME=Tibi Smoke" >> "$GITHUB_ENV"
           xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
       - name: tauri ios dev（后台）+ 冒烟测试
         run: |
