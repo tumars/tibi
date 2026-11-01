@@ -19,6 +19,7 @@ ShareExtension（`app.tibi.share`，分享面板只接受网页）、TibiWidget�
 cd apps/desktop && pnpm tauri ios init
 pip3 install pyyaml && brew install xcodegen
 python3 src-tauri/ios-extensions/add-targets.py
+pnpm icons   # gen/apple 不提交，init 出来是 Tauri 默认图标，要换成 logo
 ```
 
 CI 的 `ios-smoke` 每次都这样生成，在 iPhone 模拟器里检查：两个扩展被系统登记（`pluginkit`）、App Group 里有主应用写的 `widget.json`、放进 `share-inbox/` 的网址在主应用打开后被取走。

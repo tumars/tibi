@@ -161,3 +161,4 @@
 | 2026-11-02 | 加词典（00 §3.14，T29）：桌面左栏"词典"、手机"我 › 词典"、⌘K 和词卡入口；`dict.suggest`、`dict.entry`；前缀联想、词形、中文反查、拼写建议、读过的文章里的例句；只读，不联网。`pnpm ecdict` 多建一个部分索引 |
 | 2026-11-02 | 修词形还原把词典里的原形改错（T30：interest → inter、matter → mat 等 419 个常用词）；大小写不同的词头优先完全一样的（app 不再查到 APP） |
 | 2026-11-02 | 设置页加页内搜索（00 §3.7）：按设置项过滤、高亮命中，搜索时展开"高级"；和 ⌘K 共用设置项表（`settings/search.ts`） |
+| 2026-11-02 | 应用图标换成 logo：原来桌面端是占位的白色 T，iOS / Android 是 Tauri 默认图标。`pnpm icons`（`scripts/gen-icons.mjs`）从 `public/logo.svg` 生成：桌面留透明边，iOS 满版无透明通道，Android 用自适应图标两层。`gen/apple` 不提交，`tauri ios init` 后要再跑一次 |
