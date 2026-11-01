@@ -1,0 +1,55 @@
+packages/core/test/text/tokenize.test.ts
+  s_5432c6781f9188::t_7cb73163e23676 60-69
+  s_5432c6781f9188::t_9004f22dfa75cf 2
+packages/core/src/domain/text/prelabel.ts
+  s_5432c6781f9188::t_8e893ed0c42c81 8
+packages/core/src/dict/types.ts
+  s_5432c6781f9188::t_d0ebba6b8adb6d 29
+  s_5432c6781f9188::t_72b239b80c201a 14-15
+packages/core/test/documents/import.test.ts
+  s_5432c6781f9188::t_a51875c0635b83 75-92
+apps/desktop/test/localcore.test.ts
+  s_5432c6781f9188::t_d9dc122ccdb37f 40
+packages/core/src/domain/text/lemma.ts
+  s_5432c6781f9188::t_acd1f8ef6d4396 10
+packages/core/src/domain/text/annotate.ts
+  s_5432c6781f9188::t_1cfd4f00635b57 61
+  s_5432c6781f9188::t_616f33f5fad3e6 69-70
+docs/CHANGELOG.md
+  s_5432c6781f9188::t_97bd36240baafb 159
+packages/core/src/domain/documents/pipeline.ts
+  s_5432c6781f9188::t_1ee0cd76c50f90 151-153
+  s_5432c6781f9188::t_e13a665bfa2f31 13
+  s_5432c6781f9188::t_1c40a649985b9c 164-168
+  s_3dadcd70c3ba50::t_81b295b07b236e 169
+packages/core-node/src/sqlite-bun.ts
+  s_5432c6781f9188::t_8692151ed7653e 39-44
+packages/core-node/src/sqlite.ts
+  s_5432c6781f9188::t_18406b180c57cc 43,47-49
+packages/core-node/test/sync.test.ts
+  s_5432c6781f9188::t_f12323c165dac1 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "85e0ecc17c7eb9cd0fe8660dc9d5831fe59c2a79",
+  "prompts": {},
+  "sessions": {
+    "s_3dadcd70c3ba50": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2c61e29-55eb-4cc1-953c-d7f0e0cdd93c",
+        "model": "unknown"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_5432c6781f9188": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3cd89f5d-92c3-40f4-848d-0f59eeffc861",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
