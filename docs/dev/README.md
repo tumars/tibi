@@ -121,7 +121,7 @@ pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式�
 
 **iOS 扩展**（Safari 分享、小组件，J3 / J7）：Swift 代码在 `src-tauri/ios-extensions/`，`add-targets.py` 把它们加进 `tauri ios init` 生成的 xcodegen 工程（App Groups、内嵌），步骤见那里的 README。主应用和扩展经 App Group `group.app.tibi` 交换数据：壳的 `app_group.rs` 提供 `share_take_pending`（取走分享进来的网址）和 `widget_write`（写小组件快照），`src/mobile/native.ts` 在打开 / 回到前台时导入、状态变了写快照。不是 iOS 时这两条命令什么都不做；测试时 `TIBI_APP_GROUP_DIR` 可以指一个目录。
 
-**还没做 / 没验证**：iOS 上的 iCloud 同步代码写好了（`sync_fs.rs` 的 iOS 分支调 NSFileManager），CI 里 `cargo check --target aarch64-apple-ios` 通过，但没在真机上跑过（要 iCloud 权限和开发者账号）；Android 上 API Key 存在应用私有目录的 `secrets.json`（0600，`keys.rs`；`gen/android` 的备份规则把它排除在云端备份和换机迁移之外），还没接 Android Keystore 再加一层加密；扫描版 PDF 的 OCR（照片可以）；Safari 分享扩展和小组件没在真机上跑过（CI 的 `ios` 任务对 iOS SDK 类型检查通过；主应用这一侧在浏览器里模拟壳验证过：分享的网址经 http 插件抓取、进书架，小组件快照写出）。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
+**还没做 / 没验证**：iOS 上的 iCloud 同步代码写好了（`sync_fs.rs` 的 iOS 分支调 NSFileManager），CI 里 `cargo check --target aarch64-apple-ios` 通过，但没在真机上跑过（要 iCloud 权限和开发者账号）；Android 上 API Key 存在应用私有目录的 `secrets.json`（0600，`keys.rs`；`gen/android` 的备份规则把它排除在云端备份和换机迁移之外），还没接 Android Keystore 再加一层加密；扫描版 PDF 的 OCR（照片可以）；Safari 分享扩展和小组件：`ios-smoke` 在 iPhone 模拟器里验证了两个扩展编进应用、被系统登记，App Group 里有主应用写的小组件快照、分享收件箱里的网址被主应用取走；分享面板里点「导入」、主屏小组件的显示没在模拟器里点过（要真机或手动）。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
 
 ## 7. M0 的技术决定（T 组）
 
