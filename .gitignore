@@ -30,7 +30,8 @@ data/ecdict/
 # 桌面壳的随包资源与 sidecar 二进制（构建时生成）
 apps/desktop/src-tauri/resources/dict.db
 apps/desktop/src-tauri/binaries/tibi-core-*
-# tauri ios / android init 生成的工程（gen/apple、gen/android）要提交；只忽略自动生成的 schema
+# tauri android init 生成的工程（gen/android）要提交；gen/apple 随时能用 tauri ios init 重新生成，和自动生成的 schema 一样不提交
+apps/desktop/src-tauri/gen/apple/
 apps/desktop/src-tauri/gen/schemas/
 apps/desktop/src-tauri/binaries/ocr/*.wasm
 apps/desktop/src-tauri/binaries/ocr/*.cjs

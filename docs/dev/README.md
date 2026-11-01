@@ -100,7 +100,7 @@ pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式�
 **iOS**（要 macOS + Xcode 15 以上，这台 Linux 机器上做不了）
 
 1. `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`
-2. `cd apps/desktop && pnpm tauri ios init`，生成 `src-tauri/gen/apple/`（提交进仓库；`.gitignore` 只忽略 `gen/schemas`）
+2. `cd apps/desktop && pnpm tauri ios init`，生成 `src-tauri/gen/apple/`（不提交，已写进 `.gitignore`；重新生成后要再做一遍下面第 3 步的 Xcode 设置）
 3. 在 `src-tauri/tauri.ios.conf.json` 的 `bundle.iOS` 里填 `developmentTeam`（Apple 开发者账号的 Team ID）；在 Xcode 里给 target 加 iCloud 能力，勾 iCloud Documents，容器填 `iCloud.app.tibi`（同步用，`sync_fs.rs` 经 NSFileManager 找这个容器）
 4. 词典：`node apps/desktop/scripts/bundle-prep.mjs --skip-sidecar`（没有词典时先跑 `pnpm ecdict`，再拷到 `src-tauri/resources/dict.db`；`tauri.ios.conf.json` 会把它带进包）
 5. `pnpm tauri ios dev`（模拟器或真机）/ `pnpm tauri ios build`
