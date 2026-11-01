@@ -1,0 +1,32 @@
+packages/core/test/kernel/tool-schemas.test.ts
+  s_691ff2a2357e07::t_d16aa18f74c1c5 1-17,19-24
+  s_20a9924180be77::t_fa2a4467a80ef7 18
+packages/core/src/domain/documents/capabilities.ts
+  s_691ff2a2357e07::t_d16aa18f74c1c5 23,33
+packages/core/src/domain/terms/capabilities.ts
+  s_20a9924180be77::t_8c19f7a3efaf78 41-42,44-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2938a80e3350dbdd11fb1254576cf9bf1d52cefc",
+  "prompts": {},
+  "sessions": {
+    "s_20a9924180be77": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a197b1-172f-7e03-8608-0bc8010b8f40",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_691ff2a2357e07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1dbfb3df-ee33-415b-999a-ef555463f39a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
