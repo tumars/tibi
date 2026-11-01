@@ -117,7 +117,7 @@ pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式�
 - CI 的 `android` job 只做 `cargo check --target aarch64-linux-android`（用 runner 自带的 NDK），保证 Rust 这部分能编译。
 - `gen/android` 的 `res/xml/backup_rules.xml`、`data_extraction_rules.xml` 是手加的（把 `secrets.json` 排除在云端备份和换机迁移之外），重新 `tauri android init` 时要保留。
 
-**iOS 冒烟测试**（发布流程 `ios-smoke`，macOS runner）：`tauri ios init` 生成工程，`tauri ios dev <模拟器>` 在 iPhone 模拟器里编译、安装、打开（模拟器不用签名、不用开发者账号；界面从 dev server 加载，Rust 壳、插件、WKWebView、WebView 里的 Core 都是真的），截图后用 macOS 的 Vision 识别屏幕文字（`.github/scripts/ocr.swift`），看到欢迎面板、进程活着、没有崩溃报告就算过（`.github/scripts/ios-smoke.sh`）。
+**iOS 冒烟测试**（发布流程 `ios-smoke`，macOS runner）：`tauri ios init` 生成工程，`tauri ios dev <模拟器>` 在 iPhone 模拟器里编译、安装、打开（模拟器不用签名、不用开发者账号；界面从 dev server 加载，Rust 壳、插件、WKWebView、WebView 里的 Core 都是真的），截图后用 macOS 的 Vision 识别屏幕文字（`.github/scripts/ocr.swift`），看到欢迎面板、进程活着、没有崩溃报告就算过（`.github/scripts/ios-smoke.sh`）。2026-11-01 在 iPhone 模拟器（iOS 26.5）上第一次跑起来：打开 10 秒后屏幕上识别出欢迎面板（"你好，我是 Tibi。"、四档水平、"开始"）和「今天」页（"今日 0/20 分钟"、"今天没有要复习的"），没有崩溃报告。
 
 **iOS 扩展**（Safari 分享、小组件，J3 / J7）：Swift 代码在 `src-tauri/ios-extensions/`，要在 Xcode 里加成 target，步骤见那里的 README。主应用和扩展经 App Group `group.app.tibi` 交换数据：壳的 `app_group.rs` 提供 `share_take_pending`（取走分享进来的网址）和 `widget_write`（写小组件快照），`src/mobile/native.ts` 在打开 / 回到前台时导入、状态变了写快照。不是 iOS 时这两条命令什么都不做；测试时 `TIBI_APP_GROUP_DIR` 可以指一个目录。
 

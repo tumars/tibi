@@ -144,3 +144,4 @@
 | 2026-11-01 | 修：Android 上随包词典打不开（资源在 APK assets 里，`exists()` 永远是假）——第一次用经 fs 插件拷到应用数据目录，升级后重拷。由 `android-smoke` 查出。开发说明 §6 同步 |
 | 2026-11-01 | `android-smoke` 全部通过：模拟器里 Core、欢迎、示例导入、词典、阅读器分词、点词词卡释义都对；发布流程四个桌面目标 + APK + 冒烟测试全绿。开发说明 §6、00 §3.13 同步 |
 | 2026-11-01 | 发布流程加 `ios-smoke`：GitHub macOS runner 上 `tauri ios init` + `tauri ios dev` 在 iPhone 模拟器里跑，截图用 Vision 识别出欢迎面板、无崩溃即通过。开发说明 §6 同步 |
+| 2026-11-01 | iOS 第一次跑起来：GitHub macOS runner 的 iPhone 模拟器（iOS 26.5）里，Rust 壳、插件、WKWebView、WebView 里的 Core 都起来了，屏幕识别出欢迎面板和「今天」页。冒烟脚本修 pipefail 下 `| grep -q` 误判。开发说明 §6、00 §3.13 同步 |

@@ -33,7 +33,7 @@ echo "== Tibi 的日志（WebView 控制台、Rust）"
 grep -E "Tauri|tibi|RustStdoutStderr|chromium.*CONSOLE" "$OUT/logcat.txt" | grep -v "^--" | tail -60
 pid=$(adb shell pidof app.tibi | tr -d '\r')
 echo "pid=$pid"
-if grep -E "FATAL EXCEPTION|panicked at" "$OUT/logcat.txt" | grep -q .; then echo "== 有崩溃"; grep -A20 -E "FATAL EXCEPTION|panicked at" "$OUT/logcat.txt" | head -60; exit 1; fi
+if grep -q -E "FATAL EXCEPTION|panicked at" "$OUT/logcat.txt"; then echo "== 有崩溃"; grep -A20 -E "FATAL EXCEPTION|panicked at" "$OUT/logcat.txt" | head -60; exit 1; fi
 [ -n "$pid" ] || { echo "进程不在了"; exit 1; }
 [ "$ui" = 0 ] || { echo "界面冒烟测试没通过"; exit 1; }
 echo "OK"
