@@ -33,6 +33,8 @@ export function useChat(conversationId: string | undefined, o: { skill?: string;
       const { submission_id } = await rpc.call('chat.send', { conversation_id: conversationId, text: q, context: ctx ?? opts.current.context, skill: sk ?? opts.current.skill, tier });
       mine.current.add(submission_id);
       setLive(l => [...l, { id: submission_id, text: '', tools: [], done: false }]);
+      // 第一句发出去，这段对话就该出现在左栏"最近"，不等回答结束
+      void useCore.getState().refreshChats();
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   }, [conversationId]);
 

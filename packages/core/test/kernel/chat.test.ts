@@ -64,6 +64,26 @@ describe('chat.* 与 pi 桥接', () => {
     skillDef('tibi')!.allowed_tools.splice(-2, 2);
   });
 
+  it('chat.list 只列说过话的；删除对话时取消进行中的任务', async () => {
+    const { kernel, call, events, db } = await makeKernelCore({ turns: [{ toolCalls: [{ name: 'mark_fake', args: { term: 'upshot' } }] }, { text: '不该写回' }] });
+    kernel.registerCapabilities({ mark_fake: capability({ name: 'mark_fake', description: '标记一个词', perm: 'confirm', params: Type.Object({ term: Type.String() }), async run() { return { ok: true }; } }) });
+    const { skillDef } = await import('../../src/kernel/skills.js');
+    skillDef('tibi')!.allowed_tools.push('mark_fake');
+
+    await call('chat.open', {});
+    expect(await call('chat.list', {})).toEqual([]);
+    const conv = await call('chat.open', {});
+    const { submission_id } = await call('chat.send', { conversation_id: conv.id, text: 'upshot 是什么意思？' });
+    expect((await call('chat.list', {})).map((c: { id: string }) => c.id)).toEqual([conv.id]);
+
+    await until(() => events.some(e => e.event === 'approval.requested'));
+    await call('chat.delete', { conversation_id: conv.id });
+    expect((await kernel.jobs.wait(submission_id)).status).toBe('cancelled');
+    expect(await call('chat.list', {})).toEqual([]);
+    expect((await db.get<{ n: number }>('SELECT count(*) AS n FROM messages'))?.n).toBe(0);
+    skillDef('tibi')!.allowed_tools.pop();
+  });
+
   it('chat.open：document_id 续线程；today 一天一条', async () => {
     const { call, db } = await makeKernelCore();
     const t = Date.now();

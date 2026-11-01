@@ -12,7 +12,14 @@ import { tl } from '../lib/i18n';
  */
 export function TibiPanel({ doc, sectionId, pending, onClose }: { doc: Document; sectionId?: string; pending?: Pending; onClose: () => void }) {
   const [convId, setConvId] = useState<string>();
-  useEffect(() => { rpc.call('chat.open', { document_id: doc.id }).then(c => setConvId(c.id), e => toast(errorInfo(e).message, { kind: 'err' })); }, [doc.id]);
+  useEffect(() => {
+    const open = () => rpc.call('chat.open', { document_id: doc.id }).then(c => setConvId(c.id), e => toast(errorInfo(e).message, { kind: 'err' }));
+    void open();
+    // 读这篇时从左栏删了它的对话：换一个新的，不然接着发会找不到对话
+    const onDeleted = (e: Event) => { if ((e as CustomEvent<string>).detail === doc.id) void open(); };
+    window.addEventListener('tibi:chat-deleted', onDeleted);
+    return () => window.removeEventListener('tibi:chat-deleted', onDeleted);
+  }, [doc.id]);
   return (
     <aside className="rpanel tibi" aria-label="Tibi">
       <div className="rph"><b><span style={{ color: 'var(--accent)' }}>✦</span> {tl('Tibi · 讲解')}</b><span className="sp" /><button className="ibtn" title={tl('关闭')} onClick={onClose}><X size={16} /></button></div>

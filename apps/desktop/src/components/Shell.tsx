@@ -1,11 +1,11 @@
-import { BarChart3, BookOpen, Bookmark, FileText, Home as HomeIcon, ListChecks, MessageSquare, Moon, PanelLeft, RotateCw, Search, Settings as SettingsIcon, Sun } from 'lucide-react';
+import { BarChart3, BookOpen, Bookmark, Home as HomeIcon, ListChecks, Moon, PanelLeft, RotateCw, Search, Settings as SettingsIcon, Sun } from 'lucide-react';
 import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { isTauri } from '../rpc';
 import { useCore } from '../store/core';
 import { useUi } from '../store/ui';
 import { tl } from '../lib/i18n';
-import { fmtDate } from '../lib/util';
+import { RecentChats } from './RecentChats';
 import { SearchPalette } from './SearchPalette';
 
 const NAV = [
@@ -25,7 +25,6 @@ export function Shell() {
   const counts = { docCount: useCore(s => s.docCount), wordCount: useCore(s => s.wordCount) };
   const goal = useCore(s => s.goal); const minutes = useCore(s => s.todayMinutes); const streak = useCore(s => s.streak); const vocab = useCore(s => s.vocab);
   const taskBadge = useCore(s => (s.status?.running_tasks ?? 0) + (s.status?.pending_approvals ?? 0));
-  const recentDocs = useCore(s => s.recentDocs); const recentChats = useCore(s => s.recentChats);
   const loc = useLocation();
   const reading = loc.pathname.startsWith('/read/');
 
@@ -41,7 +40,7 @@ export function Shell() {
       <aside className="side">
         <div className="brand">
           <span className="logo"><img src="/logo.svg" alt="" /><span className="hide-c">Tibi</span></span>
-          <button className="ibtn hide-c" onClick={toggleSide} title={tl('折叠侧栏（⌘\\\\）')}><PanelLeft /></button>
+          <button className="ibtn" onClick={toggleSide} title={collapsed ? tl('展开侧栏（⌘\\）') : tl('折叠侧栏（⌘\\）')}><PanelLeft /></button>
         </div>
         <button className="nav-search" style={{ display: 'flex', alignItems: 'center', gap: 10, height: 32, padding: '0 10px', borderRadius: 8, color: 'var(--ink-2)' }} title={tl('搜索（⌘K）')} onClick={() => window.dispatchEvent(new Event('tibi:search'))}><Search size={17} /><span className="hide-c">{tl('搜索')}</span><span className="kbd hide-c" style={{ marginLeft: 'auto' }}>⌘K</span></button>
         <nav className="nav">
@@ -55,11 +54,7 @@ export function Shell() {
           ))}
         </nav>
         <div className="sideh hide-c">{tl('最近')}</div>
-        <div className="recent hide-c">
-          {recentChats.map(c => <NavLink key={c.id} to={`/chat/${c.id}`} title={c.title} className={({ isActive }) => (isActive ? 'cur' : '')}><MessageSquare /><span>{c.kind === 'document' ? tl('讲解 · {title}', { title: c.title }) : c.kind === 'day' && c.day ? (c.device === 'mobile' ? tl('{d} · 手机', { d: fmtDate(Date.parse(c.day)) }) : fmtDate(Date.parse(c.day))) : c.title || tl('对话')}</span></NavLink>)}
-          {recentDocs.map(d => <NavLink key={d.id} to={`/read/${d.id}`} title={d.title} className={loc.pathname.startsWith(`/read/${d.id}`) ? 'cur' : ''}><FileText /><span>{d.title}</span></NavLink>)}
-          {!recentChats.length && !recentDocs.length && <div className="none">{tl('还没有对话和文章')}</div>}
-        </div>
+        <RecentChats />
         <div className="sidefoot">
           <div className="streak" title={tl('今日 {minutes} / {goal} 分钟', { minutes, goal })}>
             <svg className="sring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" strokeWidth="4" /><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" strokeWidth="4" strokeLinecap="round" strokeDasharray="87.96" strokeDashoffset={ring} transform="rotate(-90 18 18)" /></svg>
@@ -68,7 +63,7 @@ export function Shell() {
           <div className="user">
             <span className="av">{tl('你')}</span>
             <span className="hide-c" style={{ flex: 1, fontSize: 13 }}>{vocab ? tl('约 {v0} 词', { v0: vocab.toLocaleString() }) : ''}</span>
-            <NavLink to="/settings" className="ibtn hide-c" title={tl('设置')}><SettingsIcon /></NavLink>
+            <NavLink to="/settings" className="ibtn" title={tl('设置')}><SettingsIcon /></NavLink>
           </div>
         </div>
       </aside>

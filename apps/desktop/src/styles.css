@@ -36,6 +36,8 @@ svg { flex: none; }
 .brand { display: flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 4px 0 6px; margin-bottom: 6px; }
 .brand .logo { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; letter-spacing: -.01em; white-space: nowrap; }
 .brand .logo img { width: 26px; height: 26px; border-radius: 8px; }
+.app.collapsed .brand { flex-direction: column; align-items: flex-start; gap: 6px; height: auto; }   /* 窄栏放不下并排：展开按钮排到 logo 下面 */
+.app.collapsed .brand .ibtn { margin-left: -2px; }   /* 与下方导航图标对齐 */
 .ibtn { width: 30px; height: 30px; border-radius: 6px; display: grid; place-items: center; color: var(--ink-3); transition: background .15s, color .15s; }
 .ibtn:hover { background: var(--hover); color: var(--ink); }
 .ibtn svg { width: 17px; height: 17px; }
@@ -53,6 +55,7 @@ svg { flex: none; }
 .streak .t { font-size: 13px; font-weight: 500; } .streak .s { font-size: 11.5px; color: var(--ink-3); }
 .user { display: flex; align-items: center; gap: 8px; padding: 0 4px 0 8px; }
 .user .av { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 12px; font-weight: 600; }
+.app.collapsed .user { flex-direction: column; align-items: flex-start; gap: 4px; padding: 0 0 0 4px; }   /* 窄栏：设置按钮排到头像上方的同一列，与导航图标对齐 */
 .main { margin: 12px 12px 12px 0; background: var(--surface); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .app.collapsed .main, .main { }
 .top { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 14px 0 16px; }
@@ -155,12 +158,18 @@ h2.st .sp { flex: 1; }
 @media (max-width: 1100px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* 左栏"最近" */
 .sideh { font-size: 11.5px; color: var(--ink-3); padding: 16px 12px 6px; white-space: nowrap; }
+.side > :not(.recent) { flex-shrink: 0; }   /* 对话多时只压缩"最近"，它自己滚动 */
 .recent { min-height: 0; overflow-y: auto; }
 .recent a { display: flex; align-items: center; padding: 6px 10px; border-radius: 8px; font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; }
 .recent a span { overflow: hidden; text-overflow: ellipsis; }
-.recent a svg { width: 14px; height: 14px; flex: none; color: var(--ink-3); margin-right: 7px; }
 .recent a.cur { background: var(--accent-wash); color: var(--accent); }
-.recent a:hover { background: var(--hover); color: var(--ink); }
+.recent a:hover, .rrow.open a { background: var(--hover); color: var(--ink); }
+.rrow { position: relative; }
+.rrow .more { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; opacity: 0; }
+.rrow .more svg { width: 15px; height: 15px; }
+.rrow:hover .more, .rrow:focus-within .more, .rrow.open .more { opacity: 1; }
+.rrow:hover a, .rrow:focus-within a, .rrow.open a { padding-right: 30px; }
+.recent .rename { width: 100%; height: 30px; font-size: 13px; }
 .recent .none { padding: 4px 12px; font-size: 12px; color: var(--ink-3); }
 .docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .doc { display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; transition: background .15s; min-width: 0; }
@@ -520,6 +529,8 @@ h2.st .sp { flex: 1; }
 .dmi { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: 8px; font-size: 13.5px; cursor: default; outline: none; }
 .dmi small { font-size: 11.5px; color: var(--ink-3); }
 .dmi[data-highlighted] { background: var(--hover); }
+.dmenu.compact { min-width: 120px; }
+.dmi.danger { color: var(--hard); }
 
 /* 统计页（00 §3.6） */
 .page.stats { display: flex; flex-direction: column; gap: 26px; }

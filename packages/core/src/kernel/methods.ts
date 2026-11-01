@@ -40,7 +40,13 @@ export function chatMethods(deps: KernelMethodDeps): MethodMap {
     'chat.history': method(Type.Object({ conversation_id: Type.String(), cursor: Type.Optional(Type.String()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })) }), async (p) => convs().history(p.conversation_id, p)),
     'chat.cancel': method(Type.Object({ submission_id: Type.String() }), async (p) => { await deps.runner.cancel(p.submission_id); return { ok: true as const }; }),
     'chat.rename': method(Type.Object({ conversation_id: Type.String(), title: Type.String({ minLength: 1 }) }), async (p) => convs().rename(p.conversation_id, p.title)),
-    'chat.delete': method(Type.Object({ conversation_id: Type.String() }), async (p) => { await convs().delete(p.conversation_id); return { ok: true as const }; }, '硬删，不可撤销'),
+    'chat.delete': method(Type.Object({ conversation_id: Type.String() }), async (p) => {
+      // 先停掉这段对话还在跑的任务，否则回答写回时对话已经没了
+      const active = await deps.db.all<{ id: string }>("SELECT id FROM jobs WHERE conversation_id = ? AND status IN ('queued', 'running', 'waiting_approval', 'paused')", [p.conversation_id]);
+      await Promise.all(active.map(a => deps.runner.cancel(a.id)));
+      await convs().delete(p.conversation_id);
+      return { ok: true as const };
+    }, '硬删，不可撤销；进行中的任务会被取消'),
   };
 }
 

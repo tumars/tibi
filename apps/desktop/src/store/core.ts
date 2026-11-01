@@ -21,9 +21,10 @@ interface CoreState {
   recentDocs: DocumentSummary[];
   recentChats: Conversation[];
   refresh(): Promise<void>;
+  refreshChats(): Promise<void>;
 }
 
-export const useCore = create<CoreState>((set) => ({
+export const useCore = create<CoreState>((set, get) => ({
   connected: false, due: 0, docCount: 0, wordCount: 0, goal: 20, vocab: 0, nickname: '', todayMinutes: 0, streak: 0, recentDocs: [], recentChats: [],
   async refresh() {
     try {
@@ -38,8 +39,11 @@ export const useCore = create<CoreState>((set) => ({
       rpc.call('stats.summary', { range: 30 }).then(s => set({ streak: s.streak ?? 0 }), () => {}),
       rpc.call('stats.series', { metrics: ['minutes'], days: 1 }).then(s => set({ todayMinutes: Math.round(s.series.minutes?.at(-1) ?? 0) }), () => {}),
       rpc.call('documents.list', { sort: 'opened', status: 'reading', limit: 5 }).then(r => set({ recentDocs: r.items }), () => {}),
-      rpc.call('chat.list', { limit: 3 }).then(c => set({ recentChats: c }), () => {}),
+      get().refreshChats(),
     ]);
+  },
+  async refreshChats() {
+    await rpc.call('chat.list', { limit: 50 }).then(c => set({ recentChats: c }), () => {});
   },
 }));
 

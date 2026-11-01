@@ -67,8 +67,9 @@ export class Conversations {
     return (await this.get(id))!;
   }
 
+  /** 只列说过话的：打开阅读器面板、今天页就会建对话，没发过消息的不算记录 */
   async list(limit = 20): Promise<Conversation[]> {
-    const rows = await this.db.all<ConvRow & LinkRow>('SELECT c.*, tl.skill_id, tl.document_id, tl.trigger FROM conversations c LEFT JOIN thread_links tl ON tl.conversation_id = c.id WHERE c.deleted_at IS NULL AND c.kind != ? ORDER BY COALESCE(c.last_message_at, c.created_at) DESC LIMIT ?', ['skill', limit]);
+    const rows = await this.db.all<ConvRow & LinkRow>('SELECT c.*, tl.skill_id, tl.document_id, tl.trigger FROM conversations c LEFT JOIN thread_links tl ON tl.conversation_id = c.id WHERE c.deleted_at IS NULL AND c.last_message_at IS NOT NULL AND c.kind != ? ORDER BY COALESCE(c.last_message_at, c.created_at) DESC LIMIT ?', ['skill', limit]);
     return rows.map(r => toConversation(r, r));
   }
 
