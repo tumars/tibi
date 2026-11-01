@@ -223,7 +223,9 @@ jobs:
           ram-size: 4096M
           emulator-boot-timeout: 900
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          profile: pixel_6
+          # 阅读器页很长，宿主侧软件 GPU（swiftshader_indirect）渲染时整个模拟器会崩；改在 guest 里软件渲染
+          emulator-options: -no-window -gpu guest -noaudio -no-boot-anim -no-snapshot
           script: bash .github/scripts/android-smoke.sh tibi-x86_64.apk smoke
       - if: always()
         uses: actions/upload-artifact@v4
