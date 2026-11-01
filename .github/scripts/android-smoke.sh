@@ -33,7 +33,8 @@ echo "== Tibi 的日志（WebView 控制台、Rust）"
 grep -E "Tauri|tibi|RustStdoutStderr|chromium.*CONSOLE" "$OUT/logcat.txt" | grep -v "^--" | tail -60
 pid=$(adb shell pidof app.tibi | tr -d '\r')
 echo "pid=$pid"
-if grep -q -E "FATAL EXCEPTION|panicked at" "$OUT/logcat.txt"; then echo "== 有崩溃"; grep -A20 -E "FATAL EXCEPTION|panicked at" "$OUT/logcat.txt" | head -60; exit 1; fi
+# 只算 Tibi 自己的崩溃（uiautomator 之类的进程也会在 logcat 里打 FATAL EXCEPTION）：Java 崩溃块里有 "Process: app.tibi"，Rust panic 有 "panicked at"
+if grep -q -E "Process: app\.tibi|panicked at" "$OUT/logcat.txt"; then echo "== 有崩溃"; grep -B2 -A20 -E "Process: app\.tibi|panicked at" "$OUT/logcat.txt" | head -60; exit 1; fi
 [ -n "$pid" ] || { echo "进程不在了"; exit 1; }
 [ "$ui" = 0 ] || { echo "界面冒烟测试没通过"; exit 1; }
 echo "OK"
