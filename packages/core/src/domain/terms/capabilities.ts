@@ -38,10 +38,11 @@ export const termsCapabilities: CapabilityMap = {
     },
   }),
   get_term: capability({
-    name: 'get_term', description: '一个词的详情：状态、语境、复习记录', perm: 'read',
-    params: Type.Union([Type.Object({ text: Type.String() }), Type.Object({ id: S.id })]),
+    name: 'get_term', description: '一个词的详情：状态、语境、复习记录。text 和 id 给一个', perm: 'read',
+    params: Type.Object({ text: Type.Optional(Type.String()), id: Type.Optional(S.id) }),
     async run(p, ctx) {
-      const term = 'id' in p ? await getTerm(ctx.db, p.id) : await getTermByText(ctx.db, await lemmatize(p.text.toLowerCase(), ctx.dict));
+      if (!p.id && !p.text) throw new TibiError('invalid_params', 'text 和 id 要给一个');
+      const term = p.id ? await getTerm(ctx.db, p.id) : await getTermByText(ctx.db, await lemmatize(p.text!.toLowerCase(), ctx.dict));
       if (!term || term.deleted_at) throw new TibiError('not_found', '找不到这个词');
       return termDetail(ctx.db, ctx.dict, term);
     },

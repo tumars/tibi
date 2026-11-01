@@ -20,7 +20,7 @@ export const documentsCapabilities: CapabilityMap = {
   }),
   get_document: capability({
     name: 'get_document', description: '按章节 / 段落范围取正文，避免整本书进上下文', perm: 'read',
-    params: Type.Object({ id: S.id, section_id: Type.Optional(S.id), paragraphs: Type.Optional(Type.Tuple([Type.Integer(), Type.Integer()])), with: Type.Optional(Type.Array(Type.Union([Type.Literal('tokens'), Type.Literal('ai'), Type.Literal('translations')]))) }),
+    params: Type.Object({ id: S.id, section_id: Type.Optional(S.id), paragraphs: Type.Optional(Type.Array(Type.Integer(), { minItems: 2, maxItems: 2, description: '[起, 止]，含两端' })), with: Type.Optional(Type.Array(Type.Union([Type.Literal('tokens'), Type.Literal('ai'), Type.Literal('translations')]))) }),
     async run(p, ctx) {
       const d = await getDocument(ctx.db, p.id); if (!d || d.deleted_at) throw new TibiError('not_found', '文章不在了');
       const secs = await listSections(ctx.db, p.id);
@@ -30,7 +30,7 @@ export const documentsCapabilities: CapabilityMap = {
       const byPara = new Map<number, typeof rows>();
       for (const r of rows) { const a = byPara.get(r.paragraph_idx) ?? []; a.push(r); byPara.set(r.paragraph_idx, a); }
       let paragraphs = [...byPara.entries()].sort((a, b) => a[0] - b[0]).map(([idx, ss]) => ({ idx, text: ss.map(s => s.text).join(' '), sentence_ids: ss.map(s => s.id) }));
-      if (p.paragraphs) paragraphs = paragraphs.filter(x => x.idx >= p.paragraphs![0] && x.idx <= p.paragraphs![1]);
+      if (p.paragraphs) { const [from = 0, to = Infinity] = p.paragraphs; paragraphs = paragraphs.filter(x => x.idx >= from && x.idx <= to); }
       const tokens = p.with?.includes('tokens') ? paragraphs.map(x => rows.filter(r => x.sentence_ids.includes(r.id)).flatMap(r => j.parse<Token[]>(r.tokens, []))) : undefined;
       let ai: Record<string, AiResult> | undefined;
       if (p.with?.includes('ai')) { ai = {}; for (const r of await ctx.db.all<{ task: string; output: string; model: string; prompt_version: string; created_at: number }>("SELECT task, output, model, prompt_version, created_at FROM ai_results WHERE scope IN ('document', 'section') AND target_id IN (?, ?) AND deleted_at IS NULL", [p.id, sec.id])) ai[r.task] = { task: r.task, output: j.parse(r.output, null), model: r.model, prompt_version: r.prompt_version, created_at: Number(r.created_at) }; }
