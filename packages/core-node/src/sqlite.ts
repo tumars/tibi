@@ -40,11 +40,13 @@ export async function openAppDb(path: string): Promise<Database> {
   return db;
 }
 
-/** 只读打开 dict.db；不存在时返回 undefined（查词降级为"无词典"） */
+/** 只读打开 dict.db；不存在或是空文件（没有 stardict 表）时返回 undefined（查词降级为"无词典"） */
 export async function openDictDb(path: string | undefined): Promise<Database | undefined> {
   if (!path) return undefined;
   try {
-    return new Database(await BetterSqliteDriver.open(path, { readonly: true, fileMustExist: true }));
+    const db = new Database(await BetterSqliteDriver.open(path, { readonly: true, fileMustExist: true }));
+    await db.get('SELECT 1 FROM stardict LIMIT 1');
+    return db;
   } catch {
     return undefined;
   }

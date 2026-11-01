@@ -37,6 +37,7 @@ describe('手机上的 Core：InvokeDriver（M7）', () => {
     expect(r.status).toBe('done');
     const found = await core.call<SearchResult>('search.query', { q: 'parser' });
     expect(found.documents).toHaveLength(1);
+    await core.call('terms.add', { entries: [{ text: 'compiler' }] });   // 这里没装词典，导入不会标生词
     // 事务回滚
     await expect(db.transaction(async tx => { await tx.run("INSERT INTO tags(id, name, created_at, updated_at) VALUES ('t1', 'x', 1, 1)"); throw new Error('回滚'); })).rejects.toThrow('回滚');
     expect(await db.get("SELECT id FROM tags WHERE id = 't1'")).toBeUndefined();

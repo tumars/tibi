@@ -36,7 +36,12 @@ export async function openAppDbBun(path: string): Promise<CoreDatabase> {
 
 export async function openDictDbBun(path: string | undefined): Promise<CoreDatabase | undefined> {
   if (!path) return undefined;
-  try { const { Database } = await loadBunSqlite(); return new CoreDatabase(new BunSqliteDriver(new Database(path, { readonly: true }))); } catch { return undefined; }
+  try {
+    const { Database } = await loadBunSqlite();
+    const db = new CoreDatabase(new BunSqliteDriver(new Database(path, { readonly: true })));
+    await db.get('SELECT 1 FROM stardict LIMIT 1');
+    return db;
+  } catch { return undefined; }
 }
 
 export const isBun = () => typeof (globalThis as { Bun?: unknown }).Bun !== 'undefined';

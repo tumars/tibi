@@ -7,6 +7,7 @@ import type { Dict } from '../../dict/types.js';
 
 const CONTRACTIONS: Record<string, string> = { "n't": 'not', "'ll": 'will', "'re": 'be', "'ve": 'have', "'d": 'would', "'m": 'be' };
 const IRREGULAR: Record<string, string> = {
+  cannot: 'can',
   am: 'be', is: 'be', are: 'be', was: 'be', were: 'be', been: 'be', being: 'be',
   has: 'have', had: 'have', having: 'have', does: 'do', did: 'do', done: 'do', doing: 'do',
   went: 'go', gone: 'go', goes: 'go', going: 'go', made: 'make', making: 'make', said: 'say', saying: 'say', says: 'say',

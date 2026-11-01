@@ -10,7 +10,7 @@ import { annotateSentences } from '../text/annotate.js';
 import { cleanTitle, dropLeadingTitle } from '../text/title.js';
 import { cefrOfDocument, difficultyOfRatio } from '../text/prelabel.js';
 import { countWords, segmentMarkdown, splitSentences, type Segmented } from '../text/segment.js';
-import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, insertTerm, logStatus, readProfile, upsertForm } from '../terms/repo.js';
+import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, insertTerm, logStatus, readProfile, setTermStatus, upsertForm, type TermRow } from '../terms/repo.js';
 import { shortGloss } from '../terms/views.js';
 import { getSample, sampleUri, writeSampleAi } from './samples.js';
 import { analyzeDocument, translateSection } from './analyze.js';
@@ -148,7 +148,9 @@ export async function annotateSection(db: Database, ctx: Ctx, section_id: string
   const first = await annotateSentences({ sentences: texts, dict: ctx.dict, vocab_estimate: opts.vocab_estimate, statusOf: () => undefined, phrases, ignoreProperNouns: true });
   const lemmas = [...new Set(first.sentences.flatMap(s => s.tokens.map(t => t.l)))];
   const known = await getTermsByTexts(db, lemmas);
-  const res = await annotateSentences({ sentences: texts, dict: ctx.dict, vocab_estimate: opts.vocab_estimate, statusOf: l => { const r = known.get(l); return r && !r.deleted_at ? (r.status as Status) : undefined; }, phrases, ignoreProperNouns: true });
+  // 规则标的、用户没碰过的词每次按当前词汇量重判（词汇量变了、词典后来才装上）；没有词典时判断不了，保持原样
+  const relabel = (r: TermRow) => ctx.dict.hasFrequency !== false && r.status_source === 'auto_rule' && !r.deleted_at;
+  const res = await annotateSentences({ sentences: texts, dict: ctx.dict, vocab_estimate: opts.vocab_estimate, statusOf: l => { const r = known.get(l); return r && !r.deleted_at && !relabel(r) ? (r.status as Status) : undefined; }, phrases, ignoreProperNouns: true });
   const t = now();
   await db.transaction(async tx => {
     // 新词建行（预标注：0 生词 / 99 待确认）
@@ -158,6 +160,12 @@ export async function annotateSection(db: Database, ctx: Ctx, section_id: string
       const row = await insertTerm(tx, { text: lemma, display: info.display, status: info.status, status_source: 'auto_rule', short_gloss: shortGloss(entry?.translation), seen_at: t });
       await logStatus(tx, row.id, info.status, 'auto_rule', { prelabel: info.prelabel, document_id: opts.document_id });
       known.set(lemma, row);
+    }
+    // 重判的词：现在算已知的记 97（行还在，词汇量调低时还能再判回来）
+    for (const lemma of lemmas) {
+      const row = known.get(lemma); if (!row || !relabel(row)) continue;
+      const next = res.newTerms.get(lemma)?.status ?? 97;
+      if (next !== row.status) await setTermStatus(tx, row, next, 'auto_rule', { document_id: opts.document_id });
     }
     const encounters = new Map<string, number>();
     for (let i = 0; i < sentences.length; i++) {

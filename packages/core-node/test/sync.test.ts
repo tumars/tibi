@@ -14,6 +14,7 @@ describe('同步：文件夹后端 + sync.* 方法（M7）', () => {
     const { task_id } = await A.call<{ task_id: string }>('documents.import', { source: { type: 'text', text: 'The compiler enforces a small set of rules.' } });
     await new Promise(r => setTimeout(r, 1500));
     void task_id;
+    await A.call('terms.add', { entries: [{ text: 'compiler' }] });     // 这里没装词典，导入不会标生词
     expect((await A.call<sync.SyncStatus>('sync.status', {})).state).toBe('off');
     const probe0 = await A.call<{ ok: boolean; library?: unknown }>('sync.probe', { backend: { kind: 'folder', path: folder } });
     expect(probe0).toEqual({ ok: true, library: undefined });

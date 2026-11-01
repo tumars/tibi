@@ -58,6 +58,7 @@ export async function annotateSentences(input: AnnotateInput): Promise<AnnotateR
       if (isAcronym(tk.t)) return out;                                   // 缩写：不参与
       if (looksProperNoun(tk.t, i === 0)) { out.proper = true; return out; }   // 专有名词：不标生词
       if (/^[A-Z]/.test(l) || l.length < 2) return out;
+      if (/['’]/.test(l)) return out;                                    // 缩略（don't、I’m、o’clock）：词频表里没有，不是生词
       counts.total++;
       const existing = input.statusOf(l);
       if (existing !== undefined) {
@@ -65,7 +66,8 @@ export async function annotateSentences(input: AnnotateInput): Promise<AnnotateR
         if (existing === 0) counts.new++; else if (existing >= 1 && existing <= 4) counts.learning++; else if (existing === 99) counts.unsure++; else counts.known++;
         return out;
       }
-      const pl = prelabel(ranks.get(l), vocab_estimate);
+      // 没有词典就判断不了生熟：不着色，别把整篇都标成生词
+      const pl = dict.hasFrequency === false ? 'known' : prelabel(ranks.get(l), vocab_estimate);
       prelabeled.add(l);
       out.prelabel = pl;
       const st = PRELABEL_STATUS[pl];

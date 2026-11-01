@@ -11,6 +11,8 @@ export interface Dict {
   lemmas(form: string): Promise<string[]>;
   /** 词频排名（frq / bnc，越小越常见）；没有时 undefined。预标注规则用 */
   frequencyRank(lemma: string): Promise<number | undefined>;
+  /** false 表示手上没有词频数据（NullDict），预标注不能拿"没有词频"当生词 */
+  hasFrequency?: boolean;
   /** 批量取词频，减少往返；默认逐个调用 */
   frequencyRanks?(lemmas: string[]): Promise<Map<string, number>>;
   /** 词典例句（有的话）；M1 词典例句来自 ECDICT 没有的字段，先返回 [] */
@@ -24,6 +26,7 @@ export interface Dict {
 }
 
 export class NullDict implements Dict {
+  readonly hasFrequency = false;
   async lookup() { return undefined; }
   async lemmas() { return []; }
   async frequencyRank() { return undefined; }

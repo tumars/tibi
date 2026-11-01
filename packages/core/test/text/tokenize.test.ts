@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Dict } from '../../src/index.js';
+import { NullDict, type Dict } from '../../src/index.js';
 import { annotateSentences, lemmatize, prelabel, ruleLemma, tokenize } from '../../src/domain/text/index.js';
 
 describe('tokenize', () => {
@@ -56,6 +56,16 @@ describe('annotateSentences', () => {
     expect([...r.newTerms.keys()].sort()).toEqual(['deterministically', 'enforce']);
     expect(r.counts).toMatchObject({ new: 1, unsure: 1, learning: 1 });
     expect(r.prelabel_total).toBe(7);
+  });
+  it('缩略不算词；cannot 还原成 can', async () => {
+    const dict: Dict = { async lookup() { return undefined; }, async lemmas() { return []; }, async frequencyRank(l) { return l === 'can' ? 50 : undefined; } };
+    const r = await annotateSentences({ sentences: ["We don't, and I’m sure it’s five o’clock.", 'You cannot.'], dict, vocab_estimate: 6000, statusOf: () => undefined });
+    expect([...r.newTerms.keys()].filter(l => /['’]|cannot/.test(l))).toEqual([]);
+  });
+  it('没有词典：判断不了生熟，整篇都不标', async () => {
+    const r = await annotateSentences({ sentences: ['The compiler enforces rules.'], dict: new NullDict(), vocab_estimate: 6000, statusOf: () => undefined });
+    expect(r.newTerms.size).toBe(0);
+    expect(r.unknown_ratio).toBe(0);
   });
 });
 

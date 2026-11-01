@@ -72,6 +72,24 @@ describe('导入文本', () => {
     expect(JSON.parse(ev!.payload).prelabel_total).toBeGreaterThan(10);
   });
 
+  it('重新标注：规则标的词按当前词汇量重判，用户动过的不变', async () => {
+    const status = async (w: string) => (await ctx.db.get<{ status: number; status_source: string }>('SELECT status, status_source FROM terms WHERE text = ?', [w]));
+    await ctx.db.run("UPDATE user_profile SET vocab_estimate = 500 WHERE id = '1'");
+    const { document_id } = await importText();
+    expect((await status('enforce'))?.status).toBe(0);
+    expect((await status('collector'))?.status).toBe(0);
+    await ctx.db.run("UPDATE terms SET status = 1, status_source = 'user' WHERE text = 'collector'");
+    await ctx.db.run("UPDATE user_profile SET vocab_estimate = 8000 WHERE id = '1'");
+    const { task_id } = await core.call<{ task_id: string }>('documents.reanalyze', { id: document_id });
+    expect((await jobs.wait(task_id)).status).toBe('done');
+    expect((await status('enforce'))?.status).toBe(97);
+    expect(await status('collector')).toMatchObject({ status: 1, status_source: 'user' });
+    await ctx.db.run("UPDATE user_profile SET vocab_estimate = 500 WHERE id = '1'");
+    const again = await core.call<{ task_id: string }>('documents.reanalyze', { id: document_id });
+    await jobs.wait(again.task_id);
+    expect((await status('enforce'))?.status).toBe(0);
+  });
+
   it('重复导入返回同一篇', async () => {
     const a = await importText();
     const b = await importText();
