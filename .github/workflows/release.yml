@@ -180,6 +180,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+      - name: 腾磁盘（runner 自带的大工具链用不到；模拟器要几个 G）
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift /usr/local/lib/node_modules /opt/microsoft /opt/google
+          df -h /
       - uses: actions/checkout@v4
       - name: 打开 KVM
         run: |

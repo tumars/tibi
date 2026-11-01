@@ -15,6 +15,12 @@ for _ in $(seq 1 60); do sock=$(adb shell cat /proc/net/unix | grep -o 'webview_
 echo "devtools socket: ${sock:-没找到}"
 ui=1
 if [ -n "$sock" ]; then adb forward tcp:9222 "localabstract:$sock" && ADB_SHOTS=1 timeout 420 node "$(dirname "$0")/android-smoke-cdp.mjs" 9222 "$OUT" && ui=0; fi
+if [ "$ui" != 0 ]; then
+  echo "== 宿主状态（看模拟器是不是被 OOM 杀了、磁盘是不是满了）"
+  df -h / | tail -1; free -m | head -2
+  sudo dmesg 2>/dev/null | grep -i -E "killed process|out of memory|oom" | tail -5
+  pgrep -a qemu | cut -c1-120 || echo "qemu 进程不在了"
+fi
 texts final
 timeout 60 adb logcat -d > "$OUT/logcat.txt"
 echo "== Tibi 的日志（WebView 控制台、Rust）"
