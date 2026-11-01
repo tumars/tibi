@@ -12,8 +12,15 @@
 
 ## 加 target
 
-1. Xcode 打开 `gen/apple/tibi.xcodeproj`。
-2. File → New → Target → **Share Extension**，名字 `ShareExtension`；删掉生成的 `ShareViewController.swift` 和 storyboard，把这里的 `ShareExtension/ShareViewController.swift` 拖进去；Info.plist 里把 `NSExtensionMainStoryboard` 换成 `NSExtensionPrincipalClass = $(PRODUCT_MODULE_NAME).ShareViewController`，`NSExtensionActivationRule` 设为只接受网页：`NSExtensionActivationSupportsWebURLWithMaxCount = 1`。
-3. File → New → Target → **Widget Extension**，名字 `TibiWidget`，不勾 Live Activity / Configuration Intent；用这里的 `TibiWidget/TibiWidget.swift` 替换生成的代码。
-4. 主应用、ShareExtension、TibiWidget 三个 target 都加 **App Groups** 能力，勾 `group.app.tibi`；主应用另加 iCloud（Documents，容器 `iCloud.app.tibi`，同步用）。
-5. 跑一次：Safari 打开文章 → 分享 → Tibi → 导入；回到 Tibi 书架里应该有这篇。主屏长按加 Tibi 小组件。
+`add-targets.py` 把两个扩展加进 `tauri ios init` 生成的 xcodegen 工程（`gen/apple/project.yml`）并重新生成 `.xcodeproj`：
+ShareExtension（`app.tibi.share`，分享面板只接受网页）、TibiWidget（`app.tibi.widget`，iOS 17 起）；主应用和两个扩展都加 App Groups（`group.app.tibi`），主应用内嵌两个扩展。可以重复跑。
+
+```bash
+cd apps/desktop && pnpm tauri ios init
+pip3 install pyyaml && brew install xcodegen
+python3 src-tauri/ios-extensions/add-targets.py
+```
+
+CI 的 `ios-smoke` 每次都这样生成，在 iPhone 模拟器里检查：两个扩展被系统登记（`pluginkit`）、App Group 里有主应用写的 `widget.json`、放进 `share-inbox/` 的网址在主应用打开后被取走。
+
+真机还要：在 Apple 开发者后台给三个 bundle id 开 App Groups（`group.app.tibi`），主应用另开 iCloud（Documents，容器 `iCloud.app.tibi`，同步用），`tauri.ios.conf.json` 填 `developmentTeam`。然后 Safari 打开文章 → 分享 → Tibi → 导入；回到 Tibi 书架里应该有这篇。主屏长按加 Tibi 小组件。

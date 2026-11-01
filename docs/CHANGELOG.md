@@ -146,3 +146,4 @@
 | 2026-11-01 | 发布流程加 `ios-smoke`：GitHub macOS runner 上 `tauri ios init` + `tauri ios dev` 在 iPhone 模拟器里跑，截图用 Vision 识别出欢迎面板、无崩溃即通过。开发说明 §6 同步 |
 | 2026-11-01 | iOS 第一次跑起来：GitHub macOS runner 的 iPhone 模拟器（iOS 26.5）里，Rust 壳、插件、WKWebView、WebView 里的 Core 都起来了，屏幕识别出欢迎面板和「今天」页。冒烟脚本修 pipefail 下 `| grep -q` 误判。开发说明 §6、00 §3.13 同步 |
 | 2026-11-01 | 发布流程整轮全绿前的最后一处：`android-smoke` 查崩溃只看 Tibi 自己（uiautomator 进程的崩溃不算）；`ios-smoke` 通过。 |
+| 2026-11-01 | iOS 扩展加进工程不用手点 Xcode：`ios-extensions/add-targets.py` 改 xcodegen 工程（分享扩展、小组件、三个 target 的 App Groups、内嵌）；`ios-smoke` 加检查：扩展被系统登记、App Group 里有小组件快照、分享收件箱被主应用取走。开发说明 §6 同步 |

@@ -238,8 +238,8 @@ jobs:
           path: smoke/
           retention-days: 7
 
-  # iOS 冒烟测试：tauri ios init 生成工程，tauri ios dev 在模拟器里编译、安装、打开（模拟器不用签名），
-  # 截图后用 Vision 识别屏幕文字，看到欢迎面板、进程活着、没有崩溃报告就算过（.github/scripts/ios-smoke.sh）
+  # iOS 冒烟测试：tauri ios init 生成工程、加上分享扩展和小组件两个 target，tauri ios dev 在模拟器里编译、安装、打开（模拟器不用签名），
+  # 截图后用 Vision 识别屏幕文字看到欢迎面板；两个扩展已登记、App Group 里有小组件快照、分享收件箱被取走（.github/scripts/ios-smoke.sh）
   ios-smoke:
     needs: dict
     runs-on: macos-latest
@@ -269,6 +269,10 @@ jobs:
       - name: tauri ios init
         working-directory: apps/desktop
         run: pnpm tauri ios init --ci
+      - name: 加 Safari 分享扩展、小组件两个 target（xcodegen）
+        run: |
+          python3 -c "import yaml" 2>/dev/null || pip3 install --break-system-packages pyyaml || pip3 install --user pyyaml
+          python3 apps/desktop/src-tauri/ios-extensions/add-targets.py
       - name: 建一个专用的 iPhone 模拟器并开机
         # 同一个机型在 runner 上有好几个 iOS 版本，tauri ios dev 按名字找会挑到没开机的那个；建一个名字唯一的
         run: |

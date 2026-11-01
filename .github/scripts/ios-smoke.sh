@@ -27,4 +27,23 @@ crash=$(ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -i -E "tibi" || t
 [ -z "$crash" ] || { echo "== 有崩溃报告：$crash"; head -60 ~/Library/Logs/DiagnosticReports/$(echo "$crash" | head -1); exit 1; }
 running >/dev/null || { echo "进程不在了"; exit 1; }
 [ "$ok" = 0 ] || { echo "2 分钟内屏幕上没出现欢迎面板"; exit 1; }
+
+# 两个扩展（ios-extensions/add-targets.py 加进工程、随应用内嵌）：系统登记了没有
+ext=0
+for id in app.tibi.share app.tibi.widget; do
+  xcrun simctl spawn "$DEV" pluginkit -m -A -D -v -i "$id" > "$OUT/pluginkit-$id.txt" 2>&1
+  if grep -q "$id" "$OUT/pluginkit-$id.txt"; then echo "✓ 扩展已登记：$(head -1 "$OUT/pluginkit-$id.txt" | tr -s ' ')"; else echo "✗ 扩展没登记：$id"; cat "$OUT/pluginkit-$id.txt"; ext=1; fi
+done
+# App Group：主应用写了小组件快照；分享扩展放进收件箱的网址，主应用打开时取走（app_group.rs、mobile/native.ts）
+G=$(xcrun simctl get_app_container "$DEV" app.tibi group.app.tibi 2>&1) || { echo "✗ 拿不到 App Group 目录：$G"; ext=1; G=""; }
+if [ -n "$G" ]; then
+  echo "App Group 目录：$G"
+  if [ -s "$G/widget.json" ]; then echo "✓ 小组件快照：$(cat "$G/widget.json")"; else echo "✗ 没有 widget.json"; ls -la "$G"; ext=1; fi
+  mkdir -p "$G/share-inbox"
+  echo '{"url":"https://go.dev/blog/go1.21","title":"Go 1.21","later":false,"at":0}' > "$G/share-inbox/9999999999999.json"
+  xcrun simctl terminate "$DEV" app.tibi >/dev/null 2>&1; sleep 2; xcrun simctl launch "$DEV" app.tibi >/dev/null
+  taken=1; for _ in $(seq 1 30); do sleep 2; [ -e "$G/share-inbox/9999999999999.json" ] || { taken=0; break; }; done
+  if [ "$taken" = 0 ]; then echo "✓ 主应用打开后取走了分享收件箱里的网址"; else echo "✗ 分享收件箱里的网址 60 秒没被取走"; ext=1; fi
+fi
+[ "$ext" = 0 ] || { echo "扩展 / App Group 检查没通过"; exit 1; }
 echo "OK"
