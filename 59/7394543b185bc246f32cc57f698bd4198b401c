@@ -1,0 +1,23 @@
+.gitignore
+  s_1b09b67c07c903::t_63cbc9178415cd 33-34
+docs/dev/README.md
+  s_1b09b67c07c903::t_678d2e215d663b 103
+docs/CHANGELOG.md
+  s_1b09b67c07c903::t_51c05af8652f91 158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "597394543b185bc246f32cc57f698bd4198b401c",
+  "prompts": {},
+  "sessions": {
+    "s_1b09b67c07c903": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9e9f4298-7db2-408f-8659-d381dfd34f88",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
