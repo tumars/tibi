@@ -18,7 +18,7 @@ export const systemMethods: MethodMap = {
     const deep = providers.find(p => p.tier === 'deep')?.model;
     return {
       version: info.app_version, db_path: info.db_path, offline: !ctx.platform.isOnline(),
-      models: { fast, deep, ok: !!fast },
+      models: { fast, deep, ok: !!(fast ?? deep) },
       budget: { month_spent: Number(spent?.c ?? 0), limit: b['budget.month'] ?? 20, per_task: b['budget.task'] ?? 1 },
       pending_approvals: Number(pending?.n ?? 0), running_tasks: Number(running?.n ?? 0),
     };

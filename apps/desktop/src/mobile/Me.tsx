@@ -133,7 +133,7 @@ function SyncPanel({ st, onChange }: { st?: SyncStatus; onChange: (s: SyncStatus
 }
 
 /** 模型（手机可以单独用：自己的 API Key，存 iOS 钥匙串） */
-function ModelPanel({ onDone }: { onDone: () => void }) {
+export function ModelPanel({ onDone }: { onDone: () => void }) {
   const [key, setKey] = useState(''); const [busy, setBusy] = useState(false);
   const save = async () => {
     setBusy(true);
@@ -148,7 +148,7 @@ function ModelPanel({ onDone }: { onDone: () => void }) {
     <p className="note2">{tl('连上模型后才能讲解和总结。推荐 DeepSeek：便宜、中文好。Key 只存在这台手机的钥匙串里。')}</p>
     <input className="field" type="password" value={key} onChange={e => setKey(e.target.value)} placeholder="DeepSeek API Key" autoCapitalize="off" autoCorrect="off" />
     <button className="btn pri full" style={{ marginTop: 14 }} disabled={!key.trim() || busy} onClick={() => void save()}>{busy ? tl('正在连接…') : tl('保存并测试')}</button>
-    <p className="note2">{tl('其他 OpenAI 兼容的服务在电脑上的 设置 → 高级 → 模型 里添加。')}</p>
+    <p className="note2">{tl('其他 OpenAI 兼容的服务在电脑上的 设置 → 模型 里添加。')}</p>
   </>;
 }
 

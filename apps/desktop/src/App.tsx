@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router';
 import { Shell } from './components/Shell';
 import { Toasts } from './components/Toasts';
@@ -20,6 +20,7 @@ import { startDesktopReminder, type ReminderTime } from './lib/reminder';
 
 export function App() {
   const nav = useNavigate();
+  const modelAsked = useRef(false);
   // 每日提醒（J8）：应用开着（含托盘里）时到点提醒
   useEffect(() => {
     let time: ReminderTime = 'off';
@@ -32,12 +33,15 @@ export function App() {
     bindCoreEvents();
     // 朗读设置（tts.*）
     void rpc.call('settings.get', { keys: ['tts.engine', 'tts.voice', 'tts.rate'] }).then(s => void import('./lib/tts').then(t => t.configure({ engine: (s['tts.engine'] as 'system' | 'kokoro') ?? 'system', voice: (s['tts.voice'] as string) ?? '', rate: Number(s['tts.rate'] ?? 1) || 1 })), () => undefined);
-    // 第一次打开（没走过引导、书架是空的）进首次启动引导；已有文章的老库直接记为走过（00 §3.9）
+    // 第一次打开（没走过引导、书架是空的）进首次启动引导，其中有连接模型一步；已有文章的老库直接记为走过（00 §3.9）
     void useCore.getState().refresh().then(async () => {
       const st = useCore.getState(); if (!st.connected) return;
       const s = await rpc.call('settings.get', { keys: [ONBOARDING_KEY] }).catch(() => ({} as Record<string, unknown>));
-      if (s[ONBOARDING_KEY]) return;
-      if (st.docCount > 0) { void rpc.call('settings.set', { patch: { [ONBOARDING_KEY]: true } }); return; }
+      // 走过引导但还没连模型：每次打开先问一次（可以"先不连"）；只在首页问，不打断深链和刷新。nav 随路由变，这段会重跑，所以记一下问过没有
+      const first = !modelAsked.current; modelAsked.current = true;
+      const askModel = () => { if (first && !st.status?.models.ok && /^#?\/?$/.test(location.hash)) nav('/welcome?step=3&from=home', { replace: true }); };
+      if (s[ONBOARDING_KEY]) { askModel(); return; }
+      if (st.docCount > 0) { void rpc.call('settings.set', { patch: { [ONBOARDING_KEY]: true } }); askModel(); return; }
       if (!location.hash.startsWith('#/welcome')) nav('/welcome', { replace: true });
     });
     const offDone = rpc.on('task.done', d => {

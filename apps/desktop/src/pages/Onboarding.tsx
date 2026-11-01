@@ -12,7 +12,7 @@ import { tl } from '../lib/i18n';
 
 /**
  * 首次启动引导（00 §3.9，原型 onboarding.html）。没有侧栏，一张居中的卡片。
- * 主流程两步：1 先认识一下 → 读第一篇。另有两个单独入口：?step=2 校准词汇量、?step=3 连接模型，完成后回到 from。
+ * 主流程三步：先认识一下 → 连接模型 → 读第一篇。另有两个单独入口：?step=2 校准词汇量、?step=3 连接模型，完成后回到 from。
  */
 const GOALS = [['work', tl('工作里读文档和邮件')], ['ielts', tl('雅思 / 托福')], ['novel', tl('读原版书')], ['cet', tl('考研 / CET')], ['interest', tl('就是感兴趣')]] as const;   // 取值与设置页一致
 const LEVELS = [['beginner', tl('入门'), tl('能看懂简单句子，长一点就吃力')], ['intermediate', tl('中级'), tl('能读新闻大意，生词不少')], ['upper', tl('中高级'), tl('能读大部分文章，偶尔查词')], ['advanced', tl('高级'), tl('读原版书和论文基本不费劲')]] as const;
@@ -41,6 +41,7 @@ export function Onboarding() {
   const [mats, setMats] = useState<string[]>(['tech', 'news']);
   const [lang, setLang] = useState('mixed');
   const vocab = useCore(s => s.vocab);
+  const [modelOk] = useState(() => !!useCore.getState().status?.models.ok);   // 进来时就连好了（如同步过来）才跳过；不随本步连上而变，上一步还能回到这里
 
   const saveProfile = async (skip: boolean) => {
     try {
@@ -63,7 +64,8 @@ export function Onboarding() {
           <div className="obsay">{say}</div>
           {!single && <ol className="obsteps">
             <li className={step === 1 ? 'cur' : 'done'}><i>{step === 1 ? 1 : <Check size={12} strokeWidth={3.5} />}</i>{tl('先认识一下')}</li>
-            <li className={step === 4 ? 'cur' : ''}><i>2</i>{tl('读第一篇')}</li>
+            <li className={step === 3 ? 'cur' : step === 4 ? 'done' : ''}><i>{step === 4 ? <Check size={12} strokeWidth={3.5} /> : 2}</i>{tl('连接模型')}</li>
+            <li className={step === 4 ? 'cur' : ''}><i>3</i>{tl('读第一篇')}</li>
           </ol>}
         </aside>
         <section className="right">
@@ -77,12 +79,12 @@ export function Onboarding() {
             <div className="f"><span className="t">{tl('Tibi 和你说话时')}</span><div className="opts">{LANGS.map(([v, l]) => <button key={v} className={`chip${lang === v ? ' on' : ''}`} onClick={() => setLang(v)}>{l}</button>)}</div></div>
           </div>}
           {step === 2 && <VocabTest onFox={setFox} onSay={setSay} onDone={() => leave(backTo)} onCancel={() => nav(backTo, { replace: true })} backLabel={backLabel} />}
-          {step === 3 && <ConnectModel onFox={setFox} onSay={setSay} onDone={() => leave(backTo)} onCancel={() => { toast(tl('已跳过，之后可在设置里连接')); nav(backTo, { replace: true }); }} backLabel={backLabel} />}
-          {step === 4 && <FirstRead vocab={vocab} onFox={setFox} onSay={setSay} onOpen={id => { void markDone(); leave(`/read/${id}`); }} onSkip={() => { void markDone(); leave('/'); }} onBack={() => go(1)} />}
+          {step === 3 && <ConnectModel onFox={setFox} onSay={setSay} onDone={() => { if (single) leave(backTo); else go(4); }} onCancel={() => { toast(tl('已跳过，之后可在设置里连接')); if (single) nav(backTo, { replace: true }); else go(4); }} doneLabel={single ? tl('保存并回到{backLabel}', { backLabel }) : tl('继续')} />}
+          {step === 4 && <FirstRead vocab={vocab} onFox={setFox} onSay={setSay} onOpen={id => { void markDone(); leave(`/read/${id}`); }} onSkip={() => { void markDone(); leave('/'); }} onBack={() => go(modelOk ? 1 : 3)} />}
           {step === 1 && <footer className="foot">
             <span className="sp" />
-            <button className="skip" onClick={async () => { await saveProfile(true); go(4); }}>{tl('跳过')}</button>
-            <button className="btn pri" onClick={async () => { await saveProfile(false); go(4); }}>{tl('继续')}</button>
+            <button className="skip" onClick={async () => { await saveProfile(true); go(modelOk ? 4 : 3); }}>{tl('跳过')}</button>
+            <button className="btn pri" onClick={async () => { await saveProfile(false); go(modelOk ? 4 : 3); }}>{tl('继续')}</button>
           </footer>}
         </section>
       </div>
@@ -202,7 +204,7 @@ function VocabTest({ onFox, onSay, onDone, onCancel, backLabel }: { onFox: (s: s
 }
 
 /* ---------- 连接模型（?step=3） ---------- */
-function ConnectModel({ onFox, onSay, onDone, onCancel, backLabel }: { onFox: (s: string) => void; onSay: (s: string) => void; onDone: () => void; onCancel: () => void; backLabel: string }) {
+function ConnectModel({ onFox, onSay, onDone, onCancel, doneLabel }: { onFox: (s: string) => void; onSay: (s: string) => void; onDone: () => void; onCancel: () => void; doneLabel: string }) {
   const [prov, setProv] = useState<'deepseek' | 'custom'>('deepseek');
   const [key, setKey] = useState('');
   const [base, setBase] = useState('');
@@ -218,7 +220,7 @@ function ConnectModel({ onFox, onSay, onDone, onCancel, backLabel }: { onFox: (s
       if (p.deep && p.deep !== p.fast) await saveProvider({ name: p.name, base_url: p.base_url, model: p.deep, tier: 'deep', is_default: true, key });
       if (!keyStored) { setConn({ state: 'err', text: tl('浏览器模式不能写钥匙串。dev 下用环境变量 TIBI_SECRET_<REF>') }); onFox('idle'); return; }
       const r = await rpc.call('providers.test', { id: provider.id });
-      if (r.ok) { setConn({ state: 'ok', text: tl('连接成功 · {v0}{v1}', { v0: r.model ?? p.fast, v1: r.latency_ms ? ` · ${r.latency_ms} ms` : '' }) }); onFox('happy'); onSay(tl('连接成功。')); }
+      if (r.ok) { setConn({ state: 'ok', text: tl('连接成功 · {v0}{v1}', { v0: r.model ?? p.fast, v1: r.latency_ms ? ` · ${r.latency_ms} ms` : '' }) }); onFox('happy'); onSay(tl('连接成功。')); void useCore.getState().refresh(); }
       else { setConn({ state: 'err', text: tl('连接失败：{v0}', { v0: r.error ?? '' }) }); onFox('idle'); }
     } catch (e) { setConn({ state: 'err', text: errorInfo(e).message }); onFox('idle'); }
   };
@@ -238,7 +240,7 @@ function ConnectModel({ onFox, onSay, onDone, onCancel, backLabel }: { onFox: (s
     <footer className="foot">
       <span className="sp" />
       <button className="skip" onClick={onCancel}>{tl('先不连')}</button>
-      <button className="btn pri" disabled={conn?.state !== 'ok'} onClick={() => { toast(tl('模型已连接')); onDone(); }}>{tl('保存并回到{backLabel}', { backLabel })}</button>
+      <button className="btn pri" disabled={conn?.state !== 'ok'} onClick={() => { toast(tl('模型已连接')); onDone(); }}>{doneLabel}</button>
     </footer>
   </>;
 }

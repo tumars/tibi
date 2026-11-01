@@ -1,12 +1,12 @@
-import type { Profile, Provider } from '@tibi/core';
+import type { Profile } from '@tibi/core';
 import { ChevronDown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Top } from '../components/Shell';
 import { Switch } from '../components/Switch';
-import { saveProvider } from '../lib/providers';
 import { BackupItems, ExportSummaryItem } from '../settings/DataItems';
 import { MemoryItems } from '../settings/MemoryItems';
+import { ModelItems } from '../settings/ModelItems';
 import { VoiceItems } from '../settings/VoiceItems';
 import { SkillItems } from '../settings/SkillItems';
 import { McpItems } from '../settings/McpItems';
@@ -16,7 +16,7 @@ import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
 import { lang, setLang, tl } from '../lib/i18n';
 
-const SECTIONS = [['general', tl('通用')], ['learning', tl('学习与复习')], ['memory', tl('记忆')], ['advanced', tl('高级')], ['data', tl('数据')], ['about', tl('关于')]] as const;
+const SECTIONS = [['general', tl('通用')], ['model', tl('模型')], ['learning', tl('学习与复习')], ['memory', tl('记忆')], ['advanced', tl('高级')], ['data', tl('数据')], ['about', tl('关于')]] as const;
 
 export function Settings() {
   const nav = useNavigate();
@@ -29,12 +29,10 @@ export function Settings() {
   const [params] = useSearchParams();
   const [sec, setSec] = useState<string>(params.get('sec') ?? 'general');
   const [profile, setProfile] = useState<Profile>();
-  const [providers, setProviders] = useState<Provider[]>([]);
   const [budget, setBudget] = useState<{ month: number; task: number }>({ month: 20, task: 1 });
   const [adv, setAdv] = useState(false);
-  const [editing, setEditing] = useState<Partial<Provider> & { key?: string }>();
 
-  // 全局搜索跳到某一项：?sec=advanced&item=模型 → 滚过去并闪一下浅蓝底
+  // 全局搜索跳到某一项：?sec=advanced&item=花费上限 → 滚过去并闪一下浅蓝底
   const secParam = params.get('sec'), itemParam = params.get('item');
   useEffect(() => {
     if (!secParam) return;
@@ -50,24 +48,11 @@ export function Settings() {
   }, [secParam, itemParam]);
   useEffect(() => {
     rpc.call('profile.get', {}).then(setProfile, () => undefined);
-    rpc.call('providers.list', {}).then(setProviders, () => undefined);
     rpc.call('settings.get', { keys: ['budget.month', 'budget.task'] }).then(s => setBudget({ month: (s['budget.month'] as number) ?? 20, task: (s['budget.task'] as number) ?? 1 }), () => undefined);
   }, []);
 
   const patch = async (p: Partial<Profile>) => { try { setProfile(await rpc.call('profile.update', { patch: p })); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
   const setBudgetKey = async (k: 'month' | 'task', v: number) => { setBudget(b => ({ ...b, [k]: v })); try { await rpc.call('settings.set', { patch: { [`budget.${k}`]: v } }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
-
-  const onSaveProvider = async () => {
-    if (!editing) return;
-    try {
-      const { provider: p, keyStored } = await saveProvider(editing);
-      if (editing.key && !keyStored) toast(tl('浏览器模式不能写钥匙串。dev 下用环境变量 TIBI_SECRET_<REF>'));
-      setProviders(ps => ps.some(x => x.id === p.id) ? ps.map(x => x.id === p.id ? p : x) : [...ps, p]); setEditing(undefined); toast(tl('已保存'));
-    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  };
-  const testProvider = async (id: string) => {
-    try { const r = await rpc.call('providers.test', { id }); toast(r.ok ? tl('连接成功{v0}', { v0: r.latency_ms ? ` · ${r.latency_ms} ms` : '' }) : tl('连接失败：{v0}', { v0: r.error ?? '' }), { kind: r.ok ? undefined : 'err' }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  };
 
   const Range = ({ label, value, min, max, step, unit, onChange, desc }: { label: string; value: number; min: number; max: number; step: number; unit: string; onChange: (v: number) => void; desc?: string }) => (
     <div className="item"><div><div className="t">{label}</div>{desc && <div className="d">{desc}</div>}</div><div className="ctl"><input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} aria-label={label} /><b style={{ minWidth: 56, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{value}{unit}</b></div></div>
@@ -93,6 +78,10 @@ export function Settings() {
                       <VoiceItems />
           </div></section>
 
+          <section className="ssec" id="s-model"><h2>{tl('模型')}</h2><div className="group">
+            <ModelItems />
+          </div></section>
+
           <section className="ssec" id="s-learning"><h2>{tl('学习与复习')}</h2><div className="group">
             <div className="item"><div><div className="t">{tl('每日提醒')}</div><div className="d">{tl('到点提醒今天要复习的词；电脑上要 Tibi 开着（托盘里也行）')}</div></div><div className="ctl"><div className="seg">{([['off', tl('关闭')], ['morning', tl('早上 8 点')], ['noon', tl('中午 12 点')], ['evening', tl('晚上 8 点')]] as const).map(([v, l]) => <button key={v} className={reminder === v ? 'on' : ''} onClick={() => { setReminder(v); void rpc.call('settings.set', { patch: { 'reminder.time': v } }); }}>{l}</button>)}</div></div></div>
             <div className="item"><div><div className="t">{tl('Tibi 讲解用的语言')}</div><div className="d">{tl('总结、释义、对话回答用什么语言')}</div></div><div className="ctl"><div className="seg">{([['mixed', tl('中文夹英文')], ['zh', tl('只用中文')], ['en', 'English']] as const).map(([v, l]) => <button key={v} className={(profile?.assistant_prefs?.language ?? 'mixed') === v ? 'on' : ''} onClick={() => patch({ assistant_prefs: { ...(profile?.assistant_prefs ?? { nickname: '你', permission: 'default' }), language: v } })}>{l}</button>)}</div></div></div>
@@ -108,22 +97,8 @@ export function Settings() {
 
           <section className="ssec" id="s-advanced">
             <h2>{tl('高级')}</h2>
-            <button className="advtog" onClick={() => setAdv(!adv)} aria-expanded={adv}><span style={{ flex: 1 }}>{tl('模型、花费上限')}</span><ChevronDown size={14} style={{ transform: adv ? 'rotate(180deg)' : undefined }} /></button>
+            <button className="advtog" onClick={() => setAdv(!adv)} aria-expanded={adv}><span style={{ flex: 1 }}>{tl('能做的事、花费上限、其他 AI 工具')}</span><ChevronDown size={14} style={{ transform: adv ? 'rotate(180deg)' : undefined }} /></button>
             {adv && <>
-              <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('模型')}</h3>
-              <div className="group">
-                {providers.map(p => <div key={p.id} className="prov"><div><div className="t" style={{ fontSize: 14, fontWeight: 500 }}>{p.name} <span className="tagc">{p.tier === 'deep' ? tl('深入') : tl('快速')}{p.is_default ? tl(' · 默认') : ''}</span> <span className="tagc" style={{ color: p.has_secret ? 'var(--ok)' : 'var(--ink-3)' }}>{p.has_secret ? tl('已配置密钥') : tl('未配置密钥')}</span></div><div className="lbl">{p.model}{p.base_url ? ` · ${p.base_url}` : ''}</div></div><div className="ctl"><button className="btn sm" onClick={() => testProvider(p.id)}>{tl('测试连接')}</button><button className="btn sm" onClick={() => setEditing({ ...p })}>{tl('编辑')}</button></div></div>)}
-                {!providers.length && !editing && <div className="item"><div><div className="t">{tl('还没有连接模型')}</div><div className="d">{tl('不连模型时查词、标注、复习照常。导入文章的总结、语境释义需要模型。')}</div></div><div className="ctl"><button className="btn sm pri" onClick={() => setEditing({ name: 'DeepSeek', kind: 'llm', protocol: 'openai_compatible', base_url: 'https://api.deepseek.com', model: 'deepseek-flash', tier: 'fast', is_default: true })}>{tl('连接 DeepSeek')}</button><button className="btn sm" onClick={() => setEditing({ name: '', kind: 'llm', protocol: 'openai_compatible', base_url: '', model: '', tier: 'fast', is_default: !providers.length })}>{tl('其他兼容服务')}</button></div></div>}
-                {editing && <div className="pform">
-                  <span>{tl('名称')}</span><input className="input" value={editing.name ?? ''} onChange={e => setEditing({ ...editing, name: e.target.value })} />
-                  <span>Base URL</span><input className="input" value={editing.base_url ?? ''} onChange={e => setEditing({ ...editing, base_url: e.target.value })} placeholder="https://api.deepseek.com" />
-                  <span>{tl('模型')}</span><input className="input" value={editing.model ?? ''} onChange={e => setEditing({ ...editing, model: e.target.value })} placeholder="deepseek-flash" />
-                  <span>{tl('档位')}</span><select className="input" value={editing.tier ?? 'fast'} onChange={e => setEditing({ ...editing, tier: e.target.value as 'fast' | 'deep' })}><option value="fast">{tl('快速')}</option><option value="deep">{tl('深入')}</option></select>
-                  <span>API Key</span><input className="input" type="password" value={editing.key ?? ''} onChange={e => setEditing({ ...editing, key: e.target.value })} placeholder={editing.has_secret ? tl('已保存，留空不改') : 'sk-…'} />
-                  <div className="row"><button className="btn sm pri" onClick={onSaveProvider}>{tl('保存')}</button><button className="btn sm" onClick={() => setEditing(undefined)}>{tl('取消')}</button><span className="lbl" style={{ alignSelf: 'center' }}>{tl('Key 只存在这台电脑的钥匙串里')}</span></div>
-                </div>}
-                {providers.length > 0 && !editing && <div className="item"><div className="lbl">{tl('添加其他 OpenAI 兼容服务')}</div><div className="ctl"><button className="btn sm" onClick={() => setEditing({ name: '', kind: 'llm', protocol: 'openai_compatible', base_url: '', model: '', tier: 'deep', is_default: false })}>{tl('添加')}</button></div></div>}
-              </div>
               <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('Tibi 能做的事')}</h3>
               <div className="group"><SkillItems /></div>
               <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('花费上限')}</h3>

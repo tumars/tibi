@@ -4,7 +4,7 @@
 export function friendlyModelError(raw: string): string {
   const s = raw.replace(/\s+/g, ' ');
   const code = /\b(4\d\d|5\d\d)\b/.exec(s)?.[1];
-  if (/\b401\b|unauthori[sz]ed|authentication|invalid api key|api key.*invalid|incorrect api key/i.test(s)) return 'API Key 不对或已经失效（服务商返回 401）。到 设置 → 高级 → 模型 重新填写。';
+  if (/\b401\b|unauthori[sz]ed|authentication|invalid api key|api key.*invalid|incorrect api key/i.test(s)) return 'API Key 不对或已经失效（服务商返回 401）。到 设置 → 模型 重新填写。';
   if (/\b402\b|insufficient (balance|quota)|余额不足|billing|payment required/i.test(s)) return '服务商账户余额不足（402）。充值后再试。';
   if (/\b403\b|forbidden|permission/i.test(s)) return '服务商拒绝了这个请求（403）。检查 Key 的权限或模型名。';
   if (/\b404\b|model.*(not found|does not exist)|no such model/i.test(s)) return '服务商那里没有这个模型（404）。检查模型名。';

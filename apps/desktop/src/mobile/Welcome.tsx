@@ -4,14 +4,16 @@ import { tl } from '../lib/i18n';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
+import { ModelPanel } from './Me';
 import { Sheet } from './ui';
 
 const KEY = 'onboarding.done';
 const LEVELS = [['beginner', tl('入门'), tl('能看懂简单句子，长一点就吃力')], ['intermediate', tl('中级'), tl('能读新闻大意，生词不少')], ['upper', tl('中高级'), tl('能读大部分文章，偶尔查词')], ['advanced', tl('高级'), tl('读原版书和论文基本不费劲')]] as const;
 
-/** 手机第一次打开（00 §3.9 的简化版）：选水平 → 放一篇示例。电脑上已经有数据、同步过来的，不再问 */
+/** 手机第一次打开（00 §3.9 的简化版）：选水平 → 放一篇示例 → 连接模型。电脑上已经有数据、同步过来的，不再问水平；还没连模型的，每次打开问一次 */
 export function Welcome() {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<'level' | 'model'>('level');
   const [level, setLevel] = useState<string>('intermediate');
   // 等 Core 连上再判断（手机上 Core 在 WebView 里起，打开词典可能要几秒；只在挂载时查一次会错过，第一次打开就不弹欢迎）
   useEffect(() => {
@@ -20,9 +22,10 @@ export function Welcome() {
       const st = useCore.getState(); if (done || !st.connected) return;
       done = true;
       const s = await rpc.call('settings.get', { keys: [KEY] }).catch(() => ({} as Record<string, unknown>));
-      if (s[KEY]) return;
+      const noModel = !st.status?.models.ok;
+      if (s[KEY]) { if (noModel) { setStep('model'); setOpen(true); } return; }
       const docs = await rpc.call('documents.list', { limit: 1 }).catch(() => ({ total: 0 }));
-      if (docs.total > 0) { void rpc.call('settings.set', { patch: { [KEY]: true } }); return; }
+      if (docs.total > 0) { void rpc.call('settings.set', { patch: { [KEY]: true } }); if (noModel) { setStep('model'); setOpen(true); } return; }
       setOpen(true);
     };
     void useCore.getState().refresh().then(check);
@@ -35,9 +38,16 @@ export function Welcome() {
       await rpc.call('settings.set', { patch: { [KEY]: true } });
       const samples = await rpc.call('documents.samples', {}).catch(() => []);
       if (samples[0]) await rpc.call('documents.import', { source: { type: 'sample', id: samples[0].id } });
-      setOpen(false); void useCore.getState().refresh();
+      if (useCore.getState().status?.models.ok) setOpen(false); else setStep('model');
+      void useCore.getState().refresh();
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
+  if (step === 'model') return (
+    <Sheet open={open} onClose={() => setOpen(false)} tall>
+      <ModelPanel onDone={() => setOpen(false)} />
+      <button className="btn full" style={{ marginTop: 8 }} onClick={() => setOpen(false)}>{tl('先不连')}</button>
+    </Sheet>
+  );
   return (
     <Sheet open={open} onClose={() => undefined} tall>
       <div style={{ display: 'flex', justifyContent: 'center' }}><Fox size={96} state="happy" /></div>

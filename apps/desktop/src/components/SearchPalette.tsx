@@ -33,7 +33,7 @@ const SETTINGS: { label: string; sec: string; kw: string }[] = [
   { label: '目标记得率', sec: 'learning', kw: 'fsrs 记得率 retention 复习' },
   { label: '出识别题', sec: 'learning', kw: '识别 题型 recognize' },
   { label: '暂停记住新的事', sec: 'memory', kw: '记忆 memory 隐私' },
-  { label: '模型', sec: 'advanced', kw: 'api key deepseek 模型 连接 model provider openai' },
+  { label: '模型', sec: 'model', kw: 'api key deepseek 模型 连接 model provider openai' },
   { label: 'Tibi 能做的事', sec: 'advanced', kw: '技能 订阅源 rss feed skill' },
   { label: '花费上限', sec: 'advanced', kw: '预算 花费 钱 budget cost' },
   { label: '其他 AI 工具', sec: 'advanced', kw: 'mcp claude code codex' },
@@ -175,4 +175,4 @@ export function SearchPalette() {
   );
 }
 
-const SECTION_LABEL: Record<string, string> = { general: '通用', learning: '学习与复习', memory: '记忆', advanced: '高级', data: '数据' };
+const SECTION_LABEL: Record<string, string> = { general: '通用', model: '模型', learning: '学习与复习', memory: '记忆', advanced: '高级', data: '数据' };
