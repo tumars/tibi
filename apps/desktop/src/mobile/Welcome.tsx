@@ -13,14 +13,21 @@ const LEVELS = [['beginner', tl('入门'), tl('能看懂简单句子，长一点
 export function Welcome() {
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<string>('intermediate');
+  // 等 Core 连上再判断（手机上 Core 在 WebView 里起，打开词典可能要几秒；只在挂载时查一次会错过，第一次打开就不弹欢迎）
   useEffect(() => {
-    void useCore.getState().refresh().then(async () => {
-      const st = useCore.getState(); if (!st.connected) return;
+    let done = false;
+    const check = async () => {
+      const st = useCore.getState(); if (done || !st.connected) return;
+      done = true;
       const s = await rpc.call('settings.get', { keys: [KEY] }).catch(() => ({} as Record<string, unknown>));
       if (s[KEY]) return;
-      if (st.docCount > 0) { void rpc.call('settings.set', { patch: { [KEY]: true } }); return; }
+      const docs = await rpc.call('documents.list', { limit: 1 }).catch(() => ({ total: 0 }));
+      if (docs.total > 0) { void rpc.call('settings.set', { patch: { [KEY]: true } }); return; }
       setOpen(true);
-    });
+    };
+    void useCore.getState().refresh().then(check);
+    const off = useCore.subscribe(() => void check());
+    return () => { done = true; off(); };
   }, []);
   const start = async () => {
     try {

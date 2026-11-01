@@ -174,7 +174,7 @@ jobs:
           path: out/*.apk
           retention-days: 7
 
-  # Android 冒烟测试：x86_64 APK（临时密钥签名）装进带 KVM 的模拟器，打开、点「开始」，看进程活着、没有崩溃；屏幕文字打进日志
+  # Android 冒烟测试：x86_64 debug APK 装进带 KVM 的模拟器，经 DevTools 协议走一遍欢迎 → 示例进书架 → 阅读 → 点词查词典；看进程活着、没有崩溃
   android-smoke:
     needs: dict
     runs-on: ubuntu-latest
@@ -206,17 +206,13 @@ jobs:
           name: dict
           path: data/ecdict
       - run: node apps/desktop/scripts/bundle-prep.mjs --skip-sidecar
-      - name: tauri android build（x86_64）
+      # debug 包：WebView 开着远程调试，冒烟脚本用 DevTools 协议点界面；Gradle 用调试密钥签好
+      - name: tauri android build（x86_64，debug）
         working-directory: apps/desktop
-        run: NDK_HOME=$ANDROID_NDK_LATEST_HOME pnpm tauri android build --apk --target x86_64 --ci
-      - name: 临时密钥签名
-        run: |
-          BT=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
-          keytool -genkeypair -keystore smoke.keystore -storepass android -keypass android -alias smoke -keyalg RSA -keysize 2048 -validity 30 -dname "CN=Tibi Smoke"
-          ${BT}zipalign -f -p 4 apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk aligned.apk
-          ${BT}apksigner sign --ks smoke.keystore --ks-pass pass:android --out tibi-x86_64.apk aligned.apk
+        run: NDK_HOME=$ANDROID_NDK_LATEST_HOME pnpm tauri android build --apk --debug --target x86_64 --ci
+      - run: cp apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk tibi-x86_64.apk
       - name: 腾磁盘（模拟器的 userdata 要几个 G，runner 编译完只剩 5 G 左右）
-        run: rm -rf apps/desktop/src-tauri/target apps/desktop/src-tauri/gen/android/app/build ~/.gradle/caches aligned.apk && df -h /
+        run: rm -rf apps/desktop/src-tauri/target apps/desktop/src-tauri/gen/android/app/build ~/.gradle/caches && df -h /
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34

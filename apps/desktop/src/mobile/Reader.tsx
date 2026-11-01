@@ -33,7 +33,14 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
     rpc.call('documents.get', { id: id! }).then(d => { setDoc(d as never); setSecId((d as { last_section_id?: string }).last_section_id ?? d.sections.find(s => s.progress < 1)?.id ?? d.sections[0]?.id); }, e => setErr(errorInfo(e).message));
     rpc.call('chat.open', { document_id: id! }).then(c => setConv(c.id), () => undefined);
   }, [id]);
-  useEffect(() => { if (!secId) return; restored.current = false; rpc.call('sections.get', { id: secId, with: ['translations'] }).then(setContent, e => setErr(errorInfo(e).message)); }, [secId]);
+  useEffect(() => {
+    if (!secId) return; restored.current = false; let alive = true;
+    const get = () => rpc.call('sections.get', { id: secId, with: ['translations'] }).then(c => { if (alive) setContent(c); }, e => { if (alive) setErr(errorInfo(e).message); });
+    void get();
+    // 刚导入、还在分词标注时就打开：句子还没有 tokens（词点不了）；标注做完文章会变（data.changed documents），再取一次
+    const off = rpc.on('data.changed', d => { if (d.table === 'documents' && d.ids?.includes(id!)) void get(); });
+    return () => { alive = false; off(); };
+  }, [secId, id]);
   // 回到上次位置（R16）
   useEffect(() => {
     if (!content || !doc || restored.current) return; restored.current = true;

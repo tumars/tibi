@@ -55,7 +55,11 @@ export function Reader() {
     let alive = true;
     rpc.call('sections.get', { id: sectionId, with: ['translations'] }).then(c => { if (alive) { setContent(c); setOverrides(new Map()); } }, e => { if (alive) setErr(errorInfo(e).message); });
     // 译文写好后重新取（只换句子，不重置覆盖状态）
-    const off = rpc.on('data.changed', d => { if (d.table === 'sentences' && d.ids?.includes(sectionId)) { setTranslating(false); void rpc.call('sections.get', { id: sectionId, with: ['translations'] }).then(c => { if (alive) setContent(c); }); } });
+    const off = rpc.on('data.changed', d => {
+      if (d.table === 'sentences' && d.ids?.includes(sectionId)) { setTranslating(false); void rpc.call('sections.get', { id: sectionId, with: ['translations'] }).then(c => { if (alive) setContent(c); }); }
+      // 刚导入、还在分词标注时就打开：句子还没有 tokens；标注做完文章会变，再取一次
+      else if (d.table === 'documents' && d.ids?.includes(id!)) void rpc.call('sections.get', { id: sectionId, with: ['translations'] }).then(c => { if (alive) setContent(c); });
+    });
     return () => { alive = false; off(); };
   }, [sectionId]);
 
