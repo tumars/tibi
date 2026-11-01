@@ -148,4 +148,4 @@
 | 2026-11-01 | 发布流程整轮全绿前的最后一处：`android-smoke` 查崩溃只看 Tibi 自己（uiautomator 进程的崩溃不算）；`ios-smoke` 通过。 |
 | 2026-11-01 | iOS 扩展加进工程不用手点 Xcode：`ios-extensions/add-targets.py` 改 xcodegen 工程（分享扩展、小组件、三个 target 的 App Groups、内嵌）；`ios-smoke` 加检查：扩展被系统登记、App Group 里有小组件快照、分享收件箱被主应用取走。开发说明 §6 同步 |
 | 2026-11-01 | `ios-smoke` 全部通过：iPhone 模拟器里欢迎面板出现，分享扩展（app.tibi.share）和小组件（app.tibi.widget）被系统登记，App Group 里有小组件快照、分享收件箱被主应用取走。开发说明 §6、00 §3.13 同步 |
-| 2026-11-01 | v0.1.0：`m0-scaffold` 合进 main，工作流改回 main / tag 触发；打 `v0.1.0` tag，发布流程出草稿 Release（桌面四个目标、Android APK、剪藏插件），人工检查后发布。 |
+| 2026-11-01 | v0.1.0 准备：`m0-scaffold` 合进 main（5935b3c），工作流改回 main / tag 触发。`v0.1.0` tag 还没推上去（开发环境的 git 代理只允许推分支），GitHub Actions 因为账号付款 / 花费上限暂时不启动任务；处理好账单后推 tag，发布流程出草稿 Release（桌面四个目标、Android APK、剪藏插件），人工检查后发布。 |
