@@ -215,11 +215,15 @@ jobs:
           keytool -genkeypair -keystore smoke.keystore -storepass android -keypass android -alias smoke -keyalg RSA -keysize 2048 -validity 30 -dname "CN=Tibi Smoke"
           ${BT}zipalign -f -p 4 apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk aligned.apk
           ${BT}apksigner sign --ks smoke.keystore --ks-pass pass:android --out tibi-x86_64.apk aligned.apk
+      - name: 腾磁盘（模拟器的 userdata 要几个 G，runner 编译完只剩 5 G 左右）
+        run: rm -rf apps/desktop/src-tauri/target apps/desktop/src-tauri/gen/android/app/build ~/.gradle/caches aligned.apk && df -h /
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
           arch: x86_64
           target: default
+          disk-size: 4096M
+          emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           script: bash .github/scripts/android-smoke.sh tibi-x86_64.apk smoke
