@@ -210,12 +210,16 @@ pub fn run() {
 /// 桌面上加 --features mobile-preview 也走这里，用来在电脑上预览手机版、检查这段能编译。
 #[cfg(any(mobile, feature = "mobile-preview"))]
 fn run_mobile() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_http::init());
+    // Android：随包资源（词典）在 APK 的 assets 里，经 fs 插件读出来（local_db.rs）
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_fs::init());
+    builder
         .manage(Allowed::default())
         .manage(local_db::Dbs::default())
         .setup(|app| {

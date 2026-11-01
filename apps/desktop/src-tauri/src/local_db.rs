@@ -42,9 +42,9 @@ pub fn db_open(app: AppHandle, dbs: State<'_, Dbs>, name: String) -> Result<Valu
             std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
             dir.join("app.db")
         }
-        "dict" => match app.path().resolve("dict.db", tauri::path::BaseDirectory::Resource) {
-            Ok(p) if p.exists() => p,
-            _ => return Ok(json!({ "path": null })),
+        "dict" => match dict_path(&app) {
+            Some(p) => p,
+            None => return Ok(json!({ "path": null })),
         },
         _ => return Err("unknown db".into()),
     };
@@ -54,6 +54,61 @@ pub fn db_open(app: AppHandle, dbs: State<'_, Dbs>, name: String) -> Result<Valu
         map.insert(name, conn);
     }
     Ok(json!({ "path": path.to_string_lossy() }))
+}
+
+/// 随包的词典在哪：桌面 / iOS 是资源目录里的文件；Android 在 APK 的 assets 里，要先拷出来
+fn dict_path(app: &AppHandle) -> Option<std::path::PathBuf> {
+    let res = app.path().resolve("dict.db", tauri::path::BaseDirectory::Resource).ok()?;
+    #[cfg(target_os = "android")]
+    {
+        android_dict::extract(app, &res)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        res.exists().then_some(res)
+    }
+}
+
+/// Android：资源路径是 asset://localhost/…，rusqlite 打不开。第一次用（或应用升级后）经 fs 插件读出来，
+/// 拷到 app_data_dir/dict.db（先写临时文件再改名），旁边记一个版本号；插件中转用的缓存副本删掉，免得占两份空间。
+#[cfg(target_os = "android")]
+mod android_dict {
+    use std::path::{Path, PathBuf};
+    use tauri::{AppHandle, Manager};
+    use tauri_plugin_fs::{FsExt, OpenOptions};
+
+    pub fn extract(app: &AppHandle, res: &Path) -> Option<PathBuf> {
+        let dir = app.path().app_data_dir().ok()?;
+        std::fs::create_dir_all(&dir).ok()?;
+        let dest = dir.join("dict.db");
+        let mark = dir.join("dict.db.version");
+        let ver = app.package_info().version.to_string();
+        if dest.exists() && std::fs::read_to_string(&mark).ok().as_deref() == Some(ver.as_str()) {
+            return Some(dest);
+        }
+        let mut opts = OpenOptions::new();
+        opts.read(true);
+        let mut src = match app.fs().open(res.to_path_buf(), opts) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("词典资源打不开：{e}");
+                return None;
+            }
+        };
+        let tmp = dir.join("dict.db.tmp");
+        let copied = std::fs::File::create(&tmp).and_then(|mut out| std::io::copy(&mut src, &mut out));
+        if let Err(e) = copied {
+            eprintln!("拷贝词典失败：{e}");
+            let _ = std::fs::remove_file(&tmp);
+            return None;
+        }
+        std::fs::rename(&tmp, &dest).ok()?;
+        let _ = std::fs::write(&mark, ver);
+        if let Ok(cache) = app.path().app_cache_dir() {
+            let _ = std::fs::remove_file(cache.join("_assets").join("dict.db"));
+        }
+        Some(dest)
+    }
 }
 
 fn with<T>(dbs: &State<'_, Dbs>, name: &str, f: impl FnOnce(&Connection) -> rusqlite::Result<T>) -> Result<T, String> {
