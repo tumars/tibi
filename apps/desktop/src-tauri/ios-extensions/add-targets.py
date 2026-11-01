@@ -8,6 +8,7 @@
     cd apps/desktop && pnpm tauri ios init && python3 src-tauri/ios-extensions/add-targets.py
 需要 pyyaml 和 xcodegen。
 """
+import json
 import os
 import subprocess
 import sys
@@ -32,7 +33,9 @@ def main():
     if not app_name:
         sys.exit(f'{SPEC} 里没有 iOS 应用 target')
     app = targets[app_name]
-    bundle = (app.get('settings', {}).get('base', {}) or {}).get('PRODUCT_BUNDLE_IDENTIFIER') or spec.get('options', {}).get('bundleIdPrefix', 'app') + '.tibi'
+    # 扩展的 bundle id 必须是主应用的下一级（app.tibi.share）；主应用的 id 以 tauri.conf.json 的 identifier 为准
+    with open(os.path.join(HERE, '..', 'tauri.conf.json'), encoding='utf-8') as f:
+        bundle = json.load(f)['identifier']
 
     # 主应用：App Groups（壳的 app_group.rs 经它找共享目录）
     ent = app.setdefault('entitlements', {'path': f'{app_name}/{app_name}.entitlements'})
