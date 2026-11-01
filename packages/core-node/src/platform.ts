@@ -1,10 +1,13 @@
-import { Readability } from '@mozilla/readability';
-import { parseHTML } from 'linkedom';
-import { readFile } from 'node:fs/promises';
+import { mkdirSync } from 'node:fs';
+import { readdir, readFile, stat, unlink } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import { TibiError, type FetchedPage, type Platform, type ReadableArticle } from '@tibi/core';
-import { htmlToMarkdown } from './html2md.js';
+import { TibiError, web, type BackupStore, type FetchedPage, type Platform } from '@tibi/core';
+import { linkedomParse } from './html2md.js';
+import { extractFile } from './extract.js';
+import { ocr, setOcrDataDir } from './ocr.js';
+import { deviceName, syncFolder } from './syncfolder.js';
 
 /** 桌面运行时的 Platform 实现（05 §8 的网址规则在这里落地） */
 export interface NodePlatformOptions {
@@ -39,9 +42,37 @@ export async function checkUrl(raw: string): Promise<URL> {
   return u;
 }
 
+/** 正文抽取前先删掉的块：导航、侧栏目录、面包屑、快捷键帮助、页脚 */
+
+
+/** 备份放在 app.db 旁边的 backups/ 目录；内存库（测试）没有 */
+export function fileBackups(dbPath: string): BackupStore | undefined {
+  if (!dbPath || dbPath === ':memory:') return undefined;
+  const dir = join(dirname(dbPath), 'backups');
+  return {
+    pathFor(name) { mkdirSync(dir, { recursive: true }); return join(dir, name); },
+    async list() {
+      let names: string[] = [];
+      try { names = await readdir(dir); } catch { return []; }
+      const out = [];
+      for (const name of names.filter(n => n.endsWith('.db'))) {
+        const path = join(dir, name); const st = await stat(path).catch(() => undefined);
+        if (st?.isFile()) out.push({ name, path, size: st.size, created_at: st.mtimeMs });
+      }
+      return out;
+    },
+    async remove(path) { if (dirname(path) === dir) await unlink(path).catch(() => undefined); },
+  };
+}
+
 export function nodePlatform(opts: NodePlatformOptions): Platform {
   const allowed = new Set<string>();
+  if (opts.db_path && opts.db_path !== ':memory:') setOcrDataDir(dirname(opts.db_path));   // 语言包缓存在 app.db 旁边
   return {
+    backups: fileBackups(opts.db_path),
+    syncFolder, deviceName,
+    extractFile: (path) => extractFile(path),
+    ocr: (input, o) => ocr(input, o),
     registerPaths(paths) { for (const p of paths) allowed.add(p); },
     isPathAllowed(path) { return allowed.has(path) || !!process.env.TIBI_DEV_ALLOW_ANY_PATH; },
     async fetchUrl(url, o = {}): Promise<FetchedPage> {
@@ -63,25 +94,7 @@ export function nodePlatform(opts: NodePlatformOptions): Platform {
         throw new TibiError('invalid_source', '重定向次数太多');
       } finally { clearTimeout(timer); }
     },
-    async extractReadable(html, url): Promise<ReadableArticle> {
-      const { document } = parseHTML(html);
-      try { (document as unknown as { location: unknown }).location = new URL(url); } catch { /* linkedom 不需要 */ }
-      const meta = (name: string) => document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.getAttribute('content') ?? undefined;
-      const reader = new Readability(document as never, { keepClasses: false });
-      const art = reader.parse();
-      const contentHtml = art?.content ?? document.body?.innerHTML ?? '';
-      const markdown = htmlToMarkdown(contentHtml, url);
-      const images: string[] = [...new Set((contentHtml.match(/<img[^>]+src="([^"]+)"/g) ?? []).map((m: string) => m.replace(/.*src="([^"]+)".*/, '$1')))];
-      const published = meta('article:published_time') ?? meta('date') ?? meta('pubdate');
-      return {
-        title: art?.title || document.title || url,
-        byline: art?.byline ?? meta('author') ?? undefined,
-        excerpt: art?.excerpt ?? meta('description') ?? undefined,
-        lang: art?.lang ?? document.documentElement?.getAttribute('lang') ?? undefined,
-        markdown, images,
-        published_at: published ? (Date.parse(published) || undefined) : undefined,
-      };
-    },
+    extractReadable: (html, url) => web.extractReadable(html, url, linkedomParse),
     readFile: (path) => readFile(path).then(b => new Uint8Array(b)),
     getSecret: opts.getSecret,
     info: () => ({ app_version: opts.app_version, platform: process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux', db_path: opts.db_path }),

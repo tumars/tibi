@@ -7,10 +7,13 @@ import type { Ctx } from '../../rpc/define.js';
 import { TibiError, type Genre, type Kind, type Status, type Token } from '../../types.js';
 import { alreadyDone, recordUndo } from '../shared/undo.js';
 import { annotateSentences } from '../text/annotate.js';
+import { cleanTitle, dropLeadingTitle } from '../text/title.js';
 import { cefrOfDocument, difficultyOfRatio } from '../text/prelabel.js';
 import { countWords, segmentMarkdown, splitSentences, type Segmented } from '../text/segment.js';
 import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, insertTerm, logStatus, readProfile, upsertForm } from '../terms/repo.js';
 import { shortGloss } from '../terms/views.js';
+import { getSample, sampleUri, writeSampleAi } from './samples.js';
+import { analyzeDocument, translateSection } from './analyze.js';
 import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSentence, listSections, listSentences, setDocumentTags, TOKENIZER_VERSION, WPM } from './repo.js';
 
 /**
@@ -20,10 +23,10 @@ import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSe
  * M0 没有模型：AI 子步骤一律记 deferred（稍后补做），M2 接讲解技能。
  */
 
-export type ImportSource = { type: 'text'; text: string; title?: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string };
+export type ImportSource = { type: 'text'; text: string; title?: string; generated?: boolean } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string };
 export interface ImportInput { source: ImportSource; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' | 'mcp' | 'share' }
 
-interface Fetched { title: string; author?: string; markdown: string; source_type: string; source_uri?: string; published_at?: number; lang?: string; kind?: Kind }
+interface Fetched { title: string; author?: string; markdown: string; source_type: string; source_uri?: string; published_at?: number; lang?: string; kind?: Kind; genre?: Genre }
 
 /** 第一步：拿到干净的 Markdown */
 async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise<Fetched> {
@@ -32,7 +35,7 @@ async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise
     const md = s.text.replace(/\r\n?/g, '\n').trim();
     if (!md) throw new TibiError('invalid_source', '没有内容');
     const title = s.title?.trim() || titleFromMarkdown(md);
-    return { title, markdown: md, source_type: 'text' };
+    return { title, markdown: md, source_type: s.generated ? 'tibi_generated' : 'text' };
   }
   if (s.type === 'url') {
     job.progress('正在抓取网页');
@@ -42,20 +45,46 @@ async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise
     if (/text\/plain/.test(page.content_type)) return { title: new URL(page.final_url).pathname.split('/').pop() || s.url, markdown: page.body, source_type: 'url', source_uri: page.final_url };
     const art = await ctx.platform.extractReadable(page.body, page.final_url);
     if (countWords(art.markdown) < 30) throw new TibiError('invalid_source', '这个页面抓不到正文。可以复制正文后粘贴');
-    return { title: art.title, author: art.byline, markdown: art.markdown, source_type: 'url', source_uri: page.final_url, published_at: art.published_at, lang: art.lang };
+    const title = cleanTitle(art.title, { site: art.site_name, h1: art.h1, host: new URL(page.final_url).hostname });
+    return { title, author: art.byline, markdown: dropLeadingTitle(art.markdown, title), source_type: 'url', source_uri: page.final_url, published_at: art.published_at, lang: art.lang };
   }
   if (s.type === 'file') {
     if (!ctx.platform.isPathAllowed(s.path)) throw new TibiError('permission_denied', '这个文件没有经过选择或拖入');
-    if (!ctx.platform.readFile) throw new TibiError('invalid_source', '这里不能读文件');
     const ext = s.path.toLowerCase().split('.').pop() ?? '';
-    if (!['txt', 'md', 'markdown'].includes(ext)) throw new TibiError('invalid_source', `还不支持 .${ext} 文件，先支持 txt 和 Markdown`);
+    const name = s.path.split(/[\\/]/).pop()!.replace(/\.[^.]+$/, '');
+    if (['epub', 'pdf', 'docx'].includes(ext)) {
+      if (!ctx.platform.extractFile) throw new TibiError('invalid_source', `这里不能读 .${ext} 文件`);
+      job.progress(ext === 'epub' ? '正在拆开这本书' : `正在读取 ${ext.toUpperCase()}`);
+      const f = await ctx.platform.extractFile(s.path).catch(e => { throw new TibiError('invalid_source', `这个文件打不开：${e instanceof Error ? e.message : String(e)}`); });
+      if (f.needs_ocr) {
+        if (!ctx.platform.ocr) throw new TibiError('invalid_source', '这是扫描版 PDF，要先识别文字（OCR）。这里还不能识别');
+        job.progress('扫描版：正在识别文字');
+        const o = await ctx.platform.ocr({ pdf: s.path }, { signal: job.signal, onProgress: (d, t) => job.progress(`正在识别文字：第 ${d} / ${t} 页`, { index: d, total: t }) });
+        return { title: f.title || name, author: f.author, markdown: o.text, source_type: 'file', source_uri: name, kind: f.kind };
+      }
+      if (countWords(f.markdown) < 5) throw new TibiError('invalid_source', '这个文件里没有找到正文');
+      return { title: f.title || (/^#\s/.test(f.markdown.trimStart()) ? titleFromMarkdown(f.markdown) : name), author: f.author, markdown: f.markdown, source_type: 'file', source_uri: name, kind: f.kind };
+    }
+    if (!ctx.platform.readFile) throw new TibiError('invalid_source', '这里不能读文件');
+    if (!['txt', 'md', 'markdown'].includes(ext)) throw new TibiError('invalid_source', `还不支持 .${ext} 文件。支持 EPUB、PDF、DOCX、TXT 和 Markdown`);
     const text = new TextDecoder('utf-8').decode(await ctx.platform.readFile(s.path)).trim();
     if (!text) throw new TibiError('invalid_source', '文件是空的');
-    const name = s.path.split(/[\\/]/).pop()!.replace(/\.[^.]+$/, '');
     return { title: /^#\s/.test(text) ? titleFromMarkdown(text) : name, markdown: text, source_type: 'file', source_uri: name };
   }
-  if (s.type === 'images') throw new TibiError('invalid_source', '图片识别还没做好（M4）');
-  throw new TibiError('invalid_source', '内置示例还没做好');   // sample：M1 随示例内容一起做
+  if (s.type === 'images') {
+    for (const p of s.paths) if (!ctx.platform.isPathAllowed(p)) throw new TibiError('permission_denied', '有图片没有经过选择或拖入');
+    if (!ctx.platform.ocr) throw new TibiError('invalid_source', '这里不能识别图片里的文字');
+    job.progress('正在识别图片里的文字（第一次要下载约 10 MB 的英文语言包）');
+    const o = await ctx.platform.ocr({ images: s.paths }, { signal: job.signal, onProgress: (d, t) => job.progress(`正在识别第 ${d} / ${t} 张`, { index: d, total: t }) })
+      .catch(e => { throw new TibiError('invalid_source', `图片识别失败：${e instanceof Error ? e.message : String(e)}`); });
+    if (countWords(o.text) < 5) throw new TibiError('invalid_source', '图片里没有识别出英文');
+    const first = o.text.split('\n').find(l => l.trim())!.trim();
+    const title = first.length <= 80 && !/[.!?]$/.test(first) ? first : `${s.paths.length} 张图片`;
+    return { title, markdown: o.text, source_type: 'image', source_uri: s.paths[0]!.split(/[\\/]/).pop() };
+  }
+  const sample = getSample(s.id);
+  if (!sample) throw new TibiError('not_found', '没有这篇示例');
+  return { title: sample.title, author: sample.author, markdown: sample.markdown, source_type: 'sample', source_uri: sampleUri(sample.id), genre: sample.genre, kind: 'article' };
 }
 
 function titleFromMarkdown(md: string): string {
@@ -85,7 +114,7 @@ async function saveStep(job: JobContext, ctx: Ctx, fetched: Fetched, seg: Segmen
   const key = `${job.job_id}:save`;
   const existing = await getDocumentByHash(ctx.db, hash);
   if (existing) return { document_id: existing.id, section_ids: (await listSections(ctx.db, existing.id)).map(s => s.id), duplicate: !(await alreadyDone(ctx.db, key)) };
-  const genre = input.hints?.genre ?? guessGenre(fetched.markdown, fetched.source_uri);
+  const genre = input.hints?.genre ?? fetched.genre ?? guessGenre(fetched.markdown, fetched.source_uri);
   const out = await ctx.db.transaction(async tx => {
     const document_id = await insertDocument(tx, {
       title: fetched.title, author: fetched.author, kind: seg.kind, genre, source_type: fetched.source_type, source_uri: fetched.source_uri, lang: seg.lang,
@@ -158,12 +187,29 @@ export async function annotateSection(db: Database, ctx: Ctx, section_id: string
 }
 
 /** 整篇标注 + 难度；reanalyze 也走这里 */
+const LAZY_EAGER = 2;
+
+/** 打开一章时如果还没标注（书的后面几章），现在标；返回是否做了标注 */
+export async function ensureAnnotated(ctx: Ctx, section_id: string): Promise<boolean> {
+  const sec = await ctx.db.get<{ status: string; document_id: string }>('SELECT status, document_id FROM sections WHERE id = ? AND deleted_at IS NULL', [section_id]);
+  if (!sec || sec.status !== 'pending') return false;
+  const doc = await getDocument(ctx.db, sec.document_id); if (!doc || doc.status !== 'ready') return false;
+  const inflight = ANNOTATING.get(section_id); if (inflight) { await inflight; return true; }
+  const p = (async () => { const profile = await readProfile(ctx.db); await annotateSection(ctx.db, ctx, section_id, { document_id: doc.id, genre: doc.genre, vocab_estimate: profile.vocab_estimate }); })().finally(() => ANNOTATING.delete(section_id));
+  ANNOTATING.set(section_id, p); await p;
+  ctx.events.emit('data.changed', { table: 'terms' });
+  return true;
+}
+const ANNOTATING = new Map<string, Promise<void>>();
+
 async function annotateDocument(job: JobContext, ctx: Ctx, document_id: string, section_ids: string[]): Promise<{ unknown_ratio: number; prelabel_total: number; counts: { total: number; new: number; learning: number; unsure: number } }> {
   const doc = await getDocument(ctx.db, document_id); if (!doc) throw new TibiError('not_found', '文章不在了');
   const profile = await readProfile(ctx.db);
   const total = { total: 0, new: 0, learning: 0, unsure: 0 }; let prelabel_total = 0;
-  for (let i = 0; i < section_ids.length; i++) {
-    job.progress(section_ids.length > 1 ? `正在分析第 ${i + 1} / ${section_ids.length} 章` : '正在标注生词', { index: i, total: section_ids.length });
+  // 书按章懒处理（00 §3.1）：导入时只标前两章，其余在打开那一章时再标（sections.get → ensureAnnotated）
+  const eager = doc.kind === 'book' ? section_ids.slice(0, LAZY_EAGER) : section_ids;
+  for (let i = 0; i < eager.length; i++) {
+    job.progress(eager.length > 1 ? `正在分析第 ${i + 1} / ${eager.length} 章` : '正在标注生词', { index: i, total: eager.length });
     const r = await job.step(`annotate:${section_ids[i]}`, () => annotateSection(ctx.db, ctx, section_ids[i]!, { document_id, genre: doc.genre, vocab_estimate: profile.vocab_estimate }));
     total.total += r.counts.total; total.new += r.counts.new; total.learning += r.counts.learning; total.unsure += r.counts.unsure; prelabel_total += r.prelabel_total;
   }
@@ -194,14 +240,22 @@ export async function runImport(job: JobContext, ctx: Ctx, input: ImportInput): 
     await ctx.db.run('INSERT INTO learning_events(id, type, payload, created_at) VALUES (?,?,?,?)', [uuidv7(), 'document_imported', j.str({ document_id: saved.document_id, source_type: fetched.source_type, prelabel_total: ann.prelabel_total, title: fetched.title, word_count: seg.word_count }), now()]);
     return true;
   }, { kind: 'pipeline', label: '记录' });
-  // AI 子步骤：M0 没有模型，记 deferred；M2 在这里接 summary / phrases / hard_sentences
-  job.progress('整理总结');
-  await job.parallel({
-    summary: () => job.step('ai:summary', async () => ({ deferred: true })),
-    phrases: () => job.step('ai:phrases', async () => ({ deferred: true })),
-    hard_sentences: () => job.step('ai:hard_sentences', async () => ({ deferred: true })),
-  });
-  await markDeferred(ctx.db, saved.document_id);
+  const sample = input.source.type === 'sample' ? getSample(input.source.id) : undefined;
+  if (sample) {
+    // 内置示例：写入预生成的总结与语境释义，不调模型
+    await job.step('ai:sample', () => writeSampleAi(ctx.db, saved.document_id, sample), { kind: 'pipeline', label: '预生成结果' });
+    ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
+    ctx.events.emit('data.changed', { table: 'terms' });
+    return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, unknown_ratio: ann.unknown_ratio, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
+  }
+  // AI 分析（M2）另起一个任务：正文好了就能读，总结稍后出现（00 §3.5"可先读后分析"）。没连模型或离线直接记 deferred，之后补做
+  await job.step('ai:queue', async () => {
+    const has = await ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM providers WHERE kind = 'llm' AND deleted_at IS NULL");
+    if (!ctx.ai || !Number(has?.n ?? 0) || !ctx.platform.isOnline()) { await markDeferred(ctx.db, saved.document_id); return { queued: false }; }
+    await ctx.db.run("UPDATE documents SET ai_status = 'running', updated_at = ? WHERE id = ?", [now(), saved.document_id]);
+    const { task_id } = await ctx.jobs.submit('analyze', { kind: 'import', title: `总结 ${fetched.title}`, trigger: 'auto', input: { document_id: saved.document_id } });
+    return { queued: true, task_id };
+  }, { kind: 'pipeline', label: '排队做总结' });
   ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
   ctx.events.emit('data.changed', { table: 'terms' });
   return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, unknown_ratio: ann.unknown_ratio, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
@@ -224,6 +278,14 @@ export async function runReanalyze(job: JobContext, ctx: Ctx, input: { document_
 
 export function registerImportPipeline(jobs: JobRunner, core: Core) {
   jobs.register('import', (job: JobContext, input: ImportInput) => runImport(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input));
+  jobs.register('analyze', async (job: JobContext, input: { document_id: string }) => {
+    const r = await analyzeDocument(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input.document_id);
+    return { summary: r.ai_status === 'done' ? '总结好了' : r.ai_status === 'deferred' ? '模型暂时用不了，稍后补做' : '总结没有生成', ai_status: r.ai_status };   // 不带 document_id：后台补做不弹"开始阅读"
+  });
+  jobs.register('translate', async (job: JobContext, input: { section_id: string; sentence_ids?: string[] }) => {
+    const r = await translateSection(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input.section_id, input.sentence_ids);
+    return { summary: `翻译了 ${r.translated} 句`, ...r };
+  });
   jobs.register('reanalyze', (job: JobContext, input: { document_id: string; ai?: boolean }) => runReanalyze(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input));
 }
 

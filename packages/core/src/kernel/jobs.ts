@@ -123,7 +123,8 @@ export class JobRunnerImpl implements JobRunner {
     if (opts?.label) entry.ctx.progress(opts.label);
     entry.stepStack.push(name);
     try {
-      const out = await fn(entry.ctx);
+      // 取消要立刻生效：步骤自己不看 signal 时也不等它跑完（结果丢弃、不写检查点）
+      const out = await untilAborted(fn(entry.ctx), entry.ctrl.signal);
       await this.db.run('UPDATE job_steps SET status = ?, output = ?, finished_at = ? WHERE id = ?', ['done', j.str(out ?? null), now(), stepId]);
       this.emitUpdate(job_id);
       if (entry.pausing) throw new PauseSignal();
@@ -314,7 +315,7 @@ export class JobRunnerImpl implements JobRunner {
     const nodes = new Map<string, TaskStep>();
     const roots: TaskStep[] = [];
     for (const r of rows) {
-      const step: TaskStep = { id: r.id, label: r.name.includes('.') ? r.name.slice(r.name.lastIndexOf('.') + 1) : r.name, state: r.status === 'done' ? 'ok' : r.status === 'failed' ? 'err' : r.status === 'running' ? (job?.status === 'waiting_approval' ? 'appr' : 'run') : 'wait', duration_ms: r.finished_at ? r.finished_at - r.started_at : undefined, skill_id: (job?.skill_id ?? undefined) as SkillId | undefined };
+      const step: TaskStep = { id: r.id, label: stepLabel(r.name.includes('.') ? r.name.slice(r.name.lastIndexOf('.') + 1) : r.name, r.name), state: r.status === 'done' ? 'ok' : r.status === 'failed' ? 'err' : r.status === 'running' ? (job?.status === 'waiting_approval' ? 'appr' : 'run') : 'wait', duration_ms: r.finished_at ? r.finished_at - r.started_at : undefined, skill_id: (job?.skill_id ?? undefined) as SkillId | undefined };
       nodes.set(r.name, step);
       const parentName = r.name.includes('.') ? r.name.slice(0, r.name.lastIndexOf('.')) : undefined;
       const parent = parentName ? nodes.get(parentName) : undefined;
@@ -322,6 +323,25 @@ export class JobRunnerImpl implements JobRunner {
     }
     return roots;
   }
+}
+
+function untilAborted<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) { p.catch(() => undefined); return Promise.reject(new CancelSignal()); }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => { p.catch(() => undefined); reject(new CancelSignal()); };
+    signal.addEventListener('abort', onAbort, { once: true });
+    p.then(v => { signal.removeEventListener('abort', onAbort); resolve(v); }, e => { signal.removeEventListener('abort', onAbort); reject(e); });
+  });
+}
+
+/** 任务详情里的步骤名：内部名字换成看得懂的 */
+const STEP_LABEL: Record<string, string> = { fetch: '取正文', segment: '切分', save: '入库', event: '记录', 'ai:queue': '排队做总结', 'ai:summary': '总结', 'ai:phrases': '短语', 'ai:hard_sentences': '长难句', 'ai:sample': '写入预生成结果', clear: '清理旧标注' };
+function stepLabel(last: string, full: string): string {
+  if (/^model\.\d+$/.test(full) || /^\d+$/.test(last) && full.startsWith('model.')) return `模型第 ${full.split('.').pop()} 轮`;
+  if (STEP_LABEL[full]) return STEP_LABEL[full]!;
+  if (full.startsWith('annotate:')) return '标注生词';
+  if (full.startsWith('translate:')) return '翻译';
+  return STEP_LABEL[last] ?? last;
 }
 
 export function autoRuleKey(skill_id: string | null | undefined, tool: string) { return `perm.auto.${skill_id ?? '-'}.${tool}`; }

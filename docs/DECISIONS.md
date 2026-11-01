@@ -147,6 +147,19 @@
 | T13 | ECDICT 入库：只是变形页、自己没有词频的词头（makes → 0:make）不映射到自己；词形有多个候选原形时，Core 按词频挑最常见的（was → be，left → leave）。CSV 里字面的 `\n` 入库时还原成换行 | 带完整词典后 is、makes、languages 被当成生词 |
 | T14 | 桌面界面用 HashRouter（Tauri 下没有服务端路由）；开发时 `?mock=1` 用内存假数据，不依赖 Core | — |
 | T15 | 复习：`review.answer` 不推进游标，看完评分行后调 `review.next`；每日新卡上限按"今天首次作答的新卡数"计；`review.start` 在一个事务里查找或新建会话（界面重复调用时续上同一轮） | 实现中定下 |
+| T16 | 内置示例的正文与预生成结果放在 `packages/core/samples/<id>/`（`article.md` + `ai.json`），构建成 `samples.gen.ts` 内嵌进 Core（R11：Core 不读文件系统）。导入走同一条流水线，最后一步把总结、建议、短语、长难句写成文档级 `ai_results`，语境释义按句写（`task = context_meanings`，键是 lemma），`model = 'bundled'`、`provider_id` 为空；示例不标 deferred | M1 内置示例 |
+| T17 | 任务取消立即生效：步骤函数不看 abort signal 时，`job.step` 也不再等它跑完，直接以取消结束（这一步的结果丢弃、不写检查点） | 原来取消要等当前步骤自然结束，测试里会卡 5 秒 |
+| T18 | M1 的模型调用只有一种：`completeOnce`（内核里的一次性调用，不建任务、不走技能，照样查预算、记 usage_records），经 `Ctx.ai.complete` 给领域方法用。语境释义（`terms.context_meaning`）和测试连接（`providers.test`）都走它；语境释义按固定提示写、句子当不可信材料放在分隔符里，输出清洗成一行 ≤40 字再缓存 | M1 语境释义；M2 起换成讲解技能 |
+| T19 | 剪藏插件点按钮时用 `tabs.update(当前标签页, tibi://import?url=…)` 打开深链（浏览器弹"要打开 Tibi 吗"，页面不离开），不弹自己的面板。桌面端在 Windows / Linux 加 `tauri-plugin-single-instance`（deep-link 特性），第二个进程带来的深链转给已开的窗口；macOS 由系统直接交给运行中的应用 | R4 剪藏插件 |
+| T20 | 导入后的 AI 分析不走模型驱动的技能，而是三次固定提示的快速档调用（completeOnce，JSON 输出，宽松解析，正文放在分隔符里当不可信材料）；作为独立的 `analyze` 任务排在导入之后，导入任务不等它。后台自动任务（trigger = auto）完成时界面不弹通知 | R10：导入是固定流水线；先读后分析 |
+| T21 | 文件抽取放在 core-node（Platform.extractFile）：EPUB 用 fflate 解压 + linkedom 读 OPF / 目录，PDF 用 pdfjs-dist 4（legacy 构建，先把 worker 模块挂到 `globalThis.pdfjsWorker`，单文件 sidecar 里才找得到），DOCX 用 mammoth；都转成 Markdown 交给 Core 切分。sidecar 打包的 banner 里 `createRequire` 改名，避免和 pdfjs 冲突。书导入只标前两章（LAZY_EAGER = 2），其余在 sections.get 时补标 | M4 多格式 |
+| T22 | OCR 用 tesseract.js 5（Platform.ocr，在 Core 进程的 worker_threads 里跑）：语言包按需下载到 `tessdata/`；扫描版 PDF 用 pdfjs 的 operator list 取每页最大的图，自己编成 PNG；分段按"比这页最小行间空白大 1.7 倍"。打包时 worker 单独打成 `tesseract-worker.cjs`，和 tesseract.js-core 的 wasm 一起放进安装包 `resources/ocr/`，壳用 `TIBI_RESOURCE_DIR` 告诉 Core | D4 |
+| T23 | 朗读在 WebView 里做（lib/tts）：系统语音用 speechSynthesis；Kokoro 用 kokoro-js（transformers.js + onnxruntime-web 的 wasm，q8 量化模型从 Hugging Face 下载），动态 import 单独成块，不选就不加载。CSP 因此加了 `'wasm-unsafe-eval'`、huggingface / jsdelivr 的 connect-src、`worker-src blob:` | M4 朗读 |
+| T24 | MCP 令牌不放钥匙串，放在 app 数据目录的 `mcp.token`（0600）：代理 `tibi-core --mcp` 是外部工具启动的独立进程，读不到 Tibi 进程经壳拿的钥匙串；本地 socket 也只有本用户能连。真正的开关和写工具白名单在 Core 里判，令牌只防同机其他用户 | 06 §6 |
+| T25 | 界面语言（M6）：源码直接写中文、用 `tl('中文原文', { 变量 })` 包起来，中文原文就是键；英文在 `apps/desktop/src/locales/en.json`，缺的条目显示中文；CI 用 `i18n:check` 保证没有漏翻。语言在启动时定下来（默认中文；目标用户是中文母语者，不跟随系统语言），切换后重新载入界面，所以模块顶层常量也能用 `tl`。Core 产生的文字（任务标题、步骤名、错误、AI 内容）暂不翻译；"Tibi 讲解用的语言"是另一个设置（`assistant_prefs.language`），写进系统提示 | 00 §3.7 |
+| T26 | 出安装包（M6）：GitHub Actions 打 tag 出四个目标（macOS Apple 芯片 / Intel、Windows x64、Linux x64）的草稿 Release；sidecar 在各自平台用 Bun `--compile` 打；词典只生成一次并缓存，经 `tauri build --config src-tauri/tauri.bundle.conf.json` 合并进资源（主配置不写，开发时没有词典也能编译）；配了 Apple 证书密钥就签名公证，否则出未签名包 | dev README §4 |
+| T27 | 同步的改动捕获用 SQLite 触发器（开启同步时按当前表结构生成、启动时重建），不在每个写方法里记：写入散在各领域方法里，触发器不会漏；应用别的设备的改动时用 `sync_state.capture = 0` 关掉记录。一条 put 共用一个 HLC，推送时按改动时间分配。熟练度按来源优先（用户 > 自动）再比时钟 | 08 §13 |
+| T28 | 手机上 Core 跑在 WebView 里（R11 落地）：同一份 `@tibi/core`，SQLite 由壳里的 rusqlite 提供（`local_db.rs`：db_open / db_exec / db_run / db_all，每个库一条连接、串行，所以跨调用的事务成立），JS 端 `InvokeDriver`；网页、模型 API、WebDAV 走 http 插件（全局 fetch 换成它，不受 CORS 限制）；网页正文用 DOMParser + 同一份 Readability 逻辑（`web/html.ts`，桌面传 linkedom）；词典 `SqliteDict` 和文件抽取（`web/extract.ts`：EPUB / PDF / Word，pdfjs、mammoth 由运行时注入）移进 core；手机上文件由壳的 `read_file` 读原始字节，图片用浏览器版 tesseract。桌面加 `--features mobile-preview` 走同一条路，用来预览和在没有 Xcode / NDK 的机器上（含 CI）检查能编译 | 00 §3.13、dev README §7 |
 | T10 | 复习用 ts-fsrs 6.0 的 `DefaultScheduler`（FSRS-7 默认），卡片字段按库的命名映射到表（`stability_fast` ← `stabilityFast`、`learning_steps` ← `learningStep`） | 01 §4 |
 
 ## 待决定

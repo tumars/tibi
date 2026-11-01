@@ -1,9 +1,9 @@
 /**
- * ECDICT 入库（01 §8）：下载 ecdict.csv → 生成 data/dict.db（stardict 表 + lemma_map）。
+ * ECDICT 入库（01 §8）：下载 ecdict.csv → 生成 data/ecdict/dict.db（stardict 表 + lemma_map）。
  *   pnpm ecdict                       下载并入库（约 66 MB，77 万词条，几分钟）
  *   pnpm ecdict --csv path/to.csv     用本地 CSV
  *   pnpm ecdict --limit 2000          只取前 N 行（试跑）
- *   pnpm ecdict --out data/dict.db
+ *   pnpm ecdict --out data/ecdict/dict.db
  * 来源：https://github.com/skywind3000/ECDICT（MIT）。
  */
 import BetterSqlite3 from 'better-sqlite3';
@@ -119,7 +119,7 @@ async function main() {
   const arg = (k: string) => { const i = process.argv.indexOf(`--${k}`); return i >= 0 ? process.argv[i + 1] : undefined; };
   const root = resolve(process.cwd(), process.cwd().endsWith('core-node') ? '../..' : '.');
   const csv = arg('csv') ?? await downloadCsv(resolve(root, 'data/ecdict/ecdict.csv'), s => console.error(s));
-  const out = resolve(root, arg('out') ?? 'data/dict.db');
+  const out = resolve(root, arg('out') ?? 'data/ecdict/dict.db');
   const limit = arg('limit') ? Number(arg('limit')) : undefined;
   const t0 = Date.now();
   const r = await buildDict(csv, out, { limit, log: s => console.error(s) });

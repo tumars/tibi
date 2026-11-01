@@ -1,0 +1,316 @@
+# 打 tag（v0.1.0 这样）→ 三平台安装包，放进一个草稿 Release，人工检查后再发布。
+# 签名 / 公证：配了下面这些仓库密钥就自动签，没配就出未签名的包（README 里写了怎么打开）。
+#   macOS：APPLE_CERTIFICATE、APPLE_CERTIFICATE_PASSWORD、APPLE_SIGNING_IDENTITY、APPLE_ID、APPLE_PASSWORD、APPLE_TEAM_ID
+#   Windows：暂不签（以后接 Azure Trusted Signing）
+name: Release
+# 手动触发（Actions 页面 Run workflow）时跑同样的流程，只出构建产物、不建 Release，用来在打 tag 之前验证打包
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+
+permissions:
+  contents: write
+
+jobs:
+  # 词典只生成一次（下载 ECDICT 约 66 MB、入库几分钟），各平台共用
+  dict:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: 版本号一致（tag = tauri.conf.json = Cargo.toml）
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          conf=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          cargo=$(grep -m1 '^version' apps/desktop/src-tauri/Cargo.toml | cut -d'"' -f2)
+          echo "tag=$tag conf=$conf cargo=$cargo"
+          test "$tag" = "$conf" && test "$tag" = "$cargo"
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: data/ecdict/dict.db
+          key: ecdict-${{ hashFiles('packages/core-node/src/ecdict/*.ts') }}
+      - if: steps.cache.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile && pnpm ecdict
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dict
+          path: data/ecdict/dict.db
+          retention-days: 3
+
+  build:
+    needs: dict
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          # windows-latest 现在带 Visual Studio 2026，node-gyp 认不出来，better-sqlite3 编不过；先用 2022
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: ${{ matrix.target }}
+      - name: 系统库（Linux）
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libdbus-1-dev
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: dict
+          path: data/ecdict
+      - name: sidecar + OCR 资源 + 词典
+        run: node apps/desktop/scripts/bundle-prep.mjs --target ${{ matrix.target }}
+      # 签名密钥配了才传给 tauri：空字符串也会被当成"要签名"，导入空证书失败
+      - name: macOS 签名密钥（配了才用）
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then echo "没配签名密钥，出未签名的包"; exit 0; fi
+          for k in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            v="${!k}"; [ -n "$v" ] && { echo "$k<<__TIBI_EOF__"; echo "$v"; echo "__TIBI_EOF__"; } >> "$GITHUB_ENV"
+          done
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          args: --target ${{ matrix.target }} --config src-tauri/tauri.bundle.conf.json
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseName: Tibi ${{ github.ref_name }}
+          releaseBody: 见 docs/CHANGELOG.md。未签名的 macOS 包第一次打开：右键 → 打开；Windows 提示 SmartScreen 时选"仍要运行"。
+          releaseDraft: true
+          prerelease: true
+      - name: 没打 tag 时把安装包留作构建产物
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tibi-${{ matrix.target }}
+          path: |
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+          if-no-files-found: ignore
+
+  # Android APK（aarch64，未签名；配了签名密钥以后再加 apksigner 一步）。runner 自带 Android SDK 和 NDK
+  android:
+    needs: dict
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: android
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: dict
+          path: data/ecdict
+      - name: 词典
+        run: node apps/desktop/scripts/bundle-prep.mjs --skip-sidecar
+      - name: tauri android build
+        working-directory: apps/desktop
+        run: NDK_HOME=$ANDROID_NDK_LATEST_HOME pnpm tauri android build --apk --target aarch64 --ci
+      - name: 改名
+        run: |
+          mkdir -p out
+          cp apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk "out/Tibi-${GITHUB_REF_NAME//\//-}-android-arm64-unsigned.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tibi-android-arm64
+          path: out/*.apk
+          retention-days: 7
+
+  # Android 冒烟测试：x86_64 debug APK 装进带 KVM 的模拟器，经 DevTools 协议走一遍欢迎 → 示例进书架 → 阅读 → 点词查词典；看进程活着、没有崩溃
+  android-smoke:
+    needs: dict
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: 腾磁盘（runner 自带的大工具链用不到；模拟器要几个 G）
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift /usr/local/lib/node_modules /opt/microsoft /opt/google
+          df -h /
+      - uses: actions/checkout@v4
+      - name: 打开 KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: android-x86_64
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: dict
+          path: data/ecdict
+      - run: node apps/desktop/scripts/bundle-prep.mjs --skip-sidecar
+      # debug 包：WebView 开着远程调试，冒烟脚本用 DevTools 协议点界面；Gradle 用调试密钥签好
+      - name: tauri android build（x86_64，debug）
+        working-directory: apps/desktop
+        run: NDK_HOME=$ANDROID_NDK_LATEST_HOME pnpm tauri android build --apk --debug --target x86_64 --ci
+      - run: cp apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk tibi-x86_64.apk
+      - name: 腾磁盘（模拟器的 userdata 要几个 G，runner 编译完只剩 5 G 左右）
+        run: rm -rf apps/desktop/src-tauri/target apps/desktop/src-tauri/gen/android/app/build ~/.gradle/caches && df -h /
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          disk-size: 4096M
+          ram-size: 4096M
+          emulator-boot-timeout: 900
+          disable-animations: true
+          profile: pixel_6
+          # 阅读器页很长，宿主侧软件 GPU（swiftshader_indirect）渲染时整个模拟器会崩；改在 guest 里软件渲染
+          emulator-options: -no-window -gpu guest -noaudio -no-boot-anim -no-snapshot
+          script: bash .github/scripts/android-smoke.sh tibi-x86_64.apk smoke
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-smoke
+          path: smoke/
+          retention-days: 7
+
+  # iOS 冒烟测试：tauri ios init 生成工程、加上分享扩展和小组件两个 target，tauri ios dev 在模拟器里编译、安装、打开（模拟器不用签名），
+  # 截图后用 Vision 识别屏幕文字看到欢迎面板；两个扩展已登记、App Group 里有小组件快照、分享收件箱被取走（.github/scripts/ios-smoke.sh）
+  ios-smoke:
+    needs: dict
+    runs-on: macos-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: ios-sim
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: dict
+          path: data/ecdict
+      - run: node apps/desktop/scripts/bundle-prep.mjs --skip-sidecar
+      - name: xcodegen
+        run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+      - name: tauri ios init
+        working-directory: apps/desktop
+        run: pnpm tauri ios init --ci
+      - name: 加 Safari 分享扩展、小组件两个 target（xcodegen）
+        run: |
+          python3 -c "import yaml" 2>/dev/null || pip3 install --break-system-packages pyyaml || pip3 install --user pyyaml
+          python3 apps/desktop/src-tauri/ios-extensions/add-targets.py
+      - name: 建一个专用的 iPhone 模拟器并开机
+        # 同一个机型在 runner 上有好几个 iOS 版本，tauri ios dev 按名字找会挑到没开机的那个；建一个名字唯一的
+        run: |
+          read -r RT DT < <(xcrun simctl list -j | python3 -c "
+          import json, sys
+          j = json.load(sys.stdin)
+          rts = [r for r in j['runtimes'] if r.get('isAvailable') and r.get('platform', r['name']).startswith('iOS')]
+          rt = max(rts, key=lambda r: [int(x) for x in r['version'].split('.')])
+          dts = [d for d in rt.get('supportedDeviceTypes', []) if d['name'].startswith('iPhone')]
+          print(rt['identifier'], (dts[-1] if dts else {'identifier': 'com.apple.CoreSimulator.SimDeviceType.iPhone-16'})['identifier'])
+          ")
+          echo "运行时 $RT，机型 $DT"
+          UDID=$(xcrun simctl create "Tibi Smoke" "$DT" "$RT")
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"; echo "SIM_NAME=Tibi Smoke" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
+      - name: tauri ios dev（后台）+ 冒烟测试
+        run: |
+          mkdir -p ios-smoke
+          (cd apps/desktop && nohup pnpm tauri ios dev "$SIM_NAME" --no-watch > ../../ios-smoke/ios-dev.log 2>&1 &)
+          bash .github/scripts/ios-smoke.sh "$SIM_UDID" ios-smoke
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-smoke
+          path: ios-smoke/
+          retention-days: 7
+
+  # 剪藏插件 zip 和 Android APK 也挂到同一个 Release（等桌面包把草稿 Release 建好）
+  clipper:
+    needs: [build, android]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node extensions/clipper/zip.mjs
+      - uses: actions/download-artifact@v4
+        with:
+          name: tibi-android-arm64
+          path: out
+      - run: gh release upload "$GITHUB_REF_NAME" extensions/clipper/dist/*.zip out/*.apk --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

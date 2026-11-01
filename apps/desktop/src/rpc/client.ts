@@ -1,10 +1,12 @@
 import type { EventName, EventTable, MethodName, Params, Result } from './methods';
+import { tl } from '../lib/i18n';
 
 /**
  * RPC 客户端（06 §1）：
  * - Tauri 里：invoke('core_call') + listen('core_event')
  * - 浏览器里（pnpm web）：WebSocket 连 `pnpm core:dev`（ws://127.0.0.1:3456），协议与 stdio 一致
  * - ?mock=1：内存假数据，页面不依赖 Core 也能渲染（截图、样式调试）
+ * - 手机（Tauri 移动端 / mobile-preview）：Core 跑在 WebView 里，直接调（mobile/local/runtime.ts）
  */
 export class RpcError extends Error {
   constructor(message: string, public readonly code: string, public readonly rpcCode: number, public readonly detail?: unknown) { super(message); this.name = 'RpcError'; }
@@ -50,8 +52,8 @@ function wsTransport(url: string): Transport {
     opening = new Promise<WebSocket>((resolve, reject) => {
       const s = new WebSocket(url);
       s.onopen = () => { ws = s; opening = undefined; resolve(s); };
-      s.onerror = () => { opening = undefined; reject(new RpcError('连不上 Tibi Core。先运行 pnpm core:dev', 'offline', -32006)); };
-      s.onclose = () => { ws = undefined; for (const p of pending.values()) p.reject(new RpcError('Core 断开了', 'offline', -32006)); pending.clear(); };
+      s.onerror = () => { opening = undefined; reject(new RpcError(tl('连不上 Tibi Core。先运行 pnpm core:dev'), 'offline', -32006)); };
+      s.onclose = () => { ws = undefined; for (const p of pending.values()) p.reject(new RpcError(tl('Core 断开了'), 'offline', -32006)); pending.clear(); };
       s.onmessage = ev => {
         let f: Frame; try { f = JSON.parse(String(ev.data)); } catch { return; }
         if (f.method === 'event') { const p = f.params as { event: string; data: unknown }; for (const l of listeners) l(p.event, p.data); return; }
@@ -80,7 +82,7 @@ class Rpc {
   private get t(): Promise<Transport> {
     if (!this.transport) {
       const mock = new URLSearchParams(location.search).get('mock');
-      this.transport = mock ? import('../mock').then(m => m.mockTransport()) : isTauri() ? tauriTransport() : Promise.resolve(wsTransport(import.meta.env.VITE_CORE_WS ?? 'ws://127.0.0.1:3456'));
+      this.transport = mock ? import('../mock').then(m => m.mockTransport()) : (window as { __TIBI_LOCAL_CORE__?: boolean }).__TIBI_LOCAL_CORE__ ? import('../mobile/local/runtime').then(m => m.localTransport()) : isTauri() ? tauriTransport() : Promise.resolve(wsTransport(import.meta.env.VITE_CORE_WS ?? 'ws://127.0.0.1:3456'));
       void this.transport.then(tr => { this.kind = tr.kind; if (!this.bound) { this.bound = true; tr.onEvent((e, d) => this.listeners.get(e)?.forEach(fn => fn(d))); } });
     }
     return this.transport;

@@ -22,6 +22,7 @@ describe('ruleLemma', () => {
     const dict: Dict = { async lookup() { return undefined; }, async frequencyRank() { return undefined; }, async lemmas(f) { return f === 'left' ? ['left', 'leave'] : []; } };
     expect(await lemmatize('left', dict)).toBe('left');
     expect(await lemmatize('verifies', dict)).toBe('verify');
+    expect(ruleLemma('ubiquitous')).toBe('ubiquitous'); expect(ruleLemma('status')).toBe('status'); expect(ruleLemma('cats')).toBe('cat');
   });
 });
 
@@ -57,3 +58,19 @@ describe('annotateSentences', () => {
     expect(r.prelabel_total).toBe(7);
   });
 });
+
+describe('lemmatize：规则还原要词典认可', () => {
+  const entries: Record<string, { translation: string; forms: string[] }> = {
+    lex: { translation: '[法] 法, 法律, 法律实体', forms: [] },
+    walk: { translation: 'v. 走, 步行\nn. 散步', forms: ['walks', 'walked', 'walking'] },
+    bake: { translation: 'vt. 烘焙', forms: [] },
+  };
+  const dict = { async lookup(w: string) { const e = entries[w]; return e ? { word: w, exam: [], ...e } : undefined; }, async lemmas() { return []; }, async frequencyRank() { return undefined; } };
+  it('碰巧撞上不相干的名词时不还原，动词照常还原', async () => {
+    expect(await lemmatize('lexing', dict)).toBe('lexing');
+    expect(await lemmatize('walking', dict)).toBe('walk');
+    expect(await lemmatize('baked', dict)).toBe('bake');
+    expect(await lemmatize('tokenizing', dict)).toBe('tokenize');   // 词典里没有：保留规则的结果
+  });
+});
+

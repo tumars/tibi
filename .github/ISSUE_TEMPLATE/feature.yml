@@ -1,0 +1,19 @@
+name: 建议 / Feature request
+description: 想让 Tibi 多做点什么
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决什么问题 / Problem
+      description: 你在学英语、读文章时遇到的具体情况。
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你的想法 / Idea
+  - type: textarea
+    id: alt
+    attributes:
+      label: 现在怎么凑合的 / Workarounds

@@ -6,7 +6,7 @@ import { undoMethods } from '../../src/domain/shared/undo.js';
 import { makeCore, InlineJobRunner } from '../helpers.js';
 
 const FREQ: Record<string, number> = { the: 1, is: 2, be: 2, a: 3, of: 4, and: 5, to: 6, it: 8, cat: 300, sit: 200, on: 9, mat: 2000, dog: 150, run: 100, fast: 400, very: 50, slowly: 7000, sleep: 350, upshot: 15000, overhead: 9500, in: 7, reclaim: 11000, cold: 300, night: 120 };
-const dict: Dict = { async lookup(w) { return FREQ[w] ? { word: w, phonetic: `/${w}/`, translation: `n. ${w}义；别的`, exam: ['cet4'], forms: [] } : undefined; }, async lemmas(f) { return f === 'sat' ? ['sit'] : []; }, async frequencyRank(l) { return FREQ[l]; } };
+const dict: Dict = { async lookup(w) { return FREQ[w] ? { word: w, phonetic: `/${w}/`, translation: `n. ${w}义；别的`, exam: ['cet4'], forms: [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`, `${w}${w.slice(-1)}ed`, `${w}${w.slice(-1)}ing`, `${w.slice(0, -1)}ing`] } : undefined; }, async lemmas(f) { return f === 'sat' ? ['sit'] : []; }, async frequencyRank(l) { return FREQ[l]; } };
 const TEXT = 'The cat sat on the mat. The dog ran very slowly. The upshot was overhead, reclaimed in the cold night.';
 
 let core: Core; let ctx: Ctx; let jobs: InlineJobRunner; let section: SectionContent;

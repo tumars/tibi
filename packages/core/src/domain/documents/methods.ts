@@ -4,9 +4,10 @@ import { method, S, type Ctx, type MethodMap } from '../../rpc/define.js';
 import { TibiError, type DocumentSummary, type Genre } from '../../types.js';
 import { recordUndo, registerUndo } from '../shared/undo.js';
 import { difficultyOfRatio } from '../text/prelabel.js';
-import type { ImportInput } from './pipeline.js';
+import { ensureAnnotated, type ImportInput } from './pipeline.js';
 import { DOC_COLS, getDocument, listSections, listSentences, setDocumentTags, toDocument, toSummary, type DocumentRow } from './repo.js';
 import { finishSection, sectionContent, setProgress, softDeleteDocument } from './sections.js';
+import { getSample, listSamples } from './samples.js';
 
 /** documents.* / sections.*（06 §3） */
 
@@ -22,7 +23,7 @@ export function checkUrlShape(raw: string): { ok: boolean; url?: string; host?: 
 }
 
 const sourceSchema = Type.Union([
-  Type.Object({ type: Type.Literal('text'), text: Type.String({ minLength: 1 }), title: Type.Optional(Type.String()) }),
+  Type.Object({ type: Type.Literal('text'), text: Type.String({ minLength: 1 }), title: Type.Optional(Type.String()), generated: Type.Optional(Type.Boolean()) }),
   Type.Object({ type: Type.Literal('url'), url: Type.String({ minLength: 1 }) }),
   Type.Object({ type: Type.Literal('file'), path: Type.String({ minLength: 1 }) }),
   Type.Object({ type: Type.Literal('images'), paths: Type.Array(Type.String()) }),
@@ -37,7 +38,7 @@ export async function submitImport(ctx: Ctx, input: ImportInput): Promise<{ task
     input.source = { type: 'url', url: c.url! };
   }
   if (input.source.type === 'file' && !ctx.platform.isPathAllowed(input.source.path)) throw new TibiError('permission_denied', '这个文件没有经过选择或拖入');
-  const title = input.source.type === 'url' ? checkUrlShape(input.source.url).host ?? '网页' : input.source.type === 'text' ? (input.source.title || '粘贴的文字') : input.source.type === 'file' ? input.source.path.split(/[\\/]/).pop()! : '导入';
+  const title = input.source.type === 'url' ? checkUrlShape(input.source.url).host ?? '网页' : input.source.type === 'text' ? (input.source.title || '粘贴的文字') : input.source.type === 'file' ? input.source.path.split(/[\\/]/).pop()! : input.source.type === 'sample' ? (getSample(input.source.id)?.title ?? '示例') : '图片';
   return ctx.jobs.submit('import', { kind: 'import', title: `导入 ${title}`, trigger: input.origin === 'mcp' ? 'mcp' : input.origin === 'share' || input.origin === 'deeplink' ? 'share' : 'user', input });
 }
 
@@ -78,7 +79,7 @@ export async function listDocuments(ctx: Ctx, opts: ListOpts): Promise<{ items: 
 
 export const documentsMethods: MethodMap = {
   'documents.import': method(Type.Object({ source: sourceSchema, hints: hintsSchema, origin: Type.Optional(Type.Union([Type.Literal('user'), Type.Literal('deeplink')])) }), async (p, ctx) => submitImport(ctx, p as ImportInput), '长任务；进度走 task.update'),
-  'documents.samples': method(Type.Object({}), async () => [] as { id: string; title: string; genre: Genre; minutes: number; is_default: boolean }[], 'TODO：内置示例随 M1 示例内容一起做'),
+  'documents.samples': method(Type.Object({}), async (_p, ctx) => listSamples(ctx.db), '内置示例（随应用打包，带预生成的总结与语境释义）；导入过的带 document_id'),
   'documents.checkUrl': method(Type.Object({ url: Type.String() }), async p => checkUrlShape(p.url), '按 §1 校验网址，不抓内容'),
   'documents.list': method(Type.Object({ kind: Type.Optional(S.kind), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())), q: Type.Optional(Type.String()), sort: Type.Optional(Type.Union(['fit', 'opened', 'added', 'progress', 'minutes'].map(s => Type.Literal(s)))), archived: Type.Optional(Type.Boolean()), status: Type.Optional(Type.Union(['unread', 'reading', 'done'].map(s => Type.Literal(s)))), ...S.page }), async (p, ctx) => listDocuments(ctx, p as ListOpts), '书架'),
   'documents.get': method(Type.Object({ id: S.id }), async (p, ctx) => toDocument(ctx.db, await requireDoc(ctx, p.id)), '含章节列表与文档级 AI 结果'),
@@ -117,16 +118,33 @@ export const documentsMethods: MethodMap = {
     return { path: '', markdown: parts.join('\n') };
   }, 'M0 先返回 markdown 文本，写文件经壳再做'),
 
-  'sections.get': method(Type.Object({ id: S.id, with: Type.Optional(Type.Array(Type.Union([Type.Literal('translations'), Type.Literal('ai')]))) }), async (p, ctx) => sectionContent(ctx.db, p.id, { translations: p.with?.includes('translations'), ai: p.with?.includes('ai') }), '阅读器一次取齐'),
+  'sections.get': method(Type.Object({ id: S.id, with: Type.Optional(Type.Array(Type.Union([Type.Literal('translations'), Type.Literal('ai')]))) }), async (p, ctx) => { await ensureAnnotated(ctx, p.id); return sectionContent(ctx.db, p.id, { translations: p.with?.includes('translations'), ai: p.with?.includes('ai') }); }, '阅读器一次取齐；书的后面几章第一次打开时现标注（按章懒处理）'),
   'sections.progress': method(Type.Object({ id: S.id, sentence_id: S.id, progress: Type.Number({ minimum: 0, maximum: 1 }) }), async (p, ctx) => { await setProgress(ctx.db, p.id, p.sentence_id, p.progress); return { ok: true as const }; }, '阅读位置'),
   'sections.finish': method(Type.Object({ id: S.id, mark_rest_known: Type.Boolean() }), async (p, ctx) => finishSection(ctx, p.id, p.mark_rest_known), '读完：只把 status = 0 的词设为 97'),
   'sections.translate': method(Type.Object({ id: S.id, sentence_ids: Type.Optional(Type.Array(S.id)) }), async (p, ctx) => {
-    // M0 没有模型：标 deferred，返回一个立即完成的任务
-    const sec = await ctx.db.get<{ document_id: string }>('SELECT document_id FROM sections WHERE id = ?', [p.id]); if (!sec) throw new TibiError('not_found', '找不到这一章');
-    await ctx.db.run("UPDATE sections SET ai_status = 'deferred', updated_at = ? WHERE id = ? AND ai_status IN ('none')", [now(), p.id]);
-    return ctx.jobs.submit('import', { kind: 'import', title: '翻译', input: { source: { type: 'sample', id: 'translate-stub' } } }).catch(() => ({ task_id: '' }));
-  }, 'TODO：M2 接模型；现在只标 deferred'),
+    const sec = await ctx.db.get<{ document_id: string; title: string }>('SELECT document_id, title FROM sections WHERE id = ? AND deleted_at IS NULL', [p.id]); if (!sec) throw new TibiError('not_found', '找不到这一章');
+    if (!ctx.ai) throw new TibiError('model_unavailable', '还没有连接模型');
+    return ctx.jobs.submit('translate', { kind: 'import', title: '翻译', input: { section_id: p.id, sentence_ids: p.sentence_ids } });
+  }, '整章（或指定句子）译成中文，后台任务；写 sentences.translation，完成后 data.changed(sentences)'),
+  'documents.analyze': method(Type.Object({ id: S.id }), async (p, ctx) => {
+    const d = await requireDoc(ctx, p.id);
+    if (d.source_type === 'sample') throw new TibiError('conflict', '内置示例已经带了总结');
+    return ctx.jobs.submit('analyze', { kind: 'import', title: `总结 ${d.title}`, input: { document_id: d.id } });
+  }, '（重新）生成总结、短语、长难句；"稍后补做"和"重新生成"都走这里'),
+  'documents.analyze_deferred': method(Type.Object({ limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })) }), async (p, ctx) => analyzeDeferred(ctx, p.limit ?? 10), '内部：连上模型后把"稍后补做"的文章排进任务（最近打开的优先）'),
 };
+
+/** 把 ai_status = deferred 的文章排进分析任务；没连模型时什么都不做 */
+export async function analyzeDeferred(ctx: Ctx, limit = 10): Promise<{ queued: number }> {
+  const ok = await ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM providers WHERE kind = 'llm' AND deleted_at IS NULL");
+  if (!Number(ok?.n ?? 0) || !ctx.platform.isOnline()) return { queued: 0 };
+  const running = await ctx.db.all<{ input: string }>("SELECT input FROM jobs WHERE pipeline = 'analyze' AND status IN ('queued', 'running')");
+  const busy = new Set(running.map(r => (JSON.parse(r.input || '{}') as { document_id?: string }).document_id));
+  const rows = await ctx.db.all<{ id: string; title: string }>("SELECT id, title FROM documents WHERE ai_status = 'deferred' AND status = 'ready' AND deleted_at IS NULL AND source_type != 'sample' ORDER BY COALESCE(last_read_at, created_at) DESC LIMIT ?", [limit]);
+  let queued = 0;
+  for (const d of rows) { if (busy.has(d.id)) continue; await ctx.jobs.submit('analyze', { kind: 'import', title: `补做总结 ${d.title}`, trigger: 'auto', input: { document_id: d.id } }).catch(() => undefined); queued++; }
+  return { queued };
+}
 
 registerUndo<{ id: string; prev: { title: string; genre: string; is_favorite: number; is_archived: number; tags?: string[] } }>('documents.update', async (p, ctx) => {
   const t = now();

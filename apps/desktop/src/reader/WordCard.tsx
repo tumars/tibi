@@ -1,24 +1,41 @@
 import type { Status } from '@tibi/core';
 import { Volume2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { useCore } from '../store/core';
 import { speak, STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { toast } from '../store/ui';
+import { tl } from '../lib/i18n';
 
-export interface WordCardProps { word: string; sentenceId?: string; anchor: DOMRect; onClose: () => void; onStatus?: (text: string, status: Status) => void }
+export interface WordCardProps { word: string; sentenceId?: string; anchor: DOMRect; onClose: () => void; onStatus?: (text: string, status: Status) => void; onAsk?: (word: string, sentenceId?: string) => void }
 
 /** 词卡浮层（00 §3.2）：词典 + 本地状态 + 语境释义；六档熟练度与忽略 */
-export function WordCard({ word, sentenceId, anchor, onClose, onStatus }: WordCardProps) {
+export function WordCard({ word, sentenceId, anchor, onClose, onStatus, onAsk }: WordCardProps) {
   const [data, setData] = useState<Result<'terms.lookup'>>();
   const [err, setErr] = useState<string>();
   const [status, setStatus] = useState<Status | undefined>();
   const ref = useRef<HTMLDivElement>(null);
+  const nav = useNavigate();
+  const modelOk = useCore(s => !!s.status?.models.ok);
+  // 语境释义（M1）：缓存里没有、又连了模型时现写一条；没连模型只提示一句，不打断阅读（00 §3.9）
+  const [ctxm, setCtxm] = useState<{ state: 'loading' | 'ok' | 'err' | 'nomodel'; text?: string }>();
 
   useEffect(() => {
     let alive = true;
-    rpc.call('terms.lookup', { text: word, sentence_id: sentenceId }).then(r => { if (!alive) return; setData(r); setStatus(r.term?.status); }, e => { if (alive) setErr(errorInfo(e).message); });
+    setCtxm(undefined);
+    rpc.call('terms.lookup', { text: word, sentence_id: sentenceId }).then(r => {
+      if (!alive) return; setData(r); setStatus(r.term?.status);
+      if (r.context_meaning) { setCtxm({ state: 'ok', text: r.context_meaning }); return; }
+      if (!sentenceId || !r.dict && !r.term) return;
+      if (!modelOk) { setCtxm({ state: 'nomodel' }); return; }
+      setCtxm({ state: 'loading' });
+      rpc.call('terms.context_meaning', { text: word, sentence_id: sentenceId }).then(
+        m => { if (alive) setCtxm({ state: 'ok', text: m.meaning }); },
+        e => { if (!alive) return; const i = errorInfo(e); setCtxm(i.code === 'model_unavailable' && !modelOk ? { state: 'nomodel' } : { state: 'err', text: i.message }); });
+    }, e => { if (alive) setErr(errorInfo(e).message); });
     return () => { alive = false; };
-  }, [word, sentenceId]);
+  }, [word, sentenceId, modelOk]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
@@ -29,7 +46,7 @@ export function WordCard({ word, sentenceId, anchor, onClose, onStatus }: WordCa
   }, [onClose, data]);
 
   const setS = async (s: Status) => {
-    const id = data?.term?.id; if (!id) { toast('这个词还没有记录'); return; }
+    const id = data?.term?.id; if (!id) { toast(tl('这个词还没有记录')); return; }
     try { await rpc.call('terms.setStatus', { ids: [id], status: s, source: 'user' }); setStatus(s); onStatus?.(data!.term!.text, s); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
@@ -42,19 +59,22 @@ export function WordCard({ word, sentenceId, anchor, onClose, onStatus }: WordCa
 
   return (
     <div className="wc" ref={ref} style={{ left, top }} role="dialog" aria-label={head}>
-      <div className="h"><b>{head}</b>{data?.dict?.phonetic && <span className="ipa">/{data.dict.phonetic}/</span>}<button className="ibtn say" title="发音" onClick={() => speak(head)}><Volume2 /></button></div>
-      {data?.card_created && <div className="added">已加入复习 <button className="linkbtn" style={{ fontSize: 12 }} onClick={() => setS(97)}>其实认识</button></div>}
+      <div className="h"><b>{head}</b>{data?.dict?.phonetic && <span className="ipa">/{data.dict.phonetic}/</span>}<button className="ibtn say" title={tl('发音')} onClick={() => speak(head)}><Volume2 /></button></div>
+      {data?.card_created && <div className="added">{tl('已加入复习')} <button className="linkbtn" style={{ fontSize: 12 }} onClick={() => setS(97)}>{tl('其实认识')}</button></div>}
       {err && <div className="dict" style={{ color: 'var(--hard)' }}>{err}</div>}
-      {!data && !err && <div className="dict">查询中…</div>}
-      {data?.context_meaning && <div className="ai"><span className="tag">✦ 在这句里</span>{data.context_meaning}</div>}
-      {data && <div className="dict">{data.term?.meaning || data.dict?.translation || (data.dict ? '' : '词典里没有这个词')}</div>}
-      {data?.dict?.exam?.length ? <div className="lbl" style={{ marginTop: 6 }}>{data.dict.exam.join(' · ')}{data.dict.collins ? ` · 柯林斯 ${'★'.repeat(data.dict.collins)}` : ''}</div> : null}
+      {!data && !err && <div className="dict">{tl('查询中…')}</div>}
+      {ctxm?.state === 'ok' && <div className="ai"><span className="tag">{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
+      {ctxm?.state === 'loading' && <div className="ai muted"><span className="tag">{tl('✦ 在这句里')}</span>{tl('正在看这句话…')}</div>}
+      {ctxm?.state === 'err' && <div className="ai muted"><span className="tag">{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
+      {ctxm?.state === 'nomodel' && <div className="ai muted"><span className="tag">{tl('✦ 在这句里')}</span>{tl('连接模型后显示 ·')} <button className="linkbtn" onClick={() => nav(`/welcome?step=3&back=${encodeURIComponent(location.hash.slice(1) || '/')}`)}>{tl('去连接')}</button></div>}
+      {data && <div className="dict">{data.term?.meaning || data.dict?.translation || (data.dict ? '' : tl('词典里没有这个词'))}</div>}
+      {data?.dict?.exam?.length ? <div className="lbl" style={{ marginTop: 6 }}>{data.dict.exam.join(' · ')}{data.dict.collins ? tl(' · 柯林斯 {v0}', { v0: '★'.repeat(data.dict.collins) }) : ''}</div> : null}
       <div className="stages">
-        {([0, 1, 2, 3, 4, 5] as Status[]).map(s => <button key={s} data-s={s} className={`${status === s ? 'on' : ''}${status !== undefined && status <= 5 && s <= status ? ' fill' : ''}`} onClick={() => setS(s)} title={`${s} 键`}><i />{STATUS_NAMES[s]}</button>)}
+        {([0, 1, 2, 3, 4, 5] as Status[]).map(s => <button key={s} data-s={s} className={`${status === s ? 'on' : ''}${status !== undefined && status <= 5 && s <= status ? ' fill' : ''}`} onClick={() => setS(s)} title={tl('{s} 键', { s })}><i />{STATUS_NAMES[s]}</button>)}
       </div>
       <div className="row">
-        <button className={`btn${status === 98 ? ' pri' : ''}`} onClick={() => setS(98)}>忽略</button>
-        <button className="btn" onClick={() => toast('M2 起可以问 Tibi')}>问 Tibi</button>
+        <button className={`btn${status === 98 ? ' pri' : ''}`} onClick={() => setS(98)}>{tl('忽略')}</button>
+        <button className="btn" onClick={() => (onAsk ? onAsk(data?.term?.display ?? word, sentenceId) : toast(tl('在阅读器里可以问 Tibi')))}>{tl('问 Tibi')}</button>
       </div>
     </div>
   );

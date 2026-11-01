@@ -262,7 +262,7 @@ learning_events        audio_cache        daily_stats
 |---|---|---|
 | id | TEXT PK | |
 | card_id | TEXT FK | |
-| rating | INTEGER | 1 Again / 2 Hard / 3 Good / 4 Easy |
+| rating | INTEGER | 1 Again / 2 Hard / 3 Good / 4 Easy；撤销记录为 0 |
 | card_type | TEXT | 本次题型：`recognize` / `choice` / `cloze`（R6：计分复习只有这三种；M1 只有 choice、cloze，M3 加 recognize）。听写、拼写、造句在练习里，记 `practice_logs` |
 | auto_graded | INTEGER | 1 = 系统评分（选义、填空）；0 = 用户自评（识别）（G1） |
 | suggested_rating | INTEGER NULL | 系统给的评分；用户"改评分"时与 rating 不同，用于校准阈值 |
@@ -273,6 +273,7 @@ learning_events        audio_cache        daily_stats
 | context_snapshot | TEXT | 本次题面的句子快照；语境或文章删除后仍可查 |
 | state / due / stability / stability_fast / difficulty / elapsed_days / last_elapsed_days / scheduled_days / learning_steps | | ts-fsrs ReviewLog 字段（FSRS-7） |
 | duration_ms | INTEGER | 作答时长 |
+| undoes_id | TEXT NULL | 撤销记录指向被撤销的那条（迁移 0003）。撤销一次作答不删原记录，而是追加一条 rating = 0 的撤销记录；统计、FSRS 历史、每日新卡数一律读视图 `review_logs_valid`（排除撤销记录和被撤销的作答） |
 | reviewed_at | INTEGER | |
 
 > review_logs 是 FSRS 参数优化的训练数据，须完整保留。**只记每张卡在一轮里的首次作答**（G3）；答错后的重练步、再练错词、练习都不写这里。
@@ -538,19 +539,21 @@ learning_events        audio_cache        daily_stats
 
 **同步**（R11；方案见 [`08-sync.md`](08-sync.md)，2026-10-31 第一版，排在 M7）：共享文件夹（iCloud Drive / WebDAV）里放变更文件，每台设备只写自己的文件夹；按字段比较混合逻辑时钟（HLC），后改的赢；只追加的表按 `id` 合并；FSRS 卡片合并 `review_logs` 后按时间顺序重算；自然键相同的两条（同一个词、同一篇文章）合并到更早建的那条。M1 只需遵守 08 §9 的五条约定，下面这几张表 M7 才建。
 
-### 同步用的本地表（M7）
+### 同步用的本地表（M7，迁移 `0004_sync.sql`）
 
 | 表 | 字段 | 说明 |
 |---|---|---|
-| `sync_state`（单行） | `device_id`、`library_id`、`backend`（`icloud` / `webdav`）、`webdav_url`、`webdav_user`、`sync_files`（是否同步原始文件）、`hlc`（本机最大时钟）、`last_push_seq`、`last_synced_at`、`status`、`error` | WebDAV 密码在钥匙串，不在这里 |
-| `sync_peers` | `device_id` PK、`name`、`platform`、`app_version`、`last_read_seq`、`last_seen_at`、`removed_at` | 其他设备与本机读到的位置 |
-| `sync_clocks` | `(table_name, row_id, field)` PK、`hlc`、`src` | 每个字段最后一次改动的时钟；`src` 只给熟练度这类有来源的字段 |
-| `sync_outbox` | `seq` PK 自增、`table_name`、`row_id`、`op`（`put` / `add` / `del`）、`fields`（JSON）、`hlc` | 待推送的改动，推送成功后删除；本地自增序号只在本机用 |
-| `sync_aliases` | `table_name`、`old_id` PK、`new_id` | 重复合并后旧 ID 指向留下的 ID |
+| `sync_state` | `key` PK、`value` | 键值对：`enabled`、`capture`（触发器是否记录；应用别的设备的改动时临时为 0）、`backend`（JSON：`{kind: icloud}` / `{kind: folder, path}` / `{kind: webdav, url, user, password_ref}`）、`device_id`、`node`（设备短号，HLC 用）、`device_name`、`library_id`、`hlc`、`push_seq`、`exported`、`sync_files`、`last_synced_at`、`last_error`。WebDAV 密码在钥匙串，不在这里 |
+| `sync_outbox` | `seq` PK 自增、`t`、`id`、`op`（`put` / `add` / `del`）、`f`（改动后的整行 JSON）、`chg`（改了的字段，JSON 数组；新建为空表示全部）、`ms`（改动时的本机时间） | 触发器写入，推送时按 `ms` 分配 HLC，推送成功后删除 |
+| `sync_clocks` | `(t, id, f)` PK、`c` | 每个字段最后一次改动的 HLC；`f = '*'` 是整行默认（新建、初始推送），具体字段的记录优先。熟练度的来源看 `terms.status_source`，不另存 |
+| `sync_peers` | `device_id` PK、`name`、`platform`、`app_version`、`last_read_seq`、`last_seen_at`、`removed` | 其他设备与本机读到的位置 |
+| `sync_aliases` | `(t, from_id)` PK、`to_id` | 重复合并后旧 ID 指向留下的 ID；`to_id = ''` 表示丢弃（重复文章里输掉那份的章节、句子） |
+
+触发器（`sync_<表>_ins / _upd / _rekey / _del`）不在迁移里：开启同步时按当前表结构生成，启动时重建（T27）。
 
 ## 待定事项
 
 - 是否需要 `sections` 的版本/修订（用户编辑正文后，句子与语境如何保持关联）。
 - 书架卡片的"开头一句"直接取该文档第一个 `prose` 句子，不另存字段；若要支持用户改摘要再加 `documents.excerpt`。
 - `learning_events` 与 `reading_sessions` / `review_logs` 存在部分信息重叠，实现时确认是否由后两者派生事件即可。
-- **M0 的已知偏差**：`review.undo`（撤销上一张）会删掉刚写的那条 `review_logs`，与"只追加"不符。同步（M7）上线前改成追加一条撤销记录，FSRS 重算时跳过被撤销的作答。
+- ~~M0 的已知偏差~~（2026-10-31 已改，迁移 0003）：`review.undo` 原来会删掉刚写的那条 `review_logs`；现在追加一条撤销记录（`undoes_id`），读数据走 `review_logs_valid`，表本身只追加。

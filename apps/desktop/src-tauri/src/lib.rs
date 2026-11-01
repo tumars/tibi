@@ -3,6 +3,12 @@
 
 mod core;
 mod keys;
+#[cfg(any(mobile, feature = "mobile-preview"))]
+mod local_db;
+#[cfg(any(mobile, feature = "mobile-preview", test))]
+mod sync_fs;
+#[cfg(any(mobile, feature = "mobile-preview", test))]
+mod app_group;
 
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -59,13 +65,74 @@ fn keyring_delete(r#ref: String) -> Result<Value, String> {
 #[tauri::command]
 fn open_path(path: String, allowed: State<'_, Allowed>, app: AppHandle) -> Result<Value, String> {
     use tauri_plugin_opener::OpenerExt;
-    let db = app.path().app_data_dir().map(|d| d.join("app.db")).ok();
-    let ok = allowed.0.lock().unwrap().contains(&path) || db.map(|d| d.to_string_lossy() == path).unwrap_or(false);
+    let data = app.path().app_data_dir().ok();
+    let db = data.as_ref().map(|d| d.join("app.db"));
+    let in_backups = data.as_ref().map(|d| std::path::Path::new(&path).starts_with(d.join("backups"))).unwrap_or(false);
+    let ok = allowed.0.lock().unwrap().contains(&path) || db.map(|d| d.to_string_lossy() == path).unwrap_or(false) || in_backups;
     if !ok {
         return Err("permission_denied".into());
     }
     app.opener().reveal_item_in_dir(&path).map_err(|e| e.to_string())?;
     Ok(json!({ "ok": true }))
+}
+
+/// 从备份恢复（06 system.backups）：先把当前库再备一份，停 Core，换文件，重启。只认 app 数据目录 backups/ 下的文件
+#[tauri::command]
+async fn restore_backup(path: String, app: AppHandle, core: State<'_, Arc<core::CoreProcess>>) -> Result<Value, String> {
+    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let src = std::path::PathBuf::from(&path);
+    if !src.starts_with(data.join("backups")) || !src.is_file() {
+        return Err("permission_denied".into());
+    }
+    let core = core.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<Value, String> {
+        let r = core.call("system.backup", json!({ "reason": "before_restore" }), Duration::from_secs(60));
+        if r.get("error").is_some() {
+            return Err(format!("恢复前备份失败：{}", r["error"]["message"].as_str().unwrap_or("")));
+        }
+        core.stop();
+        let db = data.join("app.db");
+        for ext in ["-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{}{}", db.to_string_lossy(), ext));
+        }
+        std::fs::copy(&src, &db).map_err(|e| e.to_string())?;
+        core.start()?;
+        Ok(json!({ "ok": true }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// 另存为文本（导出学习汇总等）：弹保存对话框，用户选了路径才写
+#[tauri::command]
+async fn save_text_file(app: AppHandle, default_name: String, text: String) -> Result<Value, String> {
+    let picked = app.dialog().file().set_file_name(&default_name).blocking_save_file();
+    let Some(p) = picked.and_then(|p| p.into_path().ok()) else {
+        return Ok(json!({ "saved": false }));
+    };
+    std::fs::write(&p, text).map_err(|e| e.to_string())?;
+    Ok(json!({ "saved": true, "path": p.to_string_lossy() }))
+}
+
+/// MCP 接入配置用（06 §6）：sidecar 可执行文件的路径（安装包里和主程序放在一起）与 app 数据目录
+#[tauri::command]
+fn mcp_command(app: AppHandle) -> Result<Value, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let dir = exe.parent().ok_or("找不到程序目录")?;
+    let name = if cfg!(windows) { "tibi-core.exe" } else { "tibi-core" };
+    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(json!({ "program": dir.join(name).to_string_lossy(), "data_dir": data.to_string_lossy() }))
+}
+
+/// 选一个文件夹（同步：任意本地文件夹，08 §13）；不登记给 Core 的文件白名单，Core 只在里面建 Tibi Sync/
+#[tauri::command]
+async fn pick_folder(app: AppHandle) -> Result<Value, String> {
+    // 手机上没有选文件夹的对话框（同步用 iCloud / WebDAV）
+    #[cfg(desktop)]
+    let path = app.dialog().file().blocking_pick_folder().and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().into_owned());
+    #[cfg(mobile)]
+    let path: Option<String> = { let _ = &app; None };
+    Ok(json!({ "path": path }))
 }
 
 /// 文件选择：所选路径登记到白名单，并告诉 Core（system.registerPaths）
@@ -102,7 +169,8 @@ async fn register_paths(app: &AppHandle, paths: &[String]) {
         return;
     }
     app.state::<Allowed>().0.lock().unwrap().extend(paths.iter().cloned());
-    let core = app.state::<Arc<core::CoreProcess>>().inner().clone();
+    // 手机上 Core 在 WebView 里，没有 sidecar：路径由界面自己交给 Core
+    let Some(core) = app.try_state::<Arc<core::CoreProcess>>().map(|c| c.inner().clone()) else { return };
     let p = paths.to_vec();
     let _ = tauri::async_runtime::spawn_blocking(move || core.call("system.registerPaths", json!({ "paths": p }), Duration::from_secs(5))).await;
 }
@@ -132,11 +200,74 @@ fn handle_deep_link(app: &AppHandle, urls: &[tauri::Url]) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    tauri::Builder::default()
+    #[cfg(any(mobile, feature = "mobile-preview"))]
+    run_mobile();
+    #[cfg(not(any(mobile, feature = "mobile-preview")))]
+    run_desktop();
+}
+
+/// 手机（M7，00 §3.13）：没有 sidecar，Core 跑在 WebView 里（mobile.html），这里只给 SQLite、钥匙串、文件选择、深链。
+/// 桌面上加 --features mobile-preview 也走这里，用来在电脑上预览手机版、检查这段能编译。
+#[cfg(any(mobile, feature = "mobile-preview"))]
+fn run_mobile() {
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_http::init());
+    // Android：随包资源（词典）在 APK 的 assets 里，经 fs 插件读出来（local_db.rs）
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_fs::init());
+    builder
+        .manage(Allowed::default())
+        .manage(local_db::Dbs::default())
+        .setup(|app| {
+            // Android 的密钥存在应用私有目录（keys.rs）
+            if let Ok(dir) = app.path().app_data_dir() {
+                keys::file_store::init(dir);
+            }
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Ok(Some(urls)) = app.deep_link().get_current() {
+                    handle_deep_link(app.handle(), &urls);
+                }
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| handle_deep_link(&handle, &event.urls()));
+            }
+            // 桌面预览：窗口配置里是 index.html，换成手机壳
+            #[cfg(desktop)]
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.eval("if (!location.pathname.endsWith('mobile.html')) location.replace('mobile.html' + location.hash)");
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            local_db::db_open, local_db::db_exec, local_db::db_run, local_db::db_all, local_db::keyring_get, local_db::read_file,
+            sync_fs::sync_fs_read, sync_fs::sync_fs_write, sync_fs::sync_fs_list, sync_fs::sync_fs_remove, sync_fs::sync_icloud_root, app_group::share_take_pending, app_group::widget_write,
+            keyring_set, keyring_delete, pick_file, save_text_file
+        ])
+        .run(tauri::generate_context!())
+        .expect("Tibi 启动失败");
+}
+
+#[cfg(not(any(mobile, feature = "mobile-preview")))]
+fn run_desktop() {
+    let builder = tauri::Builder::default();
+    // 单实例要最先注册（插件文档要求）；第二个进程带来的深链由 deep-link 特性转发给 on_open_url
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+    }));
+    builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(Allowed::default())
         .manage(TrayMode::default())
         .setup(|app| {
@@ -218,7 +349,7 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move { register_paths(&app, &paths).await; });
             }
         })
-        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, window_set_tray_mode])
+        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command])
         .run(tauri::generate_context!())
         .expect("Tibi 启动失败");
 }

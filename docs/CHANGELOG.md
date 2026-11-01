@@ -94,3 +94,58 @@
 | 2026-10-31 | 桌面端首页按原型（home.html）重做：居中窄栏、继续读主卡 + 还在读、狐狸在输入框外侧、框内"+ / 快速 / 发送"、今天三张卡（开始按钮、阅读进度条、连续天数条）；左栏补"最近"、书架与生词本数量、真实的连续天数与"约 N 词"，深浅色切换挪到顶栏。修正已知词统计：把词汇量以内默认已知的常见词算进去（原来只数库里的行，首页显示 41、左栏显示 3,500），口径写进 01 daily_stats |
 | 2026-10-31 | 首页恢复"图像在上面"（用户要求）：104px 的 Tibi 居中在输入框上方，下面加欢迎语（时段问候 + 称呼，一行灰字只说一件最该做的事：上次读到哪篇 / 今天几张复习 / 有没读的文章 / 空书架的引导）；继续读主卡挪到建议胶囊下面。桌面端、原型 home.html、v2.css、00 §3.5 同步 |
 | 2026-10-31 | 首页欢迎语去重（用户要求）：灰字不再报"上次读到哪 / 几张复习 / 没读的文章"（下面的继续读主卡、今天、书架已经有），改成一句邀请"今天想读点什么？"（深夜"睡前读一小段？"，空书架"读过的文章里的生词会自动进入复习"）。桌面端、原型、00 §3.5 同步 |
+| 2026-10-31 | **M1 开工**：内置示例三篇（技术《How a Compiler Sees Your Code》默认、O. Henry《The Gift of the Magi》、新闻解释《Why Cities Are Getting Hotter》），随应用打包预生成的总结、建议、短语、长难句与语境释义（T16）；`documents.samples` 实现，返回 `SampleInfo`（06）；`Document.ai` 增加 advice / phrases / hard_sentences。阅读器顶栏加"总结"面板；空书架列出示例，点一下导入并打开；行内代码渲染成等宽字；修正任务取消要等当前步骤跑完（T17）、左栏连续天数圆环被 Tailwind 的 `ring` 类加了方框 |
+| 2026-10-31 | M1 首次启动引导（00 §3.9）：桌面端 `/welcome` 两步（先认识一下 → 读第一篇，进来就导入默认示例）；`?step=2` 校准词汇量（7 组词 + 伪词，结果页带各组比例和手填）；`?step=3` 连接模型（DeepSeek 两档同一个 Key / 其他兼容 OpenAI 的服务，测试连接后才能保存）。第一次打开且书架为空时自动进入，完成后记 `onboarding.done`。设置加"校准词汇量"入口；空书架时首页建议换成"读一篇示例文章 / 先测一下我的词汇量"。Core：词汇量估算变了（测试或手填）就给每篇文章排一个重新标注任务；06 的 vocab.start 说明更正为 7 组 |
+| 2026-10-31 | M1 词卡语境释义：新增 `terms.context_meaning`（06），缓存里没有、又连了模型时用快速档现写一条并写回 `term_contexts`；词卡先出词典释义，再异步补"在这句里"；没连模型时只提示"连接模型后显示 · 去连接"（进 `/welcome?step=3`，完成后回到原文）。`providers.test` 从占位换成真实请求。内核加一次性调用 `completeOnce`（T18） |
+| 2026-10-31 | M1 剪藏插件：`extensions/clipper/`（Chrome / Edge MV3，只有 activeTab 权限；点按钮或 Alt+Shift+T 把当前网址经 `tibi://import?url=…` 交给 Tibi，Tibi 弹确认卡后才抓取）；`pnpm clipper:zip` 打包。桌面端 Windows / Linux 加单实例插件，深链交给已开的窗口（T19）。00 §3.1、dev README 同步 |
+| 2026-10-31 | M1 设置 → 数据：自动备份（每天一次、保留 7 份自动备份，可关）、立即备份、备份列表与恢复（先备份当前库，再由壳停 Core 换文件重启）；导出学习汇总（弹窗看全部 JSON，复制或另存为）。Core 新增 `system.backups`、`system.backup` 带 reason；Platform 加 `backups`（core-node 实现）；壳加 `restore_backup`、`save_text_file`；单实例插件（见上一条）。06、00 §3.7 同步 |
+| 2026-10-31 | 修 M0 遗留：网页导入的标题去掉站点后缀（按 og:site_name、页面标题、主机名判断，拿不准不动），正文开头与标题重复的那行去掉；抽正文前删掉导航、侧栏目录、面包屑、快捷键帮助（mdBook 的"Keyboard shortcuts"不再混进正文）；标题所在块里的导语段落被 Readability 丢掉时补回（MDN）。在 Rust Book、MDN、Python 文档、React 文档上验证 |
+| 2026-10-31 | 修 M0 遗留（复习）：撤销作答改成只追加（迁移 0003：`review_logs.undoes_id` + 视图 `review_logs_valid`，01 同步）；没写释义的词在复习里用语境释义或词典短释义，答错后答案区能看到中文意思；填空答错显示"没填对"；界面看完评分后漏调 `review.next`，续上时会停在答过的那一步（已修，续上时自动跳过答过的步） |
+| 2026-10-31 | **M2 开工** · 导入后的 AI 分析：总结 + 学习建议 + 关键词、短语（只留原文里有的）、长难句，三个子任务并行，作为独立的后台任务排在导入之后（导入完就能读）；没连模型 / 离线 / 超预算记"稍后补做"，连上模型后自动补做（`documents.analyze`、`documents.analyze_deferred`，T20）。译文：`sections.translate` 接模型，阅读器打开"译文"时按章生成。阅读器总结面板加"现在生成 / 重新生成"。06、00 §3.1 同步 |
+| 2026-10-31 | M2 和 Tibi 对话：桌面端对话页 `/chat/:id`（首页提问新开对话、流式回答、工具调用行、审批卡、停止、没连模型的提示），左栏"最近"可点回对话；极简 Markdown 渲染（不插 HTML）。开发桥加 `--fake-model` 假模型，方便不花钱走通 AI 界面。00 §3.10、dev README 同步 |
+| 2026-10-31 | M2 讲解：阅读器右侧"✦ Tibi"面板（每篇一个对话、讲解技能、带阅读位置作上下文）；选中文字浮出"问 Tibi"，词卡"问 Tibi"接通。对话组件抽成 ChatThread，对话页与面板共用。修正同一篇文章并发打开对话会建两个；对话回答不再弹全局通知。00 §3.2 同步 |
+| 2026-10-31 | M2 身份与记忆、任务中心：系统提示加"最近 7 天"学习日志（只有计数，02 §4）；设置加"记忆"一节（分组、来源与日期、就地修改、删除 / 清空可撤销、暂停记住新的事）；任务中心最小版（数字卡、等你确认、进行中与最近任务、展开步骤与用量、取消与重试，`?t=` 直达）；任务步骤名换成看得懂的说法；示例导入的任务标题用文章标题。00 §3.7 / §3.11、02 §4、dev README 同步，M2 标为功能做完 |
+| 2026-10-31 | **M3 开工** · 生词本导出与导入：`terms.export` 生成 Anki（制表符文本，背面带原句）/ CSV（带 BOM）/ 纯文本，由壳另存为；`terms.import` 读选中的文件，已知词表直接标为已知（学习中的不动），单词表加进生词本（第二列当释义）。生词本页右上角加"导入 / 导出"菜单，设置 → 数据加入口。修正词形还原把 -ous / -us / -is 结尾的词当复数（ubiquitous → ubiquitou）。06 同步 |
+| 2026-10-31 | M3 统计页：桌面端 `/stats`（四项指标、Tibi 的洞察、已知词数实测 / 估算两条线、每日阅读、接下来要复习、复习表现、学习日历、生词本熟练度、按类型阅读量），内联 SVG 图表。Core：`stats.insight` 接模型（当天缓存，动作只从固定列表里挑），新增 `stats.forecast`、`stats.stages`；修正已知词曲线从 0 起跳、上一周期没有数据时增长算错。生词本页支持 `?view=`。06、00 §3.6 同步 |
+| 2026-10-31 | M3 复习完善：练习页（听写原句按词对齐、拼写、易混词、造句由 Tibi 批改，每轮 5 题，不计分），复习页"复习 / 练习"切换；复习完成页"读一篇用到这些词的短文"（`review.story` 接模型，写好的短文作为 Tibi 写的文章进书架）与"去练习"；设置加"出识别题"开关（默认关）。Core 新增 `practice.grade`，`review.grade` 改为说明造句在练习里。FSRS 参数优化排到后续（ts-fsrs 没有优化器）。00 §3.3、06 同步，M3 标为功能做完 |
+| 2026-10-31 | **M4 开工** · 多格式导入：EPUB（按目录分章，书）、PDF（拼回段落、断词、去页码，有目录的长文档按章；扫描版转 OCR）、DOCX；首页"+"多选与桌面端拖入文件；书按章懒处理（导入只标前两章）。修正单文件 sidecar 里 pdfjs 找不到 worker、打包 banner 与 pdfjs 冲突（T21）。00 §3.1 同步 |
+| 2026-10-31 | M4 OCR：图片导入和扫描版 PDF 走本地 Tesseract（语言包第一次用时下载约 10 MB），按行距分段、修断词；单文件 sidecar 里也能跑（worker 与 wasm 随安装包放在 resources/ocr/，T22）。00 §3.1、dev README 同步 |
+| 2026-10-31 | M4 朗读：阅读器朗读条（句级高亮跟随、自动滚动、上一句 / 下一句、倍速、单句循环、句间停顿）；设置 → 语音（系统语音 / Kokoro 本地模型下载与进度、音色试听、默认语速）；所有发音走同一个引擎（T23）。M4 标为功能做完。00 §3.4 同步 |
+| 2026-10-31 | **M5 开工** · 找文章：订阅源（内置 5 个英文技术 / 科普源 + 自定义 RSS / Atom，`feeds.*`），`search_feeds` 能力接通（摘要粗估生词率、兴趣词排序、去掉书架里已有的）；首页"推荐一篇…"用找文章技能；Tibi 回答里的链接点一下导入书架；首页"快速 / 深入"档接上。00 §3.10、06 同步 |
+| 2026-10-31 | M5 Tibi 能做的事：设置 → 高级里逐项配置技能（模型档、写入前是否每次都问、启用、附加要求、恢复默认），找文章管订阅源，整理记忆可手动运行；通用里加权限模式三档。修正设置里展开式条目的排版。00 §3.7 同步 |
+| 2026-10-31 | M5 MCP Server：`tibi-core --mcp` 作为外部 AI 工具的 stdio MCP Server，经本地 socket + 令牌文件转给运行中的 Tibi（T24）；Core 加 `mcp.*`（读能力全开、写能力逐项开、写调用按权限模式审批并返回 pending_approval、`tibi_task_status` 轮询）；设置 → 高级 → 其他 AI 工具（开关、写工具、Claude Code / Codex 配置片段）。设置里"记忆"挪到"高级"前面。06 §6、00 §3.7 同步 |
+| 2026-10-31 | M5 任务中心完整版：花得最多的技能、审批卡的修改后允许 / 以后自动允许、暂停 / 继续 / 取消 / 重试、按今天 / 昨天 / 更早分组、右侧详情抽屉（步骤树、过程、在对话中继续、复制诊断信息）、键盘 J / K / Enter / A / R / Esc、左栏任务徽标。M5 标为功能做完。00 §3.11 同步 |
+| 2026-10-31 | M6 CI 与安装包：`ci.yml`（内嵌文件最新、类型检查、单测、界面构建、文案漏翻检查、Rust clippy）、`release.yml`（打 tag → 四个目标的草稿 Release + 剪藏插件 zip）、`bundle-prep.mjs` / `tauri.bundle.conf.json`（T26）。本地验证 Linux .deb 带上了 sidecar、词典和 OCR 资源。`pnpm ecdict` 默认输出改为 `data/ecdict/dict.db`（和壳的开发路径一致）。修 MCP 测试从仓库根跑时找不到 tsx |
+| 2026-10-31 | M6 界面语言：界面文案全部用 `tl()` 包起来、英文 719 条（T25）；设置 → 通用加"界面语言"（中文 / English），学习与复习加"Tibi 讲解用的语言"（中文夹英文 / 只用中文 / English），系统提示里写明回答语言。00 §3.7 同步 |
+| 2026-10-31 | M6 文档与社区：README 重写（中文 / English，真实截图、安装、隐私、开发），用户指南 `docs/guide/`，PRIVACY、SECURITY、CONTRIBUTING、CODE_OF_CONDUCT，issue / PR 模板 |
+| 2026-10-31 | M6 全局搜索 ⌘K：Core `search.query`（文章标题与正文 FTS5、生词本、对话、词典），界面浮层（范围切换、最近搜索、跳转与操作、设置项定位并高亮、词典词一键加入生词本、问 Tibi）；左栏搜索按钮接上。06、00 §3.8 同步 |
+| 2026-10-31 | M7 同步引擎：Core `sync/`（HLC、触发器捕获、gzip JSONL 批次、按字段合并、熟练度来源优先、自然键去重与重复文章处理、复习按记录重算）、后端（文件夹 / Mac 上的 iCloud 容器 / WebDAV）、`sync.*` 方法与自动同步时机；9 个场景测试 + 文件夹集成测试。修 FSRS 适配里重学卡片（state 3）复习报错。01、06、08 §13、T27 同步 |
+| 2026-10-31 | M7 同步界面：设置 → 数据 → 同步（iCloud Drive / 文件夹 / WebDAV，检查已有资料库 → 加入或新建，状态行、立即同步、设备列表与移除、停止）；壳加 `pick_folder`。00 §3.7、使用指南同步 |
+| 2026-10-31 | M7 手机壳：`mobile.html` 入口（`src/mobile/`：今天、书架、全屏阅读器与词卡面板、复习、我），样式取自原型；复习与对话的状态抽成 `useReviewSession`、`useChat`，桌面和手机共用；左栏的手机当天对话显示为"10 月 31 日 · 手机"；复习"上次做到一半"的提示不再重复。00 §3.13 实现状态、开发说明同步 |
+| 2026-10-31 | M7 手机端运行时：Core 在 WebView 里跑（T28）——壳加 `local_db.rs`（rusqlite）与 `keyring_get`，`run()` 分桌面 / 手机两条，`mobile-preview` 特性在电脑上走手机那条；JS 端 `InvokeDriver`、`localTransport`（http 插件代替全局 fetch）；`SqliteDict` 和网页正文抽取（`web/html.ts`，注入 HTML 解析器）移进 core；`tauri.ios/android/mobile.conf.json`；手机第一次打开选水平；CI 加 `cargo check --features mobile-preview`。开发说明 §6、00 §3.13 与 M7 里程碑同步 |
+| 2026-10-31 | M7 同步压缩（08 §6）：所有算数的设备读过后把自己的批次合成 `base-N`，读的一方比 base 旧时先读 base；补上"压缩后新设备加入""90 天不上线"两个场景测试（08 §11 八条齐了）。08 §13 同步 |
+| 2026-10-31 | 修词形还原：规则去掉 -ing / -ed 后碰巧是词典里另一个不相干的词（Lexing → lex「法律」）时，要那个词列出了这个变形或有动词义才还原，否则保留原词。示例文章里 lexing 的预生成释义因此能对上 |
+| 2026-10-31 | ⌘K 补齐：空输入时显示继续阅读、"单词"范围列最近加入的词；在阅读器里"问 Tibi"发到 Tibi 面板。00 §3.8 同步 |
+| 2026-10-31 | 手机壳补齐：复习页加练习（复用桌面 Practice 组件，手机样式）；词卡上拉全屏显示遇到过的句子和复习数据。00 §3.13 同步 |
+| 2026-10-31 | WebDAV 同步对真服务器（wsgidav）验证：修资料库目录不存在时第一次写 409（先逐级 MKCOL）、列目录把目录自己当文件；加协议级测试。08 §13 同步 |
+| 2026-10-31 | 手机从"文件"导入：壳加 `read_file`（原始字节），文件抽取移进 core（依赖注入），手机接浏览器版 pdfjs / mammoth / tesseract；浏览器里模拟手机桥端到端导入了 EPUB、Word、PDF、书页照片。T28、开发说明 §6、00 §3.13 同步 |
+| 2026-10-31 | 在 Xvfb 里跑真正装好的应用（.deb）验证：首次引导、导入示例、阅读、词卡、深链（第二个实例把链接交给开着的窗口、弹确认卡、真的抓网页）、⌘K、钥匙串。发现并修了两个只在打包后出现的问题：① Linux 钥匙串用的是内核 keyutils（重启丢、容器里写不进），改用 Secret Service；② 打包后的 sidecar 调模型报 `ModelsImpl is not a constructor`（esbuild 把 pi-ai 包成惰性初始化），改成静态导入，加 `bundle.test.ts` 用本地 OpenAI 兼容服务器经打包后的 sidecar 走一次模型调用 |
+| 2026-10-31 | 手机原生部分：iCloud 同步（壳的 `sync_fs.rs`：iOS 经 NSFileManager 取容器，`sync_fs_*` 读写，处理 `.icloud` 占位；JS `invokeFolderBackend`）；Android 上 API Key 存应用私有目录的 `secrets.json`（keyring 在 Android 上只在内存里）。Rust 单测 + 两台模拟手机经这组命令同步的测试。开发说明 §6、08 §13、00 §3.13 同步 |
+| 2026-10-31 | 模型错误改成人话（`kernel/model-errors.ts`：401 Key 不对、402 余额不足、429 太频繁、连不上、5xx）。在装好的应用里验证到：填 Key → 进 Secret Service → sidecar 经壳取 Key → 真的请求 DeepSeek → 假 Key 得到 401，提示"API Key 不对或已经失效" |
+| 2026-10-31 | 每日提醒（J8）：通知插件；手机系统定时，电脑开着时到点发；设置 → 学习与复习、手机 我 › 每日提醒；`reminder.*` 不同步。00 §3.13 同步 |
+| 2026-10-31 | 手机原生扩展：Safari 分享扩展与小组件的 Swift 代码（`src-tauri/ios-extensions/`，Xcode 里加 target 的步骤见那里的 README）；壳加 `app_group.rs`（App Group `group.app.tibi`：`share_take_pending` 取走分享的网址、`widget_write` 写快照），手机打开 / 回到前台时导入分享的网址、状态变了写快照。浏览器里模拟壳验证：分享的网址经 http 插件抓取进书架。Android：`gen/android/` 生成并提交，Rust 交叉编译通过（aarch64），Gradle 拉依赖被 Maven Central 限流，APK 待重跑；`pick_folder` 只在桌面编译。开发说明 §6、00 §3.13 同步 |
+| 2026-10-31 | Android 打出 APK（aarch64，未签名，约 56 MB，带词典）；`gen/android` 加备份规则，API Key 所在的 `secrets.json` 不进 Google 云端备份和换机迁移；CI 加 `android` job（`cargo check --target aarch64-linux-android`）；手机与 iOS 扩展交换数据的部分加单测（`test/native.test.ts`）。开发说明 §6、00 §3.13、PRIVACY、SECURITY 同步 |
+| 2026-10-31 | CI 加 `ios` 任务（macOS runner：iOS 目标 `cargo check`，分享扩展与小组件 Swift 类型检查）；发布流程加 `android` 任务（APK 留作构建产物，打 tag 时挂到草稿 Release）；推到开发分支 `m0-scaffold` 时 CI 和发布流程都跑（不建 Release），在打 tag 之前验证打包。开发说明 §4 同步 |
+| 2026-10-31 | 发布流程第一次在 GitHub 上跑：词典生成通过；macOS 两个目标编译通过、打包时因为没配签名密钥却传了空值去导入证书而失败（改成配了才传）；Windows 在 `pnpm install` 编 better-sqlite3 时找不到 VS（runner 换成 `windows-2022`）。开发说明 §4 同步 |
+| 2026-10-31 | GitHub 上 CI 与发布流程全部跑通（开发分支，只出构建产物）：macOS ×2、Linux、Windows 安装包与 Android APK。修 Windows 上打包脚本的路径（`fileURLToPath`）。开发说明 §4 同步 |
+| 2026-10-31 | 发布流程加 `android-smoke`：在 GitHub 带 KVM 的模拟器里装 x86_64 APK、打开、点「开始」，检查不崩溃并把屏幕文字打进日志（本机没有 KVM，软件模拟下 system_server 反复重启，装不上）。开发说明 §6 同步 |
+| 2026-11-01 | 冒烟测试查出并修掉两个问题：① 刚导入、还在分词标注时打开文章，句子没有 tokens、词点不了，标注做完也不刷新（手机和桌面阅读器都改成文章变了再取一次）；② 手机欢迎面板只在挂载时查一次，Core 还没连上就永远不弹（改成连上后再判断，有没有文章直接问 Core）。`android-smoke` 改成 debug 包 + DevTools 协议走完整流程（欢迎 → 示例 → 阅读 → 查词）。开发说明 §6 同步 |
+| 2026-11-01 | `android-smoke` 在 GitHub 的模拟器里跑通到：Core 在 WebView 里起来、欢迎、示例导入、安装包里的词典能打开能查；阅读器页模拟器进程会消失（已知，记成警告）。开发说明 §6 同步 |
+| 2026-11-01 | 修：Android 上随包词典打不开（资源在 APK assets 里，`exists()` 永远是假）——第一次用经 fs 插件拷到应用数据目录，升级后重拷。由 `android-smoke` 查出。开发说明 §6 同步 |
+| 2026-11-01 | `android-smoke` 全部通过：模拟器里 Core、欢迎、示例导入、词典、阅读器分词、点词词卡释义都对；发布流程四个桌面目标 + APK + 冒烟测试全绿。开发说明 §6、00 §3.13 同步 |
+| 2026-11-01 | 发布流程加 `ios-smoke`：GitHub macOS runner 上 `tauri ios init` + `tauri ios dev` 在 iPhone 模拟器里跑，截图用 Vision 识别出欢迎面板、无崩溃即通过。开发说明 §6 同步 |
+| 2026-11-01 | iOS 第一次跑起来：GitHub macOS runner 的 iPhone 模拟器（iOS 26.5）里，Rust 壳、插件、WKWebView、WebView 里的 Core 都起来了，屏幕识别出欢迎面板和「今天」页。冒烟脚本修 pipefail 下 `| grep -q` 误判。开发说明 §6、00 §3.13 同步 |
+| 2026-11-01 | 发布流程整轮全绿前的最后一处：`android-smoke` 查崩溃只看 Tibi 自己（uiautomator 进程的崩溃不算）；`ios-smoke` 通过。 |
+| 2026-11-01 | iOS 扩展加进工程不用手点 Xcode：`ios-extensions/add-targets.py` 改 xcodegen 工程（分享扩展、小组件、三个 target 的 App Groups、内嵌）；`ios-smoke` 加检查：扩展被系统登记、App Group 里有小组件快照、分享收件箱被主应用取走。开发说明 §6 同步 |
+| 2026-11-01 | `ios-smoke` 全部通过：iPhone 模拟器里欢迎面板出现，分享扩展（app.tibi.share）和小组件（app.tibi.widget）被系统登记，App Group 里有小组件快照、分享收件箱被主应用取走。开发说明 §6、00 §3.13 同步 |
+| 2026-11-01 | v0.1.0：`m0-scaffold` 合进 main，工作流改回 main / tag 触发；打 `v0.1.0` tag，发布流程出草稿 Release（桌面四个目标、Android APK、剪藏插件），人工检查后发布。 |

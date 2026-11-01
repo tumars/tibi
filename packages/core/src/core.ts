@@ -1,4 +1,5 @@
 import type { Database } from './db/driver.js';
+import type { CompleteOptions, CompleteResult } from './kernel/complete.js';
 import { NullDict, type Dict } from './dict/types.js';
 import { EventBus, type JobRunner } from './kernel/types.js';
 import type { Platform } from './platform.js';
@@ -11,6 +12,7 @@ import { systemMethods } from './rpc/system.js';
  * 各模块把自己的方法表（documents.*、terms.*、review.* …）通过 `use()` 挂进来。
  */
 export interface CoreOptions { db: Database; dict?: Dict; platform: Platform; jobs: JobRunner }
+type AiComplete = (ctx: Ctx, o: CompleteOptions) => Promise<CompleteResult>;
 
 export class Core {
   readonly events = new EventBus();
@@ -19,6 +21,8 @@ export class Core {
   readonly dict: Dict;
   readonly platform: Platform;
   readonly jobs: JobRunner;
+  /** 内核装上后才有（assembleCore） */
+  ai?: AiComplete;
 
   constructor(opts: CoreOptions) {
     this.db = opts.db; this.dict = opts.dict ?? new NullDict(); this.platform = opts.platform; this.jobs = opts.jobs;
@@ -37,6 +41,7 @@ export class Core {
         try { return (JSON.parse(row?.assistant_prefs ?? '{}').permission as 'ask' | 'default' | 'auto') ?? 'default'; } catch { return 'default'; }
       },
       call: <T>(m: string, p: unknown) => self.dispatcher.call<T>(m, p, ctx),
+      ai: self.ai ? { complete: o => self.ai!(ctx, o) } : undefined,
     };
     return ctx;
   }

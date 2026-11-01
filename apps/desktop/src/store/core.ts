@@ -49,6 +49,9 @@ export function bindCoreEvents() {
   const refresh = () => void useCore.getState().refresh();
   rpc.on('data.changed', d => { if (d.table === 'cards' || d.table === 'terms' || d.table === 'settings' || d.table === 'documents') refresh(); });
   rpc.on('task.done', refresh);
+  // 任务开始 / 状态变化时只刷新左栏徽标用的 system.status（不整页刷新）
+  let t: ReturnType<typeof setTimeout> | undefined;
+  rpc.on('task.update', () => { if (t) return; t = setTimeout(() => { t = undefined; void rpc.call('system.status', {}).then(st => useCore.setState({ status: st }), () => undefined); }, 800); });
   rpc.on('approval.requested', refresh);
   rpc.on('approval.resolved', refresh);
 }

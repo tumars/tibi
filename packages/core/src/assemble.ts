@@ -1,3 +1,7 @@
+import { feedsCapabilities, feedsMethods } from './domain/documents/feeds.js';
+import { searchMethods } from './domain/search/methods.js';
+import { syncMethods } from './sync/methods.js';
+import { SyncEngine } from './sync/engine.js';
 import { Core } from './core.js';
 import type { Database } from './db/driver.js';
 import type { Dict } from './dict/types.js';
@@ -26,6 +30,7 @@ export interface AssembleOptions extends KernelOptions {
 export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core; kernel: Kernel }> {
   const kernel = createKernel(opts.db, new EventBus(), { resolveModel: opts.resolveModel, device: opts.device });
   const core = new Core({ db: opts.db, dict: opts.dict, platform: opts.platform, jobs: kernel.jobs });
+  core.ai = (ctx, o) => kernel.complete(ctx, o);
   kernel.bind(caller => core.ctx(caller), core.events);
 
   core.use(undoMethods)
@@ -34,10 +39,15 @@ export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core;
     .use(termsMethods)
     .use(reviewMethods)
     .use(statsMethods)
-    .use(profileMethods);
+    .use(profileMethods)
+    .use(feedsMethods)
+    .use(searchMethods)
+    .use(syncMethods);
 
-  kernel.registerCapabilities({ ...documentsCapabilities, ...termsCapabilities, ...reviewCapabilities, ...statsCapabilities });
+  kernel.registerCapabilities({ ...feedsCapabilities, ...documentsCapabilities, ...termsCapabilities, ...reviewCapabilities, ...statsCapabilities });
   registerImportPipeline(kernel.jobs, core);
+  // 同步开着时按当前表结构重建触发器（08 §5）
+  await SyncEngine.resume(core.db);
 
   if (opts.resume !== false) await kernel.jobs.resumeAll();
   return { core, kernel };

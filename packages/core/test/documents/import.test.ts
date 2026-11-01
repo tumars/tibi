@@ -6,7 +6,7 @@ import { undoMethods } from '../../src/domain/shared/undo.js';
 import { makeCore, InlineJobRunner } from '../helpers.js';
 
 const FREQ: Record<string, number> = { the: 1, is: 2, a: 3, of: 4, and: 5, to: 6, that: 7, it: 8, rust: 3000, feature: 400, make: 50, among: 900, system: 300, language: 200, instead: 700, rely: 2500, on: 9, garbage: 4000, collector: 6500, compiler: 2000, enforce: 7000, small: 100, set: 80, rule: 500, at: 10, compile: 5000, time: 30, program: 600, violate: 6800, them: 20, simply: 1500, won: 300, not: 15, upshot: 15000, memory: 800, safety: 1200, without: 150, runtime: 9500, overhead: 7500, usually: 400, come: 60, with: 12, each: 90, value: 250, have: 14, exactly: 1300, one: 16, owner: 2200, when: 25, go: 100, out: 40, scope: 6200, be: 2, drop: 1100, its: 50, reclaim: 11000, deterministically: 20000, this: 13, distinctive: 8800 };
-const dict: Dict = { async lookup(w) { return FREQ[w] ? { word: w, translation: `n. ${w}的意思；另一义`, exam: [], forms: [] } : undefined; }, async lemmas() { return []; }, async frequencyRank(l) { return FREQ[l]; } };
+const dict: Dict = { async lookup(w) { return FREQ[w] ? { word: w, translation: `n. ${w}的意思；另一义`, exam: [], forms: [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`, `${w}${w.slice(-1)}ed`, `${w}${w.slice(-1)}ing`, `${w.slice(0, -1)}ing`] } : undefined; }, async lemmas() { return []; }, async frequencyRank(l) { return FREQ[l]; } };
 
 const TEXT = `# Understanding Ownership in Rust
 
@@ -109,5 +109,33 @@ describe('导入文本', () => {
     expect(doc.source).toBe('example.com');
     await expect(m.core.call('documents.import', { source: { type: 'url', url: 'http://127.0.0.1/x' } })).rejects.toThrow();
     expect(await m.core.call('documents.checkUrl', { url: 'ftp://a' })).toMatchObject({ ok: false });
+  });
+});
+
+describe('内置示例', () => {
+  it('列出三篇、默认一篇；导入后带预生成总结与语境释义，且不标 deferred', async () => {
+    const list = await core.call<{ id: string; is_default: boolean; document_id?: string; minutes: number }[]>('documents.samples', {});
+    expect(list.map(s => s.id)).toEqual(['how-a-compiler-sees-your-code', 'gift-of-the-magi', 'why-cities-are-getting-hotter']);
+    expect(list.filter(s => s.is_default)).toHaveLength(1);
+    const { task_id } = await core.call<{ task_id: string }>('documents.import', { source: { type: 'sample', id: 'how-a-compiler-sees-your-code' } });
+    const r = await jobs.wait(task_id);
+    expect(r.status, r.error).toBe('done');
+    const id = (r.output as { document_id: string }).document_id;
+    const doc = await core.call<DocumentSummary & { ai?: Record<string, { output: unknown }>; sections: { id: string }[] }>('documents.get', { id });
+    expect(doc.genre).toBe('tech');
+    expect(doc.source).toBe('内置示例');
+    expect(String(doc.ai?.summary?.output)).toContain('编译器');
+    expect(Array.isArray(doc.ai?.phrases?.output)).toBe(true);
+    const row = await ctx.db.get<{ ai_status: string }>('SELECT ai_status FROM documents WHERE id = ?', [id]);
+    expect(row?.ai_status).toBe('done');
+    // 语境释义：找一句含 compiler 的句子查词
+    const sec = await core.call<SectionContent>('sections.get', { id: doc.sections[0]!.id });
+    const s = sec.sentences.find(x => x.tokens.some(t => t.l === 'compiler'))!;
+    const look = await core.call<{ context_meaning?: string }>('terms.lookup', { text: 'compiler', sentence_id: s.id });
+    expect(look.context_meaning).toBe('编译器');
+    // 代码块不拆句
+    expect(sec.sentences.some(x => x.text.includes('fn area'))).toBe(false);
+    expect((await core.call<{ document_id?: string }[]>('documents.samples', {}))[0]!.document_id).toBe(id);
+    await expect(core.call('documents.import', { source: { type: 'sample', id: 'nope' } }).then(x => jobs.wait((x as { task_id: string }).task_id))).resolves.toMatchObject({ status: 'failed' });
   });
 });

@@ -1,12 +1,19 @@
 //! 钥匙串（05 §8）：service = app.tibi，账户 = 引用名（如 provider.deepseek.llm）。
-//! WebView 只能写入和删除；读取只给 sidecar 的 secret.get 反向请求。
+//! WebView 只能写入和删除；读取只给 sidecar 的 secret.get 反向请求（手机上 Core 在 WebView 里，经 keyring_get）。
+//! - macOS / iOS：系统钥匙串；Windows：凭据管理器；Linux：Secret Service（GNOME 钥匙串 / KWallet）
+//! - Android：keyring 没有后端（只存在内存里，重启就丢），改存应用私有目录里的 secrets.json（权限 0600，别的应用读不到）。
+//!   gen/android 的备份规则（res/xml/backup_rules.xml、data_extraction_rules.xml）把它排除在云端备份和换机迁移之外。
+//!   以后接 Android Keystore 插件再加一层加密。
 
+#[cfg(not(target_os = "android"))]
 const SERVICE: &str = "app.tibi";
 
+#[cfg(not(target_os = "android"))]
 pub fn set(r: &str, secret: &str) -> Result<(), String> {
     keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.set_password(secret).map_err(|e| format!("写入钥匙串失败：{e}"))
 }
 
+#[cfg(not(target_os = "android"))]
 pub fn delete(r: &str) -> Result<(), String> {
     match keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
@@ -14,10 +21,97 @@ pub fn delete(r: &str) -> Result<(), String> {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 pub fn get(r: &str) -> Result<Option<String>, String> {
     match keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.get_password() {
         Ok(s) => Ok(Some(s)),
         Err(keyring::Error::NoEntry) => Ok(None),
         Err(e) => Err(format!("读取钥匙串失败：{e}")),
+    }
+}
+
+#[cfg(target_os = "android")]
+pub use file_store::{delete, get, set};
+
+/// 文件存储（Android 用；所有平台都编译，方便单测）
+#[allow(dead_code)]
+pub mod file_store {
+    use std::collections::BTreeMap;
+    use std::path::{Path, PathBuf};
+    use std::sync::{Mutex, OnceLock};
+
+    static DIR: OnceLock<PathBuf> = OnceLock::new();
+    static LOCK: Mutex<()> = Mutex::new(());
+
+    /// 启动时由壳设置（app_data_dir）
+    pub fn init(dir: PathBuf) {
+        let _ = DIR.set(dir);
+    }
+
+    fn path() -> Result<PathBuf, String> {
+        DIR.get().map(|d| d.join("secrets.json")).ok_or_else(|| "密钥存储还没初始化".to_string())
+    }
+
+    fn load(p: &Path) -> BTreeMap<String, String> {
+        std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+    }
+
+    fn save(p: &Path, m: &BTreeMap<String, String>) -> Result<(), String> {
+        if let Some(d) = p.parent() {
+            std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
+        }
+        let tmp = p.with_extension("tmp");
+        std::fs::write(&tmp, serde_json::to_string(m).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600));
+        }
+        std::fs::rename(&tmp, p).map_err(|e| e.to_string())
+    }
+
+    pub fn set(r: &str, secret: &str) -> Result<(), String> {
+        let _g = LOCK.lock().unwrap();
+        let p = path()?;
+        let mut m = load(&p);
+        m.insert(r.to_string(), secret.to_string());
+        save(&p, &m)
+    }
+
+    pub fn delete(r: &str) -> Result<(), String> {
+        let _g = LOCK.lock().unwrap();
+        let p = path()?;
+        let mut m = load(&p);
+        if m.remove(r).is_some() {
+            save(&p, &m)?;
+        }
+        Ok(())
+    }
+
+    pub fn get(r: &str) -> Result<Option<String>, String> {
+        let _g = LOCK.lock().unwrap();
+        Ok(load(&path()?).get(r).cloned())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        #[test]
+        fn set_get_delete_persist() {
+            let dir = std::env::temp_dir().join(format!("tibi-keys-{}", std::process::id()));
+            super::init(dir.clone());
+            super::set("provider.deepseek.llm", "sk-1").unwrap();
+            super::set("sync.webdav", "pw").unwrap();
+            assert_eq!(super::get("provider.deepseek.llm").unwrap().as_deref(), Some("sk-1"));
+            // 重新读文件（模拟重启）仍在
+            assert!(std::fs::read_to_string(dir.join("secrets.json")).unwrap().contains("sync.webdav"));
+            super::delete("provider.deepseek.llm").unwrap();
+            assert_eq!(super::get("provider.deepseek.llm").unwrap(), None);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(std::fs::metadata(dir.join("secrets.json")).unwrap().permissions().mode() & 0o777, 0o600);
+            }
+            let _ = std::fs::remove_dir_all(dir);
+        }
     }
 }

@@ -46,7 +46,9 @@ export const profileMethods: MethodMap = {
     if (patch.level_self && patch.vocab_estimate === undefined && (patch.vocab_source ?? cur.vocab_source) === 'self') put('vocab_estimate', LEVEL_ESTIMATE[patch.level_self] ?? cur.vocab_estimate);
     if (sets.length) { put('updated_at', t); await ctx.db.run(`UPDATE user_profile SET ${sets.join(', ')} WHERE id = '1'`, vals as never); }
     ctx.events.emit('data.changed', { table: 'settings' });
-    return getProfile(ctx.db);
+    const next = await getProfile(ctx.db);
+    if (next.vocab_estimate !== cur.vocab_estimate) await reannotateAll(ctx);
+    return next;
   }, '自动保存；vocab_source = self 时改自评水平会重算 vocab_estimate'),
 
   'settings.get': method(Type.Object({ keys: Type.Optional(Type.Array(Type.String())) }), async (p, ctx) => {
@@ -85,6 +87,8 @@ export const profileMethods: MethodMap = {
         [id, p.provider.kind, p.provider.name, p.provider.protocol, p.provider.base_url ?? null, 'api_key', p.provider.tier ?? null, p.provider.model, p.secret_ref ?? null, '{}', p.provider.is_default ? 1 : 0, t, t]);
     });
     ctx.events.emit('data.changed', { table: 'settings' });
+    // 连上模型后把"稍后补做"的文章排进任务（M2）
+    void ctx.call('documents.analyze_deferred', {}).catch(() => undefined);
     return (await listProviders(ctx.db)).find(x => x.id === id)!;
   }, '密钥先由 Rust 写入钥匙串，这里只传引用'),
 
@@ -92,8 +96,12 @@ export const profileMethods: MethodMap = {
     const r = await ctx.db.get<{ id: string; secret_ref: string | null }>('SELECT id, secret_ref FROM providers WHERE id = ? AND deleted_at IS NULL', [p.id]);
     if (!r) throw new TibiError('not_found', '没有这个服务商');
     if (!r.secret_ref || !(await ctx.platform.getSecret(r.secret_ref))) return { ok: false, error: '还没有填 API Key' };
-    return { ok: false, error: '连接测试在接入模型后提供（M0 还没有）' };
-  }, '连接测试（M0 占位）'),
+    if (!ctx.ai) return { ok: false, error: '这里不能调用模型' };
+    try {
+      const out = await ctx.ai.complete({ provider_id: r.id, budget: false, system: 'Reply with exactly: OK', prompt: 'ping', max_tokens: 5 });
+      return { ok: true, model: out.model, latency_ms: out.latency_ms };
+    } catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+  }, '连接测试：用这个服务商发一条很短的请求，返回模型名与耗时；不计入预算检查（仍记用量）'),
 
   'vocab.start': method(Type.Object({}), async (_p, ctx) => vocabStart(ctx), '词汇量测试：7 组，含伪词（不标出）'),
   'vocab.submit': method(Type.Object({ picks: Type.Array(Type.Array(Type.String())) }), async (p, ctx) => vocabSubmit(ctx, p.picks), '估算并初始化已知词库'),
@@ -180,7 +188,14 @@ async function vocabSubmit(ctx: Ctx, picks: string[][]) {
   });
   ctx.events.emit('data.changed', { table: 'settings' });
   ctx.events.emit('data.changed', { table: 'terms' });
+  await reannotateAll(ctx);
   return { estimate, cefr: cefrOf(estimate), bands: ratios, pseudo_hits };
+}
+
+/** 词汇量变了：按新估算重新标注全部文章（00 §3.9：不重新调用 AI），每篇一个后台任务 */
+export async function reannotateAll(ctx: Ctx) {
+  const docs = await ctx.db.all<{ id: string; title: string }>("SELECT id, title FROM documents WHERE deleted_at IS NULL AND status = 'ready'");
+  for (const d of docs) await ctx.jobs.submit('reanalyze', { kind: 'import', title: `重新标注 ${d.title}`, input: { document_id: d.id } }).catch(() => undefined);
 }
 
 function shuffle<T>(arr: T[]): T[] { for (let i = arr.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [arr[i], arr[k]] = [arr[k]!, arr[i]!]; } return arr; }

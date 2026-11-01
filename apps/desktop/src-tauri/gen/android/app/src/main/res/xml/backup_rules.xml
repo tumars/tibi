@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 及以下的自动备份：API Key / WebDAV 密码（secrets.json，keys.rs）不进 Google 云端备份，换手机后重新填 -->
+<full-backup-content>
+    <exclude domain="root" path="secrets.json" />
+    <exclude domain="file" path="secrets.json" />
+</full-backup-content>

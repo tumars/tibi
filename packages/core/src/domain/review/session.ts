@@ -1,3 +1,4 @@
+import { uuidv7 } from '../../ids.js';
 import { now, type Database } from '../../db/driver.js';
 import type { Dict } from '../../dict/types.js';
 import type { Ctx } from '../../rpc/define.js';
@@ -138,7 +139,9 @@ async function revertRating(db: Database, payload: { card: CardRow; log_id?: str
   const { card } = payload;
   const { id, deleted_at, created_at, updated_at, ...rest } = card; void id; void deleted_at; void created_at; void updated_at;
   await updateCard(db, card.id, rest as Partial<CardRow>);
-  if (payload.log_id) await db.run('DELETE FROM review_logs WHERE id = ?', [payload.log_id]);
+  // 只追加（0003）：写一条撤销记录，不删原来那条
+  if (payload.log_id) await db.run(`INSERT INTO review_logs(id, card_id, rating, card_type, auto_graded, session_id, undoes_id, reviewed_at)
+    SELECT ?, card_id, 0, card_type, auto_graded, session_id, id, ? FROM review_logs WHERE id = ? AND NOT EXISTS (SELECT 1 FROM review_logs WHERE undoes_id = ?)`, [uuidv7(), now(), payload.log_id, payload.log_id]);
   const term = await getTerm(db, payload.term_id);
   if (term && term.status !== payload.status_before) await setTermStatus(db, term, payload.status_before, 'srs');
 }

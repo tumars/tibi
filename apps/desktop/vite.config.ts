@@ -22,5 +22,7 @@ export default defineConfig({
     target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari15',
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    // 两个入口：桌面 index.html、手机 mobile.html（00 §3.13，独立的壳；Tauri 移动端的窗口指向 mobile.html）
+    rollupOptions: { input: { main: fileURLToPath(new URL('./index.html', import.meta.url)), mobile: fileURLToPath(new URL('./mobile.html', import.meta.url)) } },
   },
 });

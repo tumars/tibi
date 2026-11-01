@@ -1,5 +1,9 @@
 import { Agent, type AgentTool, type StreamFn } from '@earendil-works/pi-agent-core';
 import { calculateCost, createModels, createProvider, type Api, type AssistantMessage, type Message, type Model, type Usage } from '@earendil-works/pi-ai';
+// 静态导入：打成单文件 sidecar 时，动态导入会让 esbuild 把 pi-ai 的模块包成惰性初始化，静态那条路径就漏了初始化（createModels 报 "not a constructor"）
+import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy';
+import { deepseekProvider } from '@earendil-works/pi-ai/providers/deepseek';
+import { friendlyModelError } from './model-errors.js';
 import { j, now, type Database } from '../db/driver.js';
 import type { Ctx } from '../rpc/define.js';
 import { TibiError, type SkillId, type Tier } from '../types.js';
@@ -16,6 +20,9 @@ import { checkBudget, recordUsage, USD_CNY } from './usage.js';
  * 每轮模型调用记 job_steps(kind=model) 与 usage_records；流式文本与工具调用发 chat.* 事件。
  */
 
+/** 设置里「Tibi 讲解用的语言」→ 写进系统提示的说法 */
+const LANG_TEXT: Record<string, string> = { mixed: '中文为主，术语、例句保留英文', zh: '只用中文（英文原句除外）', en: 'English only（用户要求全英文讲解）' };
+
 export interface ResolvedModel { model: Model<Api>; apiKey?: string; streamFn: StreamFn }
 
 export interface AgentDeps {
@@ -26,7 +33,7 @@ export interface AgentDeps {
   /** 技能运行时的 Ctx（caller.origin = skill） */
   makeCtx: (caller: Ctx['caller']) => Ctx;
   /** 测试 / 离线：注入假的模型与 streamFn */
-  resolveModel?: (ctx: Ctx, tier: Tier) => Promise<ResolvedModel>;
+  resolveModel?: (ctx: Ctx, tier: Tier, provider_id?: string) => Promise<ResolvedModel>;
   uiContext: () => UiContext | undefined;
 }
 
@@ -34,9 +41,11 @@ export interface RunSkillArgs { skill_id: SkillId; input: string; conversation_i
 export interface RunSkillResult { text: string; usage: { tokens_in: number; tokens_out: number; cost: number } }
 
 /** 从 providers 表找模型；没有可用的模型或密钥 → model_unavailable */
-export async function resolveModelFromProviders(ctx: Ctx, tier: Tier): Promise<ResolvedModel> {
-  const row = await ctx.db.get<{ id: string; protocol: string; base_url: string | null; model: string; secret_ref: string | null; name: string }>(
-    "SELECT id, protocol, base_url, model, secret_ref, name FROM providers WHERE kind = 'llm' AND deleted_at IS NULL AND (tier = ? OR is_default = 1) ORDER BY CASE WHEN tier = ? THEN 0 ELSE 1 END LIMIT 1", [tier, tier]);
+export async function resolveModelFromProviders(ctx: Ctx, tier: Tier, provider_id?: string): Promise<ResolvedModel> {
+  type Row = { id: string; protocol: string; base_url: string | null; model: string; secret_ref: string | null; name: string };
+  const row = provider_id
+    ? await ctx.db.get<Row>("SELECT id, protocol, base_url, model, secret_ref, name FROM providers WHERE id = ? AND deleted_at IS NULL", [provider_id])
+    : await ctx.db.get<Row>("SELECT id, protocol, base_url, model, secret_ref, name FROM providers WHERE kind = 'llm' AND deleted_at IS NULL AND (tier = ? OR is_default = 1) ORDER BY CASE WHEN tier = ? THEN 0 ELSE 1 END LIMIT 1", [tier, tier]);
   if (!row || !row.model) throw new TibiError('model_unavailable', '还没有连接模型。在设置里填 API Key 之后再试');
   const apiKey = row.secret_ref ? await ctx.platform.getSecret(row.secret_ref) : undefined;
   if (!apiKey && row.protocol !== 'ollama') throw new TibiError('model_unavailable', `${row.name} 的 API Key 不见了。在设置里重新填写`);
@@ -44,12 +53,10 @@ export async function resolveModelFromProviders(ctx: Ctx, tier: Tier): Promise<R
   const models = createModels();
   let model: Model<Api> | undefined;
   if (isDeepseek) {
-    const { deepseekProvider } = await import('@earendil-works/pi-ai/providers/deepseek');
     const p = deepseekProvider(); models.setProvider(p);
     model = p.getModels().find(m => m.id === row.model) ?? { ...(p.getModels()[0] as Model<Api>), id: row.model, name: row.model };
-    if (!p.getModels().some(m => m.id === row.model)) models.setProvider(createProvider({ id: 'deepseek', name: 'DeepSeek', baseUrl: p.baseUrl, auth: p.auth, models: [model], api: (await import('@earendil-works/pi-ai/api/openai-completions.lazy')).openAICompletionsApi() }));
+    if (!p.getModels().some(m => m.id === row.model)) models.setProvider(createProvider({ id: 'deepseek', name: 'DeepSeek', baseUrl: p.baseUrl, auth: p.auth, models: [model], api: openAICompletionsApi() }));
   } else {
-    const { openAICompletionsApi } = await import('@earendil-works/pi-ai/api/openai-completions.lazy');
     const baseUrl = row.base_url ?? 'http://127.0.0.1:11434/v1';
     model = { id: row.model, name: row.model, api: 'openai-completions', provider: row.id, baseUrl, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128_000, maxTokens: 8192 } as unknown as Model<Api>;
     models.setProvider(createProvider({ id: row.id, name: row.name, baseUrl, auth: { apiKey: { name: row.name, resolve: async () => ({ auth: { type: 'api_key', apiKey: apiKey ?? 'ollama' } }) } } as never, models: [model] as never, api: openAICompletionsApi() }));
@@ -118,7 +125,7 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
     unsub(); registry.liveTools.delete(job.job_id); job.signal.removeEventListener('abort', onAbort);
   }
   if (job.signal.aborted) throw new TibiError('busy', '已取消');
-  if (errorMessage) throw new TibiError(/unauthorized|401|api key/i.test(errorMessage) ? 'model_unavailable' : 'model_unavailable', `模型调用失败：${errorMessage}`);
+  if (errorMessage) throw new TibiError('model_unavailable', friendlyModelError(errorMessage));
   events.emit('chat.delta', { conversation_id: args.conversation_id, submission_id: job.job_id, delta: '', done: true });
   if (args.conversation_id) await convs.addMessage(args.conversation_id, 'assistant', { text }, job.job_id);
   return { text, usage };
@@ -141,12 +148,19 @@ export async function buildSystemPrompt(deps: AgentDeps, ctx: Ctx, skill: Resolv
   const prof = await db.get<{ display_name: string | null; level_self: string | null; goal: string | null; interests: string; vocab_estimate: number; assistant_prefs: string }>("SELECT display_name, level_self, goal, interests, vocab_estimate, assistant_prefs FROM user_profile WHERE id = '1'");
   const prefs = j.parse<{ nickname?: string; language?: string; permission?: string }>(prof?.assistant_prefs, {});
   const core = await db.all<{ content: string }>("SELECT content FROM memories WHERE type IN ('profile', 'procedural') AND status = 'active' AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 20");
-  parts.push(['## 用户', `称呼：${prefs.nickname ?? prof?.display_name ?? '你'}；水平：${prof?.level_self ?? '未知'}；估算词汇量：${prof?.vocab_estimate ?? '未知'}；目标：${prof?.goal ?? '未知'}；兴趣：${j.parse<string[]>(prof?.interests, []).join('、') || '未知'}；对话语言：${prefs.language ?? 'mixed'}`, ...core.map(m => `- ${m.content}`)].join('\n'));
+  parts.push(['## 用户', `称呼：${prefs.nickname ?? prof?.display_name ?? '你'}；水平：${prof?.level_self ?? '未知'}；估算词汇量：${prof?.vocab_estimate ?? '未知'}；目标：${prof?.goal ?? '未知'}；兴趣：${j.parse<string[]>(prof?.interests, []).join('、') || '未知'}；回答语言：${LANG_TEXT[prefs.language ?? 'mixed'] ?? LANG_TEXT.mixed}`, ...core.map(m => `- ${m.content}`)].join('\n'));
   parts.push(`## 可用工具\n${skill.allowed_tools.filter(t => deps.registry.has(t)).map(t => `- ${t}：${deps.registry.get(t)!.description}`).join('\n') || '（无）'}\n权限模式：${await ctx.permission()}`);
   try {
     const snap = await deps.registry.call<Record<string, unknown>>('get_context', {}, ctx);
     parts.push(`## 当前状态\n${JSON.stringify({ page: snap['page'], document: snap['document'], selection: snap['selection'], card: snap['card'], today: snap['today'], recent_documents: snap['recent_documents'] })}`);
   } catch { /* get_context 没注册时跳过 */ }
+  // ④ 学习日志：最近 7 天的计数（不含具体的词和正文），让 Tibi 知道用户最近在做什么
+  try {
+    const since = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+    const w = await db.get<{ days: number; ms: number; words: number; newt: number; rev: number; ok: number }>('SELECT count(*) AS days, COALESCE(sum(reading_ms), 0) AS ms, COALESCE(sum(words_read), 0) AS words, COALESCE(sum(new_terms), 0) AS newt, COALESCE(sum(reviews), 0) AS rev, COALESCE(sum(review_correct), 0) AS ok FROM daily_stats WHERE date >= ? AND (reading_ms > 0 OR reviews > 0)', [since]);
+    const docs = await db.all<{ title: string }>('SELECT title FROM documents WHERE deleted_at IS NULL AND last_read_at IS NOT NULL ORDER BY last_read_at DESC LIMIT 5');
+    if (w && (Number(w.days) || docs.length)) parts.push(`## 最近 7 天\n学习 ${w.days} 天，阅读约 ${Math.round(Number(w.ms) / 60000)} 分钟、${w.words} 词；新认识 ${w.newt} 个词；复习 ${w.rev} 次${Number(w.rev) ? `，答对率 ${Math.round(Number(w.ok) / Number(w.rev) * 100)}%` : ''}。${docs.length ? `最近读的：${docs.map(d => `《${d.title}》`).join('、')}` : ''}`);
+  } catch { /* 统计表还没有数据 */ }
   if (args.context !== undefined) parts.push(`## 调用方给的上下文\n${typeof args.context === 'string' ? args.context : JSON.stringify(args.context)}`);
   const q = args.input.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(w => w.length > 1).slice(0, 8);
   if (q.length) {
