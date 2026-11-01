@@ -1,18 +1,46 @@
-# 每个 PR / 推送：生成文件是否最新、类型检查、单测、界面构建、Rust 壳编译检查
+# 每个 PR / 推到 main：生成文件是否最新、类型检查、单测、界面构建（Linux，便宜）。
+# 省 Actions 分钟（私有仓库：Linux ×1、Windows ×2、macOS ×10 计）：
+# - 只改文档（docs/、*.md）的提交不跑；
+# - Rust 壳的 clippy、Android 编译检查只在 src-tauri 有改动时跑；
+# - iOS 编译检查（macOS）只在手动触发时勾选才跑（Actions 页面 → CI → Run workflow）。
 name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
   pull_request:
+    paths-ignore: ['docs/**', '**/*.md']
   workflow_dispatch:
+    inputs:
+      ios:
+        description: 也跑 iOS 编译检查（macOS runner，按 10 倍计分钟）
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # 这次改了哪些地方：Rust 壳（src-tauri、Cargo）有改动才跑 rust / android
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      shell: ${{ steps.f.outputs.shell }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            shell:
+              - 'apps/desktop/src-tauri/**'
+              - '.github/workflows/ci.yml'
+
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -30,7 +58,10 @@ jobs:
       - run: pnpm --filter @tibi/desktop build:web
 
   rust:
+    needs: changes
+    if: needs.changes.outputs.shell == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -57,7 +88,10 @@ jobs:
 
   android:
     # 手机 Android 目标的 Rust 部分能编译（runner 自带 NDK；APK 打包要 Gradle，留给发布流程 / 本机，见开发说明 §6）
+    needs: changes
+    if: needs.changes.outputs.shell == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -78,7 +112,10 @@ jobs:
   ios:
     # iOS 目标的 Rust 部分（iCloud 容器、App Group 走 objc2-foundation）能编译；两个扩展的 Swift 对 iOS SDK 做类型检查。
     # 打 .ipa 要签名和 gen/apple 工程（tauri ios init，要 Apple 开发者账号），不在 CI 里做，见开发说明 §6。
+    # macOS 按 10 倍计分钟：只在手动触发、勾了 ios 时跑
+    if: github.event_name == 'workflow_dispatch' && inputs.ios
     runs-on: macos-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

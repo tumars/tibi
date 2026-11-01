@@ -3,11 +3,29 @@
 #   macOS：APPLE_CERTIFICATE、APPLE_CERTIFICATE_PASSWORD、APPLE_SIGNING_IDENTITY、APPLE_ID、APPLE_PASSWORD、APPLE_TEAM_ID
 #   Windows：暂不签（以后接 Azure Trusted Signing）
 name: Release
-# 手动触发（Actions 页面 Run workflow）时跑同样的流程，只出构建产物、不建 Release，用来在打 tag 之前验证打包
+# 手动触发（Actions 页面 → Release → Run workflow）只出构建产物、不建 Release，用来在打 tag 之前验证打包；可以勾选跑哪些。
+# 省 Actions 分钟（私有仓库：Linux ×1、Windows ×2、macOS ×10 计）：两个手机冒烟测试默认不跑，手动勾选才跑；打 tag 时也不跑。
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      desktop:
+        description: 桌面安装包（macOS ×2、Windows、Linux；macOS 按 10 倍计分钟）
+        type: boolean
+        default: true
+      apk:
+        description: Android APK
+        type: boolean
+        default: true
+      android_smoke:
+        description: Android 冒烟测试（模拟器里走首次引导到点词查词典）
+        type: boolean
+        default: false
+      ios_smoke:
+        description: iOS 冒烟测试（iPhone 模拟器，macOS runner，按 10 倍计分钟）
+        type: boolean
+        default: false
 
 concurrency:
   group: release-${{ github.ref }}
@@ -20,6 +38,7 @@ jobs:
   # 词典只生成一次（下载 ECDICT 约 66 MB、入库几分钟），各平台共用
   dict:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -50,6 +69,8 @@ jobs:
 
   build:
     needs: dict
+    if: github.event_name != 'workflow_dispatch' || inputs.desktop
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -134,7 +155,9 @@ jobs:
   # Android APK（aarch64，未签名；配了签名密钥以后再加 apksigner 一步）。runner 自带 Android SDK 和 NDK
   android:
     needs: dict
+    if: github.event_name != 'workflow_dispatch' || inputs.apk
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -176,6 +199,7 @@ jobs:
   # Android 冒烟测试：x86_64 debug APK 装进带 KVM 的模拟器，经 DevTools 协议走一遍欢迎 → 示例进书架 → 阅读 → 点词查词典；看进程活着、没有崩溃
   android-smoke:
     needs: dict
+    if: github.event_name == 'workflow_dispatch' && inputs.android_smoke
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -241,6 +265,7 @@ jobs:
   # 截图后用 Vision 识别屏幕文字看到欢迎面板；两个扩展已登记、App Group 里有小组件快照、分享收件箱被取走（.github/scripts/ios-smoke.sh）
   ios-smoke:
     needs: dict
+    if: github.event_name == 'workflow_dispatch' && inputs.ios_smoke
     runs-on: macos-latest
     timeout-minutes: 75
     steps:
@@ -304,6 +329,7 @@ jobs:
     needs: [build, android]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - run: node extensions/clipper/zip.mjs
