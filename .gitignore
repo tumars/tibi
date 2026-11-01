@@ -6,6 +6,7 @@ __pycache__/
 Thumbs.db
 .vscode/
 .idea/
+.claude/
 # 吉祥物出图的中间产物（定稿后再挑选放进 docs/prototypes/img/mascot/）
 docs/design/mascot/out/
 # 依赖与构建产物（M0 起）
