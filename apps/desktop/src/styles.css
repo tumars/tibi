@@ -302,6 +302,18 @@ h2.st .sp { flex: 1; }
 .snav { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; }
 .snav button { display: flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 8px; color: var(--ink-2); font-size: 13.5px; width: 100%; text-align: left; }
 .snav button.on { background: var(--sunken); color: var(--ink); font-weight: 500; }
+.snav button:disabled { opacity: .35; background: none; }
+.sfind { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 10px; background: var(--sunken); color: var(--ink-3); margin-bottom: 8px; }
+.sfind svg { flex: none; }
+.sfind input { border: 0; background: none; outline: 0; font: inherit; font-size: 13px; color: var(--ink); width: 100%; min-width: 0; }
+.sfind input::placeholder { color: var(--ink-3); }
+.sfind:focus-within { box-shadow: inset 0 0 0 1.5px var(--accent); background: var(--surface); }
+.sfind .k { font-family: var(--f-mono); font-size: 10.5px; padding: 1px 5px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line-2); }
+.snores { padding: 40px 0; text-align: center; font-size: 13px; color: var(--ink-3); }
+.sw [hidden] { display: none !important; }
+.sw.searching .group > * { box-shadow: none; }
+.sw.searching .group > :not([hidden]) ~ :not([hidden]) { box-shadow: 0 -1px 0 var(--line); }
+::highlight(settings-search) { background-color: var(--hl-1); }
 .ssec { margin-bottom: 36px; }
 .ssec h2 { margin: 0 0 10px; font-size: 17px; font-weight: 600; }
 .group { border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); }

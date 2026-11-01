@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { tl } from '../lib/i18n';
 import { GENRE_NAMES, STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
+import { SETTINGS } from '../settings/search';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
 
@@ -18,28 +19,6 @@ type Scope = 'all' | 'docs' | 'words' | 'settings' | 'actions';
 interface Row { key: string; group: string; icon: ReactNode; title: ReactNode; sub?: ReactNode; tag?: string; run: () => void | Promise<void> }
 
 const SCOPES: [Scope, string][] = [['all', tl('全部')], ['docs', tl('文章')], ['words', tl('单词')], ['settings', tl('设置')], ['actions', tl('操作')]];
-/** 设置项：名称、所在分组、关键词（00 §3.8：输入"深色""api key""fsrs"能找到） */
-const SETTINGS: { label: string; sec: string; kw: string }[] = [
-  { label: '外观', sec: 'general', kw: '深色 浅色 主题 dark light theme appearance' },
-  { label: '界面语言', sec: 'general', kw: 'english 英文 中文 language' },
-  { label: 'Tibi 怎么称呼你', sec: 'general', kw: '昵称 名字 nickname name' },
-  { label: '权限模式', sec: 'general', kw: '审批 确认 自动 permission' },
-  { label: '英语水平与目标', sec: 'general', kw: '水平 目标 雅思 托福 考研 level goal' },
-  { label: '校准词汇量', sec: 'general', kw: '词汇量 测试 vocabulary test' },
-  { label: '朗读引擎', sec: 'general', kw: '朗读 语音 发音 kokoro tts voice' },
-  { label: 'Tibi 讲解用的语言', sec: 'learning', kw: '英文讲解 中文 language explain' },
-  { label: '每日阅读目标', sec: 'learning', kw: '目标 分钟 goal' },
-  { label: '每天最多新学的词', sec: 'learning', kw: '新词 上限 new cards' },
-  { label: '目标记得率', sec: 'learning', kw: 'fsrs 记得率 retention 复习' },
-  { label: '出识别题', sec: 'learning', kw: '识别 题型 recognize' },
-  { label: '暂停记住新的事', sec: 'memory', kw: '记忆 memory 隐私' },
-  { label: '模型', sec: 'model', kw: 'api key deepseek 模型 连接 model provider openai' },
-  { label: 'Tibi 能做的事', sec: 'advanced', kw: '技能 订阅源 rss feed skill' },
-  { label: '花费上限', sec: 'advanced', kw: '预算 花费 钱 budget cost' },
-  { label: '其他 AI 工具', sec: 'advanced', kw: 'mcp claude code codex' },
-  { label: '自动备份', sec: 'data', kw: '备份 恢复 backup restore' },
-  { label: '导出学习汇总', sec: 'data', kw: '导出 汇总 export' },
-];
 const RECENT_KEY = 'tibi.search.recent';
 const loadRecent = (): string[] => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]'); } catch { return []; } };
 

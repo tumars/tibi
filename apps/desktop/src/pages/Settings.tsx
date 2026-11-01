@@ -1,6 +1,6 @@
 import type { Profile } from '@tibi/core';
-import { ChevronDown } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ChevronDown, Search } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Top } from '../components/Shell';
 import { Switch } from '../components/Switch';
@@ -11,6 +11,7 @@ import { VoiceItems } from '../settings/VoiceItems';
 import { SkillItems } from '../settings/SkillItems';
 import { McpItems } from '../settings/McpItems';
 import { SyncItems } from '../settings/SyncItems';
+import { useSettingsSearch } from '../settings/search';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
@@ -32,11 +33,26 @@ export function Settings() {
   const [budget, setBudget] = useState<{ month: number; task: number }>({ month: 20, task: 1 });
   const [adv, setAdv] = useState(false);
 
+  // 页内搜索：q 是输入框里的字，query 是拿去过滤的字（拼音输入法选字途中不过滤）
+  const [q, setQ] = useState(''); const [query, setQuery] = useState('');
+  const swRef = useRef<HTMLDivElement>(null); const findRef = useRef<HTMLInputElement>(null);
+  const { total, missed } = useSettingsSearch(swRef, query);
+  const searching = !!query.trim();
+  const clearSearch = () => { setQ(''); setQuery(''); };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey && !/INPUT|TEXTAREA|SELECT/.test(t.tagName) && !t.isContentEditable) { e.preventDefault(); findRef.current?.focus(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // 全局搜索跳到某一项：?sec=advanced&item=花费上限 → 滚过去并闪一下浅蓝底
   const secParam = params.get('sec'), itemParam = params.get('item');
   useEffect(() => {
     if (!secParam) return;
-    setSec(secParam); if (secParam === 'advanced') setAdv(true);
+    clearSearch(); setSec(secParam); if (secParam === 'advanced') setAdv(true);
     const t = setTimeout(() => {
       const want = itemParam ? tl(itemParam) : '';
       const el = want ? [...document.querySelectorAll<HTMLElement>(`#s-${secParam} .t, #s-${secParam} h3`)].find(x => x.textContent?.trim() === want) : undefined;
@@ -61,8 +77,11 @@ export function Settings() {
   return (
     <>
       <Top crumbs={[{ label: tl('设置') }]} right={<span className="lbl">{tl('修改会自动保存')}</span>} />
-      <div className="scroll"><div className="page"><div className="sw" style={{ marginTop: 12 }}>
-        <nav className="snav">{SECTIONS.map(([k, l]) => <button key={k} className={sec === k ? 'on' : ''} onClick={() => { setSec(k); if (k === 'advanced') setAdv(true); document.getElementById(`s-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>{l}</button>)}</nav>
+      <div className="scroll"><div className="page"><div ref={swRef} className={searching ? 'sw searching' : 'sw'} style={{ marginTop: 12 }}>
+        <nav className="snav">
+          <label className="sfind"><Search size={14} /><input ref={findRef} value={q} placeholder={tl('搜索设置')} aria-label={tl('搜索设置')} autoComplete="off" onChange={e => { setQ(e.target.value); if (!(e.nativeEvent as InputEvent).isComposing) setQuery(e.target.value); }} onCompositionEnd={e => setQuery(e.currentTarget.value)} onKeyDown={e => { if (e.key === 'Escape' && !e.nativeEvent.isComposing) { clearSearch(); e.currentTarget.blur(); } }} />{!q && <span className="k">/</span>}</label>
+          {SECTIONS.map(([k, l]) => <button key={k} className={sec === k ? 'on' : ''} disabled={missed.includes(k)} onClick={() => { setSec(k); if (k === 'advanced') setAdv(true); document.getElementById(`s-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>{l}</button>)}
+        </nav>
         <div>
           <section className="ssec" id="s-general"><h2>{tl('通用')}</h2><div className="group">
             <div className="item"><div><div className="t">{tl('外观')}</div></div><div className="ctl"><div className="seg">{(['auto', 'light', 'dark'] as const).map(t => <button key={t} className={theme === t ? 'on' : ''} onClick={() => setTheme(t)}>{{ auto: tl('跟随系统'), light: tl('浅色'), dark: tl('深色') }[t]}</button>)}</div></div></div>
@@ -97,8 +116,8 @@ export function Settings() {
 
           <section className="ssec" id="s-advanced">
             <h2>{tl('高级')}</h2>
-            <button className="advtog" onClick={() => setAdv(!adv)} aria-expanded={adv}><span style={{ flex: 1 }}>{tl('能做的事、花费上限、其他 AI 工具')}</span><ChevronDown size={14} style={{ transform: adv ? 'rotate(180deg)' : undefined }} /></button>
-            {adv && <>
+            <button className="advtog" hidden={searching} onClick={() => setAdv(!adv)} aria-expanded={adv}><span style={{ flex: 1 }}>{tl('能做的事、花费上限、其他 AI 工具')}</span><ChevronDown size={14} style={{ transform: adv ? 'rotate(180deg)' : undefined }} /></button>
+            {(adv || searching) && <>
               <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('Tibi 能做的事')}</h3>
               <div className="group"><SkillItems /></div>
               <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('花费上限')}</h3>
@@ -124,6 +143,7 @@ export function Settings() {
             <div className="item"><div><div className="t">Tibi {status?.version ?? ''}</div><div className="d">{tl('开源 · MIT 协议 · 本地优先的 AI 英语阅读工具')}</div></div></div>
             <div className="item"><div><div className="t">{tl('致谢')}</div><div className="d">ECDICT · FSRS · pi · Tauri · Charis SIL</div></div></div>
           </div></section>
+          {searching && total === 0 && <div className="snores">{tl('没有找到「{v0}」', { v0: query.trim() })}</div>}
         </div>
       </div></div></div>
     </>
