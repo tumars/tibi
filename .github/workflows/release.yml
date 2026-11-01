@@ -238,6 +238,62 @@ jobs:
           path: smoke/
           retention-days: 7
 
+  # iOS 冒烟测试：tauri ios init 生成工程，tauri ios dev 在模拟器里编译、安装、打开（模拟器不用签名），
+  # 截图后用 Vision 识别屏幕文字，看到欢迎面板、进程活着、没有崩溃报告就算过（.github/scripts/ios-smoke.sh）
+  ios-smoke:
+    needs: dict
+    runs-on: macos-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: ios-sim
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: dict
+          path: data/ecdict
+      - run: node apps/desktop/scripts/bundle-prep.mjs --skip-sidecar
+      - name: xcodegen
+        run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+      - name: tauri ios init
+        working-directory: apps/desktop
+        run: pnpm tauri ios init --ci
+      - name: 选一个 iPhone 模拟器并开机
+        run: |
+          read -r UDID NAME < <(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)['devices']
+          rt = sorted([k for k in d if 'iOS' in k], key=lambda k: [int(x) for x in k.rsplit('iOS-', 1)[-1].split('-')])
+          for k in reversed(rt):
+              for x in d[k]:
+                  if x['name'].startswith('iPhone'): print(x['udid'], x['name']); sys.exit()
+          ")
+          echo "模拟器：$NAME ($UDID)"
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"; echo "SIM_NAME=$NAME" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
+      - name: tauri ios dev（后台）+ 冒烟测试
+        run: |
+          mkdir -p ios-smoke
+          (cd apps/desktop && nohup pnpm tauri ios dev "$SIM_NAME" --no-watch > ../../ios-smoke/ios-dev.log 2>&1 &)
+          bash .github/scripts/ios-smoke.sh "$SIM_UDID" ios-smoke
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-smoke
+          path: ios-smoke/
+          retention-days: 7
+
   # 剪藏插件 zip 和 Android APK 也挂到同一个 Release（等桌面包把草稿 Release 建好）
   clipper:
     needs: [build, android]
