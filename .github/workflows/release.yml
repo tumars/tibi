@@ -3,11 +3,10 @@
 #   macOS：APPLE_CERTIFICATE、APPLE_CERTIFICATE_PASSWORD、APPLE_SIGNING_IDENTITY、APPLE_ID、APPLE_PASSWORD、APPLE_TEAM_ID
 #   Windows：暂不签（以后接 Azure Trusted Signing）
 name: Release
-# 推送开发分支（main 之前的 m0-scaffold）也跑一遍：只出构建产物、不建 Release，用来在打 tag 之前验证打包
+# 手动触发（Actions 页面 Run workflow）时跑同样的流程，只出构建产物、不建 Release，用来在打 tag 之前验证打包
 on:
   push:
     tags: ['v*']
-    branches: [m0-scaffold]
   workflow_dispatch:
 
 concurrency:
