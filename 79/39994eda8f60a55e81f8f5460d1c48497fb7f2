@@ -1,0 +1,47 @@
+apps/desktop/src/locales/en.json
+  s_6ce152f3baca5c::t_85763ff857ba33 521,571
+  s_20a9924180be77::t_75c9a5250ba501 489
+apps/desktop/src/styles.css
+  s_5432c6781f9188::t_a24243fb609194 306-316
+  s_6ce152f3baca5c::t_82fe8ec528727f 305
+apps/desktop/src/settings/search.ts
+  s_6ce152f3baca5c::t_c02723c0409128 1-95
+apps/desktop/src/pages/Settings.tsx
+  s_5432c6781f9188::t_a24243fb609194 2-3,14,36-50,55,80-84,119-120,146
+apps/desktop/src/components/SearchPalette.tsx
+  s_5432c6781f9188::t_a24243fb609194 9
+docs/CHANGELOG.md
+  s_6ce152f3baca5c::t_c70809a9a0c8ca 163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7939994eda8f60a55e81f8f5460d1c48497fb7f2",
+  "prompts": {},
+  "sessions": {
+    "s_20a9924180be77": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a197b1-172f-7e03-8608-0bc8010b8f40",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_5432c6781f9188": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3cd89f5d-92c3-40f4-848d-0f59eeffc861",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_6ce152f3baca5c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ff1a0157-14cd-4aff-9150-c62e43e80490",
+        "model": "unknown"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
