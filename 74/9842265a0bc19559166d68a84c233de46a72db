@@ -1,0 +1,44 @@
+apps/desktop/src/pages/Reader.tsx
+  s_be668820485876::t_b4e2aa4cbfca64 2
+  s_be668820485876::t_012fc8936b815e 17
+  s_be668820485876::t_cd0e37e2532c9e 170
+  s_be668820485876::t_6807dfd57a253a 40
+apps/desktop/src/store/ui.ts
+  s_be668820485876::t_ca6aa4e39a976e 9
+  s_be668820485876::t_af8e7464cca7a9 40-51
+  s_be668820485876::t_897b3f70c20dff 1
+  s_be668820485876::t_29180ca41c7f33 25-26,28-29
+docs/design/03-visual-language.md
+  s_be668820485876::t_9db1360b800e20 51
+docs/CHANGELOG.md
+  s_be668820485876::t_c90fd2a5ef37c7 159
+apps/desktop/src/styles.css
+  s_be668820485876::t_9779ec87b83866 224-225
+  s_be668820485876::t_2b874d80b05195 19-20
+apps/desktop/src/mobile/Reader.tsx
+  s_be668820485876::t_cf342eb42ffec2 14
+  s_be668820485876::t_55c6cd8c6c11f1 2
+  s_be668820485876::t_b696ed8c16c4e0 10
+  s_be668820485876::t_4a9c610ddf29dd 30
+  s_be668820485876::t_ad2a26b0106623 116
+apps/desktop/src/mobile/mobile.css
+  s_be668820485876::t_4ee91cf9e9e9f3 8-9
+apps/desktop/src/locales/en.json
+  s_be668820485876::t_1d534c58433619 434
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "749842265a0bc19559166d68a84c233de46a72db",
+  "prompts": {},
+  "sessions": {
+    "s_be668820485876": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e1593332-7d86-4b03-9fb5-453ada968013",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
