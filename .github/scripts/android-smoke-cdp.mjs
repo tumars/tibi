@@ -46,6 +46,12 @@ await clickText('开始');
 await ev(`location.hash = '#/library'`);
 if (!await waitFor(`document.body.innerText.includes('How a Compiler Sees Your Code')`, 90000, '书架里有示例文章（导入流水线在手机上跑完）')) await fail('示例文章没进书架');
 await shot('library');
+// 词典：经壳的命令直接查（Android 上从安装包资源拷出来再打开；不经阅读器，模拟器在阅读器页会崩，见 android-smoke.sh）
+const dict = await ev(`(async () => { const inv = window.__TAURI_INTERNALS__?.invoke; if (!inv) return 'no-tauri'; const o = await inv('db_open', { name: 'dict' }); if (!o?.path) return 'no-dict'; const rows = await inv('db_all', { name: 'dict', sql: 'SELECT word, translation FROM stardict WHERE word = ? LIMIT 1', params: ['compiler'] }).catch(e => 'ERR ' + e); return JSON.stringify({ path: o.path, rows }); })()`);
+console.log('词典：', dict);
+if (!/编/.test(String(dict))) await fail('安装包里的词典打不开或查不到');
+console.log('✓ 安装包里的词典能打开、能查（compiler）');
+console.log('STAGE core-ok');
 await ev(`document.querySelector('.doc')?.click()`);
 if (!await waitFor(`document.querySelectorAll('.w').length > 20`, 30000, '阅读器打开，正文分好词')) await fail('阅读器没打开');
 await shot('reader');
