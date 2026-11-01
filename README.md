@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/prototypes/img/logo.svg" width="72" alt="Tibi"></p>
 
-<h1 align="center">Tibi 缇比</h1>
+<h1 align="center">Tibi 提比</h1>
 
 <p align="center">读你感兴趣的英文文章，顺便把英语学会。<br>本地优先 · AI 原生 · 开源（MIT）的英语阅读学习工具，给中文母语的学习者。</p>
 

@@ -1,6 +1,6 @@
 # 07 吉祥物素材：清单、规格与提示词
 
-> 决策 F1–F5 见 [`research/04-mac-native-and-mascot.md`](../research/04-mac-native-and-mascot.md) §4。角色定义以 [`03-visual-language.md` §7.1](03-visual-language.md#71-吉祥物藏狐-tibi缇比) 为准。出图脚本 [`tools/gen-mascot.py`](../../tools/gen-mascot.py) 读的就是本文件里的提示词（`prompt:<id>` 注释块），改提示词只改这里。
+> 决策 F1–F5 见 [`research/04-mac-native-and-mascot.md`](../research/04-mac-native-and-mascot.md) §4。角色定义以 [`03-visual-language.md` §7.1](03-visual-language.md#71-吉祥物藏狐-tibi提比) 为准。出图脚本 [`tools/gen-mascot.py`](../../tools/gen-mascot.py) 读的就是本文件里的提示词（`prompt:<id>` 注释块），改提示词只改这里。
 
 ## 1. 规格
 
@@ -10,7 +10,7 @@
 | 背景 | 透明（`background: transparent`），落地时由页面给底色；hero 系列例外，自带浅色场景 |
 | 尺寸 | 生成 1024×1024 或 1536×1024，导出 PNG；交付时转 WebP（质量 85）并出 @1x / @2x 两档。下表的尺寸指 @2x，@1x 减半 |
 | 命名 | `docs/prototypes/img/mascot/<id>.webp`（@1x）与 `<id>@2x.webp`，`<id>` 与下表一致；贴纸拆为 `sticker-1` … `sticker-6` |
-| 颜色 | 见 [03 §7.1](03-visual-language.md#71-吉祥物藏狐-tibi缇比) |
+| 颜色 | 见 [03 §7.1](03-visual-language.md#71-吉祥物藏狐-tibi提比) |
 | 一致性 | 每张图都以 `ref-sheet` 为参考图；提示词开头固定一段角色描述（§2 的 CHARACTER） |
 | 留白 | 主体占画面 60–70%，四周留白，便于裁切 |
 | 文字 | 图内不出现任何文字或字母 |

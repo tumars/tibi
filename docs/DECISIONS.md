@@ -18,7 +18,7 @@
 |---|---|---|
 | P1 | Tauri 2 桌面应用 | [00 §7](design/00-concept-design.md#7-待讨论决策汇总) |
 | P2 | shadcn/ui + Tailwind | [00 §7](design/00-concept-design.md#7-待讨论决策汇总) |
-| P3 | MIT；项目名 Tibi（缇比） | [00 §7](design/00-concept-design.md#7-待讨论决策汇总) |
+| P3 | MIT；项目名 Tibi（提比；2026-11-01 由「缇比」改，好打） | [00 §7](design/00-concept-design.md#7-待讨论决策汇总) |
 | D6 | v1 单用户 | [00 §7](design/00-concept-design.md#7-待讨论决策汇总) |
 | D8 | 桌面最小 960px；手机端是独立的壳，排在 M7 | [00 §3.13](design/00-concept-design.md#313-手机端d8) |
 | J1–J10 | 手机端（2026-10-31 按 iOS 调研改版）：标签栏"今天 / 书架 / 复习 / 我"、阅读器全屏不占标签、去掉浮动按钮；J9 首页去掉顶栏，左下角狐狸即"今天"，输入条常驻、对话接在首页卡片下面；J10 外观照 iOS 原生应用（系统色、无描边卡片、胶囊按钮、实心选中图标、设置式列表）；Safari 分享扩展导入；阅读器滚动收起工具栏、读完卡片带撤销；词卡两档高度；复习操作全在下半屏、不做滑动评分；主屏与锁屏小组件（狐狸不做惊慌）；每日一条提醒 | [00 §3.13](design/00-concept-design.md#313-手机端d8)、[research/06](research/06-ios-apps.md) |
@@ -96,7 +96,7 @@
 | — | 字体、色板、圆角 6 / 8 / 12 | [03](design/03-visual-language.md) |
 | F1–F4 | 插画软 3D + 设定图参考；3D 只做三处；Rive 留给有设计师时 | [research/04 §4.4](research/04-mac-native-and-mascot.md#44-建议的决策f-组吉祥物) |
 | F5 | SVG 与插画不同框，按位置分用 | [03 §7.2](design/03-visual-language.md#72-插画与封面) |
-| — | 配色只在一处定义 | [03 §7.1](design/03-visual-language.md#71-吉祥物藏狐-tibi缇比) |
+| — | 配色只在一处定义 | [03 §7.1](design/03-visual-language.md#71-吉祥物藏狐-tibi提比) |
 | — | 素材清单、提示词、出图流程 | [07](design/07-mascot-assets.md) |
 
 ## 2026-10-31 评审确认（R6–R17 及其他）
