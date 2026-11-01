@@ -87,9 +87,8 @@ export function Reader() {
   }, [content, saveProgress]);
 
   const onWord = useCallback((ev: React.MouseEvent<HTMLSpanElement>, word: string, lemma: string, sentence: Sentence, s: number) => {
-    if (mode === 'clean') return;
     setCard({ word, lemma, sentence, s, anchor: (ev.currentTarget as HTMLElement).getBoundingClientRect() });
-  }, [mode]);
+  }, []);
 
   // 问 Tibi：打开右侧面板，把问题和当前位置一起发给讲解技能
   const ask = useCallback((text: string, extra: { sentence_id?: string; selection?: string } = {}) => {
