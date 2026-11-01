@@ -1,6 +1,6 @@
 import type { DocumentSummary } from '@tibi/core';
-import { Camera, FileText, Link2, Plus, Search, Share } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Camera, FileText, Images, Link2, Plus, Search, Share } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { pickFile } from '../lib/files';
 import { tl } from '../lib/i18n';
@@ -48,7 +48,17 @@ export function ImportSheet({ open, onClose }: { open: boolean; onClose: () => v
     try { await rpc.call('documents.import', { source }); toast(tl('正在导入，好了会放进书架')); setText(''); onClose(); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
   const fromText = () => { const t = text.trim(); if (!t) return; void go(classifyInput(t) === 'url' ? { type: 'url', url: t } : { type: 'text', text: t }); };
-  const fromFile = async (kinds: string[]) => { const p = await pickFile(kinds); if (p) void go(kinds.includes('image') ? { type: 'images', paths: [p] } : { type: 'file', path: p }); };
+  const fromFile = async (kinds: string[]) => { const p = await pickFile(kinds); if (p) void go({ type: 'file', path: p }); };
+  // 拍书页（capture：iOS、Android 都直接开相机）/ 从相册选（可以一次选几页，按选的顺序合成一篇）；只在手机上（Core 在 WebView 里）
+  const camera = useRef<HTMLInputElement>(null); const photos = useRef<HTMLInputElement>(null);
+  const fromPhotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    if (!(window as { __TIBI_LOCAL_CORE__?: boolean }).__TIBI_LOCAL_CORE__) { toast(tl('浏览器开发模式不能选文件，请在桌面端里操作')); return; }
+    const { registerMemFile } = await import('./local/files');
+    const paths = await Promise.all([...files].map(registerMemFile));
+    for (const r of [camera, photos]) if (r.current) r.current.value = '';
+    void go({ type: 'images', paths });
+  };
   return (
     <Sheet open={open} onClose={onClose} className="imp">
       <h2>{tl('导入')}</h2>
@@ -56,7 +66,10 @@ export function ImportSheet({ open, onClose }: { open: boolean; onClose: () => v
       <button className="btn pri full" style={{ marginTop: 10 }} disabled={!text.trim()} onClick={fromText}><Link2 size={18} />{tl('导入')}</button>
       <div style={{ marginTop: 8 }}>
         <button className="opt" onClick={() => void fromFile(['epub', 'pdf', 'docx', 'txt'])}><span className="ic"><FileText size={18} /></span>{tl('从"文件"选（EPUB、PDF、Word）')}</button>
-        <button className="opt" onClick={() => void fromFile(['image'])}><span className="ic"><Camera size={18} /></span>{tl('书页照片（识别文字）')}</button>
+        <button className="opt" onClick={() => camera.current?.click()}><span className="ic"><Camera size={18} /></span>{tl('拍书页（识别文字）')}</button>
+        <button className="opt" onClick={() => photos.current?.click()}><span className="ic"><Images size={18} /></span>{tl('从相册选书页照片（可多页）')}</button>
+        <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={e => void fromPhotos(e.target.files)} />
+        <input ref={photos} type="file" accept="image/*" multiple hidden onChange={e => void fromPhotos(e.target.files)} />
       </div>
       <div className="tip"><Share size={18} />{tl('在 Safari 里点分享，选 Tibi，也能把网页放进书架。')}</div>
     </Sheet>

@@ -1,7 +1,7 @@
 import { assembleCore, documents, SqliteDict, sync, TibiError, web, type Core, type Platform } from '@tibi/core';
 import { RpcError, type Transport } from '../../rpc/client';
 import { openLocalDbs, type Invoke } from './driver';
-import { browserExtractDeps, ocrImages } from './files';
+import { browserExtractDeps, ocrImages, ocrPdf, takeMemFile } from './files';
 import { invokeFolderBackend } from './syncfs';
 
 /**
@@ -33,7 +33,7 @@ async function start(): Promise<Transport> {
 
   const { db, dict, path } = await openLocalDbs(inv);
   const bytesOf = async (cmd: string, args: Record<string, unknown>) => new Uint8Array(await invoke<ArrayBuffer>(cmd, args));
-  const readBytes = (p: string) => bytesOf('read_file', { path: p });
+  const readBytes = async (p: string) => (p.startsWith('mem:') ? takeMemFile(p) : undefined) ?? bytesOf('read_file', { path: p });
   const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
   const platform: Platform = {
     async fetchUrl(url, opts) {
@@ -54,9 +54,11 @@ async function start(): Promise<Transport> {
     // 文件来自系统的文件选择（壳的 read_file 读原始字节）；EPUB / PDF / Word 用和桌面同一份抽取逻辑，图片用浏览器版 tesseract
     readFile: readBytes,
     async extractFile(p) { return web.extractBuffer(p, await readBytes(p), browserExtractDeps); },
+    // 图片和扫描版 PDF 都用浏览器版 tesseract；PDF 先由 pdfjs 一页一页画到画布上
     async ocr(input, opts) {
-      if (!input.images?.length) throw new TibiError('conflict', '手机上还不能识别扫描版 PDF，可以拍成照片再导入');
-      return ocrImages(await Promise.all(input.images.map(readBytes)), opts?.onProgress);
+      if (input.pdf) return ocrPdf(await readBytes(input.pdf), opts?.onProgress, opts?.signal);
+      if (!input.images?.length) throw new TibiError('invalid_params', '没有要识别的图片');
+      return ocrImages(await Promise.all(input.images.map(readBytes)), opts?.onProgress, opts?.signal);
     },
     // iCloud Drive（iOS：应用的 iCloud 容器）；"文件夹"只在桌面预览里有（手机上没有可选的共享文件夹）
     async syncFolder(o) {

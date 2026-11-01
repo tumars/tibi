@@ -113,7 +113,6 @@
   "正在导入，好了会放进书架": "Importing. It will appear in your library when ready",
   "粘贴网址或一段英文": "Paste a URL or some English",
   "从\"文件\"选（EPUB、PDF、Word）": "Choose from Files (EPUB, PDF, Word)",
-  "书页照片（识别文字）": "Photo of a page (text recognition)",
   "在 Safari 里点分享，选 Tibi，也能把网页放进书架。": "In Safari, tap Share and pick Tibi to add a page to your library.",
   "连续 {n} 天": "{n}-day streak",
   "今日 {m} / {g} 分钟 · 约 {v} 词": "Today {m} / {g} min · about {v} words",
@@ -843,5 +842,7 @@
   "（美音）": " (US)",
   "试听": "Preview",
   "默认语速": "Default speed",
-  "阅读器里朗读时还可以单独调": "You can also adjust it separately while reading in the reader"
+  "阅读器里朗读时还可以单独调": "You can also adjust it separately while reading in the reader",
+  "拍书页（识别文字）": "Photograph a page (text recognition)",
+  "从相册选书页照片（可多页）": "Pick page photos (multiple OK)"
 }

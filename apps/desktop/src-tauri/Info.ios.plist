@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 合并进 iOS 应用的 Info.plist（Tauri 会找 tauri.conf.json 旁边的 Info.ios.plist）：书架 › 导入 › 拍书页或选照片 用相机和相册 -->
+<plist version="1.0">
+<dict>
+	<key>NSCameraUsageDescription</key>
+	<string>拍下书页，识别成文字导入书架。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>选书页照片，识别成文字导入书架。</string>
+</dict>
+</plist>
