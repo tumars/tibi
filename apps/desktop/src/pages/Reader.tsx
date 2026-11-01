@@ -170,7 +170,6 @@ export function Reader() {
           <span className="vsep" />
           <button onClick={() => setMode(mode === 'all' ? 'new' : mode === 'new' ? 'clean' : 'all')}>{{ all: tl('全部标注'), new: tl('仅生词'), clean: tl('纯净阅读') }[mode]}</button>
           <span className="vsep" />
-          <button onClick={() => setPanel(panel === 'tibi' ? undefined : 'tibi')} style={{ color: 'var(--accent)' }}><Sparkles />Tibi</button>
           <button onClick={() => (left ? setFinish(true) : onFinish(false))}><BookOpenCheck />{tl('读完了')}</button>
         </div>
       </div>
