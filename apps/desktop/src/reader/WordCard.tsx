@@ -75,6 +75,7 @@ export function WordCard({ word, sentenceId, anchor, onClose, onStatus, onAsk }:
       <div className="row">
         <button className={`btn${status === 98 ? ' pri' : ''}`} onClick={() => setS(98)}>{tl('忽略')}</button>
         <button className="btn" onClick={() => (onAsk ? onAsk(data?.term?.display ?? word, sentenceId) : toast(tl('在阅读器里可以问 Tibi')))}>{tl('问 Tibi')}</button>
+        <button className="btn" onClick={() => nav(`/dict?w=${encodeURIComponent(data?.term?.text ?? data?.dict?.word ?? word)}`)}>{tl('查词典')}</button>
       </div>
     </div>
   );

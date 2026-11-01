@@ -64,7 +64,13 @@ export interface TermDetail extends Term {
 export interface DictEntry {
   word: string; phonetic?: string; translation: string; definition?: string; pos?: string; collins?: number; oxford?: boolean;
   exam: string[]; frequency?: number; forms: string[];
+  /** 带类型的词形（p 过去式、d 过去分词、i 现在分词、3 三单、r 比较级、t 最高级、s 复数）；词典页按类型显示 */
+  inflections?: { type: 'p' | 'd' | 'i' | '3' | 'r' | 't' | 's'; form: string }[];
+  /** 这个词头是别的词的变形时，原形是谁（went → go） */
+  base?: string;
 }
+/** 词典联想的一行 */
+export interface DictBrief { word: string; phonetic?: string; gloss: string }
 
 // 复习
 export interface CardState { card_id: Id; term_id: Id; state: 0 | 1 | 2 | 3; due: Ts; stability: number; difficulty: number; reps: number; lapses: number; suspended: boolean; forced_type?: CardType }

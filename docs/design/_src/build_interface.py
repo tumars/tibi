@@ -45,7 +45,8 @@ interface Term { id: Id; kind: 'word' | 'phrase'; text: string; display: string;
 interface TermDetail extends Term { en?: string; note?: string; contexts: { id: Id; source: 'article' | 'dictionary' | 'manual'; document_id?: Id; document_title?: string; sentence_id?: Id; sentence: string; surface?: string;
   meaning_in_context?: string; is_primary: boolean; unknown_others: number }[];   // unknown_others = 0 即 i+1 句
   card?: CardState; reviews: { rating: Rating; card_type: CardType; reviewed_at: Ts }[]; history: { status: Status; at: Ts; source: string }[] }
-interface DictEntry { word: string; phonetic?: string; translation: string; definition?: string; pos?: string; collins?: number; oxford?: boolean; exam: string[]; frequency?: number; forms: string[] }
+interface DictEntry { word: string; phonetic?: string; translation: string; definition?: string; pos?: string; collins?: number; oxford?: boolean; exam: string[]; frequency?: number; forms: string[]; inflections?: { type: 'p' | 'd' | 'i' | '3' | 'r' | 't' | 's'; form: string }[]; base?: string }
+interface DictBrief { word: string; phonetic?: string; gloss: string }
 
 // 复习
 interface CardState { card_id: Id; term_id: Id; state: 0 | 1 | 2 | 3; due: Ts; stability: number; difficulty: number; reps: number; lapses: number; suspended: boolean; forced_type?: CardType }
@@ -157,6 +158,8 @@ API = [
     ('feeds.update', '{ add?: { url: string; title?: string }; remove?: string; toggle?: { url: string; enabled: boolean } }', '同 feeds.list', '加源时先抓一次，确认是 RSS / Atom'),
     ('feeds.search', '{ interests?: string[]; max_unknown_ratio?: number; limit?: number }', 'search_feeds 的返回', '界面直接看候选，不经模型'),
     ('search.query', '{ q: string; limit?: number }', '{ documents: { id; title; genre; snippet? }[]; terms: { id; text; display; meaning?; status }[]; conversations: { id; title; kind; last_message_at? }[]; dict?: { lemma: string; entry: DictEntry } }', 'M6 全局搜索（⌘K，00 §3.8）：文章标题 + 正文 FTS5 片段、生词本里的词（英文前缀 / 词形 / 中文释义，不含已知和忽略）、对话标题；输入像英文单词又不在生词本里时附词典释义。设置项和跳转在界面本地匹配。只读'),
+    ('dict.suggest', '{ q: string; limit?: number }', "{ available: boolean; mode: 'prefix' | 'zh' | 'similar'; items: DictBrief[] }", '词典页（00 §3.14）联想：输入正好是词头时排第一，是变形时原形紧跟，其余按词频；有汉字时中文反查；英文查不到时给拼写相近的词。只读，不联网。没装词典时 available = false'),
+    ('dict.entry', '{ word: string }', '{ available: boolean; entry?: DictEntry; lemma: string; via?: string; term?: Term; in_wordbook: boolean; readings: { document_id: Id; title: string; snippet: string }[]; similar: DictBrief[] }', '词典页词条：词典内容、本地状态、读过的文章里出现这个词及其词形的地方（每篇一条，命中处用 ⟦ ⟧ 标出）。lemma 是进生词本的原形。只读，不改熟练度、不建卡；加入生词本走 terms.add'),
     ('stats.summary', '{ range: 30 | 90 | 180 }', '{ known: number; known_delta: number; prev_delta: number; minutes: number; words: number; study_days: number; streak: number; longest_streak: number; reviews: number; retention: number }', '四张指标卡'),
     ('stats.series', "{ metrics: ('known' | 'minutes' | 'words' | 'reviews')[]; days: number }", '{ dates: Ts[]; series: Record<string, number[]> }', '折线、柱状、热力图共用'),
     ('stats.retention', '{ weeks: number }', '{ weeks: { ratings: [number, number, number, number]; retention: number }[]; lapses: number; leeches: number }', '"复习表现"面板'),

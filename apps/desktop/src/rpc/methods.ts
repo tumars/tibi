@@ -3,7 +3,7 @@
  */
 import type {
   Answer, AnswerResult, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession, Skill,
-  SampleInfo, SearchResult, SectionContent, Status, Task, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval,
+  DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, Task, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval,
 } from '@tibi/core';
 
 export interface MethodTable {
@@ -32,6 +32,8 @@ export interface MethodTable {
   'terms.import': { params: { path: string; format: 'csv' | 'txt' | 'anki' | 'known' }; result: { added: number; known: number; skipped: number; total: number } };
   'terms.add': { params: { entries: { text: string; meaning?: string }[] }; result: { created: Term[]; undo?: Undo } };
   'search.query': { params: { q: string; limit?: number }; result: SearchResult };
+  'dict.suggest': { params: { q: string; limit?: number }; result: DictSuggestResult };
+  'dict.entry': { params: { word: string }; result: DictEntryResult };
   'sync.status': { params: Record<string, never>; result: SyncStatus };
   'sync.probe': { params: { backend: SyncBackendCfg }; result: { ok: boolean; library?: { library_id: string; devices: number; updated_at: number }; error?: { code: string; message: string } } };
   'sync.enable': { params: { backend: SyncBackendCfg; device_name?: string; sync_files?: boolean }; result: SyncStatus };

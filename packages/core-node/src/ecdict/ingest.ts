@@ -106,7 +106,7 @@ export async function buildDict(csvPath: string, outPath: string, opts: BuildOpt
   db.prepare('INSERT INTO meta(key, value) VALUES (?, ?)').run('built_at', new Date().toISOString());
   db.exec('COMMIT');
   log('建索引…');
-  db.exec('CREATE INDEX stardict_word ON stardict(word COLLATE NOCASE); CREATE INDEX lemma_map_form ON lemma_map(form);');
+  db.exec('CREATE INDEX stardict_word ON stardict(word COLLATE NOCASE); CREATE INDEX stardict_frq ON stardict(frq) WHERE frq > 0; CREATE INDEX lemma_map_form ON lemma_map(form);');
   db.exec('VACUUM');
   db.close();
   const { renameSync } = await import('node:fs');

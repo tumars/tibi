@@ -1,7 +1,8 @@
 import type { Approval, Conversation, Memory, Term } from '@tibi/core';
-import { Bell, Bookmark, Brain, ChevronRight, Cloud, KeyRound, ListChecks, MessageSquare, Moon, Languages } from 'lucide-react';
+import { Bell, BookA, Bookmark, Brain, ChevronRight, Cloud, KeyRound, ListChecks, MessageSquare, Moon, Languages } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
+import { Dictionary } from '../components/Dictionary';
 import { lang, setLang, tl } from '../lib/i18n';
 import { PRESETS, saveProvider } from '../lib/providers';
 import { fmtAgo, fmtDate, STATUS_NAMES } from '../lib/util';
@@ -11,7 +12,7 @@ import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
 import { Empty, Ring, Sheet } from './ui';
 
-type SheetKind = 'words' | 'chats' | 'memory' | 'tasks' | 'sync' | 'model' | 'look' | 'remind';
+type SheetKind = 'dict' | 'words' | 'chats' | 'memory' | 'tasks' | 'sync' | 'model' | 'look' | 'remind';
 
 /** 我（00 §3.13）：连续天数圆环、已知词、生词本、对话记录、记忆、任务、同步、模型、外观与语言 */
 export function Me() {
@@ -19,6 +20,7 @@ export function Me() {
   const [sheet, setSheet] = useState<SheetKind>();
   const [pending, setPending] = useState(0);
   const [sync, setSync] = useState<SyncStatus>();
+  const nav = useNavigate();
   useEffect(() => {
     rpc.call('tasks.list', { limit: 1 }).then(r => setPending(r.pending.length), () => undefined);
     const load = () => rpc.call('sync.status', {}).then(setSync, () => undefined);
@@ -33,6 +35,7 @@ export function Me() {
       <div className="pad sec">
         <div className="card menu">
           <Item k="words" icon={<Bookmark />} color="#f5a043" label={tl('生词本')} right={wordCount || undefined} />
+          <Item k="dict" icon={<BookA />} color="#0f8b8d" label={tl('词典')} />
           <Item k="chats" icon={<MessageSquare />} color="#3d52e0" label={tl('对话记录')} />
           <Item k="memory" icon={<Brain />} color="#8e5cd9" label={tl('Tibi 记忆')} />
           <Item k="tasks" icon={<ListChecks />} color="#2f9e5f" label={tl('任务')} right={pending ? tl('{n} 个等你确认', { n: pending }) : undefined} />
@@ -47,6 +50,7 @@ export function Me() {
         </div>
       </div>
       <Sheet open={sheet === 'words'} onClose={() => setSheet(undefined)} tall><WordsList /></Sheet>
+      <Sheet open={sheet === 'dict'} onClose={() => setSheet(undefined)} tall full>{sheet === 'dict' && <><h2>{tl('词典')}</h2><Dictionary compact onOpenDoc={id => nav(`/read/${id}`)} /></>}</Sheet>
       <Sheet open={sheet === 'chats'} onClose={() => setSheet(undefined)} tall><Chats onOpen={() => setSheet(undefined)} /></Sheet>
       <Sheet open={sheet === 'memory'} onClose={() => setSheet(undefined)} tall><Memories /></Sheet>
       <Sheet open={sheet === 'tasks'} onClose={() => setSheet(undefined)} tall><Tasks /></Sheet>

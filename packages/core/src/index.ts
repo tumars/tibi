@@ -19,6 +19,7 @@ export { Memories, memoryMethods, memoryCapabilities } from './domain/memory/ind
 export * as text from './domain/text/index.js';
 export * as documents from './domain/documents/index.js';
 export type { SearchResult } from './domain/search/methods.js';
+export type { DictSuggestResult, DictEntryResult } from './domain/dictionary/methods.js';
 export * as sync from './sync/index.js';
 export * as terms from './domain/terms/index.js';
 export * as review from './domain/review/index.js';

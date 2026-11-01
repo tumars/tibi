@@ -60,6 +60,14 @@ describe('annotateSentences', () => {
 });
 
 describe('lemmatize：规则还原要词典认可', () => {
+  it('词典收了这个词头、又没说它是变形：规则不改写', async () => {
+    const heads: Dict = { async lookup(w) { return ['interest', 'matter', 'summer', 'people'].includes(w) ? { word: w, translation: 'n. 义', exam: [], forms: [] } : undefined; }, async lemmas() { return []; }, async frequencyRank() { return 100; } };
+    expect(await lemmatize('interest', heads)).toBe('interest');
+    expect(await lemmatize('matter', heads)).toBe('matter');
+    expect(await lemmatize('summer', heads)).toBe('summer');
+    expect(await lemmatize('people', heads)).toBe('person');   // 人工列的不规则词不受影响
+    expect(await lemmatize('walks', heads)).toBe('walk');      // 词典里没有的词头仍走规则
+  });
   const entries: Record<string, { translation: string; forms: string[] }> = {
     lex: { translation: '[法] 法, 法律, 法律实体', forms: [] },
     walk: { translation: 'v. 走, 步行\nn. 散步', forms: ['walks', 'walked', 'walking'] },

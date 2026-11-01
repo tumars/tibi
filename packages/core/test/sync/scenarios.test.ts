@@ -3,7 +3,7 @@ import { openAppDb } from '@tibi/core-node';
 import { assembleCore, fakePlatform, sync, uuidv7, type Database, type Dict } from '../../src/index.js';
 
 /** 08 §11：两到三个模拟设备 + 一个内存文件夹后端 */
-const dict: Dict = { async lookup(w) { return { word: w, translation: `${w}的释义`, exam: [], forms: [] }; }, async lemmas() { return []; }, async frequencyRank(l) { return ['the', 'a', 'of', 'from', 'set', 'small', 'build'].includes(l) ? 100 : 9000; } };
+const dict: Dict = { async lookup(w) { return { word: w, translation: `${w}的释义`, exam: [], forms: [] }; }, async lemmas(f) { return f === 'rules' ? ['rule'] : []; }, async frequencyRank(l) { return ['the', 'a', 'of', 'from', 'set', 'small', 'build'].includes(l) ? 100 : 9000; } };
 const TEXT = 'The compiler enforces a small set of rules.\n\nA parser builds a syntax tree from tokens.';
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 

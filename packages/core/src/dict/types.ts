@@ -1,4 +1,4 @@
-import type { DictEntry } from '../types.js';
+import type { DictBrief, DictEntry } from '../types.js';
 
 /**
  * 词典接口（01 §8：dict.db / ECDICT 只读）。
@@ -15,6 +15,12 @@ export interface Dict {
   frequencyRanks?(lemmas: string[]): Promise<Map<string, number>>;
   /** 词典例句（有的话）；M1 词典例句来自 ECDICT 没有的字段，先返回 [] */
   examples?(word: string): Promise<{ en: string; zh?: string }[]>;
+  /** 词头前缀联想，常用词在前。这三个是词典页用的；没有 prefix 就当没装词典（NullDict） */
+  prefix?(prefix: string, limit: number): Promise<DictBrief[]>;
+  /** 中文反查：释义里有这个词的词头，释义正好是它的在前 */
+  reverse?(zh: string, limit: number): Promise<DictBrief[]>;
+  /** 拼写相近的常用词（recieve → receive），查不到时给建议 */
+  similar?(word: string, limit: number): Promise<DictBrief[]>;
 }
 
 export class NullDict implements Dict {

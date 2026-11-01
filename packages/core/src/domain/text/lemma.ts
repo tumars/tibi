@@ -96,6 +96,9 @@ export async function lemmatize(form: string, dict: Dict): Promise<string> {
     return fromDict[best >= 0 ? best : 0]!;
   }
   const cand = ruleLemma(w);
+  // 词典收了这个词头、又没说它是变形（lemma_map 里没有）：它自己就是原形，规则不要动（interest → inter、matter → mat、summer → sum）。
+  // IRREGULAR 是人工列的，不算（people → person）
+  if (cand !== w && !IRREGULAR[w] && await dict.lookup(w)) return w;
   // 规则去掉 -ing / -ed 后碰巧是另一个词（lexing → lex「法律」、grepping → grep）：词典里那个词既没列出这个变形、也没有动词义，就不还原
   if (cand !== w && /(ing|ed)$/.test(w) && !IRREGULAR[w]) {
     const e = await dict.lookup(cand);

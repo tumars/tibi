@@ -93,6 +93,7 @@ export function SearchPalette() {
     { label: tl('首页'), kw: 'home', icon: <HomeIcon size={15} />, run: () => go('/') },
     { label: tl('书架'), kw: 'library 文章', icon: <BookOpen size={15} />, run: () => go('/library') },
     { label: tl('生词本'), kw: 'words 单词', icon: <Bookmark size={15} />, run: () => go('/words') },
+    { label: tl('词典'), kw: 'dictionary dict 查词', icon: <BookA size={15} />, run: () => go(q.trim() && /^[a-z][a-z' -]*$/i.test(q.trim()) ? `/dict?w=${encodeURIComponent(q.trim())}` : '/dict') },
     { label: tl('开始复习'), kw: 'review 复习', icon: <RotateCcw size={15} />, run: () => go('/review') },
     { label: tl('练习'), kw: 'practice 听写 拼写', icon: <RotateCcw size={15} />, run: () => go('/review?tab=practice') },
     { label: tl('统计'), kw: 'stats', icon: <BarChart3 size={15} />, run: () => go('/stats') },
@@ -122,6 +123,7 @@ export function SearchPalette() {
         try { const r = await rpc.call('terms.add', { entries: [{ text: d.lemma }] }); remember(q); setOpen(false); toast(r.created.length ? tl('已加入生词本：{w}', { w: d.lemma }) : tl('{w} 已经在生词本里了', { w: d.lemma })); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
       } });
     }
+    if (want('words') && /^[a-z\u3400-\u9fff][a-z\u3400-\u9fff' -]*$/i.test(t)) words.push({ key: 'dict-open', group: tl('单词与短语'), icon: <BookA size={15} />, title: tl('在词典里查“{w}”', { w: q.trim() }), run: () => go(`/dict?w=${encodeURIComponent(q.trim())}`) });
     const convs: Row[] = scope === 'all' ? (res?.conversations ?? []).map(c => ({ key: `c-${c.id}`, group: tl('对话'), icon: <MessageSquare size={15} />, title: c.kind === 'document' ? <>{tl('讲解 · ')}<Hl text={c.title} q={q} /></> : <Hl text={c.title} q={q} />, run: () => go(`/chat/${c.id}`) })) : [];
     const sets: Row[] = want('settings') ? SETTINGS.filter(s => tl(s.label).toLowerCase().includes(t) || s.label.toLowerCase().includes(t) || s.kw.toLowerCase().includes(t)).map(s => ({ key: `s-${s.label}`, group: tl('设置'), icon: <SettingsIcon size={15} />, title: <Hl text={tl(s.label)} q={q} />, sub: tl(SECTION_LABEL[s.sec] ?? ''), run: () => go(`/settings?sec=${s.sec}&item=${encodeURIComponent(s.label)}`) })) : [];
     const acts: Row[] = want('actions') ? ACTIONS.filter(a => a.label.toLowerCase().includes(t) || a.kw.toLowerCase().includes(t)).map(a => ({ key: `a-${a.label}`, group: tl('跳转与操作'), icon: a.icon, title: <Hl text={a.label} q={q} />, run: a.run })) : [];

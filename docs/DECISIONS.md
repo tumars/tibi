@@ -161,6 +161,8 @@
 | T27 | 同步的改动捕获用 SQLite 触发器（开启同步时按当前表结构生成、启动时重建），不在每个写方法里记：写入散在各领域方法里，触发器不会漏；应用别的设备的改动时用 `sync_state.capture = 0` 关掉记录。一条 put 共用一个 HLC，推送时按改动时间分配。熟练度按来源优先（用户 > 自动）再比时钟 | 08 §13 |
 | T28 | 手机上 Core 跑在 WebView 里（R11 落地）：同一份 `@tibi/core`，SQLite 由壳里的 rusqlite 提供（`local_db.rs`：db_open / db_exec / db_run / db_all，每个库一条连接、串行，所以跨调用的事务成立），JS 端 `InvokeDriver`；网页、模型 API、WebDAV 走 http 插件（全局 fetch 换成它，不受 CORS 限制）；网页正文用 DOMParser + 同一份 Readability 逻辑（`web/html.ts`，桌面传 linkedom）；词典 `SqliteDict` 和文件抽取（`web/extract.ts`：EPUB / PDF / Word，pdfjs、mammoth 由运行时注入）移进 core；手机上文件由壳的 `read_file` 读原始字节，图片用浏览器版 tesseract。桌面加 `--features mobile-preview` 走同一条路，用来预览和在没有 Xcode / NDK 的机器上（含 CI）检查能编译 | 00 §3.13、dev README §7 |
 | T10 | 复习用 ts-fsrs 6.0 的 `DefaultScheduler`（FSRS-7 默认），卡片字段按库的命名映射到表（`stability_fast` ← `stabilityFast`、`learning_steps` ← `learningStep`） | 01 §4 |
+| T29 | 词典页只用本地 ECDICT，不接在线词典，也暂不打包例句库。例句取自用户自己读过的文章（FTS）。中文反查用 `LIKE` 加部分索引 `stardict(frq) WHERE frq > 0`（约 0.5 MB），不够再扫全表，不建中文全文索引 | 在线词典违背"只有主动用到的功能才联网"；Tatoeba 例句（CC BY 2.0 FR）要署名，可能要细到每句的作者，以后单做。实测 77 万词条：单字母前缀约 50 ms，全表 `LIKE` 不到 80 ms |
+| T30 | 词形还原：词典收了这个词头、又没说它是变形（`lemma_map` 里没有）时，规则不再改写；人工的 `IRREGULAR` 表不受影响。已导入文章里存的旧原形不回填，重新导入才更新 | 2 万个常用词里 419 个被规则改错（interest → inter、matter → mat、summer → sum），修后只剩 `IRREGULAR` 里的 7 个 |
 
 ## 待决定
 

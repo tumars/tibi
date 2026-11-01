@@ -1,0 +1,55 @@
+/* 词典（00 §3.14）：桌面词典页和手机"我 › 词典"共用，两边的颜色变量同名 */
+.dx { display: flex; flex-direction: column; gap: 14px; min-height: 0; user-select: text; }
+.dx-in { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px 0 14px; border-radius: 12px; background: var(--sunken); color: var(--ink-3); }
+.dx-in:focus-within { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.dx-in svg { flex: none; }
+.dx-in input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; font-size: 16px; color: var(--ink); }
+.dx-in input::placeholder { color: var(--ink-3); }
+.dx-in .ibtn { flex: none; }
+.dx-body { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 28px; align-items: start; }
+.dx.compact .dx-body { display: block; }
+.dx-list { position: sticky; top: 8px; display: flex; flex-direction: column; gap: 1px; max-height: calc(100vh - 170px); overflow: auto; }
+.dx.compact .dx-list { position: static; max-height: none; }
+.dx-row { display: flex; flex-direction: column; gap: 1px; width: 100%; padding: 7px 10px; border-radius: 8px; text-align: left; color: var(--ink); }
+.dx-row:hover { background: var(--hover, var(--sunken)); }
+.dx-row.on { background: var(--accent-wash, var(--sunken)); }
+.dx-row b { font-family: var(--f-read); font-size: 15px; font-weight: 600; }
+.dx-row span { font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dx-hint { padding: 7px 10px; font-size: 12.5px; color: var(--ink-3); }
+.dx-none { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 72px 20px; text-align: center; color: var(--ink-3); font-size: 13px; }
+.dx-none b { font-size: 15px; font-weight: 600; color: var(--ink); margin-top: 6px; }
+.dx-sec { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 8px; font-size: 12px; color: var(--ink-3); }
+.dx-recent .dx-sec { margin-top: 6px; }
+.dx-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.dx-chips button { height: 30px; padding: 0 12px; border-radius: 999px; font-family: var(--f-read); font-size: 14px; color: var(--ink); background: var(--sunken); }
+.dx-entry { min-width: 0; padding-bottom: 32px; }
+.dx-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.dx-word { margin: 0; font-family: var(--f-read); font-size: 32px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.dx-ipa { font-family: var(--f-read); font-style: italic; font-size: 15px; color: var(--ink-2); }
+.dx-head .ibtn { align-self: center; }
+.dx-via { margin-top: 4px; font-size: 13px; color: var(--ink-2); }
+.dx-via .linkbtn { margin-left: 4px; font-size: inherit; }
+.dx-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.dx-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.dx-acts .btn svg { margin-right: 4px; vertical-align: -2px; }
+.dx-gloss { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; font-size: 15px; line-height: 1.6; color: var(--ink); }
+.dx-gloss > div { display: flex; gap: 8px; }
+.dx-gloss em { flex: none; min-width: 30px; font-style: italic; font-family: var(--f-read); color: var(--ink-3); }
+.dx-shares { margin-top: 10px; }
+.dx-forms { display: flex; flex-wrap: wrap; gap: 6px; }
+.dx-forms button { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 10px; border-radius: 8px; background: var(--sunken); font-family: var(--f-read); font-size: 14px; color: var(--ink); }
+.dx-forms i { font-style: normal; font-family: var(--f-ui, inherit); font-size: 11px; color: var(--ink-3); }
+.dx-en { margin-top: 20px; }
+.dx-en summary { cursor: pointer; font-size: 12px; color: var(--ink-3); }
+.dx-en .dx-gloss { margin-top: 8px; font-size: 14px; color: var(--ink-2); }
+.dx-read { display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 9px 10px; margin: 0 -10px; border-radius: 8px; text-align: left; }
+.dx-read:hover { background: var(--hover, var(--sunken)); }
+.dx-read .s { font-family: var(--f-read); font-size: 15px; line-height: 1.55; color: var(--ink); }
+.dx-read mark { background: var(--hl-1); color: inherit; border-radius: 3px; padding: 0 1px; }
+/* 手机壳的样式表里没有这几个桌面组件 */
+.dx.compact .ibtn { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; color: var(--ink-2); }
+.dx.compact .ibtn svg { width: 17px; height: 17px; }
+.dx.compact .tagc { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px; font-size: 11px; color: var(--ink-2); background: var(--sunken); white-space: nowrap; }
+.dx.compact .tagc.sys { background: none; box-shadow: inset 0 0 0 1px var(--line); color: var(--ink-3); }
+.dx.compact .linkbtn { color: var(--accent); }
+@media (max-width: 720px) { .dx-body { grid-template-columns: 1fr; } .dx-list { position: static; max-height: 240px; } }

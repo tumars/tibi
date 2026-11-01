@@ -15,6 +15,7 @@
 - **Import almost anything**: web pages, pasted text, EPUB books, PDF, Word, images and scanned PDFs (local OCR), plus a browser clipper extension.
 - **Marks new words for your level**: a 3-minute vocabulary test, then only the words you probably don't know are highlighted. It gets more accurate as you read.
 - **Click a word to understand it**: the word card shows its meaning *in this sentence* (AI-generated, cached), the ECDICT dictionary entry, phonetics and pronunciation.
+- **A dictionary at hand**: works offline, understands inflected forms, Chinese lookups and misspellings; examples come from articles you've read.
 - **AI reading help**: a summary, key phrases, hard sentences and reading advice on import; a full translation; select a passage to ask Tibi; keep asking in chat.
 - **Remember what you read**: new words go into spaced repetition (FSRS) using the sentences you actually read, plus dictation, spelling, confusable-word and sentence-writing practice.
 - **See your progress**: known words, daily reading, review performance, a study calendar, and a short note from Tibi.

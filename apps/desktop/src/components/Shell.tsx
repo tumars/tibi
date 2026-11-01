@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, Bookmark, Home as HomeIcon, ListChecks, Moon, PanelLeft, RotateCw, Search, Settings as SettingsIcon, Sun } from 'lucide-react';
+import { BarChart3, BookA, BookOpen, Bookmark, Home as HomeIcon, ListChecks, Moon, PanelLeft, RotateCw, Search, Settings as SettingsIcon, Sun } from 'lucide-react';
 import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { isTauri } from '../rpc';
@@ -12,6 +12,7 @@ const NAV = [
   { to: '/', label: tl('首页'), icon: HomeIcon },
   { to: '/library', label: tl('书架'), icon: BookOpen, count: 'docCount' as const },
   { to: '/words', label: tl('生词本'), icon: Bookmark, count: 'wordCount' as const },
+  { to: '/dict', label: tl('词典'), icon: BookA },
   { to: '/review', label: tl('复习'), icon: RotateCw, badge: true },
   { to: '/stats', label: tl('统计'), icon: BarChart3 },
   { to: '/tasks', label: tl('任务'), icon: ListChecks },

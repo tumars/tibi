@@ -1,4 +1,5 @@
 import { feedsCapabilities, feedsMethods } from './domain/documents/feeds.js';
+import { dictionaryMethods } from './domain/dictionary/methods.js';
 import { searchMethods } from './domain/search/methods.js';
 import { syncMethods } from './sync/methods.js';
 import { SyncEngine } from './sync/engine.js';
@@ -42,6 +43,7 @@ export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core;
     .use(profileMethods)
     .use(feedsMethods)
     .use(searchMethods)
+    .use(dictionaryMethods)
     .use(syncMethods);
 
   kernel.registerCapabilities({ ...feedsCapabilities, ...documentsCapabilities, ...termsCapabilities, ...reviewCapabilities, ...statsCapabilities });
