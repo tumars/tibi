@@ -1,5 +1,5 @@
 import type { Document, SectionContent, Sentence, Status } from '@tibi/core';
-import { ChevronLeft, Info, Languages, Sparkles, Type, Volume2 } from 'lucide-react';
+import { ChevronLeft, Eye, Info, Languages, Sparkles, Type, Volume2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { tl } from '../lib/i18n';
@@ -7,11 +7,11 @@ import { fmtMinutes, fmtPct, GENRE_NAMES, speak, STATUS_NAMES, throttle } from '
 import { SectionView } from '../reader/Section';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
-import { toast } from '../store/ui';
+import { toast, useSepiaPaper, useUi } from '../store/ui';
 import { Empty, Sheet, Thread } from './ui';
 
 /**
- * 阅读器（00 §3.13 J4）：全屏；向下滚动收起顶栏和工具栏，向上滚动再出现。工具栏：译文、释义、朗读、Tibi。
+ * 阅读器（00 §3.13 J4）：全屏；向下滚动收起顶栏和工具栏，向上滚动再出现。工具栏：译文、释义、朗读、护眼、Tibi。
  * 词卡是底部面板（J5）：点开生词即进"见过"并建卡（R5）。
  */
 export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void }) {
@@ -27,6 +27,7 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
   const [overrides, setOverrides] = useState(new Map<string, Status>());
   const [reading, setReading] = useState(false);
   const [conv, setConv] = useState<string>();
+  const sepia = useSepiaPaper(); const setSepia = useUi(s => s.setSepia);
   const scroll = useRef<HTMLDivElement>(null); const lastY = useRef(0); const restored = useRef(false);
 
   useEffect(() => {
@@ -112,6 +113,7 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
       <button aria-pressed={tr} onClick={() => void toggleTr()}><Languages />{tl('译文')}</button>
       <button aria-pressed={gloss} onClick={() => setGloss(g => !g)}><Type />{tl('释义')}</button>
       <button aria-pressed={reading} onClick={() => void readAloud()}><Volume2 />{tl('朗读')}</button>
+      <button aria-pressed={sepia} onClick={() => setSepia(!sepia)}><Eye />{tl('护眼')}</button>
       <button className="tibi" onClick={() => setTibi('open')}><Sparkles />Tibi</button>
     </div>
     <WordSheet card={card} onClose={() => setCard(undefined)} onStatus={(t, s) => setOverrides(m => new Map(m).set(t, s))}

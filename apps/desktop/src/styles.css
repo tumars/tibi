@@ -16,6 +16,8 @@
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0b0b0c; --surface: #141416; --sunken: #1b1b1e; --hover: rgba(255,255,255,.05); --line: rgba(255,255,255,.09); --line-2: rgba(255,255,255,.15); --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #8e8e97; --accent: #7d8cf0; --accent-ink: #0b0b0c; --accent-wash: rgba(125,140,240,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16); --ok: #6cc28a; --mid: #e2b04f; --hard: #ef8a76; --hl-new: rgba(110,155,230,.30); --hl-1: rgba(230,180,70,.40); --hl-2: rgba(230,180,70,.28); --hl-3: rgba(230,180,70,.18); --hl-4: rgba(230,180,70,.09); --c-tech: #1c2136; --c-news: #2a2118; --c-novel: #1b2619; color-scheme: dark; } }
 :root[data-theme="dark"] { --bg: #0b0b0c; --surface: #141416; --sunken: #1b1b1e; --hover: rgba(255,255,255,.05); --line: rgba(255,255,255,.09); --line-2: rgba(255,255,255,.15); --ink: #ededee; --ink-2: #a5a5ad; --ink-3: #8e8e97; --accent: #7d8cf0; --accent-ink: #0b0b0c; --accent-wash: rgba(125,140,240,.12); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16); --ok: #6cc28a; --mid: #e2b04f; --hard: #ef8a76; --hl-new: rgba(110,155,230,.30); --hl-1: rgba(230,180,70,.40); --hl-2: rgba(230,180,70,.28); --hl-3: rgba(230,180,70,.18); --hl-4: rgba(230,180,70,.09); --c-tech: #1c2136; --c-news: #2a2118; --c-novel: #1b2619; color-scheme: dark; }
+/* 护眼纸面：写在深色规则之后，深色主题下也压得住，所以浅色 token 要写全；--ink-3 比浅色略深，保证米色上的对比度 */
+:root[data-paper="sepia"] { --bg: #ece5d5; --surface: #f7f1e3; --sunken: #efe7d6; --hover: rgba(0,0,0,.04); --line: rgba(0,0,0,.08); --line-2: rgba(0,0,0,.13); --ink: #18181b; --ink-2: #55555c; --ink-3: #62626b; --accent: #3d52e0; --accent-ink: #ffffff; --accent-wash: rgba(61,82,224,.08); --warm: #f5a043; --warm-wash: rgba(245,160,67,.14); --ok: #2f8a4c; --mid: #b07a12; --hard: #c2452f; --hl-new: rgba(110,155,220,.34); --hl-1: rgba(226,170,50,.50); --hl-2: rgba(226,170,50,.36); --hl-3: rgba(226,170,50,.23); --hl-4: rgba(226,170,50,.12); --c-tech: #e9eeff; --c-news: #fff1e3; --c-novel: #eaf4e6; color-scheme: light; }
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
@@ -219,6 +221,8 @@ h2.st .sp { flex: 1; }
 .rdbar button.on { background: var(--accent-wash); color: var(--accent); }
 .rdbar button svg { width: 15px; height: 15px; }
 .rdbar .vsep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+/* 窄窗口开着右侧面板时放不下文字，带图标的按钮只留图标 */
+@media (max-width: 1100px) { .with-panel .rdbar button:has(svg) { font-size: 0; gap: 0; } }
 .endc { margin-top: 24px; padding: 20px; border-radius: 14px; background: var(--sunken); font-family: var(--f-ui); font-size: 14px; }
 .endc h3 { margin: 0 0 4px; font-size: 17px; font-family: var(--f-ui); }
 .endc p { margin: 0 0 14px; color: var(--ink-2); font-size: 13.5px; }

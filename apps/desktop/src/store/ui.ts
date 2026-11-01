@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react';
 import { create } from 'zustand';
 
 export interface Toast { id: number; text: string; kind?: 'err'; action?: { label: string; run: () => void } }
@@ -5,6 +6,7 @@ export interface Toast { id: number; text: string; kind?: 'err'; action?: { labe
 interface UiState {
   collapsed: boolean; toggleSide(): void;
   theme: 'auto' | 'light' | 'dark'; setTheme(t: 'auto' | 'light' | 'dark'): void;
+  sepia: boolean; setSepia(on: boolean): void;
   toasts: Toast[]; toast(text: string, opts?: { kind?: 'err'; action?: Toast['action']; ms?: number }): void; dismiss(id: number): void;
 }
 
@@ -20,7 +22,11 @@ export const useUi = create<UiState>((set, get) => ({
     const r = document.documentElement;
     if (t === 'auto') { delete r.dataset.theme; try { localStorage.removeItem('tibi-theme'); } catch { /* */ } } else { r.dataset.theme = t; try { localStorage.setItem('tibi-theme', t); } catch { /* */ } }
     set({ theme: t });
+    // 阅读页里切深浅色：护眼纸面盖着看不出变化，以后选的为准
+    if (r.dataset.paper) get().setSepia(false);
   },
+  sepia: read('tibi-sepia', false),
+  setSepia(on) { write('tibi-sepia', on); set({ sepia: on }); },
   toasts: [],
   toast(text, opts = {}) {
     const id = ++seq;
@@ -31,3 +37,15 @@ export const useUi = create<UiState>((set, get) => ({
 }));
 
 export const toast = (text: string, opts?: Parameters<UiState['toast']>[1]) => useUi.getState().toast(text, opts);
+
+/** 护眼纸面只在阅读页生效：进阅读页挂到 <html>（词卡、弹窗也跟着变），离开就摘掉 */
+export function useSepiaPaper() {
+  const sepia = useUi(s => s.sepia);
+  useLayoutEffect(() => {
+    if (!sepia) return;
+    const r = document.documentElement;
+    r.dataset.paper = 'sepia';
+    return () => { delete r.dataset.paper; };
+  }, [sepia]);
+  return sepia;
+}

@@ -1,5 +1,5 @@
 import type { Document, SectionContent, Sentence, Status } from '@tibi/core';
-import { ArrowUp, BookOpenCheck, FileText, Info, Languages, Sparkles, Type, Volume2 } from 'lucide-react';
+import { ArrowUp, BookOpenCheck, Eye, FileText, Info, Languages, Sparkles, Type, Volume2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Empty } from '../components/Empty';
@@ -14,7 +14,7 @@ import type { Pending } from '../components/ChatThread';
 import { WordCard } from '../reader/WordCard';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
-import { toast } from '../store/ui';
+import { toast, useSepiaPaper, useUi } from '../store/ui';
 import { tl } from '../lib/i18n';
 
 export function Reader() {
@@ -37,6 +37,7 @@ export function Reader() {
   const [translating, setTranslating] = useState(false);
   const [aloud, setAloud] = useState(false);
   const modelOk = useCore(st => !!st.status?.models.ok);
+  const sepia = useSepiaPaper(); const setSepia = useUi(s => s.setSepia);
   const scrollRef = useRef<HTMLDivElement>(null);
   const restored = useRef(false);
 
@@ -166,6 +167,7 @@ export function Reader() {
           }}><Languages />{translating ? tl('翻译中…') : tl('译文')}</button>
           <button className={gloss ? 'on' : ''} onClick={() => setGloss(!gloss)}><Type />{tl('释义')}</button>
           <button className={aloud ? 'on' : ''} onClick={() => setAloud(!aloud)}><Volume2 />{tl('朗读')}</button>
+          <button className={sepia ? 'on' : ''} onClick={() => setSepia(!sepia)}><Eye />{tl('护眼')}</button>
           <span className="vsep" />
           <button onClick={() => setMode(mode === 'all' ? 'new' : mode === 'new' ? 'clean' : 'all')}>{{ all: tl('全部标注'), new: tl('仅生词'), clean: tl('纯净阅读') }[mode]}</button>
           <span className="vsep" />
