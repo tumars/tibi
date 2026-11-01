@@ -178,6 +178,7 @@ jobs:
   android-smoke:
     needs: dict
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: 打开 KVM

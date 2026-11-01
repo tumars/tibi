@@ -4,7 +4,9 @@
 import { writeFileSync } from 'node:fs';
 
 const [port = '9222', out = 'smoke'] = process.argv.slice(2);
-const pages = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
+// 整体最多 6 分钟：DevTools 的请求在 WebView 不可见等情况下可能一直不回
+setTimeout(() => { console.log('超时：界面冒烟测试 6 分钟没跑完'); process.exit(1); }, 6 * 60_000);
+const pages = await (await fetch(`http://127.0.0.1:${port}/json`, { signal: AbortSignal.timeout(20_000) })).json();
 const page = pages.find(p => p.type === 'page' && /mobile\.html|tauri\.localhost/.test(p.url)) ?? pages.find(p => p.type === 'page');
 if (!page) { console.log('没找到 WebView 页面', JSON.stringify(pages)); process.exit(1); }
 console.log('页面', page.url);
@@ -18,7 +20,8 @@ ws.onmessage = e => {
   if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push(m.params.args.map(a => a.value ?? a.description).join(' '));
 };
 await new Promise((ok, bad) => { ws.onopen = ok; ws.onerror = bad; });
-const send = (method, params = {}) => new Promise(ok => { const id = ++seq; pending.set(id, ok); ws.send(JSON.stringify({ id, method, params })); });
+// 每个请求最多等 20 秒，不回就当没结果（截图之类的不该卡住整个测试）
+const send = (method, params = {}) => new Promise(ok => { const id = ++seq; pending.set(id, ok); ws.send(JSON.stringify({ id, method, params })); setTimeout(() => { if (pending.delete(id)) { console.log(`（${method} 20 秒没回）`); ok({}); } }, 20_000); });
 const ev = async expr => (await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true })).result?.result?.value;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const waitFor = async (expr, ms, what) => {
@@ -50,3 +53,4 @@ await shot('word');
 console.log('页面错误：', errors.length ? errors.slice(0, 10) : '无');
 ws.close();
 console.log('界面冒烟测试通过');
+process.exit(0);
