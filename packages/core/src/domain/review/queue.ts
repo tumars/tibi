@@ -10,6 +10,7 @@ import { getSetting, newCardsReviewedToday, termContexts, termForms, toTerm, typ
 /**
  * 复习队列（00 §3.3）：先到期、后新词；新词 5 个一组，没在文章里见过的先"初见"再打乱回忆；
  * 题型按熟练度：生词 / 见过 → 选义，眼熟及以上 → 语境填空；识别题（M3）由设置 review.recognize 打开后在生词 / 见过里与选义交替。
+ * 没有释义或凑不齐三个选项时，选义 / 识别改出填空：不出只有一两个选项的题。
  */
 
 export const NEW_GROUP = 5;
@@ -55,75 +56,86 @@ export async function makeStep(db: Database, dict: Dict, cw: CardWithTerm, card_
   const contexts = await termContexts(db, term.id);
   let ctx: ContextRow | undefined = opts.preferContextId ? contexts.find(c => c.id === opts.preferContextId) : undefined;
   ctx ??= contexts[0];
-  const answer = await termForms(db, term);
-  const meaning = term.short_gloss || firstMeaning(term.meaning) || (await dict.lookup(term.text))?.translation?.split(/\n|;/)[0] || '';
+  const forms = await termForms(db, term);
+  const surface = ctx?.surface?.toLowerCase();
+  const answer = surface && !forms.includes(surface) ? [...forms, surface] : forms;
+  const meaning = term.short_gloss || firstMeaning(term.meaning) || firstMeaning(ctx?.meaning_in_context) || firstMeaning((await dict.lookup(term.text))?.translation);
   const sentence = ctx?.sentence_text ?? ctx?.text ?? `${term.text_display}`;
   const context: QueueItem['context'] = {
-    id: ctx?.id ?? '', sentence, answer, translation: ctx?.translation ?? '', source: ctx?.source === 'article' ? 'article' : 'dictionary',
+    id: ctx?.id ?? '', sentence, answer, ...(ctx?.surface ? { surface: ctx.surface } : {}), translation: ctx?.translation ?? '', source: ctx?.source === 'article' ? 'article' : 'dictionary',
     ...(ctx?.document_title ? { document_title: ctx.document_title } : {}), ...(ctx?.document_id ? { document_id: ctx.document_id } : {}),
   };
+  let options: { id: string; text: string; from?: string }[] | undefined;
+  if (card_type === 'choice' && !opts.intro && meaning) {
+    const distractors = await pickDistractors(db, dict, term, 3, ctx?.document_id ?? undefined, meaning);
+    if (distractors.length >= 2) {
+      options = shuffle([{ id: 'x', text: meaning }, ...distractors.map(d => ({ id: 'x', text: d.text, from: d.from }))]);
+      options.forEach((o, i) => { o.id = 'abcd'[i]!; });
+    }
+  }
+  if (!opts.intro && ((card_type === 'choice' && !options) || (card_type === 'recognize' && !meaning))) card_type = 'cloze';
   const item: Omit<QueueItem, 'step'> = {
     // 用户没写释义时用语境释义或词典短释义，答完（尤其答错）后答案区才有中文意思可看
     card_id: card.id, term: { ...toTerm(term, card), meaning: term.meaning || ctx?.meaning_in_context || meaning }, card_type, is_new: card.state === 0, intro: !!opts.intro, retry: opts.retry ?? 0,
     self_rated: card_type === 'recognize', context, hint: meaning || undefined,
     ...(card.last_review ? { last_review: card.last_review } : {}), ...(term.note ? { note: term.note } : {}),
   };
-  if (card_type === 'choice' && !opts.intro) {
-    const correct = meaning || term.text_display;
-    const distractors = await pickDistractors(db, dict, term, 3, ctx?.document_id ?? undefined);
-    const options = [{ id: 'x', text: correct }, ...distractors.map(d => ({ id: 'x', text: d.text, from: d.from }))];
-    shuffle(options);
-    options.forEach((o, i) => { o.id = 'abcd'[i]!; });
+  if (options) {
     item.options = options;
-    (item as QueueItem & { correct_option?: string }).correct_option = options.find(o => o.text === correct && !('from' in o))!.id;
+    (item as QueueItem & { correct_option?: string }).correct_option = options.find(o => !o.from)!.id;
   }
   return item;
 }
 
 export function firstMeaning(m: string | null | undefined): string {
   if (!m) return '';
-  return m.split(/\n|；|;/)[0]!.replace(/^[a-z]+\.\s*/i, '').trim().slice(0, 24);
+  // 词典释义形如"n. 钮扣, 按钮"、"[医] 库"、"信箱 n"，选项只留前几个义项
+  return m.split(/\n|；|;/)[0]!.replace(/\[[^\]]*\]/g, '').replace(/^\s*[a-z]+\.\s*/i, '').replace(/\s+[a-z]+\.?\s*$/i, '').split(/[,，]\s*/).slice(0, 3).join('，').trim().slice(0, 24);
+}
+
+/** 词条的短释义：用户写的优先，没有就查词典。取词时大多数词条的 meaning 是空的 */
+async function glossOf(dict: Dict, t: TermRow): Promise<string> {
+  return t.short_gloss || firstMeaning(t.meaning) || firstMeaning((await dict.lookup(t.text))?.translation);
 }
 
 /**
  * 选义题干扰项（G2）：同篇文章其他生词 > 易混词（编辑距离 ≤ 2 的生词本词）> 生词本其他词 > 任意词条。
  * 中文释义不重叠；不足时放宽。
  */
-export async function pickDistractors(db: Database, dict: Dict, term: TermRow, count = 3, document_id?: string): Promise<{ text: string; from: string; term_id: string }[]> {
-  const target = term.short_gloss || firstMeaning(term.meaning);
+export async function pickDistractors(db: Database, dict: Dict, term: TermRow, count = 3, document_id?: string, correct?: string): Promise<{ text: string; from: string; term_id: string }[]> {
+  const target = correct ?? await glossOf(dict, term);
   const picked: { text: string; from: string; term_id: string }[] = [];
   const seen = new Set<string>([term.id]);
   const meanings = new Set<string>([target]);
-  const take = (rows: TermRow[], from: string) => {
+  const take = async (rows: TermRow[], from: string, allowOverlap = false) => {
     for (const r of rows) {
       if (picked.length >= count) break;
       if (seen.has(r.id)) continue;
-      const m = r.short_gloss || firstMeaning(r.meaning);
-      if (!m || meanings.has(m) || overlaps(m, target)) continue;
+      const m = await glossOf(dict, r);
+      if (!m || meanings.has(m) || (!allowOverlap && overlaps(m, target))) continue;
       seen.add(r.id); meanings.add(m); picked.push({ text: m, from, term_id: r.id });
     }
   };
   if (document_id) {
     const sameDoc = await db.all<TermRow>(`SELECT DISTINCT t.* FROM terms t JOIN term_contexts tc ON tc.term_id = t.id
-      WHERE tc.document_id = ? AND t.id != ? AND t.deleted_at IS NULL AND t.status <= 5 AND (t.meaning IS NOT NULL OR t.short_gloss IS NOT NULL) ORDER BY random() LIMIT 40`, [document_id, term.id]);
-    take(sameDoc, '同一篇文章');
+      WHERE tc.document_id = ? AND t.id != ? AND t.deleted_at IS NULL AND t.status <= 5 ORDER BY random() LIMIT 40`, [document_id, term.id]);
+    await take(sameDoc, '同一篇文章');
   }
   if (picked.length < count) {
-    const wb = await db.all<TermRow>('SELECT * FROM terms WHERE in_wordbook = 1 AND id != ? AND deleted_at IS NULL AND (meaning IS NOT NULL OR short_gloss IS NOT NULL) ORDER BY random() LIMIT 200', [term.id]);
+    const wb = await db.all<TermRow>('SELECT * FROM terms WHERE in_wordbook = 1 AND id != ? AND deleted_at IS NULL ORDER BY random() LIMIT 200', [term.id]);
     const confusable = wb.filter(r => levenshtein(r.text, term.text) <= 2 && r.text !== term.text);
-    take(confusable, '易混词');
-    take(wb, '生词本');
+    await take(confusable, '易混词');
+    await take(wb, '生词本');
   }
   if (picked.length < count) {
-    const any = await db.all<TermRow>('SELECT * FROM terms WHERE id != ? AND deleted_at IS NULL AND (meaning IS NOT NULL OR short_gloss IS NOT NULL) ORDER BY random() LIMIT 60', [term.id]);
-    take(any, '词库');
+    const any = await db.all<TermRow>('SELECT * FROM terms WHERE id != ? AND deleted_at IS NULL ORDER BY random() LIMIT 60', [term.id]);
+    await take(any, '词库');
   }
   if (picked.length < count) {
     // 还不够：放宽释义重叠限制
-    const any = await db.all<TermRow>('SELECT * FROM terms WHERE id != ? AND deleted_at IS NULL AND (meaning IS NOT NULL OR short_gloss IS NOT NULL) ORDER BY random() LIMIT 60', [term.id]);
-    for (const r of any) { if (picked.length >= count) break; if (seen.has(r.id)) continue; const m = r.short_gloss || firstMeaning(r.meaning); if (!m || meanings.has(m)) continue; seen.add(r.id); meanings.add(m); picked.push({ text: m, from: '词库', term_id: r.id }); }
+    const any = await db.all<TermRow>('SELECT * FROM terms WHERE id != ? AND deleted_at IS NULL ORDER BY random() LIMIT 60', [term.id]);
+    await take(any, '词库', true);
   }
-  void dict;
   return picked;
 }
 

@@ -48,7 +48,7 @@ pnpm --filter @tibi/core-node build   # 打包 dist/tibi-core.js（sidecar 的 J
 pnpm --filter @tibi/core-node sidecar # Bun --compile 单文件 sidecar → apps/desktop/src-tauri/binaries/（另把 OCR 的 worker 与 wasm 拷到 binaries/ocr/）
 TIBI_TEST_OCR=1 pnpm --filter @tibi/core-node test   # 连带跑 OCR 测试（要下载约 10 MB 的语言包）
 pnpm --filter @tibi/core gen          # 改了 sql/*.sql、skills/*.md 或 samples/ 后重新生成内嵌文件
-pnpm ecdict                        # 下载 ECDICT 并生成 data/ecdict/dict.db（不进仓库；开发时壳和 Core 都会找这里）
+pnpm ecdict                        # 下载 ECDICT、词光、Open English WordNet 并生成 data/ecdict/dict.db（不进仓库；开发时壳和 Core 都会找这里；旧的 dict.db 要重跑才有新内容）
 pnpm clipper:zip                   # 打包剪藏插件 extensions/clipper/dist/*.zip
 ```
 

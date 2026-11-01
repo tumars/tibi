@@ -69,6 +69,20 @@ export interface DictEntry {
   /** 这个词头是别的词的变形时，原形是谁（went → go） */
   base?: string;
 }
+/** 词典页的补充内容（T32）：词光和 Open English WordNet，都可能没有 */
+export interface DictExtras {
+  /** 内容属于哪个词头；和查的词不同时（went → go）界面要说明 */
+  word: string;
+  atlas?: {
+    cefr?: string; tip?: string;
+    examples: { en: string; zh?: string }[]; collocations: { en: string; zh?: string }[];
+    /** 词族，形如 `adaptation (n.)` */
+    family: string[]; synonyms: string[]; antonyms: string[];
+  };
+  /** 英文义项，已去掉没有近义词也没有例句的；pos 是 n / v / a / r */
+  senses: { pos: string; definition: string; synonyms: string[]; examples: string[] }[];
+  antonyms: string[];
+}
 /** 词典联想的一行 */
 export interface DictBrief { word: string; phonetic?: string; gloss: string }
 
@@ -78,7 +92,7 @@ export interface QueueItem {
   step: number; card_id: Id; term: Term; card_type: CardType; is_new: boolean; last_review?: Ts;
   intro: boolean; retry: 0 | 1 | 2; self_rated: boolean;
   options?: { id: string; text: string; from?: string }[];
-  context: { id: Id; sentence: string; answer: string[]; translation: string; document_title?: string; document_id?: Id; source: 'article' | 'dictionary' };
+  context: { id: Id; sentence: string; answer: string[]; surface?: string; translation: string; document_title?: string; document_id?: Id; source: 'article' | 'dictionary' };
   hint?: string; note?: string;
   /** 本步的作答结果（续上会话时回显） */
   result?: { correct: boolean; rating?: Rating; answered_at: Ts };
@@ -90,6 +104,8 @@ export interface AnswerResult {
   rating?: Rating; reason?: string; auto: boolean;
   card?: CardState; status_change?: { from: Status; to: Status }; next?: { days: number; label: string };
   retry_step?: number; undo: Undo;
+  /** 选义题的正确选项，答完后标出来 */
+  correct_option?: string;
 }
 export interface IntervalPreview { 1: string; 2: string; 3: string; 4: string }
 export interface PracticeItem { id: string; mode: PracticeMode; sentence: string; audio?: string; options?: [string, string]; answer?: string; explain?: string; source: { document_id?: Id; term_id?: Id } }

@@ -152,7 +152,8 @@ function Entry({ data, word, similarInList, onLook, onOpenDoc, onOpenTerm, onAsk
     </div>
     {data.via && <div className="dx-via">{tl('“{v}”是变形，下面是原形', { v: data.via })}</div>}
     {entry?.base && <div className="dx-via">{tl('也是这个词的变形：')}<button className="linkbtn" onClick={() => onLook(entry.base!)}>{entry.base}</button></div>}
-    {entry && (entry.collins || entry.oxford || entry.exam.length > 0 || entry.frequency) ? <div className="dx-tags">
+    {entry && (data.extras?.atlas?.cefr || entry.collins || entry.oxford || entry.exam.length > 0 || entry.frequency) ? <div className="dx-tags">
+      {data.extras?.atlas?.cefr && <span className="tagc" title={tl('CEFR 等级，来自词光')}>{data.extras.atlas.cefr}</span>}
       {entry.collins ? <span className="tagc" title={tl('柯林斯星级')}>{'★'.repeat(entry.collins)}</span> : null}
       {entry.oxford && <span className="tagc">{tl('牛津 3000')}</span>}
       {entry.exam.map(x => <span key={x} className="tagc">{EXAM_NAMES[x] ?? x}</span>)}
@@ -168,14 +169,53 @@ function Entry({ data, word, similarInList, onLook, onOpenDoc, onOpenTerm, onAsk
 
     <div className="dx-gloss">{lines.map((l, i) => <div key={i}>{l.tag && <em>{l.tag}</em>}<span>{l.text}</span></div>)}</div>
     {shares && <div className="lbl dx-shares">{tl('常见词性：{v}', { v: shares })}</div>}
+    {data.extras?.atlas?.tip && <div className="dx-tip"><b>{tl('辨析')}</b>{data.extras.atlas.tip}</div>}
 
     {entry?.inflections && entry.inflections.length > 0 && <>
       <div className="dx-sec"><span>{tl('词形')}</span></div>
       <div className="dx-forms">{entry.inflections.map(f => <button key={f.type + f.form} onClick={() => onLook(f.form)}><i>{INFLECTION_NAMES[f.type] ?? f.type}</i>{f.form}</button>)}</div>
     </>}
-    {defs.length > 0 && <details className="dx-en"><summary>{tl('英文释义')}</summary><div className="dx-gloss">{defs.map((l, i) => <div key={i}>{l.tag && <em>{l.tag}</em>}<span>{l.text}</span></div>)}</div></details>}
     <Readings data={data} onOpenDoc={onOpenDoc} />
+    {data.extras && <Extras x={data.extras} head={head} onLook={onLook} />}
+    {defs.length > 0 && <details className="dx-en"><summary>{tl('英文释义')}</summary><div className="dx-gloss">{defs.map((l, i) => <div key={i}>{l.tag && <em>{l.tag}</em>}<span>{l.text}</span></div>)}</div></details>}
   </div>;
+}
+
+const WordChips = ({ words, onLook }: { words: string[]; onLook: (w: string) => void }) => (
+  // 词族写成 `adaptation (n.)`，查的时候去掉括号
+  <div className="dx-chips">{words.map(w => <button key={w} onClick={() => onLook(w.replace(/\s*\([^)]*\)\s*$/, ''))}>{w}</button>)}</div>
+);
+
+/** 词光和 WordNet 的内容（T32）。来源写在最后：词光是 AI 生成、没有逐条审校的，要让人知道 */
+function Extras({ x, head, onLook }: { x: NonNullable<DictEntryResult['extras']>; head: string; onLook: (w: string) => void }) {
+  const a = x.atlas;
+  const antonyms = [...new Set([...(a?.antonyms ?? []), ...x.antonyms])];
+  return <>
+    {x.word.toLowerCase() !== head.toLowerCase() && <div className="dx-via dx-extra-via">{tl('下面的内容属于原形 {w}', { w: x.word })}</div>}
+    {a && a.examples.length > 0 && <>
+      <div className="dx-sec"><span>{tl('例句')}</span></div>
+      {a.examples.map(e => <div key={e.en} className="dx-ex"><span className="s">{e.en}</span>{e.zh && <span className="lbl">{e.zh}</span>}</div>)}
+    </>}
+    {a && a.collocations.length > 0 && <>
+      <div className="dx-sec"><span>{tl('搭配')}</span></div>
+      <div className="dx-cols">{a.collocations.map(c => <div key={c.en}><b>{c.en}</b>{c.zh && <span>{c.zh}</span>}</div>)}</div>
+    </>}
+    {a && a.synonyms.length > 0 && <><div className="dx-sec"><span>{tl('近义词')}</span></div><WordChips words={a.synonyms} onLook={onLook} /></>}
+    {antonyms.length > 0 && <><div className="dx-sec"><span>{tl('反义词')}</span></div><WordChips words={antonyms} onLook={onLook} /></>}
+    {a && a.family.length > 0 && <><div className="dx-sec"><span>{tl('词族')}</span></div><WordChips words={a.family} onLook={onLook} /></>}
+    {x.senses.length > 0 && <>
+      <div className="dx-sec"><span>{tl('英文义项与同义词')}</span></div>
+      {x.senses.map(s => <div key={s.pos + s.definition} className="dx-sense">
+        <div className="dx-gloss"><div><em>{s.pos}.</em><span>{s.definition}</span></div></div>
+        {s.examples[0] && <div className="s">{s.examples[0]}</div>}
+        {s.synonyms.length > 0 && <WordChips words={s.synonyms} onLook={onLook} />}
+      </div>)}
+    </>}
+    <div className="lbl dx-credit">
+      {a && <div>{tl('例句、搭配、词族和辨析来自词光 Word Atlas（CC BY 4.0），由 AI 生成，未逐条审校。')}</div>}
+      {x.senses.length + x.antonyms.length > 0 && <div>{tl('英文义项和同义词来自 Open English WordNet（CC BY 4.0）。')}</div>}
+    </div>
+  </>;
 }
 
 /** 命中处 ⟦ ⟧ → 荧光笔；顺手去掉 Markdown 记号 */

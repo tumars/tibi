@@ -9,7 +9,7 @@ import { locale, tl } from '../lib/i18n';
 /**
  * 设置 → 数据：自动备份与恢复、导出学习汇总（00 §3.7；M1 成功标准 §6：只有计数，用户看过后自己发给作者，不上报）。
  */
-const REASON: Record<string, string> = { auto: tl('自动'), manual: tl('手动'), before_reset: tl('重置前'), before_restore: tl('恢复前') };
+const REASON: Record<string, string> = { auto: tl('自动'), manual: tl('手动'), before_reset: tl('重置前'), before_restore: tl('恢复前'), before_update: tl('更新前') };
 const fmtTime = (t: number) => new Date(t).toLocaleString(locale, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 const fmtSize = (n: number) => n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 

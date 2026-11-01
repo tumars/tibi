@@ -53,3 +53,15 @@
 .dx.compact .tagc.sys { background: none; box-shadow: inset 0 0 0 1px var(--line); color: var(--ink-3); }
 .dx.compact .linkbtn { color: var(--accent); }
 @media (max-width: 720px) { .dx-body { grid-template-columns: 1fr; } .dx-list { position: static; max-height: 240px; } }
+.dx-tip { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: var(--sunken); font-size: 14px; line-height: 1.6; color: var(--ink-2); }
+.dx-tip b { margin-right: 8px; font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.dx-extra-via { margin-top: 22px; }
+.dx-ex { display: flex; flex-direction: column; gap: 3px; padding: 6px 0; }
+.dx-ex .s, .dx-sense .s { font-family: var(--f-read); font-size: 15px; line-height: 1.55; color: var(--ink); }
+.dx-cols { display: grid; gap: 5px; font-size: 14px; }
+.dx-cols b { margin-right: 10px; font-family: var(--f-read); font-weight: 500; color: var(--ink); }
+.dx-cols span { color: var(--ink-3); }
+.dx-sense { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; font-size: 14px; }
+.dx-sense .s { font-size: 14px; color: var(--ink-2); }
+.dx-sense .dx-chips button { height: 26px; padding: 0 10px; font-size: 13px; }
+.dx-credit { margin-top: 24px; font-size: 12px; line-height: 1.6; }

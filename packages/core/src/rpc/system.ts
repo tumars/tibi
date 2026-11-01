@@ -23,7 +23,7 @@ export const systemMethods: MethodMap = {
       pending_approvals: Number(pending?.n ?? 0), running_tasks: Number(running?.n ?? 0),
     };
   }, '启动与顶栏徽标'),
-  'system.backup': method(Type.Object({ reason: Type.Optional(Type.Union([Type.Literal('manual'), Type.Literal('before_reset'), Type.Literal('before_restore')])) }), async (p, ctx) => {
+  'system.backup': method(Type.Object({ reason: Type.Optional(Type.Union([Type.Literal('manual'), Type.Literal('before_reset'), Type.Literal('before_restore'), Type.Literal('before_update')])) }), async (p, ctx) => {
     const f = await backupNow(ctx.db, ctx.platform, p.reason ?? 'manual');
     return { path: f.path, size: f.size, created_at: f.created_at };
   }, '立即备份（VACUUM INTO 到 app.db 旁边的 backups/）；自动备份每天一次、只轮换自动的、保留 7 份'),

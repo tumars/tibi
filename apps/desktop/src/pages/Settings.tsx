@@ -1,3 +1,4 @@
+import { Mascot } from '../components/Mascot';
 import type { Profile } from '@tibi/core';
 import { ChevronDown, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -11,6 +12,7 @@ import { VoiceItems } from '../settings/VoiceItems';
 import { SkillItems } from '../settings/SkillItems';
 import { McpItems } from '../settings/McpItems';
 import { SyncItems } from '../settings/SyncItems';
+import { UpdateItems } from '../settings/UpdateItems';
 import { useSettingsSearch } from '../settings/search';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
@@ -139,9 +141,10 @@ export function Settings() {
             <SyncItems />
           </div></section>
 
-          <section className="ssec" id="s-about"><h2>{tl('关于')}</h2><div className="group">
+          <section className="ssec" id="s-about"><h2>{tl('关于')}</h2><div className="about-art"><Mascot id="about" /></div><div className="group">
             <div className="item"><div><div className="t">Tibi {status?.version ?? ''}</div><div className="d">{tl('开源 · MIT 协议 · 本地优先的 AI 英语阅读工具')}</div></div></div>
-            <div className="item"><div><div className="t">{tl('致谢')}</div><div className="d">ECDICT · FSRS · pi · Tauri · Charis SIL</div></div></div>
+            <UpdateItems />
+            <div className="item"><div><div className="t">{tl('致谢')}</div><div className="d">ECDICT · Open English WordNet · Word Atlas · FSRS · pi · Tauri · Charis SIL</div></div></div>
           </div></section>
           {searching && total === 0 && <div className="snores">{tl('没有找到「{v0}」', { v0: query.trim() })}</div>}
         </div>

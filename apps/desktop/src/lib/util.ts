@@ -1,6 +1,21 @@
 import type { Status } from '@tibi/core';
 import { tl } from './i18n';
 
+/**
+ * 把句子按答案切成 前 / 词 / 后。只认整词（do 不会匹配 window），依次试原文词形和各词形，长的在前。
+ * blankOthers：填空题把句子里别处出现的同一个词也遮住，不然答案就在题面上。
+ */
+export function splitAnswer(sentence: string, answers: string[], surface?: string, blankOthers = false) {
+  const forms = [...new Set(answers.filter(Boolean))].sort((a, b) => b.length - a.length);
+  const wordRe = (f: string, flags: string) => new RegExp(`(?<![\\p{L}\\p{N}])${f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`, flags);
+  const blank = (s: string) => blankOthers ? forms.reduce((acc, f) => acc.replace(wordRe(f, 'giu'), '____'), s) : s;
+  for (const f of surface ? [surface, ...forms] : forms) {
+    const m = wordRe(f, 'iu').exec(sentence);
+    if (m) return { before: blank(sentence.slice(0, m.index)), mid: m[0], after: blank(sentence.slice(m.index + m[0].length)) };
+  }
+  return { before: sentence, mid: '', after: '' };
+}
+
 /** 词状态 → 着色 class（03 §6：生词荧光笔、学习中渐浅、待确认虚线；5 / 97 / 98 / 无行不标） */
 export function wordClass(status: Status | undefined): string {
   if (status === undefined || status === 5 || status === 97 || status === 98) return 'w';

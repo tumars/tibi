@@ -1,5 +1,5 @@
 import type { DocumentSummary, TaskSummary } from '@tibi/core';
-import { ArrowUp, ChevronDown, Play, Plus, Search, Sparkles } from 'lucide-react';
+import { ArrowUp, BarChart3, BookOpen, Brain, ChevronDown, Download, Play, Plus, RefreshCw, Search, Sparkles, X, type LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Empty } from '../components/Empty';
@@ -7,6 +7,7 @@ import { Fox } from '../components/Fox';
 import { Modal } from '../components/Modal';
 import { openSample, Samples } from '../components/Samples';
 import { Top } from '../components/Shell';
+import { ACTIONS, matchActions, parseSlash, slashQuery, type ActionId, type SlashAction } from '../lib/slash';
 import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
 import { errorInfo, isTauri, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
@@ -19,6 +20,7 @@ import { tl } from '../lib/i18n';
  * 自上而下：狐狸 + 欢迎语 → 大输入框（不分模式，按内容判断）→ 建议 → 继续读主卡 + 还在读 → 今天三张卡 → 书架。
  */
 type Kind = 'all' | 'article' | 'book';
+const ACTION_ICONS: Record<ActionId, LucideIcon> = { importer: Download, scout: Search, tutor: BookOpen, coach: RefreshCw, insight: BarChart3, archivist: Brain };
 
 export function Home() {
   const nav = useNavigate();
@@ -33,9 +35,23 @@ export function Home() {
   const [focus, setFocus] = useState(false);
   const [kind, setKind] = useState<Kind>('all');
   const [tier, setTier] = useState<'fast' | 'deep'>('fast');
-  const due = useCore(s => s.due); const connected = useCore(s => s.connected); const status = useCore(s => s.status);
+  const due = useCore(s => s.due); const connected = useCore(s => s.connected); const status = useCore(s => s.status); const coreDown = useCore(s => !s.connected && !s.status && !!s.error);
   const goal = useCore(s => s.goal); const nickname = useCore(s => s.nickname);
   const ta = useRef<HTMLTextAreaElement>(null);
+  const [action, setAction] = useState<SlashAction>();   // / 选中的动作，显示在输入框上方
+  const [offSkills, setOffSkills] = useState<string[]>([]);   // 设置里关掉的技能不进菜单；导入是固定流程，不能关
+  const [menuCur, setMenuCur] = useState(0);
+  const [menuClosed, setMenuClosed] = useState(false);   // Esc 关掉后，改了内容再打开
+  const actions = ACTIONS.filter(a => !offSkills.includes(a.id));
+  const query = slashQuery(text);
+  const menu = focus && !menuClosed && query !== undefined ? matchActions(query, actions) : [];
+  const cur = Math.min(menuCur, Math.max(0, menu.length - 1));
+
+  useEffect(() => {
+    const loadSkills = () => { rpc.call('skills.list', {}).then(l => setOffSkills(l.filter(s => !s.enabled && s.id !== 'importer').map(s => s.id)), () => undefined); };
+    loadSkills();
+    return rpc.on('data.changed', d => { if (d.table === 'skills') loadSkills(); });
+  }, []);
 
   const load = useCallback(async () => {
     try { const r = await rpc.call('documents.list', { sort: 'opened', limit: 12 }); setDocs(r.items); } catch { setDocs([]); }
@@ -55,12 +71,22 @@ export function Home() {
     try {
       const { task_id } = await rpc.call('documents.import', { source, origin });
       setTask({ id: task_id, state: 'run', skill_id: 'importer', title: source.type === 'url' ? source.url : source.type === 'file' ? source.path.split(/[\\/]/).pop()! : source.type === 'images' ? tl('{length} 张图片', { length: source.paths.length }) : tl('正在导入'), trigger: origin, model: '', step: { index: 0, total: 0, label: tl('开始') }, started_at: Date.now(), duration_ms: 0, cost: 0 });
-      setText('');
+      setText(''); setAction(undefined);
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
+  const pickAction = (a: SlashAction) => { setAction(a); setText(''); setMenuCur(0); ta.current?.focus(); };
+
   const submit = async () => {
-    const t = text.trim(); if (!t) return;
+    const t = text.trim();
+    const typed = action ? { action, rest: t } : parseSlash(t, actions);
+    if (typed) {
+      const q = typed.rest || typed.action.empty;
+      if (typed.action.id === 'importer') { if (typed.rest) await importSource(classifyInput(typed.rest) === 'url' ? { type: 'url', url: typed.rest } : { type: 'text', text: typed.rest }); }
+      else if (q) await ask(q, typed.action.id);
+      return;
+    }
+    if (!t) return;
     const k = classifyInput(t);
     if (k === 'url') { await importSource({ type: 'url', url: t }); return; }
     if (k === 'text') { await importSource({ type: 'text', text: t }); return; }
@@ -69,7 +95,7 @@ export function Home() {
 
   // 问 Tibi（R13 不分模式：不是网址、不是整段英文就当提问）：新开一个对话，主区切到对话页
   const ask = async (q: string, skill?: string) => {
-    try { const c = await rpc.call('chat.open', {}); setText(''); nav(`/chat/${c.id}?q=${encodeURIComponent(q)}${skill ? `&skill=${skill}` : ''}${tier === 'deep' ? '&tier=deep' : ''}`); }
+    try { const c = await rpc.call('chat.open', {}); setText(''); setAction(undefined); nav(`/chat/${c.id}?q=${encodeURIComponent(q)}${skill ? `&skill=${skill}` : ''}${tier === 'deep' ? '&tier=deep' : ''}`); }
     catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
@@ -113,6 +139,8 @@ export function Home() {
   const shelf = docs.filter(d => kind === 'all' || d.kind === kind);
   const todayMin = week.length ? Math.round(week[week.length - 1] ?? 0) : 0;
   const k = classifyInput(text.trim());
+  const typedAction = action ? undefined : parseSlash(text, actions)?.action;
+  const canSend = !!text.trim() || !!action?.empty;
   const foxState = task ? 'reading' : focus ? 'listening' : 'idle';
   const hour = new Date().getHours();
   const greeting = hour < 5 ? tl('夜深了') : hour < 11 ? tl('早上好') : hour < 13 ? tl('中午好') : hour < 18 ? tl('下午好') : tl('晚上好');
@@ -125,22 +153,41 @@ export function Home() {
       <div className="scroll"><div className="page home">
         <section className="hero">
           <div className="welcome">
-            <Fox className="hero-fox" size={104} state={foxState} />
+            {!coreDown && <Fox className="hero-fox" size={104} state={foxState} />}
             <h1>{greeting}{nickname ? <>{tl('，')}<span className="name">{nickname}</span></> : ''}</h1>
             <div className="sub">{welcomeLine}</div>
           </div>
           <div className={`composer${over ? ' over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}>
+              {action && <div className="agsel">
+                <span className="agchip">{(() => { const I = ACTION_ICONS[action.id]; return <I size={14} />; })()}/{action.slash}<button title={tl('取消')} aria-label={tl('取消')} onClick={() => { setAction(undefined); ta.current?.focus(); }}><X size={10} strokeWidth={2.6} /></button></span>
+                <span className="agdesc">{action.desc}</span>
+              </div>}
               <textarea ref={ta} value={text} rows={2} aria-label={tl('输入')}
-                placeholder={tl('粘贴网址或一段英文就会导入，也可以直接问 Tibi；输入 / 选择要做的事')}
+                placeholder={action?.placeholder ?? tl('粘贴网址或一段英文就会导入，也可以直接问 Tibi；输入 / 选择要做的事')}
                 onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
-                onChange={e => setText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void submit(); } }} />
+                onChange={e => { setText(e.target.value); setMenuClosed(false); setMenuCur(0); }}
+                onKeyDown={e => {
+                  if (e.nativeEvent.isComposing) return;
+                  if (menu.length) {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setMenuCur((cur + (e.key === 'ArrowDown' ? 1 : -1) + menu.length) % menu.length); return; }
+                    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickAction(menu[cur]!); return; }
+                    if (e.key === 'Escape') { e.preventDefault(); setMenuClosed(true); return; }
+                  }
+                  if (e.key === 'Backspace' && action && !text) { setAction(undefined); return; }
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void submit(); }
+                }} />
+              {menu.length > 0 && <div className="slashmenu" role="listbox" aria-label={tl('选择要做的事')}>
+                <div className="mh">{tl('选择要做的事')}</div>
+                {menu.map((a, i) => { const I = ACTION_ICONS[a.id]; return <div key={a.id} className={`mi${i === cur ? ' on' : ''}`} role="option" aria-selected={i === cur} onMouseMove={() => setMenuCur(i)} onMouseDown={e => { e.preventDefault(); pickAction(a); }}>
+                  <I size={15} /><b>{a.title}</b><span>{a.desc}</span>
+                </div>; })}
+              </div>}
               <div className="cbar">
                 <button className="attach" title={tl('添加文件')} onClick={pickFile}><Plus size={16} /></button>
-                {text.trim() && <span className="hint">{({ url: tl('导入这个网址'), text: tl('导入这段英文'), ask: tl('问 Tibi') } as const)[k]}</span>}
+                {!action && !menu.length && text.trim() && <span className="hint">{typedAction ? typedAction.title : ({ url: tl('导入这个网址'), text: tl('导入这段英文'), ask: tl('问 Tibi') } as const)[k]}</span>}
                 <span className="sp" />
                 <button className="tier" title={tl('切换速度与深度：快速适合查词和短问题，深入更慢但更仔细')} onClick={() => { const t = tier === 'fast' ? 'deep' : 'fast'; setTier(t); toast(t === 'deep' ? tl('深入：更慢但更仔细，适合长文分析和学习计划') : tl('快速：响应快，适合查词和短问题')); }}>{tier === 'fast' ? tl('快速') : tl('深入')} <ChevronDown size={12} /></button>
-                <button className="send" disabled={!text.trim()} onClick={submit} aria-label={tl('发送')}><ArrowUp size={17} /></button>
+                <button className="send" disabled={!canSend} onClick={submit} aria-label={tl('发送')}><ArrowUp size={17} /></button>
               </div>
           </div>
           {/* 书架是空的：建议换成"读示例 / 测词汇量"（原型 home.html#empty） */}
@@ -201,7 +248,7 @@ export function Home() {
           </div>
           {shelf.length ? <div className="docs">{shelf.slice(0, 8).map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} />)}</div>
             : connected || status ? <Empty title={tl('书架还是空的')} text={tl('粘贴网址或拖入文件就能导入，也可以先读一篇示例。')} action={<Samples />} />
-            : <Empty title={tl('连不上 Tibi Core')} text={tl('先运行 pnpm core:dev，再刷新。')} />}
+            : <Empty image={coreDown ? 'error-offline' : undefined} title={tl('连不上 Tibi Core')} text={tl('先运行 pnpm core:dev，再刷新。')} />}
         </section>
       </div></div>
 

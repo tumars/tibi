@@ -1,3 +1,4 @@
+import { Mascot, type MascotId } from '../components/Mascot';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { tl } from '../lib/i18n';
 import { Markdown } from '../lib/md';
@@ -35,7 +36,7 @@ export function Ring({ value, size = 22, stroke = 3, color = 'var(--warm)' }: { 
   </svg>;
 }
 
-export const Empty = ({ title, text, action }: { title: string; text?: string; action?: ReactNode }) => <div className="empty"><b>{title}</b>{text}{action && <div style={{ marginTop: 14 }}>{action}</div>}</div>;
+export const Empty = ({ title, text, action, image }: { title: string; text?: string; action?: ReactNode; image?: MascotId }) => <div className="empty">{image && <Mascot id={image} />}<b>{title}</b>{text}{action && <div style={{ marginTop: 14 }}>{action}</div>}</div>;
 
 /** 一段对话的气泡（今天页、阅读器和词卡里的 Tibi 面板共用）。回答里的网页链接点一下导入 */
 export function Thread({ conversationId, context, pending, onAsk }: { conversationId?: string; context?: ChatContext; pending?: { key: string; text: string }; onAsk?: (send: (t: string) => void) => void }) {

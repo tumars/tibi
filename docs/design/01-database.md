@@ -454,7 +454,7 @@ learning_events        audio_cache        daily_stats
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | id | TEXT PK | |
-| job_step_id | TEXT NULL | 哪一步调用的（可跳到任务中心看过程）；界面直接调用时为空 |
+| job_step_id | TEXT NULL | 哪一步调用的（可跳到运行记录看过程）；界面直接调用时为空 |
 | skill_id | TEXT FK NULL | 界面直接调用、MCP 直接调用时为空 |
 | idempotency_key | TEXT NULL | 写能力的幂等键，崩溃重跑不重复写（§9） |
 | tool | TEXT | 能力名 |
@@ -510,6 +510,8 @@ learning_events        audio_cache        daily_stats
 | exchange | 词形变化 → **词形还原的补充** |
 
 另在 `dict.db` 中预生成一张 `lemma_map(form TEXT, lemma TEXT, rank INTEGER, PRIMARY KEY (form, lemma))`，由 `exchange` 字段展开，用于快速词形还原；一个词形可能对应多个原形（left → leave / left），`rank` 小的优先。
+
+补充数据（T32，词典页用）：`word_atlas(word, cefr, tip, examples, collocations, family, synonyms, antonyms)`（词光，后五项是 JSON）；`wn_synset(id, pos, definition, examples, members)` 和 `wn_sense(word, pos, rank, synset, antonyms)`（Open English WordNet 2025，只留义项用得上的字段）。旧版 `dict.db` 没有这些表时，词典页不显示这部分内容。
 
 ## 9. 约束与迁移
 

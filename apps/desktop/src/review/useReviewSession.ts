@@ -102,9 +102,3 @@ export function useReviewSession() {
 
   return { session, err, phase, setPhase, typed, setTyped, hints, setHints, results, done, elapsed, item, load, answer, next, override, undo, pause, drill, story, summary, segClass };
 }
-
-/** 把句子按答案切成 前 / 词 / 后 */
-export function splitAnswer(sentence: string, ans: string) {
-  const i = sentence.toLowerCase().indexOf(ans.toLowerCase());
-  return i >= 0 ? { before: sentence.slice(0, i), mid: sentence.slice(i, i + ans.length), after: sentence.slice(i + ans.length) } : { before: sentence, mid: '', after: '' };
-}

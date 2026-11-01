@@ -2,6 +2,7 @@ import type { Approval, Task, TaskStep, TaskSummary } from '@tibi/core';
 import { Pause, Play, RotateCcw, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { Empty } from '../components/Empty';
 import { Top } from '../components/Shell';
 import { Markdown } from '../lib/md';
 import { errorInfo, rpc, type Result } from '../rpc';
@@ -9,7 +10,7 @@ import { toast } from '../store/ui';
 import { locale, tl } from '../lib/i18n';
 
 /**
- * 任务中心（00 §3.11，M5 完整版）：四项概览 → 等你确认 → 运行中 → 最近（今天 / 昨天 / 更早）。
+ * 运行记录（00 §3.11，M5 完整版）：四项概览 → 等你确认 → 运行中 → 最近（今天 / 昨天 / 更早）。
  * 点任务在右侧抽屉看详情：状态、触发方式、模型、用量、嵌套步骤树、过程；可在对话中继续、复制诊断信息（不含 Key 和正文）。
  * 键盘：J / K 在确认项与任务间移动，Enter 开详情，A / R 允许或拒绝当前确认项，Esc 关闭。对话里"查看过程"带 ?t=任务 id。
  */
@@ -131,7 +132,7 @@ export function Tasks() {
   const isCur = (id: string) => order[cur]?.id === id;
   return (
     <>
-      <Top crumbs={[{ label: tl('任务') }]} />
+      <Top crumbs={[{ label: tl('运行记录') }]} />
       <div className={`taskswrap${open ? ' with-drawer' : ''}`}>
         <div className="scroll"><div className="page tasks">
           {k && <div className="tiles four" style={{ marginBottom: 24 }}>
@@ -144,7 +145,7 @@ export function Tasks() {
             {data.pending.map(a => <ApprovalCard key={a.task_id} a={a} cur={isCur(a.task_id)} onDone={load} />)}
           </section>}
           {!!data?.running.length && <section><div className="sech"><h2>{tl('运行中')}</h2></div>{data.running.map(t => <Row key={t.id} t={t} cur={isCur(t.id) || open === t.id} onOpen={() => setOpen(t.id)} onChanged={load} />)}</section>}
-          {data && !data.history.length && !data.running.length && <p className="lbl">{tl('还没有任务。导入文章、问 Tibi 都会在这里留下记录。')}</p>}
+          {data && !data.history.length && !data.running.length && <Empty image="empty-tasks" title={tl('还没有运行记录')} text={tl('导入文章、问 Tibi 后都会显示在这里。')} />}
           {groups.map(([label, list]) => list.length ? <section key={label}><div className="sech"><h2>{label}</h2></div>{list.map(t => <Row key={t.id} t={t} cur={isCur(t.id) || open === t.id} onOpen={() => setOpen(t.id)} onChanged={load} />)}</section> : null)}
         </div></div>
         {open && <Drawer id={open} onClose={() => { setOpen(undefined); setParams({}, { replace: true }); }} />}

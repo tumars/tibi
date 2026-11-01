@@ -1,11 +1,12 @@
+import { Mascot } from '../components/Mascot';
 import type { Rating } from '@tibi/core';
 import { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Practice } from '../review/Practice';
-import { splitAnswer, useReviewSession } from '../review/useReviewSession';
+import { useReviewSession } from '../review/useReviewSession';
 import { Empty } from '../components/Empty';
 import { Top } from '../components/Shell';
-import { speak, STATUS_NAMES } from '../lib/util';
+import { speak, splitAnswer, STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
@@ -48,16 +49,16 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
 
   useEffect(() => { if (item?.card_type === 'cloze' && phase.kind === 'ask') inputRef.current?.focus(); }, [item, phase]);
 
-  if (err) return <><Top crumbs={[{ label: tl('复习') }]} right={tabs} /><Empty title={tl('复习还没准备好')} text={err} action={<button className="btn" onClick={() => load()}>{tl('重试')}</button>} /></>;
+  if (err) return <><Top crumbs={[{ label: tl('复习') }]} right={tabs} /><Empty image="error-generic" title={tl('复习还没准备好')} text={err} action={<button className="btn" onClick={() => load()}>{tl('重试')}</button>} /></>;
   if (!session) return <><Top crumbs={[{ label: tl('复习') }]} right={tabs} /><div className="scroll" /></>;
   if (done || !item) {
     const { graded, correctPct, minutes, wrong } = summary();
     return <>
       <Top crumbs={[{ label: tl('复习') }]} right={tabs} />
       <div className="scroll"><div className="rv">
-        {session.steps.length === 0 ? <Empty title={tl('今天没有要复习的')} text={tl('读文章时点开的生词会排进来。')} action={<button className="btn" onClick={() => nav('/library')}>{tl('去读点什么')}</button>} /> : (
+        {session.steps.length === 0 ? <Empty image="empty-review" title={tl('今天没有要复习的')} text={tl('读文章时点开的生词会排进来。')} action={<button className="btn" onClick={() => nav('/library')}>{tl('去读点什么')}</button>} /> : (
           <div className="done">
-            <img src="/logo.svg" alt="" style={{ width: 96, height: 96, borderRadius: 24 }} />
+            <Mascot id="celebrate-review" />
             <h3>{session.kind === 'drill' ? tl('练完了') : tl('今天的复习完成了')}</h3>
             <div className="k3">
               <div><b>{graded}</b><span>{tl('张卡')}</span></div>
@@ -78,8 +79,8 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
 
   const ctx = item.context;
   const sentHtml = () => {
-    const ans = ctx.answer[0] ?? item.term.display;
-    const { before, mid, after } = splitAnswer(ctx.sentence, ans);
+    const { before, mid, after } = splitAnswer(ctx.sentence, ctx.answer, ctx.surface, item.card_type === 'cloze' && phase.kind === 'ask');
+    const ans = mid || (ctx.answer[0] ?? item.term.display);
     if (item.card_type === 'cloze' && phase.kind === 'ask') return <>{before}<input ref={inputRef} value={typed} onChange={e => setTyped(e.target.value)} placeholder={hints ? ans.slice(0, hints) : undefined} aria-label={tl('填空')} />{after}</>;
     if (item.card_type === 'cloze' && phase.kind === 'answered') return <>{before}{phase.result.correct ? <span className="fix">{mid || ans}</span> : <><span className="bad">{phase.typed || '—'}</span> <span className="fix">{mid || ans}</span></>}{after}</>;
     return <>{before}<mark>{mid || ans}</mark>{after}</>;
@@ -131,7 +132,7 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
         <div className="rvfoot">
           {item.intro && <button className="btn pri" style={{ height: 44 }} onClick={next}>{tl('认识了')} <span className="kbd" style={{ marginLeft: 6 }}>Enter</span></button>}
           {!item.intro && item.card_type === 'choice' && phase.kind === 'ask' && <div className="opts">{item.options?.map((o, i) => <button key={o.id} className="ropt" onClick={() => answer({ choice: o.id })}><span className="k">{i + 1}</span>{o.text}</button>)}</div>}
-          {!item.intro && item.card_type === 'choice' && phase.kind === 'answered' && <div className="opts">{item.options?.map((o, i) => { const correct = ctx.answer.includes(o.text) || o.id === ctx.answer[0]; const chosen = phase.chosen === o.id; return <button key={o.id} className={`ropt${correct ? ' ok' : chosen ? ' bad' : ' dim'}`} disabled><span className="k">{i + 1}</span>{o.text}{chosen && !correct && o.from && <span className="from">{o.from}</span>}</button>; })}</div>}
+          {!item.intro && item.card_type === 'choice' && phase.kind === 'answered' && <div className="opts">{item.options?.map((o, i) => { const correct = o.id === phase.result.correct_option; const chosen = phase.chosen === o.id; return <button key={o.id} className={`ropt${correct ? ' ok' : chosen ? ' bad' : ' dim'}`} disabled><span className="k">{i + 1}</span>{o.text}{chosen && !correct && o.from && <span className="from">{o.from}</span>}</button>; })}</div>}
           {!item.intro && item.card_type === 'cloze' && phase.kind === 'ask' && <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn pri" style={{ height: 44, flex: 1, justifyContent: 'center' }} onClick={() => answer({ typed })}>{tl('检查')} <span className="kbd" style={{ marginLeft: 6 }}>Enter</span></button>
             <button className="btn" style={{ height: 44 }} onClick={() => setHints(h => h + 1)}>{tl('提示一个字母{v0}', { v0: hints ? ` (${hints})` : '' })}</button>

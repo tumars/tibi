@@ -1,5 +1,5 @@
 import type { Database } from '../db/driver.js';
-import type { DictBrief, DictEntry } from '../types.js';
+import type { DictBrief, DictEntry, DictExtras } from '../types.js';
 import type { Dict } from './types.js';
 
 /**
@@ -76,8 +76,34 @@ export class SqliteDict implements Dict {
       'SELECT word, phonetic, translation, definition FROM stardict WHERE frq > 0 AND word LIKE ? AND length(word) BETWEEN ? AND ? ORDER BY frq LIMIT 8000', [`${w[0]}%`, w.length - max, w.length + max]);
     return rows.map(r => ({ r, d: editDistance(w, r.word.toLowerCase(), max) })).filter(x => x.d <= max).sort((a, b) => a.d - b.d).slice(0, limit).map(x => toBrief(x.r));
   }
+
+  async extras(word: string): Promise<DictExtras | undefined> {
+    const w = word.trim();
+    try {
+      const a = await this.db.get<AtlasRow>('SELECT word, cefr, tip, examples, collocations, family, synonyms, antonyms FROM word_atlas WHERE word = ? COLLATE NOCASE', [w]);
+      const all = await this.db.all<SenseRow>(
+        `SELECT s.word, s.pos, s.rank, s.antonyms, y.definition, y.examples, y.members FROM wn_sense s JOIN wn_synset y ON y.id = s.synset
+         WHERE s.word = ? COLLATE NOCASE ORDER BY s.rank`, [w]);
+      // 大小写不同可能是另一个词（china 瓷器 / China 中国）：有写法完全一样的就只要它；
+      // 没有时，小写的查询可以退到大写词头（monday → Monday），反过来不行
+      const same = all.filter(r => r.word === w);
+      const rows = same.length || w !== w.toLowerCase() ? same : all;
+      if (!a && !rows.length) return undefined;
+      const senses = rows
+        .map(r => ({ pos: r.pos, definition: r.definition, synonyms: (JSON.parse(r.members) as string[]).filter(m => m.toLowerCase() !== w.toLowerCase()), examples: JSON.parse(r.examples) as string[] }))
+        .filter(s => s.synonyms.length || s.examples.length);
+      return {
+        word: a?.word ?? rows[0]!.word,
+        atlas: a ? { cefr: a.cefr ?? undefined, tip: a.tip ?? undefined, examples: JSON.parse(a.examples), collocations: JSON.parse(a.collocations), family: JSON.parse(a.family), synonyms: JSON.parse(a.synonyms), antonyms: JSON.parse(a.antonyms) } : undefined,
+        senses,
+        antonyms: [...new Set(rows.flatMap(r => (r.antonyms ? JSON.parse(r.antonyms) as string[] : [])))],
+      };
+    } catch { return undefined; }   // 旧版 dict.db 没有这些表
+  }
 }
 
+interface AtlasRow extends Record<string, string | number | null> { word: string; cefr: string | null; tip: string | null; examples: string; collocations: string; family: string; synonyms: string; antonyms: string }
+interface SenseRow extends Record<string, string | number | null> { word: string; pos: string; rank: number; antonyms: string | null; definition: string; examples: string; members: string }
 interface BriefRow extends Record<string, string | number | null> { word: string; phonetic: string | null; translation: string | null; definition: string | null }
 const toBrief = (r: BriefRow): DictBrief => ({ word: r.word, phonetic: r.phonetic ?? undefined, gloss: (r.translation || r.definition || '').trim().split('\n').slice(0, 2).join('；') });
 

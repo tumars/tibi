@@ -100,6 +100,7 @@ export const reviewCapabilities: CapabilityMap = {
         let type = pickCardType(card, term, false);
         if (!allowed.includes(type)) type = allowed[0]!;
         const step = await makeStep(ctx.db, ctx.dict, { card, term }, type);
+        type = step.card_type;
         items.push({ term_id: id, term: term.text_display, card_type: type, prompt: type === 'cloze' ? step.context.sentence.replace(new RegExp(`\\b${term.text_display.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'), '____') : step.context.sentence, answer: type === 'choice' ? [step.options!.find(o => o.id === (step as { correct_option?: string }).correct_option)!.text] : step.context.answer, options: step.options?.map(o => ({ text: o.text, from: o.from })), context: step.context.id ? { sentence_id: step.context.id, sentence: step.context.sentence } : undefined });
       }
       return { items: shuffle(items) };

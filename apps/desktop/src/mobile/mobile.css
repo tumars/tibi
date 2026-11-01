@@ -238,7 +238,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .typing { display: inline-flex; gap: 4px; } .typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: tp 1s infinite alternate; } .typing i:nth-child(2) { animation-delay: .2s; } .typing i:nth-child(3) { animation-delay: .4s; } @keyframes tp { to { opacity: .2; } }
 .approve { background: var(--surface); border-radius: 18px; padding: 12px 14px; box-shadow: inset 0 0 0 1.5px var(--accent); }
 .approve .h { font-weight: 600; font-size: 14.5px; } .approve .b { font-size: 13.5px; color: var(--ink-2); margin: 4px 0 10px; } .approve .acts { display: flex; gap: 8px; }
-.empty { text-align: center; padding: 60px 24px; color: var(--ink-3); font-size: 14px; } .empty b { display: block; color: var(--ink); font-size: 17px; margin-bottom: 6px; }
+.empty { text-align: center; padding: 60px 24px; color: var(--ink-3); font-size: 14px; } .empty b { display: block; color: var(--ink); font-size: 17px; margin-bottom: 6px; } .empty img { display: block; width: 160px; height: 160px; margin: 0 auto 10px; }
 .rd h2 { font-family: var(--f-read); font-size: 21px; margin: 26px 0 12px; } .rd pre { font-size: 12.5px; background: var(--sunken); padding: 12px; border-radius: 12px; overflow-x: auto; } .rd blockquote { margin: 0 0 18px; padding-left: 14px; box-shadow: inset 3px 0 0 var(--line-2); } .rd li { font-family: var(--f-read); font-size: 18px; line-height: 1.7; margin-left: 20px; }
 .rd code { font-size: .85em; background: var(--sunken); padding: 1px 4px; border-radius: 4px; }
 .rd .tr { margin-top: -10px; }
@@ -271,3 +271,13 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .mpractice .pdone { text-align: center; } .mpractice .pdone .big { font-size: 44px; font-weight: 600; margin: 4px 0; }
 .mpractice .linkbtn { color: var(--accent); font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
 .mpractice .btn { height: 46px; }
+
+/* 书架：改标签 */
+#s-lib .doc { cursor: pointer; }
+#s-lib .doc .tgs { display: block; font-size: 13px; color: var(--ink-3); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#s-lib .doc .doctag { flex: none; width: 44px; height: 44px; margin: -13px -14px -13px -4px; display: grid; place-items: center; color: var(--chev); }
+.tagsheet .tagdoc { font-size: 14px; color: var(--ink-3); margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tagsheet .taglist { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.tagsheet .chip { background: var(--fill); }
+.tagsheet .chip.on { background: var(--accent-fill); }
+.tagsheet .taglist:first-of-type { margin-top: 0; }

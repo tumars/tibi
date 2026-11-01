@@ -79,7 +79,7 @@ export function Words() {
           </div>
           <div>
             {view === 'known' && <div className="seg" style={{ marginBottom: 10 }}>{SUB.map(s => <button key={s.key} className={sub === s.key ? 'on' : ''} onClick={() => setSub(s.key)}>{s.label}</button>)}</div>}
-            {items === undefined ? null : items.length === 0 ? <Empty title={q ? tl('没有找到') : tl('这里还没有词')} text={q ? undefined : tl('读文章时点开的生词会出现在这里。')} /> : (
+            {items === undefined ? null : items.length === 0 ? <Empty image={q ? undefined : 'empty-words'} title={q ? tl('没有找到') : tl('这里还没有词')} text={q ? undefined : tl('读文章时点开的生词会出现在这里。')} /> : (
               <div>
                 <div className="wrow h"><span>{tl('单词')}</span><span>{tl('释义')}</span><span>{tl('熟练度')}</span><span>{tl('遇见')}</span><span>{tl('下次复习')}</span></div>
                 {items.map(t => <div key={t.id} className="wrow" onClick={() => open(t)}>

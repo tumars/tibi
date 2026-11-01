@@ -22,6 +22,8 @@ export const SETTINGS: { label: string; sec: string; kw: string }[] = [
   { label: '其他 AI 工具', sec: 'advanced', kw: 'mcp claude code codex' },
   { label: '自动备份', sec: 'data', kw: '备份 恢复 backup restore' },
   { label: '导出学习汇总', sec: 'data', kw: '导出 汇总 export' },
+  { label: '检查更新', sec: 'about', kw: '更新 升级 新版本 版本 update upgrade version' },
+  { label: '自动检查更新', sec: 'about', kw: '更新 升级 自动 update auto' },
 ];
 
 const ROWS = '.item, .prov, .pform';

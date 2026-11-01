@@ -9,7 +9,7 @@
 | **Tibi** | 用户面对的唯一角色：产品、吉祥物藏狐、AI 助手同名 |
 | **技能** | 内部的词：Tibi 会做的事里由模型驱动的那几项，每项一份 `SKILL.md`，运行时一个子对话。界面上统一叫"Tibi 能做的事"（R14），不叫"智能体" |
 | **能力** | 确定性的代码单元，同一份定义供技能、MCP、界面调用。**能力 = 工具**：对模型和 MCP 说"工具"时指的就是它 |
-| **任务** | 一次运行及其步骤，在任务中心可见 |
+| **任务** | 一次运行及其步骤，在运行记录可见 |
 | **pi** | 开源 harness，`pi-ai` 接模型，`pi-agent-core` 跑 agent 循环；对话与任务由我们自己的 `TibiKernel` 存（R9）。内部依赖，界面不出现 |
 
 ## 产品与范围
@@ -47,7 +47,7 @@
 | D4 | OCR 默认本地 Tesseract，可选视觉模型 | [research/03 §3](research/03-tech-survey.md#3-内容导入与识别) |
 | D5 | 释义语言可设，默认中文语境释义 + 可展开英英 | [00 §7](design/00-concept-design.md#7-待讨论决策汇总) |
 | D7 | 译文开关默认关，另有句级按需翻译 | [00 §3.2](design/00-concept-design.md#32-沉浸式阅读面板reader核心界面) |
-| D9 | 首页发送后进独立对话页；右侧抽屉只给阅读器、生词本、任务中心 | [00 §3.5](design/00-concept-design.md#35-首页与书架home--library) |
+| D9 | 首页发送后进独立对话页；右侧抽屉只给阅读器、生词本、运行记录 | [00 §3.5](design/00-concept-design.md#35-首页与书架home--library) |
 | D10 | 书架三维度：形态、类型、标签 | [00 §3.1](design/00-concept-design.md#31-文章导入import) |
 | R5 | 新增 97 标为已知（不建卡、计入已知词、不等于掌握）；批量只把 status = 0 设为 97，不动待确认词；点开生词自动进"见过"并建卡，受每日新卡上限约束 | [00 §3.2](design/00-concept-design.md#32-沉浸式阅读面板reader核心界面) |
 | D11 | 生词本按智能视图组织，词族合并，词条不单独打标签 | [00 §3.3](design/00-concept-design.md#33-生词本与每日练习vocabulary--review)、[01 §3](design/01-database.md#3-词条已知词库核心) |
@@ -161,8 +161,10 @@
 | T27 | 同步的改动捕获用 SQLite 触发器（开启同步时按当前表结构生成、启动时重建），不在每个写方法里记：写入散在各领域方法里，触发器不会漏；应用别的设备的改动时用 `sync_state.capture = 0` 关掉记录。一条 put 共用一个 HLC，推送时按改动时间分配。熟练度按来源优先（用户 > 自动）再比时钟 | 08 §13 |
 | T28 | 手机上 Core 跑在 WebView 里（R11 落地）：同一份 `@tibi/core`，SQLite 由壳里的 rusqlite 提供（`local_db.rs`：db_open / db_exec / db_run / db_all，每个库一条连接、串行，所以跨调用的事务成立），JS 端 `InvokeDriver`；网页、模型 API、WebDAV 走 http 插件（全局 fetch 换成它，不受 CORS 限制）；网页正文用 DOMParser + 同一份 Readability 逻辑（`web/html.ts`，桌面传 linkedom）；词典 `SqliteDict` 和文件抽取（`web/extract.ts`：EPUB / PDF / Word，pdfjs、mammoth 由运行时注入）移进 core；手机上文件由壳的 `read_file` 读原始字节，图片用浏览器版 tesseract。桌面加 `--features mobile-preview` 走同一条路，用来预览和在没有 Xcode / NDK 的机器上（含 CI）检查能编译 | 00 §3.13、dev README §7 |
 | T10 | 复习用 ts-fsrs 6.0 的 `DefaultScheduler`（FSRS-7 默认），卡片字段按库的命名映射到表（`stability_fast` ← `stabilityFast`、`learning_steps` ← `learningStep`） | 01 §4 |
-| T29 | 词典页只用本地 ECDICT，不接在线词典，也暂不打包例句库。例句取自用户自己读过的文章（FTS）。中文反查用 `LIKE` 加部分索引 `stardict(frq) WHERE frq > 0`（约 0.5 MB），不够再扫全表，不建中文全文索引 | 在线词典违背"只有主动用到的功能才联网"；Tatoeba 例句（CC BY 2.0 FR）要署名，可能要细到每句的作者，以后单做。实测 77 万词条：单字母前缀约 50 ms，全表 `LIKE` 不到 80 ms |
+| T29 | 词典页只用本地数据，不接在线词典（补充数据见 T31），也暂不打包 Tatoeba 例句库。例句取自用户自己读过的文章（FTS）。中文反查用 `LIKE` 加部分索引 `stardict(frq) WHERE frq > 0`（约 0.5 MB），不够再扫全表，不建中文全文索引 | 在线词典违背"只有主动用到的功能才联网"；Tatoeba 例句（CC BY 2.0 FR）要署名，可能要细到每句的作者，以后单做。实测 77 万词条：单字母前缀约 50 ms，全表 `LIKE` 不到 80 ms |
 | T30 | 词形还原：词典收了这个词头、又没说它是变形（`lemma_map` 里没有）时，规则不再改写；人工的 `IRREGULAR` 表不受影响。已导入文章里存的旧原形不回填，重新导入才更新 | 2 万个常用词里 419 个被规则改错（interest → inter、matter → mat、summer → sum），修后只剩 `IRREGULAR` 里的 7 个 |
+| T31 | 桌面端软件更新：官方 updater 插件 + GitHub Releases 的 `latest.json`，更新包用独立的 Ed25519 密钥签名（公钥在 `tauri.conf.json`，私钥只在仓库密钥 `TAURI_SIGNING_PRIVATE_KEY`）。只经壳的 `update_check` / `update_install` 命令，不把插件开放给 WebView。Release 不再标预发布。自动检查默认关，只提醒不自动装；安装前备份，再停 Core | 没有服务器，也守住"只有用到的功能才联网"。`/releases/latest/` 会跳过预发布；Windows 上 Core 占着可执行文件，安装器换不掉 |
+| T32 | 词典补充数据写进同一个 `dict.db`：词光 Word Atlas（固定提交）给例句、搭配、词族、辨析、CEFR，Open English WordNet 2025 给英文义项和同义词；词条末尾写明来源，词光标"AI 生成，未逐条审校"。只进词典页，不进词卡和复习 | ECDICT 没有例句和近义词。两者都是 CC BY 4.0，分发只需署名（设置"致谢"、README、词条末尾）。词光只收 7,298 个雅思词且未审校，所以和 WordNet 并列显示、不混在一起。`dict.db` 从 91 MB 涨到 119 MB |
 
 ## 待决定
 

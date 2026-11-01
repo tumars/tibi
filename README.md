@@ -97,7 +97,7 @@ pnpm dev                          # 或者直接 tauri dev（需要 Rust）
 
 ## 致谢
 
-[ECDICT](https://github.com/skywind3000/ECDICT)（词典，MIT）· [FSRS](https://github.com/open-spaced-repetition/ts-fsrs)（复习排期，MIT）· [Tauri](https://tauri.app/) · [pdf.js](https://mozilla.github.io/pdf.js/) · [Tesseract.js](https://github.com/naptha/tesseract.js) · [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M)（语音，Apache-2.0）· [Mozilla Readability](https://github.com/mozilla/readability) · [pi](https://github.com/earendil-works/pi)（技能运行时）
+[ECDICT](https://github.com/skywind3000/ECDICT)（词典，MIT）· [Open English WordNet](https://github.com/globalwordnet/english-wordnet)（英文义项与同义词，CC BY 4.0）· [词光 Word Atlas](https://github.com/designfuchen/word-atlas)（例句、搭配、辨析，CC BY 4.0，署名 Word Atlas contributors）· [FSRS](https://github.com/open-spaced-repetition/ts-fsrs)（复习排期，MIT）· [Tauri](https://tauri.app/) · [pdf.js](https://mozilla.github.io/pdf.js/) · [Tesseract.js](https://github.com/naptha/tesseract.js) · [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M)（语音，Apache-2.0）· [Mozilla Readability](https://github.com/mozilla/readability) · [pi](https://github.com/earendil-works/pi)（技能运行时）
 
 ## 协议
 

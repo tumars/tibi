@@ -1,6 +1,6 @@
 import { Type } from '@sinclair/typebox';
 import { method, type MethodMap } from '../../rpc/define.js';
-import type { DictBrief, DictEntry, Id, Term } from '../../types.js';
+import type { DictBrief, DictEntry, DictExtras, Id, Term } from '../../types.js';
 import { getTermByText } from '../terms/repo.js';
 import { toTerm } from '../terms/views.js';
 import { lemmatize } from '../text/lemma.js';
@@ -31,11 +31,21 @@ export interface DictEntryResult {
   readings: { document_id: Id; title: string; snippet: string }[];
   /** 查不到时拼写相近的词 */
   similar: DictBrief[];
+  /** 词光和 WordNet 的内容（T32） */
+  extras?: DictExtras;
 }
 
 const CJK = /[\u3400-\u9fff]/;
 const clean = (s: string) => s.trim().replace(/\s+/g, ' ');
 const toBrief = (e: DictEntry): DictBrief => ({ word: e.word, phonetic: e.phonetic, gloss: (e.translation || e.definition || '').trim().split('\n').slice(0, 2).join('；') });
+
+/** ECDICT 的词性分布 `n:46/v:54` 里占比大的在前，WordNet 自己只在同词性内排序 */
+function sortSenses(x: DictExtras, pos?: string): DictExtras {
+  const share = new Map((pos ?? '').split('/').map(p => { const [k, v] = p.split(':'); return [k === 'j' ? 'a' : k!, Number(v) || 0] as const; }));
+  const order = (p: string) => -(share.get(p) ?? 0);
+  // 稳定排序：同词性保持 WordNet 的顺序
+  return { ...x, senses: [...x.senses].sort((a, b) => order(a.pos) - order(b.pos)).slice(0, 6) };
+}
 
 async function lemmaOf(text: string, dict: import('../../dict/types.js').Dict): Promise<string> {
   return /\s/.test(text) ? text.toLowerCase() : lemmatize(normalizeCase(text, true), dict);
@@ -82,6 +92,8 @@ export const dictionaryMethods: MethodMap = {
     const entry = found?.base && found.base.toLowerCase() !== lemma ? { ...found, base: undefined } : found;
     const row = await getTermByText(ctx.db, lemma, isPhrase ? 'phrase' : 'word');
     const base = lemma === entry?.word.toLowerCase() ? entry : await d.lookup(lemma);
+    // 词头自己有就用自己的（left 有"左"），went 这种只是变形页的才看原形
+    const extras = await (entry ? d.extras?.(entry.word) : undefined) ?? await (lemma !== entry?.word.toLowerCase() ? d.extras?.(lemma) : undefined);
     const forms = [q, lemma, ...(base?.inflections ?? []).map(i => i.form), ...(base?.forms ?? []).filter(f => /^[A-Za-z'-]+$/.test(f) && f.length > 2)];
     return {
       available: !!d.prefix, entry, lemma, via: !exact && entry ? q : undefined,
@@ -89,6 +101,7 @@ export const dictionaryMethods: MethodMap = {
       in_wordbook: !!row && !row.deleted_at && !!row.in_wordbook,
       readings: await findReadings(ctx.db, forms, 5),
       similar: entry || row ? [] : await d.similar?.(q, 6) ?? [],
+      extras: extras && sortSenses(extras, base?.pos),
     };
   }, '词条'),
 };

@@ -57,6 +57,12 @@
     }
   },
   "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFDQkJENThGMkM0M0M2NzQKUldSMHhrTXNqOVc3ckV0NEo0V1NWa0ppQ2oxcEpuYmVzQng3OVJ2WTNkbFZudkRuY3AvSVlGMTIK",
+      "endpoints": [
+        "https://github.com/tumars/tibi/releases/latest/download/latest.json"
+      ]
+    },
     "deep-link": {
       "desktop": {
         "schemes": [

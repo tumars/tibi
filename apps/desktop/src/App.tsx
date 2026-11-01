@@ -18,6 +18,7 @@ import { bindCoreEvents, useCore } from './store/core';
 import { toast } from './store/ui';
 import { tl } from './lib/i18n';
 import { startDesktopReminder, type ReminderTime } from './lib/reminder';
+import { startAutoUpdateCheck } from './lib/update';
 
 export function App() {
   const nav = useNavigate();
@@ -30,6 +31,8 @@ export function App() {
     const stop = startDesktopReminder(() => ({ time, due: useCore.getState().due }));
     return () => { off(); stop(); };
   }, []);
+  // 软件更新（T31）：打开了自动检查才联网；只提醒，装不装用户定
+  useEffect(() => startAutoUpdateCheck(v => toast(tl('Tibi {v0} 可以更新了', { v0: v }), { ms: 15_000, action: { label: tl('去看看'), run: () => nav('/settings?sec=about&item=检查更新') } })), [nav]);
   useEffect(() => {
     bindCoreEvents();
     // 朗读设置（tts.*）

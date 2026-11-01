@@ -1,23 +1,47 @@
 import type { DocumentSummary, Kind } from '@tibi/core';
-import { LayoutGrid, List } from 'lucide-react';
+import { LayoutGrid, List, Tag, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Empty } from '../components/Empty';
+import { Modal } from '../components/Modal';
 import { Samples } from '../components/Samples';
 import { Top } from '../components/Shell';
+import { useTagEditor } from '../lib/useTagEditor';
 import { fmtAgo, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
 import { rpc } from '../rpc';
 import { tl } from '../lib/i18n';
 
-export function DocCard({ d, onOpen }: { d: DocumentSummary; onOpen: () => void }) {
+/** 卡片和列表行右上角的按钮：悬停或键盘聚焦时出现，点它不打开文章 */
+function TagButton({ onClick }: { onClick: () => void }) {
+  return <button className="ibtn doctag" aria-label={tl('编辑标签')} title={tl('编辑标签')} onClick={e => { e.stopPropagation(); onClick(); }} onKeyDown={e => e.stopPropagation()}><Tag /></button>;
+}
+
+function TagModal({ d, onClose }: { d: DocumentSummary; onClose: () => void }) {
+  const ed = useTagEditor(d, onClose);
+  return (
+    <Modal open onOpenChange={o => { if (!o) onClose(); }} title={tl('编辑标签')}
+      actions={<><button className="btn" onClick={onClose}>{tl('取消')}</button><button className="btn pri" disabled={ed.busy} onClick={() => void ed.save()}>{tl('保存')}</button></>}>
+      <p className="tagdoc">{d.title}</p>
+      <div className="tagbox">
+        {ed.tags.map(t => <span key={t} className="tagc">{t}<button aria-label={tl('去掉标签 {t}', { t })} onClick={() => ed.remove(t)}><X /></button></span>)}
+        <input autoFocus value={ed.input} onChange={e => ed.setInput(e.target.value)} onKeyDown={ed.onKeyDown} placeholder={ed.tags.length ? tl('再加一个') : tl('输入标签，按回车添加')} aria-label={tl('添加标签')} />
+      </div>
+      {ed.suggestions.length > 0 && <div className="tagsug">{ed.suggestions.map(t => <button key={t} className="tagc sys" onClick={() => ed.add(t)}>{t}</button>)}</div>}
+    </Modal>
+  );
+}
+
+export function DocCard({ d, onOpen, onTags }: { d: DocumentSummary; onOpen: () => void; onTags?: () => void }) {
   return (
     <div className="doc" onClick={onOpen} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') onOpen(); }}>
+      {onTags && <TagButton onClick={onTags} />}
       <div className="m"><span>{d.kind === 'book' ? tl('书 · ') : ''}{GENRE_NAMES[d.genre] ?? d.genre}</span><span>·</span><span>{d.progress >= 1 ? tl('读完了') : d.progress > 0 ? tl('读到 {v0}', { v0: fmtPct(d.progress) }) : fmtMinutes(d.minutes)}</span></div>
       <div className="t">{d.title}</div>
       {d.excerpt && <div className="ex">{d.excerpt}</div>}
       <div className="f">
         <span className={`lv ${d.difficulty}`}>{tl('{v0} · 生词率 {unknown_ratio}', { v0: d.difficulty === 'hard' ? tl('偏难') : d.difficulty === 'mid' ? tl('适中') : tl('轻松'), unknown_ratio: fmtPct(d.unknown_ratio) })}</span>
         {d.tags.slice(0, 2).map(t => <span key={t} className="tagc">{t}</span>)}
+        {d.tags.length > 2 && <span className="tagc sys" title={d.tags.slice(2).join(' ')}>+{d.tags.length - 2}</span>}
       </div>
     </div>
   );
@@ -31,6 +55,7 @@ export function Library() {
   const [grid, setGrid] = useState(true);
   const [items, setItems] = useState<DocumentSummary[]>();
   const [q, setQ] = useState('');
+  const [editing, setEditing] = useState<DocumentSummary>();
 
   const load = useCallback(async () => {
     try { const r = await rpc.call('documents.list', { kind: kind === 'all' ? undefined : kind, tags: tag ? [tag] : undefined, sort, q: q || undefined, limit: 200 }); setItems(r.items); } catch { setItems([]); }
@@ -57,8 +82,8 @@ export function Library() {
           {tags.map(t => <button key={t} className={`chip${tag === t ? ' on' : ''}`} style={tag === t ? { background: 'var(--accent-wash)', color: 'var(--accent)', boxShadow: 'none' } : undefined} onClick={() => setTag(tag === t ? undefined : t)}>{t}</button>)}
           {tag && <button className="linkbtn" onClick={() => setTag(undefined)}>{tl('清除')}</button>}
         </div>
-        {items === undefined ? null : items.length === 0 ? <Empty title={tl('书架还是空的')} text={tl('在首页粘贴网址或一段英文就能导入，也可以先读一篇示例。')} action={<Samples />} />
-          : grid ? <div className="docs" style={{ marginTop: 16 }}>{items.map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} />)}</div>
+        {items === undefined ? null : items.length === 0 ? <Empty image="empty-library" title={tl('书架还是空的')} text={tl('在首页粘贴网址或一段英文就能导入，也可以先读一篇示例。')} action={<Samples />} />
+          : grid ? <div className="docs" style={{ marginTop: 16 }}>{items.map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} onTags={() => setEditing(d)} />)}</div>
           : <div className="doclist" style={{ marginTop: 12 }}>
             <div className="row h"><span>{tl('标题')}</span><span>{tl('类型 · 标签')}</span><span>{tl('时长')}</span><span>{tl('难度 · 生词率')}</span><span>{tl('最近打开')}</span></div>
             {items.map(d => <div key={d.id} className="row" onClick={() => nav(`/read/${d.id}`)}>
@@ -67,9 +92,11 @@ export function Library() {
               <span className="lbl">{fmtMinutes(d.minutes)}</span>
               <span className={`lv ${d.difficulty}`} style={{ fontSize: 12.5 }}>{fmtPct(d.unknown_ratio)}</span>
               <span className="lbl">{d.progress >= 1 ? tl('读完了') : fmtAgo(d.opened_at)}</span>
+              <TagButton onClick={() => setEditing(d)} />
             </div>)}
           </div>}
       </div></div>
+      {editing && <TagModal key={editing.id} d={editing} onClose={() => setEditing(undefined)} />}
     </>
   );
 }

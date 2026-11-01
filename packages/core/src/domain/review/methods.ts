@@ -1,12 +1,13 @@
 import { Type } from '@sinclair/typebox';
-import { j, now } from '../../db/driver.js';
+import { j, now, type Database } from '../../db/driver.js';
+import type { Dict } from '../../dict/types.js';
 import { uuidv7 } from '../../ids.js';
 import { method, S, type Ctx, type MethodMap } from '../../rpc/define.js';
 import { TibiError, type PracticeMode, type QueueItem, type Rating } from '../../types.js';
 import type { PracticeItem } from './practice-types.js';
 import { loadParams, preview } from './fsrs.js';
 import { buildSteps, forecast, makeStep, pickCardType, shuffle } from './queue.js';
-import { getCard, getCardByTerm, getSession, getTerm, insertSession, openSession, saveSession, sessionSteps, termContexts, type TermRow } from './repo.js';
+import { getCard, getCardByTerm, getSession, getTerm, insertSession, openSession, saveSession, sessionSteps, termContexts, type SessionRow, type TermRow } from './repo.js';
 import { answerStep, nextStep, overrideRating, toReviewSession, undoLast } from './session.js';
 import { pickDistractors } from './queue.js';
 import { levenshtein } from './grade.js';
@@ -35,6 +36,22 @@ async function drillSteps(ctx: Ctx, term_ids: string[] | undefined, count: numbe
   return shuffle(out).map((s, i) => ({ ...s, step: i }));
 }
 
+/** 续上的会话里还没答的选义步如果选项不全（旧版在没有释义时会出单选项的题），按现在的数据重新出题 */
+async function repairSteps(db: Database, dict: Dict, s: SessionRow): Promise<QueueItem[]> {
+  const steps = sessionSteps(s);
+  let changed = false;
+  for (let i = s.cursor; i < steps.length; i++) {
+    const st = steps[i]!;
+    if (st.intro || st.result || st.card_type !== 'choice' || (st.options?.length ?? 0) >= 3) continue;
+    const term = await getTerm(db, st.term.id); const card = await getCard(db, st.card_id);
+    if (!term || !card) continue;
+    steps[i] = { ...await makeStep(db, dict, { card, term }, 'choice', { retry: st.retry, preferContextId: st.context.id || undefined }), step: st.step };
+    changed = true;
+  }
+  if (changed) await saveSession(db, s.id, steps, s.cursor);
+  return steps;
+}
+
 export const reviewMethods: MethodMap = {
   'review.start': method(Type.Object({ resume: Type.Optional(Type.Boolean()), ahead: Type.Optional(Type.Boolean()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })) }), async (p, ctx) => {
     const fc = await forecast(ctx.db);
@@ -44,7 +61,7 @@ export const reviewMethods: MethodMap = {
         const open = await openSession(tx);
         if (open) {
           if (open.status === 'paused') await tx.run("UPDATE review_sessions SET status = 'active', updated_at = ? WHERE id = ?", [now(), open.id]);
-          return toReviewSession({ ...open, status: 'active' }, sessionSteps(open), true, fc);
+          return toReviewSession({ ...open, status: 'active' }, await repairSteps(tx, ctx.dict, open), true, fc);
         }
       } else {
         // 从头开始：把未完成的那轮标记为结束

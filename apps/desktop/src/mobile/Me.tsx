@@ -14,7 +14,7 @@ import { Empty, Ring, Sheet } from './ui';
 
 type SheetKind = 'dict' | 'words' | 'chats' | 'memory' | 'tasks' | 'sync' | 'model' | 'look' | 'remind';
 
-/** 我（00 §3.13）：连续天数圆环、已知词、生词本、对话记录、记忆、任务、同步、模型、外观与语言 */
+/** 我（00 §3.13）：连续天数圆环、已知词、生词本、对话记录、记忆、运行记录、同步、模型、外观与语言 */
 export function Me() {
   const { streak, todayMinutes, goal, vocab, wordCount, status } = useCore();
   const [sheet, setSheet] = useState<SheetKind>();
@@ -38,7 +38,7 @@ export function Me() {
           <Item k="dict" icon={<BookA />} color="#0f8b8d" label={tl('词典')} />
           <Item k="chats" icon={<MessageSquare />} color="#3d52e0" label={tl('对话记录')} />
           <Item k="memory" icon={<Brain />} color="#8e5cd9" label={tl('Tibi 记忆')} />
-          <Item k="tasks" icon={<ListChecks />} color="#2f9e5f" label={tl('任务')} right={pending ? tl('{n} 个等你确认', { n: pending }) : undefined} />
+          <Item k="tasks" icon={<ListChecks />} color="#2f9e5f" label={tl('运行记录')} right={pending ? tl('{n} 个等你确认', { n: pending }) : undefined} />
         </div>
       </div>
       <div className="pad sec">
@@ -65,7 +65,7 @@ export function Me() {
 function WordsList() {
   const [items, setItems] = useState<Term[]>();
   useEffect(() => { rpc.call('terms.list', { view: 'all', sort: 'added', limit: 100 }).then(r => setItems(r.items), () => setItems([])); }, []);
-  return <><h2>{tl('生词本')}</h2>{items && !items.length ? <Empty title={tl('这里还没有词')} text={tl('读文章时点开的生词会出现在这里。')} /> :
+  return <><h2>{tl('生词本')}</h2>{items && !items.length ? <Empty image="empty-words" title={tl('这里还没有词')} text={tl('读文章时点开的生词会出现在这里。')} /> :
     <div className="card">{items?.map(t => <div key={t.id} className="doc"><span className="b"><span className="t">{t.display}</span><span className="m">{t.meaning}</span></span><span className={`stage s${t.status}`}>{STATUS_NAMES[t.status]}</span></div>)}</div>}</>;
 }
 
@@ -91,8 +91,8 @@ function Tasks() {
   const load = () => rpc.call('tasks.list', { limit: 20 }).then(r => setList({ pending: r.pending, running: r.running }), () => undefined);
   useEffect(() => { void load(); }, []);
   const decide = async (a: Approval, d: 'allow' | 'deny') => { try { await rpc.call('tasks.approve', { id: a.task_id, decision: d }); void load(); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
-  return <><h2>{tl('任务')}</h2>
-    {list && !list.pending.length && !list.running.length && <Empty title={tl('没有进行中的任务')} text={tl('任务详情在电脑上看。')} />}
+  return <><h2>{tl('运行记录')}</h2>
+    {list && !list.pending.length && !list.running.length && <Empty image="empty-tasks" title={tl('没有进行中的任务')} text={tl('任务详情在电脑上看。')} />}
     {list?.pending.map(a => <div key={a.task_id} className="approve" style={{ marginBottom: 8 }}><div className="h">{a.title}</div><div className="b">{a.body}</div><div className="acts"><button className="btn sm tint" onClick={() => void decide(a, 'allow')}>{tl('允许')}</button><button className="btn sm" onClick={() => void decide(a, 'deny')}>{tl('拒绝')}</button></div></div>)}
     {list?.running.map(t => <div key={t.id} className="lbl">{tl('进行中')} · {t.title}</div>)}
   </>;

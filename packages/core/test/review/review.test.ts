@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { AnswerResult, ReviewSession } from '../../src/index.js';
 import { gradeAnswer, intervalLabel, judgeTyped, nextStatus } from '../../src/domain/review/index.js';
+import { NullDict } from '../../src/index.js';
+import { firstMeaning } from '../../src/domain/review/queue.js';
 import { makeDoc, makeReviewCore, makeWord } from './fixtures.js';
 
 const DAY = 86_400_000;
@@ -165,7 +167,9 @@ describe('复习会话', () => {
     expect(n.finished).toBeUndefined();
     const s3 = await core.call<ReviewSession>('review.start', {});
     expect(s3.steps).toHaveLength(3);
-    await core.call('review.answer', { session_id: s.session_id, step: 2, answer: { choice: s3.steps[2]!.options!.find(o => !o.from)!.id }, hints: 0, duration_ms: 1000 });
+    // 只有两个词，凑不齐三个选项，重练步从选义改出填空
+    expect(s3.steps[2]!.card_type).toBe('cloze');
+    await core.call('review.answer', { session_id: s.session_id, step: 2, answer: { typed: s3.steps[2]!.context.answer[0] }, hints: 0, duration_ms: 1000 });
     const end = await core.call<{ finished?: boolean }>('review.next', { session_id: s.session_id, step: 2 });
     expect(end.finished).toBe(true);
     expect((await db.get<{ status: string }>('SELECT status FROM review_sessions WHERE id = ?', [s.session_id]))?.status).toBe('finished');
@@ -206,5 +210,66 @@ describe('复习会话', () => {
     const st = await reviewCapabilities.get_review_stats!.run({}, ctx);
     expect(st.today_reviews).toBe(1); expect(st.new_available).toBe(4); expect(st.forecast).toHaveLength(7);
     void core;
+  });
+});
+
+describe('题目质量', () => {
+  /** 只有词头、没有释义的词条（点词时的常态）；词典里能查到释义 */
+  class FakeDict extends NullDict {
+    constructor(private table: Record<string, string>) { super(); }
+    override async lookup(word: string) { const translation = this.table[word]; return (translation ? { word, translation } : undefined) as never; }
+  }
+  const bare = async (db: Parameters<typeof makeWord>[0], doc: Awaited<ReturnType<typeof makeDoc>>, text: string) => {
+    const w = await makeWord(db, { text, meaning: '' }, doc);
+    await db.run('UPDATE terms SET meaning = NULL, short_gloss = NULL WHERE id = ?', [w.term_id]);
+    return w;
+  };
+
+  it('词条没写释义：正确项和干扰项都从词典来，一题四个选项', async () => {
+    const { db } = await makeReviewCore();
+    const dict = new FakeDict({ button: 'n. 钮扣, 按钮\nvi. 扣住', electric: 'a. 电的, 导电的', letter: 'n. 信, 字母', home: 'n. 家, 住宅', door: 'n. 门' });
+    const doc = await makeDoc(db);
+    for (const w of Object.keys(dict['table'])) await bare(db, doc, w);
+    const { makeStep } = await import('../../src/domain/review/queue.js');
+    const { getCardByTerm, getTerm } = await import('../../src/domain/review/repo.js');
+    const row = await db.get<{ id: string }>("SELECT id FROM terms WHERE text = 'button'");
+    const step = await makeStep(db, dict, { card: (await getCardByTerm(db, row!.id))!, term: (await getTerm(db, row!.id))! }, 'choice');
+    expect(step.card_type).toBe('choice');
+    expect(step.options).toHaveLength(4);
+    expect(step.options!.map(o => o.text)).toContain('钮扣，按钮');
+    expect(step.options!.map(o => o.text)).not.toContain('button');
+    expect(new Set(step.options!.map(o => o.text)).size).toBe(4);
+  });
+
+  it('查不到释义、凑不齐选项：改出填空，不出单选项的题', async () => {
+    const { core, db } = await makeReviewCore();
+    const doc = await makeDoc(db);
+    for (const w of ['from', 'button', 'electric']) await bare(db, doc, w);
+    const s = await core.call<ReviewSession>('review.start', {});
+    expect(s.steps.length).toBeGreaterThan(0);
+    expect(s.steps.every(x => x.card_type === 'cloze' && !x.options)).toBe(true);
+  });
+
+  it('答完返回正确选项；续上会话时修好旧的单选项步骤', async () => {
+    const { core, db } = await makeReviewCore();
+    const doc = await makeDoc(db);
+    for (const [w, m] of [['alpha', '第一'], ['beta', '第二'], ['gamma', '第三'], ['delta', '第四'], ['epsilon', '第五']] as const) await makeWord(db, { text: w, meaning: m }, doc);
+    const s = await core.call<ReviewSession>('review.start', {});
+    const raw = await db.get<{ steps_json: string }>('SELECT steps_json FROM review_sessions WHERE id = ?', [s.session_id]);
+    const steps = JSON.parse(raw!.steps_json);
+    steps[1].options = [{ id: 'a', text: steps[1].term.text }]; steps[1].correct_option = 'a';
+    await db.run('UPDATE review_sessions SET steps_json = ? WHERE id = ?', [JSON.stringify(steps), s.session_id]);
+    const resumed = await core.call<ReviewSession>('review.start', { resume: true });
+    expect(resumed.steps[1]!.options).toHaveLength(4);
+    const first = resumed.steps[0]!;
+    const r = await core.call<AnswerResult>('review.answer', { session_id: s.session_id, step: 0, answer: { choice: first.options![0]!.id }, hints: 0, duration_ms: 1000 });
+    expect(first.options!.find(o => o.id === r.correct_option)!.from).toBeUndefined();
+  });
+
+  it('释义格式清理', () => {
+    expect(firstMeaning('n. 钮扣, 按钮\nvi. 扣住')).toBe('钮扣，按钮');
+    expect(firstMeaning('信箱 n')).toBe('信箱');
+    expect(firstMeaning('[医] 库')).toBe('库');
+    expect(firstMeaning('信箱；邮箱')).toBe('信箱');
   });
 });

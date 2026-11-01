@@ -1,8 +1,9 @@
 import type { SectionContent } from '@tibi/core';
 import { Pause, Play, Repeat, SkipBack, SkipForward, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as tts from '../lib/tts';
 import { tl } from '../lib/i18n';
+import { useAloud } from './useAloud';
 
 /**
  * 全文朗读（00 §3.4，M4）：从当前看到的那句开始，一句一句读，当前句高亮并滚到视野里。
@@ -12,13 +13,12 @@ const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const GAPS = [0, 1, 2, 3];
 
 export function ReadAloud({ content, scroller, onClose }: { content: SectionContent; scroller: HTMLElement | null; onClose: () => void }) {
-  const [idx, setIdx] = useState(() => firstVisible(content, scroller));
-  const [playing, setPlaying] = useState(false);
+  const [start] = useState(() => firstVisible(content, scroller));
   const [speed, setSpeed] = useState(tts.current().rate || 1);
   const [loop, setLoop] = useState(false);
   const [gap, setGap] = useState(0);
-  const run = useRef(0);
   const sents = content.sentences;
+  const { idx, playing, paused, toggle, jump, halt } = useAloud(sents, { start, speed, gap, loop });
 
   // 高亮当前句
   useEffect(() => {
@@ -26,36 +26,19 @@ export function ReadAloud({ content, scroller, onClose }: { content: SectionCont
     scroller?.querySelectorAll('.speaking').forEach(e => e.classList.remove('speaking'));
     if (el) { el.classList.add('speaking'); if (playing) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   }, [idx, playing, scroller, sents]);
-  useEffect(() => () => { run.current++; tts.stop(); scroller?.querySelectorAll('.speaking').forEach(e => e.classList.remove('speaking')); }, [scroller]);
-
-  const play = async (from: number) => {
-    const my = ++run.current; setPlaying(true);
-    for (let i = from; i < sents.length; i++) {
-      setIdx(i);
-      await tts.say(sents[i]!.text, { rate: speed });
-      if (my !== run.current) return;
-      if (gap) await new Promise(r => setTimeout(r, gap * 1000));
-      if (my !== run.current) return;
-      if (loop) i--;   // 单句循环：停在这一句
-    }
-    setPlaying(false);
-  };
-  const pause = () => { run.current++; tts.stop(); setPlaying(false); };
-  const jump = (d: number) => { const n = Math.max(0, Math.min(sents.length - 1, idx + d)); if (playing) void play(n); else setIdx(n); };
-  // 调了倍速 / 停顿 / 循环：正在读就从当前句重新开始
-  useEffect(() => { if (playing) void play(idx); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [speed, gap, loop]);
+  useEffect(() => () => { scroller?.querySelectorAll('.speaking').forEach(e => e.classList.remove('speaking')); }, [scroller]);
 
   return (
     <div className="aloud" role="toolbar" aria-label={tl('朗读')}>
       <button className="ibtn" title={tl('上一句')} onClick={() => jump(-1)}><SkipBack size={16} /></button>
-      <button className="play" title={playing ? tl('暂停') : tl('播放')} onClick={() => (playing ? pause() : void play(idx))}>{playing ? <Pause size={16} /> : <Play size={16} />}</button>
+      <button className="play" title={playing ? tl('暂停') : paused ? tl('继续') : tl('播放')} onClick={toggle}>{playing ? <Pause size={16} /> : <Play size={16} />}</button>
       <button className="ibtn" title={tl('下一句')} onClick={() => jump(1)}><SkipForward size={16} /></button>
       <span className="lbl">{idx + 1} / {sents.length}</span>
       <span className="vsep" />
       <select className="input" value={speed} onChange={e => setSpeed(Number(e.target.value))} aria-label={tl('倍速')}>{SPEEDS.map(s => <option key={s} value={s}>{s}×</option>)}</select>
       <button className={`ibtn${loop ? ' on' : ''}`} title={tl('单句循环')} onClick={() => setLoop(!loop)}><Repeat size={15} /></button>
       <select className="input" value={gap} onChange={e => setGap(Number(e.target.value))} aria-label={tl('句间停顿')}>{GAPS.map(g => <option key={g} value={g}>{g ? tl('停 {g} 秒', { g }) : tl('不停顿')}</option>)}</select>
-      <button className="ibtn" title={tl('关闭朗读')} onClick={() => { pause(); onClose(); }}><X size={15} /></button>
+      <button className="ibtn" title={tl('关闭朗读')} onClick={() => { halt(); onClose(); }}><X size={15} /></button>
     </div>
   );
 }

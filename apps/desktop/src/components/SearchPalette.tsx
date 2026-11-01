@@ -76,7 +76,7 @@ export function SearchPalette() {
     { label: tl('开始复习'), kw: 'review 复习', icon: <RotateCcw size={15} />, run: () => go('/review') },
     { label: tl('练习'), kw: 'practice 听写 拼写', icon: <RotateCcw size={15} />, run: () => go('/review?tab=practice') },
     { label: tl('统计'), kw: 'stats', icon: <BarChart3 size={15} />, run: () => go('/stats') },
-    { label: tl('任务'), kw: 'tasks', icon: <ListChecks size={15} />, run: () => go('/tasks') },
+    { label: tl('运行记录'), kw: 'tasks 任务', icon: <ListChecks size={15} />, run: () => go('/tasks') },
     { label: tl('设置'), kw: 'settings', icon: <SettingsIcon size={15} />, run: () => go('/settings') },
     { label: tl('导入文章'), kw: 'import url 网址 导入', icon: <Plus size={15} />, run: () => { go('/'); setTimeout(() => (document.querySelector('.composer textarea, textarea') as HTMLTextAreaElement | null)?.focus(), 150); } },
     { label: tl('切换深浅色'), kw: 'dark light theme 深色 浅色', icon: <Moon size={15} />, run: () => { setOpen(false); setTheme(document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches) ? 'light' : 'dark'); } },

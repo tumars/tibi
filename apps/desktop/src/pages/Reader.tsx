@@ -122,7 +122,7 @@ export function Reader() {
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
-  if (err) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: tl('文章') }]} /><Empty title={tl('打不开这篇文章')} text={err} action={<button className="btn" onClick={() => nav('/library')}>{tl('回到书架')}</button>} /></>;
+  if (err) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: tl('文章') }]} /><Empty image="error-generic" title={tl('打不开这篇文章')} text={err} action={<button className="btn" onClick={() => nav('/library')}>{tl('回到书架')}</button>} /></>;
   if (!doc || !content) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: doc?.title ?? '…' }]} /><div className="scroll" /></>;
 
   const sec = doc.sections.find(s => s.id === content.id);

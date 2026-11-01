@@ -157,3 +157,25 @@ describe('内置示例', () => {
     await expect(core.call('documents.import', { source: { type: 'sample', id: 'nope' } }).then(x => jobs.wait((x as { task_id: string }).task_id))).resolves.toMatchObject({ status: 'failed' });
   });
 });
+
+describe('改标签', () => {
+  it('整组替换，书架能按新标签筛选，去掉的还能再加回来', async () => {
+    const { document_id: id } = await importText();
+    const names = async () => (await core.call<DocumentSummary>('documents.get', { id })).tags;
+    const listed = async (tag: string) => (await core.call<{ items: DocumentSummary[] }>('documents.list', { tags: [tag] })).items.length;
+
+    await core.call('documents.update', { id, patch: { tags: ['Rust', '编译器'] } });
+    expect(await names()).toEqual(['Rust', '编译器']);
+    expect(await listed('编译器')).toBe(1);
+
+    await core.call('documents.update', { id, patch: { tags: ['Rust'] } });
+    expect(await names()).toEqual(['Rust']);
+    expect(await listed('编译器')).toBe(0);
+
+    await core.call('documents.update', { id, patch: { tags: ['rust', '编译器'] } }); // 大小写不同算同一个标签
+    expect(await names()).toEqual(['Rust', '编译器']);
+
+    await core.call('documents.update', { id, patch: { tags: [] } });
+    expect(await names()).toEqual([]);
+  });
+});

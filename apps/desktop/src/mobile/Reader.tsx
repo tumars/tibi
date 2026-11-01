@@ -1,14 +1,17 @@
 import type { Document, SectionContent, Sentence, Status } from '@tibi/core';
-import { ChevronLeft, Eye, Info, Languages, Sparkles, Type, Volume2 } from 'lucide-react';
+import { ChevronLeft, Eye, Info, Languages, Pause, Sparkles, Type, Volume2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { tl } from '../lib/i18n';
 import { fmtMinutes, fmtPct, GENRE_NAMES, speak, STATUS_NAMES, throttle } from '../lib/util';
 import { SectionView } from '../reader/Section';
+import { useAloud } from '../reader/useAloud';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useSepiaPaper, useUi } from '../store/ui';
 import { Empty, Sheet, Thread } from './ui';
+
+const NO_SENTENCES: Sentence[] = [];
 
 /**
  * 阅读器（00 §3.13 J4）：全屏；向下滚动收起顶栏和工具栏，向上滚动再出现。工具栏：译文、释义、朗读、护眼、Tibi。
@@ -25,7 +28,7 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
   const [tibi, setTibi] = useState<{ key: string; text: string } | 'open'>();
   const [legend, setLegend] = useState(false);
   const [overrides, setOverrides] = useState(new Map<string, Status>());
-  const [reading, setReading] = useState(false);
+  const aloud = useAloud(content?.sentences ?? NO_SENTENCES);
   const [conv, setConv] = useState<string>();
   const sepia = useSepiaPaper(); const setSepia = useUi(s => s.setSepia);
   const scroll = useRef<HTMLDivElement>(null); const lastY = useRef(0); const restored = useRef(false);
@@ -69,13 +72,8 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
     setTr(t => !t);
   };
   useEffect(() => rpc.on('task.done', () => { if (tr && secId) void rpc.call('sections.get', { id: secId, with: ['translations'] }).then(setContent); }), [tr, secId]);
-  const readAloud = async () => {
-    if (reading) { void import('../lib/tts').then(t => t.stop()); setReading(false); return; }
-    if (!content) return; setReading(true);
-    const t = await import('../lib/tts'); const tok = t.token() + 1;
-    for (const s of content.sentences) { await t.say(s.text); if (t.isStale(tok)) break; }
-    setReading(false);
-  };
+  // 换一章从头读（翻译好了重取同一章不算）
+  useEffect(() => { aloud.halt(); aloud.setIdx(0); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [content?.id]);
   const finish = async (markRest: boolean) => {
     if (!content) return;
     try {
@@ -86,7 +84,7 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
-  if (err) return <div className="screen"><div className="topgap" /><Empty title={tl('打不开这篇文章')} text={err} action={<button className="btn sm" onClick={() => nav('/library')}>{tl('回到书架')}</button>} /></div>;
+  if (err) return <div className="screen"><div className="topgap" /><Empty image="error-generic" title={tl('打不开这篇文章')} text={err} action={<button className="btn sm" onClick={() => nav('/library')}>{tl('回到书架')}</button>} /></div>;
   const counts = content?.counts; const left = counts ? counts.new + counts.unsure : 0;
   const sec = doc?.sections.find(s => s.id === secId);
   return <>
@@ -112,7 +110,7 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
     <div className="rdbar">
       <button aria-pressed={tr} onClick={() => void toggleTr()}><Languages />{tl('译文')}</button>
       <button aria-pressed={gloss} onClick={() => setGloss(g => !g)}><Type />{tl('释义')}</button>
-      <button aria-pressed={reading} onClick={() => void readAloud()}><Volume2 />{tl('朗读')}</button>
+      <button aria-pressed={aloud.playing || aloud.paused} onClick={aloud.toggle}>{aloud.playing ? <Pause /> : <Volume2 />}{aloud.playing ? tl('暂停') : aloud.paused ? tl('继续') : tl('朗读')}</button>
       <button aria-pressed={sepia} onClick={() => setSepia(!sepia)}><Eye />{tl('护眼')}</button>
       <button className="tibi" onClick={() => setTibi('open')}><Sparkles />Tibi</button>
     </div>

@@ -15,7 +15,7 @@ const NAV = [
   { to: '/dict', label: tl('词典'), icon: BookA },
   { to: '/review', label: tl('复习'), icon: RotateCw, badge: true },
   { to: '/stats', label: tl('统计'), icon: BarChart3 },
-  { to: '/tasks', label: tl('任务'), icon: ListChecks },
+  { to: '/tasks', label: tl('运行记录'), icon: ListChecks },
 ];
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
@@ -38,8 +38,8 @@ export function Shell() {
 
   return (
     <div className={`app${collapsed ? ' collapsed' : ''}${isMac && isTauri() ? ' mac' : ''}`} data-tauri-drag-region>
-      <aside className="side">
-        <div className="brand">
+      <aside className="side" data-tauri-drag-region>
+        <div className="brand" data-tauri-drag-region="deep">
           <span className="logo"><img src="/logo.svg" alt="" /><span className="hide-c">Tibi</span></span>
           <button className="ibtn" onClick={toggleSide} title={collapsed ? tl('展开侧栏（⌘\\）') : tl('折叠侧栏（⌘\\）')}><PanelLeft /></button>
         </div>

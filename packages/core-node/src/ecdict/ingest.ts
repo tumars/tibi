@@ -5,6 +5,7 @@
  *   pnpm ecdict --limit 2000          只取前 N 行（试跑）
  *   pnpm ecdict --out data/ecdict/dict.db
  * 来源：https://github.com/skywind3000/ECDICT（MIT）。
+ * 同时写入词光和 Open English WordNet（extras.ts，T32）；--no-extras 只入 ECDICT。
  */
 import BetterSqlite3 from 'better-sqlite3';
 import { createReadStream, createWriteStream, existsSync, mkdirSync, statSync } from 'node:fs';
@@ -12,6 +13,7 @@ import { dirname, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { parseCsv } from './csv.js';
+import { ATLAS_URL, downloadTo, ingestAtlas, ingestWordnet, WORDNET_URL } from './extras.js';
 
 const CSV_URL = 'https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv';
 const COLS = ['word', 'phonetic', 'definition', 'translation', 'pos', 'collins', 'oxford', 'tag', 'bnc', 'frq', 'exchange'] as const;
@@ -47,7 +49,7 @@ function regularForm(lemma: string, type: string, form: string): boolean {
   }
 }
 
-export interface BuildOptions { limit?: number; log?: (s: string) => void }
+export interface BuildOptions { limit?: number; log?: (s: string) => void; /** 词光 JSON、OEWN 压缩包的本地路径，不给就不入 */ atlas?: string; wordnet?: string }
 
 /** CSV → dict.db */
 export async function buildDict(csvPath: string, outPath: string, opts: BuildOptions = {}): Promise<{ words: number; forms: number }> {
@@ -105,6 +107,8 @@ export async function buildDict(csvPath: string, outPath: string, opts: BuildOpt
   db.prepare('INSERT INTO meta(key, value) VALUES (?, ?)').run('source', CSV_URL);
   db.prepare('INSERT INTO meta(key, value) VALUES (?, ?)').run('built_at', new Date().toISOString());
   db.exec('COMMIT');
+  if (opts.atlas) log(`词光：${ingestAtlas(db, opts.atlas)} 词`);
+  if (opts.wordnet) { const w = ingestWordnet(db, opts.wordnet); log(`WordNet：${w.synsets} 组同义词，${w.senses} 个义项`); }
   log('建索引…');
   db.exec('CREATE INDEX stardict_word ON stardict(word COLLATE NOCASE); CREATE INDEX stardict_frq ON stardict(frq) WHERE frq > 0; CREATE INDEX lemma_map_form ON lemma_map(form);');
   db.exec('VACUUM');
@@ -122,7 +126,12 @@ async function main() {
   const out = resolve(root, arg('out') ?? 'data/ecdict/dict.db');
   const limit = arg('limit') ? Number(arg('limit')) : undefined;
   const t0 = Date.now();
-  const r = await buildDict(csv, out, { limit, log: s => console.error(s) });
+  const log = (s: string) => console.error(s);
+  const extras = process.argv.includes('--no-extras') ? {} : {
+    atlas: await downloadTo(ATLAS_URL, resolve(root, 'data/ecdict/word-atlas.json'), log),
+    wordnet: await downloadTo(WORDNET_URL, resolve(root, 'data/ecdict/english-wordnet-json.zip'), log),
+  };
+  const r = await buildDict(csv, out, { limit, log, ...extras });
   console.error(`完成：${r.words} 词条，${r.forms} 条词形，${((Date.now() - t0) / 1000).toFixed(1)} 秒 → ${out}`);
 }
 

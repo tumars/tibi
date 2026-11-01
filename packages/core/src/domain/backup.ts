@@ -9,7 +9,7 @@ import { TibiError } from '../types.js';
  */
 export const KEEP = 7;
 export const DAY = 24 * 3600_000;
-export type BackupReason = 'auto' | 'manual' | 'before_reset' | 'before_restore';
+export type BackupReason = 'auto' | 'manual' | 'before_reset' | 'before_restore' | 'before_update';
 
 function stamp(t: number) {
   const d = new Date(t); const p = (n: number) => String(n).padStart(2, '0');
@@ -20,7 +20,7 @@ function timeOf(name: string): number | undefined {
   const m = name.match(/^tibi-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-/); if (!m) return undefined;
   return new Date(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!, +m[6]!).getTime();
 }
-export function reasonOf(name: string): BackupReason { const m = name.match(/-(auto|manual|before_reset|before_restore)\.db$/); return (m?.[1] as BackupReason) ?? 'manual'; }
+export function reasonOf(name: string): BackupReason { const m = name.match(/-(auto|manual|before_reset|before_restore|before_update)\.db$/); return (m?.[1] as BackupReason) ?? 'manual'; }
 
 export async function listBackups(platform: Platform): Promise<(BackupFile & { reason: BackupReason })[]> {
   if (!platform.backups) return [];

@@ -1,10 +1,11 @@
+import { Mascot } from '../components/Mascot';
 import type { Rating } from '@tibi/core';
 import { RotateCcw, Volume2, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { tl } from '../lib/i18n';
-import { speak, STATUS_NAMES } from '../lib/util';
+import { speak, splitAnswer, STATUS_NAMES } from '../lib/util';
 import { Practice } from '../review/Practice';
-import { splitAnswer, useReviewSession } from '../review/useReviewSession';
+import { useReviewSession } from '../review/useReviewSession';
 import { useCore } from '../store/core';
 import { Empty } from './ui';
 
@@ -40,12 +41,13 @@ function Session({ onExit }: { onExit: () => void }) {
   const { session, err, phase, setPhase, typed, setTyped, hints, setHints, done, item } = r;
   const close = async () => { await r.pause(); onExit(); };
   const answer = async (a: Parameters<typeof r.answer>[0]) => { await r.answer(a); };
-  if (err) return <div className="screen" id="s-review"><div className="topgap" /><Empty title={tl('复习还没准备好')} text={err} action={<button className="btn sm" onClick={() => void r.load()}>{tl('重试')}</button>} /></div>;
+  if (err) return <div className="screen" id="s-review"><div className="topgap" /><Empty image="error-generic" title={tl('复习还没准备好')} text={err} action={<button className="btn sm" onClick={() => void r.load()}>{tl('重试')}</button>} /></div>;
   if (!session) return <div className="screen" id="s-review" />;
   if (done || !item) {
     const s = r.summary();
     return <div className="screen" id="s-review"><div className="topgap" /><div className="pad done">
-      {session.steps.length === 0 ? <Empty title={tl('今天没有要复习的')} text={tl('读文章时点开的生词会排进来。')} /> : <>
+      {session.steps.length === 0 ? <Empty image="empty-review" title={tl('今天没有要复习的')} text={tl('读文章时点开的生词会排进来。')} /> : <>
+        <div className="fx"><Mascot id="celebrate-review" /></div>
         <h3>{tl('今天的复习完成了')}</h3>
         <div className="k3"><div><b>{s.graded}</b><span>{tl('张卡')}</span></div><div><b>{s.correctPct}%</b><span>{tl('首次就答对')}</span></div><div><b>{s.minutes}</b><span>{tl('分钟')}</span></div></div>
         {s.wrong.length > 0 && <button className="btn full" style={{ marginBottom: 8 }} onClick={() => void r.drill(s.wrong)}>{tl('再练 {length} 个错词（不计分）', { length: s.wrong.length })}</button>}
@@ -54,7 +56,7 @@ function Session({ onExit }: { onExit: () => void }) {
       <button className="btn pri full" onClick={() => { onExit(); nav('/'); }}>{tl('回首页')}</button>
     </div></div>;
   }
-  const ctx = item.context; const ans = ctx.answer[0] ?? item.term.display; const sp = splitAnswer(ctx.sentence, ans);
+  const ctx = item.context; const sp = splitAnswer(ctx.sentence, ctx.answer, ctx.surface, item.card_type === 'cloze' && phase.kind === 'ask'); const ans = sp.mid || (ctx.answer[0] ?? item.term.display);
   const res = phase.kind === 'answered' ? phase.result : undefined;
   const sent = item.card_type === 'cloze' && phase.kind === 'ask' ? <>{sp.before}<input autoFocus value={typed} onChange={e => setTyped(e.target.value)} placeholder={hints ? ans.slice(0, hints) : undefined} aria-label={tl('填空')} autoCapitalize="off" autoCorrect="off" onKeyDown={e => { if (e.key === 'Enter') void answer({ typed }); }} />{sp.after}</>
     : item.card_type === 'cloze' && phase.kind === 'answered' ? <>{sp.before}{res?.correct ? <span className="fix">{sp.mid || ans}</span> : <><span className="bad">{phase.typed || '—'}</span> <span className="fix">{sp.mid || ans}</span></>}{sp.after}</>
@@ -88,7 +90,7 @@ function Session({ onExit }: { onExit: () => void }) {
         {item.intro && <button className="btn pri full" onClick={() => void r.next()}>{tl('认识了')}</button>}
         {!item.intro && item.card_type === 'choice' && <div className="opts">{item.options?.map(o => {
           if (phase.kind !== 'answered') return <button key={o.id} className="ropt" onClick={() => void answer({ choice: o.id }).then(() => undefined)}>{o.text}</button>;
-          const correct = ctx.answer.includes(o.text) || o.id === ctx.answer[0]; const chosen = phase.chosen === o.id;
+          const correct = o.id === phase.result.correct_option; const chosen = phase.chosen === o.id;
           return <button key={o.id} className={`ropt${correct ? ' ok' : chosen ? ' bad' : ' dim'}`} disabled>{o.text}</button>;
         })}</div>}
         {!item.intro && item.card_type === 'cloze' && phase.kind === 'ask' && <div style={{ display: 'flex', gap: 8 }}>

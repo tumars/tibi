@@ -73,7 +73,7 @@ export async function answerStep(ctx: Ctx, dict: Dict, input: AnswerInput): Prom
     const { correct, near_miss } = judge(step, input.answer);
     const graded = !!s.graded && step.retry === 0 && !firstAttemptDone(steps, step.card_id, input.step);
     const { rating, reason } = gradeAnswer({ card_type: step.card_type, correct, near_miss, hints: input.hints, duration_ms: input.duration_ms, self_rating: input.answer.self_rating });
-    let result: AnswerResult = { step: input.step, correct, near_miss, auto: step.card_type !== 'recognize', undo: { undo_id: '', expires_at: 0 } };
+    let result: AnswerResult = { step: input.step, correct, near_miss, auto: step.card_type !== 'recognize', undo: { undo_id: '', expires_at: 0 }, ...(step.correct_option ? { correct_option: step.correct_option } : {}) };
     const stepResult: Step['result'] = { correct, answered_at: t, near_miss, first: graded };
 
     if (graded) {
@@ -162,7 +162,7 @@ export async function overrideRating(ctx: Ctx, session_id: string, stepIndex: nu
     applied.snapshot.retry_step = snap.retry_step;
     step.result = { ...step.result, rating, reason: `改为${RATING_NAME[rating]}`, _undo: applied.snapshot };
     await saveSession(tx, s.id, steps, s.cursor);
-    return { step: stepIndex, correct: step.result.correct, near_miss: !!step.result.near_miss, rating, reason: step.result.reason, auto: false, ...applied.result, undo: applied.result.undo! };
+    return { step: stepIndex, correct: step.result.correct, near_miss: !!step.result.near_miss, rating, reason: step.result.reason, auto: false, ...applied.result, undo: applied.result.undo!, ...(step.correct_option ? { correct_option: step.correct_option } : {}) };
   });
 }
 

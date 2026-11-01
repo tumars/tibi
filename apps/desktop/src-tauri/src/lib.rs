@@ -9,6 +9,8 @@ mod local_db;
 mod sync_fs;
 #[cfg(any(mobile, feature = "mobile-preview", test))]
 mod app_group;
+#[cfg(not(any(mobile, feature = "mobile-preview")))]
+mod update;
 
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -272,8 +274,10 @@ fn run_desktop() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Allowed::default())
         .manage(TrayMode::default())
+        .manage(update::Pending::default())
         .setup(|app| {
             // Tibi Core
             let core = Arc::new(core::CoreProcess::new(app.handle().clone()));
@@ -353,7 +357,7 @@ fn run_desktop() {
                 tauri::async_runtime::spawn(async move { register_paths(&app, &paths).await; });
             }
         })
-        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command])
+        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command, update::update_check, update::update_install])
         .run(tauri::generate_context!())
         .expect("Tibi 启动失败");
 }

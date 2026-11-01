@@ -34,6 +34,10 @@ rusqlite = { version = "0.32", features = ["bundled"], optional = true }
 base64 = "0.22"
 tauri-plugin-http = { version = "2", optional = true }
 
+# 软件更新只在桌面端（update.rs）；手机走应用商店
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
+tauri-plugin-updater = "2"
+
 # Linux：Secret Service（GNOME 钥匙串 / KWallet），重启后还在。keyring 的 linux-native 是内核 keyutils，重启就没了，不用
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }

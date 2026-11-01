@@ -1,4 +1,4 @@
-import type { DictBrief, DictEntry } from '../types.js';
+import type { DictBrief, DictEntry, DictExtras } from '../types.js';
 
 /**
  * 词典接口（01 §8：dict.db / ECDICT 只读）。
@@ -23,6 +23,8 @@ export interface Dict {
   reverse?(zh: string, limit: number): Promise<DictBrief[]>;
   /** 拼写相近的常用词（recieve → receive），查不到时给建议 */
   similar?(word: string, limit: number): Promise<DictBrief[]>;
+  /** 词光和 WordNet 的内容（T32）；这个词两边都没有，或 dict.db 是旧版没有这些表时返回 undefined */
+  extras?(word: string): Promise<DictExtras | undefined>;
 }
 
 export class NullDict implements Dict {

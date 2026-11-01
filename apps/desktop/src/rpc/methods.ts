@@ -10,8 +10,8 @@ export interface MethodTable {
   'system.status': { params: Record<string, never>; result: { version: string; db_path: string; offline: boolean; models: { fast?: string; deep?: string; ok: boolean }; budget: { month_spent: number; limit: number; per_task: number }; pending_approvals: number; running_tasks: number } };
   'system.undo': { params: { undo_id: Id }; result: Ok };
   'system.registerPaths': { params: { paths: string[] }; result: Ok };
-  'system.backup': { params: { reason?: 'manual' | 'before_reset' | 'before_restore' }; result: { path: string; size: number; created_at: number } };
-  'system.backups': { params: Record<string, never>; result: { auto: boolean; dir_supported: boolean; items: { name: string; path: string; size: number; created_at: number; reason: 'auto' | 'manual' | 'before_reset' | 'before_restore' }[] } };
+  'system.backup': { params: { reason?: 'manual' | 'before_reset' | 'before_restore' | 'before_update' }; result: { path: string; size: number; created_at: number } };
+  'system.backups': { params: Record<string, never>; result: { auto: boolean; dir_supported: boolean; items: { name: string; path: string; size: number; created_at: number; reason: 'auto' | 'manual' | 'before_reset' | 'before_restore' | 'before_update' }[] } };
   'stats.export_summary': { params: Record<string, never>; result: UsageSummary };
   'documents.import': { params: { source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' }; result: { task_id: TaskId } };
   'documents.samples': { params: Record<string, never>; result: SampleInfo[] };

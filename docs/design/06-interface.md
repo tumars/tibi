@@ -217,7 +217,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `chat.rename` | `{ conversation_id: ConvId; title: string }` | `Conversation` |  |
 | `chat.delete` | `{ conversation_id: ConvId }` | `Ok` | 硬删：对话、thread_links，以及 skill_audit 里引用它的 args 与 undo_payload；不可撤销 |
 
-### tasks · 任务中心
+### tasks · 运行记录
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
@@ -294,12 +294,12 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 |---|---|---|
 | `chat.delta` | `{ conversation_id: ConvId; submission_id: TaskId; delta: string; done?: boolean }` | 对话页、各页 Tibi 面板逐字显示 |
 | `chat.tool` | `{ conversation_id: ConvId; task_id: TaskId; phase: 'start' \| 'end'; tool: string; skill_id: SkillId; summary: string; duration_ms?: number }` | 收起的过程卡；任务详情的过程区 |
-| `task.update` | `{ task: TaskSummary; steps?: TaskStep[] }` | 任务中心列表、左栏徽标、对话页进度；节流 ≤ 4 次 / 秒 |
+| `task.update` | `{ task: TaskSummary; steps?: TaskStep[] }` | 运行记录列表、左栏徽标、对话页进度；节流 ≤ 4 次 / 秒 |
 | `task.done` | `{ task: TaskSummary; result?: { document_id?: Id; summary: string; action?: { label: string; route: string } } }` | 带动作的通知（"导入完成 · 开始阅读"） |
-| `approval.requested` | `{ approval: Approval }` | 审批卡（对话页、任务中心）；界面回 tasks.approve |
+| `approval.requested` | `{ approval: Approval }` | 审批卡（对话页、运行记录）；界面回 tasks.approve |
 | `approval.resolved` | `{ task_id: TaskId; decision: 'allow' \| 'deny' \| 'edit' }` | 多处显示同一张卡时同步收起 |
 | `data.changed` | `{ table: 'documents' \| 'terms' \| 'cards' \| 'memories' \| 'skills' \| 'settings'; ids?: Id[] }` | 书架、生词本、统计做局部刷新 |
-| `usage.updated` | `{ skill_id: SkillId; month_cost: number; total: number }` | 设置页与任务中心的花费 |
+| `usage.updated` | `{ skill_id: SkillId; month_cost: number; total: number }` | 设置页与运行记录的花费 |
 | `sync.update` | `{ state: 'idle' \| 'syncing' \| 'error'; pushed?: number; pulled?: number; last_synced_at?: Ts; error?: SyncError }` | 同步状态行；拉取后有改动时另发 data.changed |
 | `model.status` | `{ ok: boolean; reason?: 'offline' \| 'unauthorized' \| 'budget' }` | 顶栏提示"AI 未运行，可稍后补做" |
 

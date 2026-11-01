@@ -178,7 +178,7 @@ API = [
     ('chat.rename', '{ conversation_id: ConvId; title: string }', 'Conversation', ''),
     ('chat.delete', '{ conversation_id: ConvId }', 'Ok', '硬删：对话、thread_links，以及 skill_audit 里引用它的 args 与 undo_payload；不可撤销'),
   ]),
-  ('tasks', '任务中心', [
+  ('tasks', '运行记录', [
     ('tasks.list', '{ state?: TaskState[]; limit?: number }', '{ running: TaskSummary[]; pending: Approval[]; history: TaskSummary[]; kpis: { running: number; week_done: number; week_failed: number; month_cost: number; budget: number; top_skill: { id: SkillId; cost: number } } }', '一次取齐页面所需'),
     ('tasks.get', '{ id: TaskId }', 'Task', '详情抽屉：元信息、步骤树、过程、用量'),
     ('tasks.pause', '{ id: TaskId }', 'TaskSummary', '完成当前步骤后停下'),
@@ -236,12 +236,12 @@ API = [
 EVENTS = [
   ('chat.delta', '{ conversation_id: ConvId; submission_id: TaskId; delta: string; done?: boolean }', '对话页、各页 Tibi 面板逐字显示'),
   ('chat.tool', "{ conversation_id: ConvId; task_id: TaskId; phase: 'start' | 'end'; tool: string; skill_id: SkillId; summary: string; duration_ms?: number }", '收起的过程卡；任务详情的过程区'),
-  ('task.update', '{ task: TaskSummary; steps?: TaskStep[] }', '任务中心列表、左栏徽标、对话页进度；节流 ≤ 4 次 / 秒'),
+  ('task.update', '{ task: TaskSummary; steps?: TaskStep[] }', '运行记录列表、左栏徽标、对话页进度；节流 ≤ 4 次 / 秒'),
   ('task.done', "{ task: TaskSummary; result?: { document_id?: Id; summary: string; action?: { label: string; route: string } } }", '带动作的通知（"导入完成 · 开始阅读"）'),
-  ('approval.requested', '{ approval: Approval }', '审批卡（对话页、任务中心）；界面回 tasks.approve'),
+  ('approval.requested', '{ approval: Approval }', '审批卡（对话页、运行记录）；界面回 tasks.approve'),
   ('approval.resolved', "{ task_id: TaskId; decision: 'allow' | 'deny' | 'edit' }", '多处显示同一张卡时同步收起'),
   ('data.changed', "{ table: 'documents' | 'terms' | 'cards' | 'memories' | 'skills' | 'settings'; ids?: Id[] }", '书架、生词本、统计做局部刷新'),
-  ('usage.updated', '{ skill_id: SkillId; month_cost: number; total: number }', '设置页与任务中心的花费'),
+  ('usage.updated', '{ skill_id: SkillId; month_cost: number; total: number }', '设置页与运行记录的花费'),
   ('sync.update', "{ state: 'idle' | 'syncing' | 'error'; pushed?: number; pulled?: number; last_synced_at?: Ts; error?: SyncError }", '同步状态行；拉取后有改动时另发 data.changed'),
   ('model.status', "{ ok: boolean; reason?: 'offline' | 'unauthorized' | 'budget' }", '顶栏提示"AI 未运行，可稍后补做"'),
 ]
@@ -436,7 +436,7 @@ def caps_html():
     return '\n'.join(parts)
 
 def mcp_html():
-    parts = ['<div class="grid2"><div class="card"><div class="kv"><code>传输</code><span>stdio 启动 <code>tibi mcp</code>；它只是代理，经本地 socket 加令牌连运行中的 Core（单实例锁）；设置里开关 + 可复制的接入配置</span><code>工具</code><span>= 能力层（名称、参数、返回与第 04 节一致），不暴露 <code>run_skill</code> / <code>tool_search</code>；默认只开读能力白名单，写能力逐项开启，走同一套审批，记录在任务中心，trigger = mcp</span><code>安全</code><span>不暴露任意代码执行；抓取内容视为数据不当指令</span></div></div>',
+    parts = ['<div class="grid2"><div class="card"><div class="kv"><code>传输</code><span>stdio 启动 <code>tibi mcp</code>；它只是代理，经本地 socket 加令牌连运行中的 Core（单实例锁）；设置里开关 + 可复制的接入配置</span><code>工具</code><span>= 能力层（名称、参数、返回与第 04 节一致），不暴露 <code>run_skill</code> / <code>tool_search</code>；默认只开读能力白名单，写能力逐项开启，走同一套审批，记录在运行记录，trigger = mcp</span><code>安全</code><span>不暴露任意代码执行；抓取内容视为数据不当指令</span></div></div>',
              '<div class="card"><pre style="margin:0">{ "mcpServers": { "tibi": {\n    "command": "tibi", "args": ["mcp"] } } }\n<span class="c">// Codex / Claude Code 里：查词、出题、导入文章</span></pre></div></div>',
              '<div class="tblwrap"><table><tr><th>MCP 专有</th><th>参数</th><th>返回</th><th>说明</th></tr>']
     for c, p, r, n in MCP_EXTRA: parts.append(f'<tr><td><code>{esc(c)}</code></td><td><code class="sig">{esc(p)}</code></td><td><code class="sig">{esc(r)}</code></td><td>{esc(n)}</td></tr>')
