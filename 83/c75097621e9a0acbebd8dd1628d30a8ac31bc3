@@ -1,0 +1,52 @@
+README.md
+  s_691ff2a2357e07::t_5f56400e8e52d9 45
+docs/CHANGELOG.md
+  s_691ff2a2357e07::t_5f56400e8e52d9 157
+docs/design/00-concept-design.md
+  s_691ff2a2357e07::t_5f56400e8e52d9 332,342,386
+  s_691ff2a2357e07::t_975c1254f60831 377,379
+  s_691ff2a2357e07::t_5208c3842db0be 387
+apps/desktop/src/pages/Onboarding.tsx
+  s_691ff2a2357e07::t_5f56400e8e52d9 15,44,67-68,82-83,86-87,207,223,243
+apps/desktop/src/pages/Settings.tsx
+  s_691ff2a2357e07::t_5f56400e8e52d9 1,9,19,35,81-84,100
+apps/desktop/src/components/SearchPalette.tsx
+  s_691ff2a2357e07::t_5f56400e8e52d9 36,178
+apps/desktop/src/mobile/Me.tsx
+  s_691ff2a2357e07::t_5f56400e8e52d9 136,151
+apps/desktop/src/mobile/Welcome.tsx
+  s_691ff2a2357e07::t_5f56400e8e52d9 7,16,25-26,28,41-42,45-50
+  s_691ff2a2357e07::t_975c1254f60831 13
+docs/guide/README.md
+  s_691ff2a2357e07::t_5f56400e8e52d9 12,14,16
+apps/desktop/src/App.tsx
+  s_691ff2a2357e07::t_b564668449699e 1,23,40-44
+  s_691ff2a2357e07::t_5f56400e8e52d9 36
+docs/DECISIONS.md
+  s_691ff2a2357e07::t_5f56400e8e52d9 28,120
+packages/core/src/rpc/system.ts
+  s_691ff2a2357e07::t_975c1254f60831 21
+packages/core/src/kernel/model-errors.ts
+  s_691ff2a2357e07::t_5f56400e8e52d9 7
+apps/desktop/src/locales/en.json
+  s_691ff2a2357e07::t_5f56400e8e52d9 116-117,263,361,739,771-786,847
+  s_691ff2a2357e07::t_975c1254f60831 163,493
+apps/desktop/src/settings/ModelItems.tsx
+  s_691ff2a2357e07::t_5f56400e8e52d9 1-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "83c75097621e9a0acbebd8dd1628d30a8ac31bc3",
+  "prompts": {},
+  "sessions": {
+    "s_691ff2a2357e07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1dbfb3df-ee33-415b-999a-ef555463f39a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
