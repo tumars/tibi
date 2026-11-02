@@ -14,6 +14,35 @@ function fakeSpeech() {
   return s;
 }
 
+describe('Kokoro 下载源', () => {
+  const HF = 'https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_heart.bin';
+  const MS = 'https://modelscope.cn/models/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_heart.bin';
+  const urls = (f: ReturnType<typeof vi.fn>) => f.mock.calls.map(c => c[0]);
+
+  it('先走魔搭，成功就不碰 Hugging Face', async () => {
+    const base = vi.fn(async () => new Response('ok'));
+    await tts.withKokoroMirror(base)(HF);
+    expect(urls(base)).toEqual([MS]);
+  });
+  it('魔搭连不上或返回错误状态，退回原地址', async () => {
+    const down = vi.fn(async (u: unknown) => { if (u === MS) throw new TypeError('Load failed'); return new Response('ok'); });
+    expect((await tts.withKokoroMirror(down as typeof fetch)(HF)).ok).toBe(true);
+    expect(urls(down)).toEqual([MS, HF]);
+    const missing = vi.fn(async (u: unknown) => new Response('', { status: u === MS ? 404 : 200 }));
+    expect((await tts.withKokoroMirror(missing as typeof fetch)(HF)).ok).toBe(true);
+    expect(urls(missing)).toEqual([MS, HF]);
+  });
+  it('调用方中止不再重试；别的地址原样放行', async () => {
+    const c = new AbortController(); c.abort();
+    const base = vi.fn(async () => { throw new DOMException('aborted', 'AbortError'); });
+    await expect(tts.withKokoroMirror(base)(HF, { signal: c.signal })).rejects.toThrow();
+    expect(urls(base)).toEqual([MS]);
+    const other = vi.fn(async () => new Response('ok'));
+    await tts.withKokoroMirror(other)('https://example.com/a');
+    expect(urls(other)).toEqual(['https://example.com/a']);
+  });
+});
+
 describe('tts 暂停', () => {
   let speech: ReturnType<typeof fakeSpeech>;
   beforeEach(() => {

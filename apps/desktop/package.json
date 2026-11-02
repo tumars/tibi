@@ -36,6 +36,7 @@
     "kokoro-js": "1.2.1",
     "lucide-react": "^1.66.0",
     "mammoth": "1.9.0",
+    "onnxruntime-web": "1.22.0-dev.20250409-89f8206ba4",
     "pdfjs-dist": "4.10.38",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

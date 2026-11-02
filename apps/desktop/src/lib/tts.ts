@@ -1,6 +1,6 @@
 import { tl } from './i18n';
 /**
- * 朗读（00 §3.4，M4）：系统语音（默认，离线可用）/ Kokoro 本地模型（可下载，约 86 MB，第一次用时从 Hugging Face 下载，浏览器缓存）。
+ * 朗读（00 §3.4，M4）：系统语音（默认，离线可用）/ Kokoro 本地模型（可下载，约 92 MB，第一次用时从魔搭下载，失败退回 Hugging Face，浏览器缓存）。
  * - say(text)：单词发音、句子朗读；返回播放结束的 Promise：读完是 true，被 stop() 或下一次 say() 打断是 false。
  * - pause() / resume()：停在句子中间，再接着读。
  * - Kokoro 合成的音频按 文字 + 音色 + 语速 缓存在内存（本次运行内重复播放不再合成）。
@@ -42,10 +42,37 @@ export const KOKORO_VOICES: Voice[] = [
 ];
 type KokoroModel = { generate(text: string, o: { voice: string; speed: number }): Promise<{ audio: Float32Array; sampling_rate: number }> };
 let kokoro: Promise<KokoroModel> | undefined;
+
+const HF_REPO = 'https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/';
+const MS_REPO = 'https://modelscope.cn/models/onnx-community/Kokoro-82M-v1.0-ONNX/';
+/**
+ * Hugging Face 在中国大陆连不上，这个仓库的文件先走魔搭（同名仓库，模型 SHA-256 已比对一致），失败再走原地址。
+ * 换 fetch 而不是 transformers 的 env.remoteHost：kokoro-js 的音色地址写死了 huggingface.co。缓存键仍是原 URL。
+ */
+export function withKokoroMirror(base: typeof fetch): typeof fetch {
+  return async (input, init) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (!url.startsWith(HF_REPO)) return base(input, init);
+    try {
+      const res = await base(MS_REPO + url.slice(HF_REPO.length), init);
+      if (res.ok) return res;
+    } catch (e) { if (init?.signal?.aborted) throw e; }
+    return base(input, init);
+  };
+}
+let mirrored = false;
+
 export function loadKokoro(onProgress?: (pct: number) => void): Promise<KokoroModel> {
   if (!kokoro) {
     kokoro = (async () => {
-      const { KokoroTTS } = await import('kokoro-js');
+      const [{ KokoroTTS, env }, { default: mjs }, { default: wasm }] = await Promise.all([
+        import('kokoro-js'),
+        // 引擎随安装包走，默认从 jsdelivr 加载的脚本会被 CSP 拦。版本要和 @huggingface/transformers 依赖的一致
+        import('../../node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.mjs?url'),
+        import('../../node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm?url'),
+      ]);
+      env.wasmPaths = { mjs, wasm } as unknown as string;
+      if (!mirrored) { mirrored = true; globalThis.fetch = withKokoroMirror(globalThis.fetch.bind(globalThis)); }
       const files = new Map<string, [number, number]>();
       return KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
         dtype: 'q8', device: 'wasm',

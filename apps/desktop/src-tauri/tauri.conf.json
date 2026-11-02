@@ -24,8 +24,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost https://huggingface.co https://*.huggingface.co https://*.hf.co https://cdn.jsdelivr.net; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'",
-      "devCsp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' http://localhost:1420; style-src 'self' 'unsafe-inline' http://localhost:1420; img-src 'self' asset: http://asset.localhost data: blob: http://localhost:1420; font-src 'self' data: http://localhost:1420; connect-src ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420 ws://127.0.0.1:3456 https://huggingface.co https://*.huggingface.co https://*.hf.co https://cdn.jsdelivr.net; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'",
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://huggingface.co https://*.huggingface.co https://*.hf.co https://modelscope.cn https://*.modelscope.cn https://cdn.jsdelivr.net; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'",
+      "devCsp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' http://localhost:1420; style-src 'self' 'unsafe-inline' http://localhost:1420; img-src 'self' asset: http://asset.localhost data: blob: http://localhost:1420; font-src 'self' data: http://localhost:1420; connect-src ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420 ws://127.0.0.1:3456 https://huggingface.co https://*.huggingface.co https://*.hf.co https://modelscope.cn https://*.modelscope.cn https://cdn.jsdelivr.net; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'",
       "assetProtocol": {
         "enable": true,
         "scope": [

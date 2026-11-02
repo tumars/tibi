@@ -4,7 +4,7 @@ import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
 
-/** 设置 → 通用 → 语音（00 §3.7）：朗读引擎（系统语音 / Kokoro 本地，约 86 MB）、音色（可试听）、默认语速 */
+/** 设置 → 通用 → 语音（00 §3.7）：朗读引擎（系统语音 / Kokoro 本地，约 92 MB）、音色（可试听）、默认语速 */
 const SAMPLE = 'Reading a little every day is the easiest way to build a large vocabulary.';
 async function save(patch: Record<string, unknown>) { await rpc.call('settings.set', { patch }).catch(e => toast(errorInfo(e).message, { kind: 'err' })); }
 
@@ -21,7 +21,7 @@ export function VoiceItems() {
     if (e === 'kokoro' && dl.state !== 'ready') {
       setDl({ state: 'loading', pct: 0 });
       try { await tts.loadKokoro(pct => setDl({ state: 'loading', pct })); try { localStorage.setItem('tibi.kokoro.ready', '1'); } catch { /* 无存储 */ } setDl({ state: 'ready', pct: 100 }); }
-      catch (err) { setDl({ state: 'err', pct: 0 }); toast(tl('Kokoro 下载失败：{v0}', { v0: err instanceof Error ? err.message : String(err) }), { kind: 'err' }); return; }
+      catch (err) { const m = err instanceof Error ? err.message : String(err); setDl({ state: 'err', pct: 0 }); toast(/no available backend/i.test(m) ? tl('Kokoro 语音引擎启动失败：{v0}', { v0: m }) : tl('Kokoro 下载失败：{v0}', { v0: m }), { kind: 'err' }); return; }
     }
     const v = e === 'kokoro' ? 'af_heart' : '';
     setEngine(e); setVoice(v); tts.configure({ engine: e, voice: v }); await save({ 'tts.engine': e, 'tts.voice': v });
@@ -29,7 +29,7 @@ export function VoiceItems() {
 
   return <>
     <div className="item">
-      <div><div className="t">{tl('朗读引擎')}</div><div className="d">{tl('系统语音不用下载、离线可用；Kokoro 是本地的神经网络语音，更自然，第一次要下载约 86 MB。{v0}', { v0: dl.state === 'loading' ? tl(' 正在下载 {pct}%…', { pct: dl.pct }) : '' })}</div></div>
+      <div><div className="t">{tl('朗读引擎')}</div><div className="d">{tl('系统语音不用下载、离线可用；Kokoro 是本地的神经网络语音，更自然，第一次要下载约 92 MB。{v0}', { v0: dl.state === 'loading' ? tl(' 正在下载 {pct}%…', { pct: dl.pct }) : '' })}</div></div>
       <div className="ctl"><div className="seg">
         <button className={engine === 'system' ? 'on' : ''} onClick={() => void setE('system')}>{tl('系统语音')}</button>
         <button className={engine === 'kokoro' ? 'on' : ''} disabled={dl.state === 'loading'} onClick={() => void setE('kokoro')}>Kokoro{dl.state === 'ready' ? '' : tl(' · 下载')}</button>
