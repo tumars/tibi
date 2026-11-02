@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Fox } from '../components/Fox';
 import { PRESETS, saveProvider } from '../lib/providers';
-import { classifyInput, fmtPct, GENRE_NAMES } from '../lib/util';
+import { classifyInput, fmtPct, GENRE_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
@@ -139,7 +139,7 @@ function FirstRead({ vocab, onFox, onSay, onOpen, onSkip, onBack }: { vocab: num
       <p className="oblead">{tl('示例不连模型也能看完整效果。也可以粘贴网址或一段英文。')}</p>
       <div className="samples2">{samples.map(s => <button key={s.id} className={pick === s.id ? 'on' : ''} onClick={() => choose(s)}><span className="g">{tl('{v0} · 示例', { v0: GENRE_NAMES[s.genre] ?? s.genre })}</span><span className="t">{s.title}</span><span className="m">{tl('约 {minutes} 分钟', { minutes: s.minutes })}{s.author && s.author !== 'Tibi' ? ` · ${s.author}` : ''}</span></button>)}</div>
       <div className="or">{tl('或者')}</div>
-      <div className="urlrow"><input className="input" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') importText(); }} placeholder={tl('粘贴网址，或一段英文')} /><button className="btn" onClick={importText} disabled={!text.trim()}>{tl('导入')}</button></div>
+      <div className="urlrow"><input className="input" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !isImeKey(e.nativeEvent)) importText(); }} placeholder={tl('粘贴网址，或一段英文')} /><button className="btn" onClick={importText} disabled={!text.trim()}>{tl('导入')}</button></div>
       {state && <div className={`imp${state.running ? '' : ' finished'}`}>
         {[tl('获取内容'), tl('分句、词形还原'), tl('按你的水平（约 {v0} 词）标注生词', { v0: (vocab || 6000).toLocaleString() }), state.sample ? tl('AI 总结（示例已备好）') : tl('AI 总结（没连模型，先跳过）')].map(l => <div key={l} className={`st ${state.running ? 'run' : state.error ? '' : 'ok'}`}><i>{!state.running && !state.error && <Check size={9} strokeWidth={4} color="white" />}</i>{l}</div>)}
         {state.doc && <div className="done">{tl('《{title}》已放进书架{v1}。', { title: state.title, v1: state.doc.ratio ? tl('，生词率 {v0}', { v0: fmtPct(state.doc.ratio) }) : '' })}</div>}

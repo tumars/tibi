@@ -8,7 +8,7 @@ import { useReviewSession } from '../review/useReviewSession';
 import { Empty } from '../components/Empty';
 import { LevelUp } from '../components/LevelUp';
 import { Top } from '../components/Shell';
-import { splitAnswer, STATUS_NAMES } from '../lib/util';
+import { splitAnswer, STATUS_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
@@ -28,7 +28,7 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
   // 键盘：空格显示答案、Enter 检查 / 继续、1–4 选项或评分、Z 撤销、P 播放
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!item || done) return;
+      if (!item || done || isImeKey(e)) return;
       const inInput = e.target instanceof HTMLInputElement;
       if (e.key === 'Enter') {
         e.preventDefault();

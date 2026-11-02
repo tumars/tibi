@@ -4,7 +4,7 @@ import { BarChart3, BookA, BookOpen, Bookmark, CornerDownLeft, FileText, Home as
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { tl } from '../lib/i18n';
-import { GENRE_NAMES, STATUS_NAMES } from '../lib/util';
+import { GENRE_NAMES, STATUS_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { SETTINGS } from '../settings/search';
 import { useCore } from '../store/core';
@@ -120,7 +120,7 @@ export function SearchPalette() {
   useEffect(() => { list.current?.querySelector('.pal-row.on')?.scrollIntoView({ block: 'nearest' }); }, [sel]);
 
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing) return;
+    if (isImeKey(e.nativeEvent)) return;
     if (e.key === 'ArrowDown') { e.preventDefault(); setSel(s => Math.min(rows.length - 1, s + 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setSel(s => Math.max(0, s - 1)); }
     else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (q.trim()) void ask(q); }

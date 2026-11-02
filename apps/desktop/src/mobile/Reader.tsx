@@ -3,7 +3,7 @@ import { ChevronLeft, Eye, Info, Languages, Pause, Sparkles, Type, Volume2 } fro
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { tl } from '../lib/i18n';
-import { fmtMinutes, fmtPct, GENRE_NAMES, speak, STATUS_NAMES, throttle } from '../lib/util';
+import { fmtMinutes, fmtPct, GENRE_NAMES, speak, STATUS_NAMES, throttle, isImeKey } from '../lib/util';
 import { SectionView } from '../reader/Section';
 import { useAloud } from '../reader/useAloud';
 import { errorInfo, rpc, type Result } from '../rpc';
@@ -136,7 +136,7 @@ function TibiChat({ conv, pending, context }: { conv?: string; pending?: { key: 
   const onAsk = useCallback((s: (t: string) => void) => { send.current = s; }, []);
   return <>
     <div className="msgs"><Thread conversationId={conv} context={context} pending={pending} onAsk={onAsk} /></div>
-    <div className="in"><input value={text} onChange={e => setText(e.target.value)} placeholder={tl('继续问 Tibi…')} enterKeyHint="send" onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && text.trim()) { send.current?.(text); setText(''); } }} />
+    <div className="in"><input value={text} onChange={e => setText(e.target.value)} placeholder={tl('继续问 Tibi…')} enterKeyHint="send" onKeyDown={e => { if (e.key === 'Enter' && !isImeKey(e.nativeEvent) && text.trim()) { send.current?.(text); setText(''); } }} />
       <button className="btn sm pri" disabled={!text.trim()} onClick={() => { send.current?.(text); setText(''); }}>{tl('发送')}</button></div>
   </>;
 }

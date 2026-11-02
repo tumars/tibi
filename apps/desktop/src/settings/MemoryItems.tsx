@@ -5,6 +5,7 @@ import { Switch } from '../components/Switch';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { locale, tl } from '../lib/i18n';
+import { isImeKey } from '../lib/util';
 
 /**
  * 设置 → 记忆（00 §3.7）：Tibi 记住的内容，注明来源与日期；可逐条改、删（可撤销），暂停写入新记忆，清空全部（可撤销）。
@@ -48,7 +49,7 @@ export function MemoryItems() {
       <div className="t">{TYPE[t]}</div>
       <div className="memlist">{list.map(m => <div key={m.id} className="mem">
         {edit?.id === m.id
-          ? <input className="input" autoFocus value={edit.text} onChange={e => setEdit({ id: m.id, text: e.target.value })} onBlur={save} onKeyDown={e => { if (e.key === 'Enter') void save(); if (e.key === 'Escape') setEdit(undefined); }} />
+          ? <input className="input" autoFocus value={edit.text} onChange={e => setEdit({ id: m.id, text: e.target.value })} onBlur={save} onKeyDown={e => { if (isImeKey(e.nativeEvent)) return; if (e.key === 'Enter') void save(); if (e.key === 'Escape') setEdit(undefined); }} />
           : <button className="memc" title={tl('点一下修改')} onClick={() => setEdit({ id: m.id, text: m.content })}>{m.content}</button>}
         <span className="lbl">{m.source.label} · {new Date(m.updated_at).toLocaleDateString(locale)}</span>
         <button className="linkbtn" onClick={() => del(m)}>{tl('删除')}</button>

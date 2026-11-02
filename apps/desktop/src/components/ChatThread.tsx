@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useNavigate } from 'react-router';
 import { Markdown } from '../lib/md';
 import { parseSlash, type SlashAction } from '../lib/slash';
-import { classifyInput } from '../lib/util';
+import { classifyInput, isImeKey } from '../lib/util';
 import { ActionChip, ModelPicker, SlashMenu, useSlashMenu } from './Composer';
 import { pause, resume, say, stop } from '../lib/tts';
 import { ApprovalCard, ProcessCard, Receipts } from './Process';
@@ -211,7 +211,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
         <textarea ref={ta} value={text} onChange={e => { setText(e.target.value); slash.textChanged(); }} placeholder={action?.placeholder ?? placeholder} aria-label={tl('提问')}
           onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
           onKeyDown={e => {
-            if (e.nativeEvent.isComposing || slash.handleKey(e)) return;
+            if (isImeKey(e.nativeEvent) || slash.handleKey(e)) return;
             if (e.key === 'Backspace' && action && !text) { setAction(undefined); return; }
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void submit(); }
           }} />

@@ -2,6 +2,7 @@ import type { DocumentSummary } from '@tibi/core';
 import { useEffect, useState, type KeyboardEvent } from 'react';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
+import { isImeKey } from './util';
 
 /** 大小写不敏感去重，留先出现的写法（和 Core 的 setDocumentTags 一致）；逗号、顿号分隔的一次拆开，空格算标签的一部分 */
 function merge(tags: string[], input: string): string[] {
@@ -41,7 +42,7 @@ export function useTagEditor(doc: DocumentSummary, onDone: () => void) {
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.nativeEvent.isComposing) return; // 中文输入法选词的回车不算
+    if (isImeKey(e.nativeEvent)) return; // 中文输入法选词的回车不算
     if (e.key === 'Enter') { e.preventDefault(); if (input.trim()) add(input); else void save(); }
     else if (e.key === 'Backspace' && !input && tags.length) setTags(tags.slice(0, -1));
   };

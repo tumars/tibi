@@ -3,7 +3,7 @@ import type { Rating } from '@tibi/core';
 import { RotateCcw, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { tl } from '../lib/i18n';
-import { splitAnswer, STATUS_NAMES } from '../lib/util';
+import { splitAnswer, STATUS_NAMES, isImeKey } from '../lib/util';
 import { PlayButton, usePlayback } from '../review/PlayButton';
 import { Practice } from '../review/Practice';
 import { useReviewSession } from '../review/useReviewSession';
@@ -64,7 +64,7 @@ function Session({ onExit }: { onExit: () => void }) {
   }
   const ctx = item.context; const sp = splitAnswer(ctx.sentence, ctx.answer, ctx.surface, item.card_type === 'cloze' && phase.kind === 'ask'); const ans = sp.mid || (ctx.answer[0] ?? item.term.display);
   const res = phase.kind === 'answered' ? phase.result : undefined;
-  const sent = item.card_type === 'cloze' && phase.kind === 'ask' ? <>{sp.before}<input autoFocus value={typed} onChange={e => setTyped(e.target.value)} placeholder={hints ? ans.slice(0, hints) : undefined} aria-label={tl('填空')} autoCapitalize="off" autoCorrect="off" onKeyDown={e => { if (e.key === 'Enter') void answer({ typed }); }} />{sp.after}</>
+  const sent = item.card_type === 'cloze' && phase.kind === 'ask' ? <>{sp.before}<input autoFocus value={typed} onChange={e => setTyped(e.target.value)} placeholder={hints ? ans.slice(0, hints) : undefined} aria-label={tl('填空')} autoCapitalize="off" autoCorrect="off" onKeyDown={e => { if (e.key === 'Enter' && !isImeKey(e.nativeEvent)) void answer({ typed }); }} />{sp.after}</>
     : item.card_type === 'cloze' && phase.kind === 'answered' ? <>{sp.before}{res?.correct ? <span className="fix">{sp.mid || ans}</span> : <><span className="bad">{phase.typed || '—'}</span> <span className="fix">{sp.mid || ans}</span></>}{sp.after}</>
     : <>{sp.before}<mark>{sp.mid || ans}</mark>{sp.after}</>;
   const onAnswered = (ok: boolean) => vibrate(ok ? 12 : [12, 60, 12]);

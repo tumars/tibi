@@ -3,7 +3,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import { tl } from '../lib/i18n';
-import { fmtDate } from '../lib/util';
+import { fmtDate, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
@@ -83,5 +83,5 @@ function RenameInput({ chat, onDone }: { chat: Conversation; onDone: () => void 
   };
 
   return <input ref={input} className="input rename" defaultValue={chat.title} maxLength={80} aria-label={tl('重命名')} onBlur={() => finish(true)}
-    onKeyDown={e => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') finish(false); }} />;
+    onKeyDown={e => { if (isImeKey(e.nativeEvent)) return; if (e.key === 'Enter') finish(true); else if (e.key === 'Escape') finish(false); }} />;
 }

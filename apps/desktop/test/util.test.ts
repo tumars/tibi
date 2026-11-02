@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { classifyInput, splitAnswer, wordClass } from '../src/lib/util';
+import { classifyInput, isImeKey, splitAnswer, wordClass } from '../src/lib/util';
+
+describe('isImeKey', () => {
+  const key = (isComposing: boolean, keyCode: number) => ({ isComposing, keyCode }) as KeyboardEvent;
+  it('组合中的按键、WebKit 确认选词的回车（isComposing 已是 false、keyCode 229）都算输入法在用', () => {
+    expect(isImeKey(key(true, 13))).toBe(true);
+    expect(isImeKey(key(false, 229))).toBe(true);
+    expect(isImeKey(key(false, 13))).toBe(false);
+  });
+});
 
 describe('wordClass', () => {
   it('按状态着色：生词 / 学习中 / 待确认；已知不标', () => {

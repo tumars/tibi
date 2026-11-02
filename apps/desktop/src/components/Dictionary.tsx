@@ -3,7 +3,7 @@ import { BookA, Search, Sparkles, Volume2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clearRecentLookups, EXAM_NAMES, INFLECTION_NAMES, loadRecentLookups, parseGloss, posShares, rememberLookup } from '../lib/dict';
 import { tl } from '../lib/i18n';
-import { speak, STATUS_NAMES } from '../lib/util';
+import { speak, STATUS_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import './dict.css';
@@ -71,7 +71,7 @@ export function Dictionary({ initial, compact, onOpenDoc, onOpenTerm, onAsk }: D
   const items = sug?.items ?? [];
   const onChange = (v: string) => { setQ(v); if (compact) setWord(undefined); };
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing) return;
+    if (isImeKey(e.nativeEvent)) return;
     const move = (d: number) => { e.preventDefault(); const i = Math.max(0, Math.min(items.length - 1, sel + d)); setSel(i); if (!compact && items[i]) setWord(items[i]!.word); };
     if (e.key === 'ArrowDown') move(1);
     else if (e.key === 'ArrowUp') move(-1);

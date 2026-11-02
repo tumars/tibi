@@ -3,7 +3,7 @@ import { ArrowUp, Clipboard, Plus, RotateCcw, Search, Sparkles } from 'lucide-re
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { tl } from '../lib/i18n';
-import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
+import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
@@ -63,7 +63,7 @@ export function Today() {
       </div>
       <div className={`dock ask${text.trim() ? ' has' : ''}`}>
         <input value={text} onChange={e => setText(e.target.value)} placeholder={tl('粘贴网址，或问 Tibi')} aria-label={tl('粘贴网址，或问 Tibi')} enterKeyHint="send"
-          onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void submit(); } }} />
+          onKeyDown={e => { if (e.key === 'Enter' && !isImeKey(e.nativeEvent)) { e.preventDefault(); void submit(); } }} />
         {!text && <button className="paste" onClick={() => void paste()}><Clipboard size={13} />{tl('粘贴')}</button>}
         <button className="send" aria-label={text.trim() ? tl('发送') : tl('导入')} onClick={() => void submit()}><Plus className="p" /><ArrowUp className="go" /></button>
       </div>
