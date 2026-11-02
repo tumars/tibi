@@ -1,0 +1,20 @@
+apps/desktop/src/locales/en.json
+  s_d424fec2f0708d::t_5a1bfb125988b6 14-19,21-26,29-34,38-39,86-99,142-146,148,166-169,419,600,911-914,927-930
+  s_d424fec2f0708d::t_2edd6ea8e9d696 40-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5232c3aeae37619494d443c1576e344066c19e79",
+  "prompts": {},
+  "sessions": {
+    "s_d424fec2f0708d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c2bc5ba0-5c55-41d2-b745-998f0349453a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
