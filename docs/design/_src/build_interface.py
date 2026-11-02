@@ -69,12 +69,12 @@ interface IntervalPreview { 1: string; 2: string; 3: string; 4: string }   // �
 
 // 对话与任务
 interface Conversation { id: ConvId; kind: 'chat' | 'day' | 'document' | 'skill'; day?: string; device: 'desktop' | 'mobile'; skill_id: SkillId; title: string; document_id?: Id; trigger: 'user' | 'auto' | 'event' | 'mcp'; created_at: Ts; updated_at: Ts }
-interface Message { id: string; role: 'user' | 'assistant' | 'tool'; text?: string; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; task_id?: TaskId; created_at: Ts }
+interface Message { id: string; role: 'user' | 'assistant' | 'tool'; text?: string; blocks?: MessageBlock[]; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; task_id?: TaskId; interrupted?: { reason: 'cancel' | 'error'; message?: string }; steps?: { tool: string; summary: string; status: 'ok' | 'error' | 'denied' }[]; skill?: string; receipts?: { summary: string; undo?: Undo; undone?: boolean }[]; created_at: Ts }
 interface TaskSummary { id: TaskId; state: TaskState; skill_id: SkillId; title: string; document_title?: string; trigger: string; model: string;
   step: { index: number; total: number; label: string }; started_at: Ts; duration_ms: number; cost: number; error?: string }
 interface TaskStep { id: string; label: string; state: 'wait' | 'run' | 'ok' | 'err' | 'appr'; duration_ms?: number; skill_id?: SkillId; children?: TaskStep[] }
 interface Task extends TaskSummary { conversation_id: ConvId; steps: TaskStep[]; transcript: Message[]; usage: { tokens_in: number; tokens_out: number; cost: number }; approval?: Approval }
-interface Approval { task_id: TaskId; skill_id?: SkillId; tool: string; title: string; body: string; impact: string; undoable: boolean; untrusted: boolean;   // untrusted = 任务读过不可信内容
+interface Approval { task_id: TaskId; conversation_id?: ConvId; skill_id?: SkillId; tool: string; title: string; body: string; impact: string; undoable: boolean; untrusted: boolean;   // untrusted = 任务读过不可信内容
   editable?: { field: string; value: string }; requested_at: Ts }
 
 // 技能、记忆、配置
@@ -170,7 +170,10 @@ API = [
     ('stats.export_summary', '{}', 'UsageSummary', '只读。M1 成功标准的脱敏汇总，只有计数，不含词和正文；界面先展示全部内容，用户复制或另存后自己发给作者，不做上报。数据来自 learning_events、term_status_log、cards、review_logs（01 §6）'),
   ]),
   ('chat', '对话（Tibi 主对话与各页面板）', [
-    ('chat.open', "{ conversation_id?: ConvId; document_id?: Id; today?: boolean }", 'Conversation & { messages: Message[] }', '给 document_id 时续上该文章的线程；today 为 true（手机首页，J9）时打开或新建当天的 day 对话；都不给则新建全局线程'),
+    ('chat.widget_update', "{ message_id: Id; widget_id: Id; state: unknown; result?: string }", 'Ok', '保存卡片上的操作结果；`result` 下一轮带给模型'),
+    ('chat.rewind', "{ conversation_id: ConvId; message_id: Id }", '{ text: string; skill?: SkillId }', '回到这句话之前：这条和之后的消息作废，已写入的词不动'),
+    ('chat.receipt_undone', "{ message_id: Id; undo_id: Id }", 'Ok', '记下用户撤销了回答里的哪次写入'),
+    ('chat.open', "{ conversation_id?: ConvId; document_id?: Id; today?: boolean }", 'Conversation & { messages: Message[]; cursor?: string; active: TaskId[]; approvals: Approval[]; live: { id: TaskId; blocks: MessageBlock[]; steps: MessageStep[] }[] }', 'cursor：更早的消息从这里接着翻（chat.history）。live：进行中的回答已经说出来的部分。active / approvals：进行中的任务和等确认的审批（含子任务），离开再回来时接上。给 document_id 时续上该文章的线程；today 为 true（手机首页，J9）时打开或新建当天的 day 对话；都不给则新建全局线程'),
     ('chat.send', "{ conversation_id: ConvId; text: string; context?: { page: string; document_id?: Id; section_id?: Id; sentence_id?: Id; selection?: string; card_id?: Id }; skill?: SkillId; tier?: Tier }", '{ submission_id: TaskId }', '立即返回；文本增量与工具调用走事件；skill 对应 / 选择'),
     ('chat.list', '{ limit?: number }', 'Conversation[]', '左栏"最近"'),
     ('chat.history', '{ conversation_id: ConvId; cursor?: string }', 'Page<Message>', ''),
@@ -207,7 +210,8 @@ API = [
     ('settings.get', '{ keys?: string[] }', 'Record<string, unknown>', 'reader.*、tts.*、ui.* 等键值'),
     ('settings.set', '{ patch: Record<string, unknown> }', 'Record<string, unknown>', ''),
     ('providers.list', '{}', 'Provider[]', '密钥不返回，只有 has_secret'),
-    ('providers.upsert', '{ provider: Omit<Provider, \'id\' | \'has_secret\' | \'month_cost\'> & { id?: Id }; secret_ref?: string }', 'Provider', '密钥先由 Rust 写入钥匙串，这里只传引用'),
+    ('providers.upsert', '{ provider: Omit<Provider, \'id\' | \'has_secret\' | \'month_cost\'> & { id?: Id }; secret_ref?: string }', 'Provider', '密钥先由 Rust 写入钥匙串，这里只传引用；没带 id 时，同服务同档已有记录就更新它'),
+    ('providers.delete', '{ id: Id }', '{ ok: true; secret_ref?: string }', '软删；默认被删时交给剩下的一条。secret_ref 只在没有别的记录再用这个密钥时返回，由调用方从钥匙串删掉'),
     ('providers.test', '{ id: Id }', '{ ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string }', '连接测试：用这个服务商发一条很短的请求（不做预算检查，仍记用量），返回模型名与耗时；失败时 ok = false 并带原因'),
     ('vocab.start', '{}', '{ bands: { label: string; words: string[] }[] }', '词汇量测试：7 组（前 1k / 1–2k / 2–4k / 4–6k / 6–8k / 8–10k / 10k+；4k–10k 每组 10 个真词，其余 8 个），每组再混 2 个伪词（不标出）；有完整词典时按词频随机取词'),
     ('vocab.submit', '{ picks: string[][] }', '{ estimate: number; cefr: string; bands: number[]; pseudo_hits: number }', '估算并初始化已知词库（terms.status 99 / 推断已知）；vocab_source 记为 test，并按新估算重新标注全部文章（每篇一个 reanalyze 任务）'),
@@ -235,7 +239,8 @@ API = [
 
 EVENTS = [
   ('chat.delta', '{ conversation_id: ConvId; submission_id: TaskId; delta: string; done?: boolean }', '对话页、各页 Tibi 面板逐字显示'),
-  ('chat.tool', "{ conversation_id: ConvId; task_id: TaskId; phase: 'start' | 'end'; tool: string; skill_id: SkillId; summary: string; duration_ms?: number }", '收起的过程卡；任务详情的过程区'),
+  ('chat.block', "{ conversation_id: ConvId; submission_id: TaskId; block: WidgetBlock }", '工具结束后显示对话卡片（查词、辨析、练习）'),
+  ('chat.tool', "{ conversation_id: ConvId; task_id: TaskId; phase: 'start' | 'end'; tool: string; skill_id: SkillId; status?: 'ok' | 'error' | 'denied'; summary: string; duration_ms?: number }", '收起的过程卡；任务详情的过程区'),
   ('task.update', '{ task: TaskSummary; steps?: TaskStep[] }', '运行记录列表、左栏徽标、对话页进度；节流 ≤ 4 次 / 秒'),
   ('task.done', "{ task: TaskSummary; result?: { document_id?: Id; summary: string; action?: { label: string; route: string } } }", '带动作的通知（"导入完成 · 开始阅读"）'),
   ('approval.requested', '{ approval: Approval }', '审批卡（对话页、运行记录）；界面回 tasks.approve'),
@@ -247,7 +252,7 @@ EVENTS = [
 ]
 
 RUST = [
-  ('keyring_set', '{ ref: string; secret: string }', 'Ok', '写入密钥只走 WebView → Rust → 钥匙串，不进 Core 的 RPC'),
+  ('keyring_set', '{ ref: string; secret: string }', 'Ok', '写入密钥只走 WebView → Rust → 密钥存储（05 §8），不进 Core 的 RPC'),
   ('keyring_delete', '{ ref: string }', 'Ok', ''),
   ('secret_get', '{ ref: string }', '{ secret: string }', '只给 Core：经 sidecar 通道按需取，只留内存，不写库、不写日志；WebView 不能调用'),
   ('core_status / core_restart', '{}', '{ pid: number; uptime_ms: number }', 'sidecar 守护'),
