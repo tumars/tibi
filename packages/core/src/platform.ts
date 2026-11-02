@@ -12,8 +12,8 @@ export interface ReadableArticle { title: string; /** 站点名（og:site_name�
 export interface ExtractedFile { title?: string; author?: string; markdown: string; kind: 'article' | 'book'; needs_ocr?: boolean; pages?: number }
 
 export interface Platform {
-  /** 抓取网页；只在 Core 校验过 URL 之后调用。重定向每跳由实现方重查 */
-  fetchUrl(url: string, opts?: { signal?: AbortSignal; timeout_ms?: number }): Promise<FetchedPage>;
+  /** 抓取网页；只在 Core 校验过 URL 之后调用。重定向每跳由实现方重查。post：调带密钥的接口，不跟随重定向（密钥不能带去别的地址） */
+  fetchUrl(url: string, opts?: { signal?: AbortSignal; timeout_ms?: number; post?: { headers: Record<string, string>; body: string } }): Promise<FetchedPage>;
   /** 可读性算法抽正文并转成 Markdown */
   extractReadable(html: string, url: string): Promise<ReadableArticle>;
   /** EPUB / PDF / DOCX 抽成 Markdown（path 已由壳登记）；没有时只支持 txt / md */

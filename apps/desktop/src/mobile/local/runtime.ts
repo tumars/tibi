@@ -41,7 +41,7 @@ async function start(): Promise<Transport> {
       const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), opts?.timeout_ms ?? 20_000);
       opts?.signal?.addEventListener('abort', () => ctrl.abort());
       try {
-        const r = await httpFetch(url, { signal: ctrl.signal, headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Tibi' } });
+        const r = await httpFetch(url, { signal: ctrl.signal, headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Tibi', ...opts?.post?.headers }, ...(opts?.post ? { method: 'POST', body: opts.post.body, maxRedirections: 0 } : {}) });
         return { status: r.status, final_url: r.url || url, content_type: r.headers.get('content-type') ?? '', body: await r.text() };
       } finally { clearTimeout(t); }
     },

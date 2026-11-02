@@ -82,8 +82,8 @@ export function nodePlatform(opts: NodePlatformOptions): Platform {
       o.signal?.addEventListener('abort', () => ctrl.abort());
       try {
         for (let hop = 0; hop < 5; hop++) {
-          const res = await fetch(current, { redirect: 'manual', signal: ctrl.signal, headers: { 'user-agent': `Tibi/${opts.app_version} (+https://github.com/tumars/tibi)`, accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5' } });
-          if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+          const res = await fetch(current, { redirect: 'manual', signal: ctrl.signal, method: o.post ? 'POST' : 'GET', body: o.post?.body, headers: { 'user-agent': `Tibi/${opts.app_version} (+https://github.com/tumars/tibi)`, accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5', ...o.post?.headers } });
+          if (!o.post && res.status >= 300 && res.status < 400 && res.headers.get('location')) {
             current = await checkUrl(new URL(res.headers.get('location')!, current).toString());   // 重定向每跳重查
             continue;
           }
