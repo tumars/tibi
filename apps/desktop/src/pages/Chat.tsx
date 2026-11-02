@@ -14,9 +14,9 @@ export function Chat() {
   // 左栏改名后标题跟着变
   const title = useCore(s => s.recentChats.find(c => c.id === id)?.title) || conv?.title;
   const [pending, setPending] = useState<Pending>();
-  const q = params.get('q'); const skill = params.get('skill') ?? undefined; const tier = params.get('tier') === 'deep' ? 'deep' as const : undefined;
+  const q = params.get('q'); const skill = params.get('skill') ?? undefined; const model = params.get('model') ?? undefined;
   // 取走 ?q= 后从网址里去掉，刷新页面不会再发一次
-  useEffect(() => { if (q) { setPending({ key: `${id}:${q}`, text: q, context: { page: 'chat' }, skill, tier }); setParams({}, { replace: true }); } }, [id, q, skill, tier, setParams]);
+  useEffect(() => { if (q) { setPending({ key: `${id}:${q}`, text: q, context: { page: 'chat' }, skill, model }); setParams({}, { replace: true }); } }, [id, q, skill, model, setParams]);
   if (!id) return null;
   return (
     <>

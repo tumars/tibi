@@ -18,19 +18,23 @@ export function Today() {
   const [conv, setConv] = useState<string>();
   const [text, setText] = useState('');
   const [imp, setImp] = useState(false);
-  const askRef = useRef<((t: string) => void) | undefined>(undefined);
+  const askRef = useRef<((t: string) => Promise<boolean>) | undefined>(undefined);
 
   useEffect(() => {
     rpc.call('documents.list', { sort: 'opened', limit: 12 }).then(r => setLead(r.items.find(d => d.progress > 0 && d.progress < 1) ?? r.items.find(d => d.progress === 0)), () => undefined);
     rpc.call('chat.open', { today: true }).then(c => setConv(c.id), () => undefined);
   }, []);
-  const onAsk = useCallback((send: (t: string) => void) => { askRef.current = send; }, []);
+  const onAsk = useCallback((send: (t: string) => Promise<boolean>) => { askRef.current = send; }, []);
 
   const submit = async (raw = text) => {
     const t = raw.trim(); if (!t) { setImp(true); return; }
     setText('');
     const k = classifyInput(t);
-    if (k === 'ask') { askRef.current?.(t); requestAnimationFrame(() => document.querySelector('#s-home')?.scrollTo({ top: 1e6, behavior: 'smooth' })); return; }
+    if (k === 'ask') {
+      requestAnimationFrame(() => document.querySelector('#s-home')?.scrollTo({ top: 1e6, behavior: 'smooth' }));
+      if (await askRef.current?.(t) === false) setText(cur => cur || t);   // 没发出去：把话还给输入框
+      return;
+    }
     try { await rpc.call('documents.import', { source: k === 'url' ? { type: 'url', url: t } : { type: 'text', text: t } }); toast(tl('正在导入，好了会放进书架'), { action: { label: tl('去书架'), run: () => nav('/library') } }); }
     catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };

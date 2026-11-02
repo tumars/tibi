@@ -14,6 +14,7 @@ import './widgets.css';
  * 按钮直接调能力，不经过模型；操作结果经 useChat 保存，重开对话能恢复，下一轮带给模型。
  */
 type Update = (id: string, state: unknown, result?: string) => void;
+type Fill = (text: string) => void;
 type Of<K extends WidgetBlock['kind']> = Extract<WidgetBlock, { kind: K }>;
 
 const phonetic = (p?: string) => p && (p.startsWith('/') ? p : `/${p}/`);
@@ -58,7 +59,7 @@ function CompareCard({ b }: { b: Of<'compare'> }) {
 const norm = (s: string) => s.trim().toLowerCase();
 type QuizState = { picks: string[] };
 
-function QuizCard({ b, state, update }: { b: Of<'quiz'>; state?: QuizState; update: Update }) {
+function QuizCard({ b, state, update, fill }: { b: Of<'quiz'>; state?: QuizState; update: Update; fill?: Fill }) {
   const items = b.data.items; const picks = state?.picks ?? [];
   const [typed, setTyped] = useState('');
   const [showing, setShowing] = useState(picks.length ? Math.min(picks.length, items.length) : 0);
@@ -72,10 +73,18 @@ function QuizCard({ b, state, update }: { b: Of<'quiz'>; state?: QuizState; upda
   };
   const redo = () => { update(b.id, { picks: [] }); setShowing(0); setTyped(''); };
 
-  if (showing >= items.length) return <div className="wg">
-    <div className="wg-hd"><b>{tl('答对 {n} / {total}', { n: score, total: items.length })}</b><span className="wg-k">{tl('不影响复习排期')}</span></div>
-    <div className="wg-acts"><button className="btn sm" onClick={redo}>{tl('再做一遍')}</button></div>
-  </div>;
+  if (showing >= items.length) {
+    // 下一步由结果算出来，不调模型；只放进输入框，发不发用户定
+    const wrong = items.filter((_, i) => !right(i)).map(q => q.term);
+    return <div className="wg">
+      <div className="wg-hd"><b>{tl('答对 {n} / {total}', { n: score, total: items.length })}</b><span className="wg-k">{tl('不影响复习排期')}</span></div>
+      <div className="wg-acts">
+        {fill && wrong.length > 0 && <button className="btn sm" onClick={() => fill(tl('讲讲我做错的：{words}', { words: wrong.join('、') }))}>{tl('讲讲做错的')}</button>}
+        {fill && !wrong.length && <button className="btn sm" onClick={() => fill(tl('再出一组难一点的练习'))}>{tl('再来一组难点的')}</button>}
+        <button className="btn sm" onClick={redo}>{tl('再做一遍')}</button>
+      </div>
+    </div>;
+  }
 
   const q = items[showing]!; const pick = picks[showing]; const done = pick !== undefined;
   const correct = done && right(showing);
@@ -103,17 +112,17 @@ class Guard extends Component<{ summary: string; children: ReactNode }, { failed
   override render() { return this.state.failed ? <p>{this.props.summary}</p> : this.props.children; }
 }
 
-function Widget({ b, state, update }: { b: WidgetBlock; state: unknown; update: Update }) {
+function Widget({ b, state, update, fill }: { b: WidgetBlock; state: unknown; update: Update; fill?: Fill }) {
   const card = b.kind === 'word' ? <WordCard b={b} state={state as never} update={update} />
     : b.kind === 'compare' ? <CompareCard b={b} />
-    : b.kind === 'quiz' ? <QuizCard b={b} state={state as never} update={update} />
+    : b.kind === 'quiz' ? <QuizCard b={b} state={state as never} update={update} fill={fill} />
     : <p>{(b as WidgetBlock).summary}</p>;
   return <Guard summary={b.summary}>{card}</Guard>;
 }
 
 /** 一条回答的内容：文字和卡片按出现的顺序排 */
-export function Blocks({ blocks, states, update }: { blocks: MessageBlock[]; states: WidgetStates; update: Update }) {
+export function Blocks({ blocks, states, update, fill }: { blocks: MessageBlock[]; states: WidgetStates; update: Update; /** 把下一步建议放进输入框 */ fill?: Fill }) {
   return <div className="wg-blocks">{blocks.map((b, i) => b.type === 'text'
     ? <div key={i}><Markdown text={b.text} /></div>
-    : <Widget key={b.id} b={b} state={b.id in states ? states[b.id] : b.state} update={update} />)}</div>;
+    : <Widget key={b.id} b={b} state={b.id in states ? states[b.id] : b.state} update={update} fill={fill} />)}</div>;
 }

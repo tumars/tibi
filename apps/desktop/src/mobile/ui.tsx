@@ -40,22 +40,26 @@ export function Ring({ value, size = 22, stroke = 3, color = 'var(--warm)' }: { 
 export const Empty = ({ title, quip, text, action, image }: { title: string; quip?: string; text?: string; action?: ReactNode; image?: MascotId }) => <div className="empty">{image && <Mascot id={image} />}<b>{quip && !useUi.getState().lessMascot ? quip : title}</b>{text}{action && <div style={{ marginTop: 14 }}>{action}</div>}</div>;
 
 /** 一段对话的气泡（今天页、阅读器和词卡里的 Tibi 面板共用）。回答里的网页链接点一下导入 */
-export function Thread({ conversationId, context, pending, onAsk }: { conversationId?: string; context?: ChatContext; pending?: { key: string; text: string }; onAsk?: (send: (t: string) => void) => void }) {
-  const { msgs, live, approvals, ready, send, decide, widgetStates, updateWidget } = useChat(conversationId, { context });
+export function Thread({ conversationId, context, pending, onAsk }: { conversationId?: string; context?: ChatContext; pending?: { key: string; text: string }; onAsk?: (send: (t: string) => Promise<boolean>) => void }) {
+  const { msgs, live, approvals, ready, send, decide, running, cancel, retry, cursor, loadOlder, widgetStates, updateWidget } = useChat(conversationId, { context });
+  const visible = msgs.filter(m => m.role !== 'tool' && (m.text || m.blocks?.length || m.interrupted));
   const sent = useRef(new Set<string>());
-  useEffect(() => { onAsk?.(t => void send(t)); }, [onAsk, send]);
+  useEffect(() => { onAsk?.(send); }, [onAsk, send]);
   useEffect(() => { if (ready && pending && !sent.current.has(pending.key)) { sent.current.add(pending.key); void send(pending.text); } }, [ready, pending, send]);
   return <div className="thread" onClick={e => {
     const a = (e.target as HTMLElement).closest('.a a[href^="http"]') as HTMLAnchorElement | null; if (!a) return;
     e.preventDefault();
     void rpc.call('documents.import', { source: { type: 'url', url: a.href } }).then(() => toast(tl('正在导入这篇，好了会提示')), err => toast(errorInfo(err).message, { kind: 'err' }));
   }}>
-    {msgs.filter(m => m.role !== 'tool' && (m.text || m.blocks?.length)).map(m => m.role === 'user' ? <div key={m.id} className="u">{m.text}</div> : <div key={m.id} className="a">{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} /> : <Markdown text={m.text!} />}</div>)}
+    {cursor && <button className="btn sm" onClick={() => void loadOlder()}>{tl('加载更早的消息')}</button>}
+    {visible.map((m, i) => m.role === 'user' ? <div key={m.id} className="u">{m.text}</div> : <div key={m.id} className="a">{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} /> : m.text && <Markdown text={m.text} />}{m.interrupted && <div className="err">{m.interrupted.reason === 'cancel' ? tl('已停止') : m.interrupted.message || tl('出错了')}{i === visible.length - 1 && !running && m.task_id && <> <button className="btn sm" onClick={() => void retry(m.task_id!)}>{tl('重试')}</button></>}</div>}</div>)}
     {live.map(l => <div key={l.id} className="a">
-      {l.tools.map((t, i) => <div key={i} className="tool">{t.done ? '✓' : '…'} {t.summary}</div>)}
+      {l.resumed && !l.done && <div className="tool">… {tl('Tibi 还在回答，说完就显示')}</div>}
+      {l.tools.map((t, i) => <div key={i} className="tool">{t.done ? (t.status === 'denied' ? '–' : t.status === 'error' ? '✕' : '✓') : '…'} {t.summary}{t.status === 'denied' ? tl('（已拒绝）') : t.status === 'error' ? tl('（没成功）') : ''}</div>)}
       {l.blocks.length > 0 && <Blocks blocks={l.blocks} states={widgetStates} update={updateWidget} />}
-      {!l.error && !l.done && l.blocks[l.blocks.length - 1]?.type !== 'text' && <span className="typing" aria-label={tl('Tibi 正在想')}><i /><i /><i /></span>}
-      {l.error && <div className="err">{l.error}</div>}
+      {!l.resumed && !l.error && !l.done && l.blocks[l.blocks.length - 1]?.type !== 'text' && <span className="typing" aria-label={tl('Tibi 正在想')}><i /><i /><i /></span>}
+      {l.error && <div className="err">{l.error}{!running && <> <button className="btn sm" onClick={() => void retry(l.id)}>{tl('重试')}</button></>}</div>}
+      {!l.done && running?.id === l.id && <button className="btn sm" onClick={cancel}>{tl('停止回答')}</button>}
     </div>)}
     {approvals.map(a => <div key={a.task_id} className="approve"><div className="h">{a.title}</div><div className="b">{a.body}</div>
       <div className="acts"><button className="btn sm tint" onClick={() => void decide(a, 'allow')}>{tl('允许')}</button><button className="btn sm" onClick={() => void decide(a, 'deny')}>{tl('拒绝')}</button></div></div>)}

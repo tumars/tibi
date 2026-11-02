@@ -70,6 +70,7 @@ export interface MethodTable {
   'settings.set': { params: { patch: Record<string, unknown> }; result: Record<string, unknown> };
   'providers.list': { params: Record<string, never>; result: Provider[] };
   'providers.upsert': { params: { provider: Omit<Provider, 'id' | 'has_secret' | 'month_cost'> & { id?: Id }; secret_ref?: string }; result: Provider };
+  'providers.delete': { params: { id: Id }; result: { ok: true; secret_ref?: string } };
   'providers.test': { params: { id: Id }; result: { ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string } };
   'tasks.list': { params: { limit?: number }; result: { running: TaskSummary[]; pending: Approval[]; history: TaskSummary[]; kpis: { running: number; week_done: number; week_failed: number; month_cost: number; budget: number; top_skill: { id: string; cost: number } } } };
   'chat.list': { params: { limit?: number }; result: Conversation[] };
@@ -86,10 +87,12 @@ export interface MethodTable {
   'memory.delete': { params: { id: Id }; result: Undo };
   'memory.pause': { params: { paused: boolean }; result: Ok };
   'memory.clear': { params: Record<string, never>; result: Undo };
-  'chat.open': { params: { conversation_id?: Id; document_id?: Id; today?: boolean }; result: Conversation & { messages: Message[] } };
-  'chat.send': { params: { conversation_id: Id; text: string; context?: { page: string; document_id?: Id; section_id?: Id; sentence_id?: Id; selection?: string; card_id?: Id }; skill?: string; tier?: 'fast' | 'deep' }; result: { submission_id: TaskId } };
+  'chat.open': { params: { conversation_id?: Id; document_id?: Id; today?: boolean }; result: Conversation & { messages: Message[]; cursor?: string; active?: TaskId[]; approvals?: Approval[] } };
+  'chat.send': { params: { conversation_id: Id; text: string; context?: { page: string; document_id?: Id; section_id?: Id; sentence_id?: Id; selection?: string; card_id?: Id }; skill?: string; tier?: 'fast' | 'deep'; provider_id?: string }; result: { submission_id: TaskId } };
   'chat.cancel': { params: { submission_id: TaskId }; result: Ok };
   'chat.widget_update': { params: { message_id: Id; widget_id: Id; state: unknown; result?: string }; result: Ok };
+  'chat.rewind': { params: { conversation_id: Id; message_id: Id }; result: { text: string; skill?: string } };
+  'chat.receipt_undone': { params: { message_id: Id; undo_id: Id }; result: Ok };
   'chat.rename': { params: { conversation_id: Id; title: string }; result: Conversation };
   'chat.delete': { params: { conversation_id: Id }; result: Ok };
   'tasks.approve': { params: { id: TaskId; decision: 'allow' | 'deny' | 'edit'; edited?: Record<string, unknown>; always?: boolean }; result: TaskSummary };
@@ -123,7 +126,7 @@ export interface EventTable {
   'model.status': { ok: boolean; reason?: 'offline' | 'unauthorized' | 'budget' };
   'chat.delta': { conversation_id: Id; submission_id: TaskId; delta: string; done?: boolean };
   'chat.block': { conversation_id: Id; submission_id: TaskId; block: WidgetBlock };
-  'chat.tool': { conversation_id?: Id; task_id: TaskId; phase: 'start' | 'end'; tool: string; skill_id: string; summary: string; duration_ms?: number };
+  'chat.tool': { conversation_id?: Id; task_id: TaskId; phase: 'start' | 'end'; tool: string; skill_id: string; status?: 'ok' | 'error' | 'denied'; summary: string; duration_ms?: number };
   'sync.update': { state: 'idle' | 'syncing' | 'error'; pushed?: number; pulled?: number; last_synced_at?: number; error?: { code: string; message: string } };
 }
 export type EventName = keyof EventTable;
