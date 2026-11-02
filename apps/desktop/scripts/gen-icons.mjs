@@ -1,4 +1,4 @@
-// 从 public/logo.svg 生成各平台的应用图标（src-tauri/icons、gen/android，gen/apple 存在时也写）。
+// 从 public/app-icon.png 生成各平台的应用图标（src-tauri/icons、gen/android，gen/apple 存在时也写）。
 // gen/apple 不提交：tauri ios init 之后要再跑一次，否则 iOS 是 Tauri 默认图标。
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -8,12 +8,10 @@ import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
-const logo = readFileSync(join(root, 'public/logo.svg'), 'utf8');
-const inner = logo.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
-const bgRect = inner.match(/<rect[^>]*\/>/)?.[0];
-const color = bgRect?.match(/fill="(#[0-9a-f]+)"/i)?.[1];
-if (!color) throw new Error('logo.svg 第一个元素应是带底色的 rect');
-const fox = inner.replace(bgRect, '');
+const source = readFileSync(join(root, 'public/app-icon.png')).toString('base64');
+const color = '#394fae';
+const artwork = `<image width="64" height="64" href="data:image/png;base64,${source}"/>`;
+const inner = `<defs><clipPath id="rounded"><rect width="64" height="64" rx="14"/></clipPath></defs><g clip-path="url(#rounded)">${artwork}</g>`;
 
 const svg = (viewBox, body) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="1024" height="1024">${body}</svg>`;
 const tmp = mkdtempSync(join(tmpdir(), 'tibi-icons-'));
@@ -22,7 +20,7 @@ const write = (name, content) => writeFileSync(join(tmp, name), content);
 // 桌面：圆角方块占画布 824/1024，四周留透明边（macOS 图标网格），否则在 Dock 里比别的应用大一圈
 write('desktop.svg', svg('0 0 1024 1024', `<g transform="translate(100 100) scale(12.875)">${inner}</g>`));
 // Android：系统自己裁形状，用自适应图标的前景 + 背景两层
-write('android-fg.svg', svg('0 0 64 64', fox));
+write('android-fg.svg', svg('0 0 64 64', artwork));
 write('android-bg.svg', svg('0 0 64 64', `<rect width="64" height="64" fill="${color}"/>`));
 write('manifest.json', JSON.stringify({
   default: 'desktop.svg',
@@ -30,7 +28,7 @@ write('manifest.json', JSON.stringify({
   android_bg: 'android-bg.svg',
 }));
 // iOS：系统也自己裁圆角，不留边，由 bg_color 垫成满版
-write('ios.svg', svg('0 0 64 64', inner));
+write('ios.svg', svg('0 0 64 64', artwork));
 write('ios.json', JSON.stringify({ default: 'ios.svg', bg_color: color }));
 
 const icon = (...args) => execFileSync('pnpm', ['tauri', 'icon', ...args], { cwd: root, stdio: 'inherit' });
