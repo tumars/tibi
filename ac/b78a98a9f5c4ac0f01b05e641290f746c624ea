@@ -1,0 +1,348 @@
+docs/design/02-ai-assistant.md
+  s_27dd52042b3acb::t_3f0fd4181593e3 106
+apps/desktop/src/mock.ts
+  s_e79aa2f0faa5cc::t_de01ed2192679a 57
+  s_f502669abb98a1::t_60315cd29dcfb1 62
+  s_afab21a9e61dbb::t_631ff6a2707fd8 51
+apps/desktop/src/pages/Settings.tsx
+  s_e79aa2f0faa5cc::t_de01ed2192679a 147
+  s_8118f075ca7bdd::t_5bd84479d73dec 15
+  s_8118f075ca7bdd::t_5ac4a56993ea7c 146
+  s_e79aa2f0faa5cc::t_44df71828de024 1,144
+apps/desktop/src-tauri/src/lib.rs
+  s_8118f075ca7bdd::t_939d6a59b1b1dc 12-13
+  s_8118f075ca7bdd::t_5358c308ba2df3 360
+  s_8118f075ca7bdd::t_16d19b37c7570d 277,280
+docs/design/07-mascot-assets.md
+  s_27dd52042b3acb::t_352b80815ef488 164
+  s_3e482f793b0360::t_aa8bbfae6ee6a2 56-59,61,67-68,70,160-163
+apps/desktop/src/lib/util.ts
+  s_f502669abb98a1::t_60315cd29dcfb1 4-18
+apps/desktop/src/components/SearchPalette.tsx
+  s_27dd52042b3acb::t_3f0fd4181593e3 79
+apps/desktop/src/App.tsx
+  s_8118f075ca7bdd::t_c2fc412e3ebb08 34-35
+  s_8118f075ca7bdd::t_b0dea7d84a3c8d 21
+packages/core/src/dict/types.ts
+  s_e79aa2f0faa5cc::t_dfc4eec3eaf3e8 26
+  s_e79aa2f0faa5cc::t_49cff9ca4c01a9 27
+  s_e79aa2f0faa5cc::t_698a8d54b5cc24 1
+packages/core-node/src/ecdict/ingest.ts
+  s_e79aa2f0faa5cc::t_960251308af83b 16
+  s_e79aa2f0faa5cc::t_dfc4eec3eaf3e8 8
+  s_e79aa2f0faa5cc::t_8b24ffffad32ec 129-134
+  s_e79aa2f0faa5cc::t_29fec8e7d50c7e 52
+  s_e79aa2f0faa5cc::t_8555e80119d7ba 110-111
+apps/desktop/src/mobile/Library.tsx
+  s_afab21a9e61dbb::t_3f06de955f9e82 7
+  s_afab21a9e61dbb::t_726b08279e8f65 2
+  s_afab21a9e61dbb::t_b157de65fd01fb 37,39-40,43-45,50-59
+  s_afab21a9e61dbb::t_5091ee1cbf4f48 34
+  s_afab21a9e61dbb::t_142f63c576f862 20
+  s_3e482f793b0360::t_d02cd0b1531b0b 33,60-61
+apps/desktop/src/mobile/Reader.tsx
+  s_3e482f793b0360::t_3f141a871bbb4e 14-15
+  s_3e482f793b0360::t_95a503fddf7fc0 8
+  s_3e482f793b0360::t_224a4764a1be56 2
+  s_3e482f793b0360::t_ff12d093c9d829 113
+  s_3e482f793b0360::t_a289f1db4600a9 75-76
+  s_3e482f793b0360::t_48ce31a2bc4068 31
+  s_3e482f793b0360::t_7891a577392aad 87
+docs/design/_src/build_interface.py
+  s_27dd52042b3acb::t_3f0fd4181593e3 181,239,241,244,439
+packages/core/src/domain/review/methods.ts
+  s_f502669abb98a1::t_60315cd29dcfb1 39-44,46-54,64
+  s_f502669abb98a1::t_63f23d565de182 2-3,10,45
+apps/desktop/src/settings/UpdateItems.tsx
+  s_8118f075ca7bdd::t_27ab5ef5cab9b7 1-43
+docs/dev/README.md
+  s_e79aa2f0faa5cc::t_a15354630a4270 51
+apps/desktop/src/rpc/methods.ts
+  s_8118f075ca7bdd::t_dbb7e6035a942e 14
+  s_8118f075ca7bdd::t_771d2a0c398b7c 13
+packages/core/src/types.ts
+  s_f502669abb98a1::t_60315cd29dcfb1 95,107-108
+  s_e79aa2f0faa5cc::t_dfc4eec3eaf3e8 72
+  s_e79aa2f0faa5cc::t_7a70603f2c9d5d 73-85
+apps/desktop/src-tauri/Cargo.toml
+  s_8118f075ca7bdd::t_6ffa27818cb468 37-40
+packages/core/src/rpc/system.ts
+  s_8118f075ca7bdd::t_771d2a0c398b7c 26
+apps/desktop/src/components/Dictionary.tsx
+  s_e79aa2f0faa5cc::t_19f2e183d1fcee 155
+  s_e79aa2f0faa5cc::t_1a53c780754b8a 179-180,184-188,190-218
+  s_e79aa2f0faa5cc::t_34b24ee8571999 172
+  s_e79aa2f0faa5cc::t_dfc4eec3eaf3e8 189
+  s_e79aa2f0faa5cc::t_d4b5c2a971f2d8 156
+  s_e79aa2f0faa5cc::t_db932e7e1d3713 219-220
+apps/desktop/test/tts.test.ts
+  s_f502669abb98a1::t_8eaaddfb5c0d82 1-52
+docs/design/overview.html
+  s_27dd52042b3acb::t_3f0fd4181593e3 168,203,334,535,544,546,549,567,617,643,673
+docs/guide/README.md
+  s_27dd52042b3acb::t_3f0fd4181593e3 32,80,116
+  s_e79aa2f0faa5cc::t_a15354630a4270 53
+apps/desktop/src/reader/ReadAloud.tsx
+  s_3e482f793b0360::t_3c72b1c6533977 29
+  s_3e482f793b0360::t_c89c3fb0e9da4c 16,21
+  s_3e482f793b0360::t_dd5d931ade87de 3,6
+  s_3e482f793b0360::t_153ab9c8733251 41
+  s_3e482f793b0360::t_24dfb08bc105d8 34
+README.md
+  s_e79aa2f0faa5cc::t_de01ed2192679a 100
+packages/core/src/dict/sqlite.ts
+  s_e79aa2f0faa5cc::t_c2f1bbb8472d74 87-88,90
+  s_e79aa2f0faa5cc::t_082b3feb7e5db6 79-86,89,91-102,105-106
+  s_e79aa2f0faa5cc::t_dee545b2b820a4 2
+packages/core-node/src/ecdict/extras.ts
+  s_e79aa2f0faa5cc::t_dfc4eec3eaf3e8 2
+  s_e79aa2f0faa5cc::t_1bda0f341cf719 1,3-83
+packages/core-node/test/dict-extras.test.ts
+  s_e79aa2f0faa5cc::t_dfc4eec3eaf3e8 56
+  s_e79aa2f0faa5cc::t_e6786681fd6a35 85-88
+  s_e79aa2f0faa5cc::t_de01ed2192679a 1-18,21-31,34-35,38-51,53-55,57-58,60-84,89-97
+  s_e79aa2f0faa5cc::t_f0075a0f6c4f91 32-33
+  s_e79aa2f0faa5cc::t_5db859b16a54d7 36-37,52,59
+  s_e79aa2f0faa5cc::t_4d2714b9c006d8 19-20
+.github/ISSUE_TEMPLATE/bug.yml
+  s_27dd52042b3acb::t_3f0fd4181593e3 35
+apps/desktop/src/lib/useTagEditor.ts
+  s_afab21a9e61dbb::t_1d509ab424a5b4 1-50
+packages/core/src/domain/review/queue.ts
+  s_f502669abb98a1::t_60315cd29dcfb1 59-62,65,68-70,72-76,83,85,92-98,105-106,110,114-115,121-122,125,127-128,131-132,136-137
+  s_f502669abb98a1::t_801e2c9fa051db 13,71
+apps/desktop/src/settings/search.ts
+  s_8118f075ca7bdd::t_8b5b74537c34a9 25-26
+apps/desktop/src-tauri/src/update.rs
+  s_8118f075ca7bdd::t_5299c56f23c21d 1-58
+.github/workflows/release.yml
+  s_8118f075ca7bdd::t_d238aca927b456 152-153
+  s_8118f075ca7bdd::t_ffd37635811933 131-140,147
+  s_8118f075ca7bdd::t_ba31dc1b80d833 5
+packages/core/src/domain/backup.ts
+  s_8118f075ca7bdd::t_31adfca83d2675 23
+  s_8118f075ca7bdd::t_86232378191619 12
+apps/desktop/src-tauri/tauri.updater.conf.json
+  s_8118f075ca7bdd::t_39ba0e2496e0e9 1-6
+apps/desktop/src/mobile/Me.tsx
+  s_27dd52042b3acb::t_3f0fd4181593e3 17,41,68,94
+  s_3e482f793b0360::t_01cb9bbd6c3812 95
+apps/desktop/test/slash.test.ts
+  s_cb86e5158ce33d::t_dc36b51e65f9b2 1-41
+docs/DECISIONS.md
+  s_e79aa2f0faa5cc::t_dfc4eec3eaf3e8 167
+  s_e79aa2f0faa5cc::t_2ec3e4006c02da 164
+  s_8118f075ca7bdd::t_7fd1727c853e0d 166
+  s_27dd52042b3acb::t_3f0fd4181593e3 12,50
+packages/core/test/documents/import.test.ts
+  s_3e482f793b0360::t_fd8d4dc1f6d0af 160-181
+apps/desktop/src/lib/tts.ts
+  s_3e482f793b0360::t_22a96184eacb20 4-5
+  s_3e482f793b0360::t_b3f40fe770de93 78
+  s_3e482f793b0360::t_7577c51662d23f 89,91-93,95,98-115,117,120,123
+  s_3e482f793b0360::t_f7c0329d33d0bf 65,67
+apps/desktop/src/lib/update.ts
+  s_8118f075ca7bdd::t_7c01fe15e708d7 1-43
+apps/desktop/src/components/Shell.tsx
+  s_27dd52042b3acb::t_3f0fd4181593e3 18
+  s_3c6da279925773::t_8d112618739245 41-42
+packages/core/src/domain/dictionary/methods.ts
+  s_e79aa2f0faa5cc::t_eb29f3b7cd00d8 95-96
+  s_e79aa2f0faa5cc::t_711e2e7f8fa2f7 3
+  s_e79aa2f0faa5cc::t_b55d419f6048d1 35
+  s_e79aa2f0faa5cc::t_dfc4eec3eaf3e8 34
+  s_e79aa2f0faa5cc::t_98e5791bc95327 42-49
+  s_e79aa2f0faa5cc::t_a994f4b52e27dd 104
+docs/design/00-concept-design.md
+  s_27dd52042b3acb::t_e50fa0a844310c 424
+  s_cb86e5158ce33d::t_bfab8826ff5f16 289
+  s_27dd52042b3acb::t_3f0fd4181593e3 293,297,299,339,411,416,420,434,440,486,537,567
+  s_8118f075ca7bdd::t_87768f243ee9d2 351
+  s_27dd52042b3acb::t_352b80815ef488 271
+  s_e79aa2f0faa5cc::t_2ec3e4006c02da 471-472
+  s_e79aa2f0faa5cc::t_dfc4eec3eaf3e8 469
+apps/desktop/src/locales/en.json
+  s_e79aa2f0faa5cc::t_de01ed2192679a 948-959
+  s_27dd52042b3acb::t_3f0fd4181593e3 83
+  s_afab21a9e61dbb::t_4f8216b3476ccb 146-168,202-206,283,375,405,658
+  s_8118f075ca7bdd::t_000b11fd6243e0 2-3,280-281,922-933
+  s_8118f075ca7bdd::t_771d2a0c398b7c 813
+  s_e79aa2f0faa5cc::t_5897d31321a206 684-685
+docs/design/01-database.md
+  s_e79aa2f0faa5cc::t_dfc4eec3eaf3e8 514
+  s_e79aa2f0faa5cc::t_2ec3e4006c02da 515
+  s_27dd52042b3acb::t_3f0fd4181593e3 457
+packages/core/src/domain/review/session.ts
+  s_f502669abb98a1::t_60315cd29dcfb1 76,165
+apps/desktop/src/lib/slash.ts
+  s_cb86e5158ce33d::t_2bf77e8ab4ce8e 1-37
+apps/desktop/src/mobile/mobile.css
+  s_afab21a9e61dbb::t_789137d30f685d 274-283
+  s_3e482f793b0360::t_e9d189913b70ae 241
+PRIVACY.md
+  s_8118f075ca7bdd::t_6818297adcab20 25
+docs/design/06-interface.md
+  s_27dd52042b3acb::t_3f0fd4181593e3 220,297,299,302
+docs/CHANGELOG.md
+  s_9b33cfb7d42aa8::t_392bd676563c65 167
+  s_27dd52042b3acb::t_3f0fd4181593e3 164
+  s_f502669abb98a1::t_9c0d73ff284fc1 168
+  s_afab21a9e61dbb::t_dccd7b1e39fbbe 166
+  s_8118f075ca7bdd::t_000b11fd6243e0 169
+  s_e79aa2f0faa5cc::t_dfc4eec3eaf3e8 170
+apps/desktop/src/pages/Tasks.tsx
+  s_27dd52042b3acb::t_3f0fd4181593e3 13,135
+  s_3e482f793b0360::t_2b573fdc865185 5,148
+apps/desktop/src/mobile/Review.tsx
+  s_f502669abb98a1::t_60315cd29dcfb1 8,44,49-50,59,93
+  s_f502669abb98a1::t_dbc433297c4b52 1,6
+apps/desktop/src/reader/useAloud.ts
+  s_3e482f793b0360::t_802aec460f8c44 1-47
+apps/desktop/src/pages/Library.tsx
+  s_afab21a9e61dbb::t_2f97f8a3dbadf4 2,6,9,14-34,37
+  s_afab21a9e61dbb::t_4d5d832e4a2e0e 86
+  s_afab21a9e61dbb::t_2fe632817ac362 95,99
+  s_afab21a9e61dbb::t_15b9b95740a802 58
+  s_afab21a9e61dbb::t_5ff112ebab08ce 44
+  s_3e482f793b0360::t_153d65f40d3b13 85
+apps/desktop/src/styles.css
+  s_9b33cfb7d42aa8::t_3ffe708a36c8fb 312-313
+  s_27dd52042b3acb::t_3f0fd4181593e3 542,646
+  s_afab21a9e61dbb::t_4d0089cc215015 701-718
+  s_cb86e5158ce33d::t_86e13f5d8ce7f6 130-141
+  s_349e056e3139f9::t_0af4d8c83e14d0 339-340
+  s_9b33cfb7d42aa8::t_42b401bbbba963 203,309,311
+apps/desktop/src/pages/Review.tsx
+  s_f502669abb98a1::t_60315cd29dcfb1 6,9,52,59,61,82-83,135
+  s_f502669abb98a1::t_1e9f5394fd3c2b 1
+apps/desktop/src-tauri/tauri.conf.json
+  s_8118f075ca7bdd::t_59f24b847e3da6 60-65
+docs/design/03-visual-language.md
+  s_27dd52042b3acb::t_e50fa0a844310c 177
+  s_27dd52042b3acb::t_3f0fd4181593e3 67,113,120,145,186,199,216
+apps/desktop/src/components/dict.css
+  s_e79aa2f0faa5cc::t_de01ed2192679a 56-67
+docs/design/05-agent-architecture.md
+  s_27dd52042b3acb::t_3f0fd4181593e3 4,53,156,161,181,237,256,297,300,308,310,312
+README.en.md
+  s_e79aa2f0faa5cc::t_2ec3e4006c02da 55
+packages/core/src/domain/review/capabilities.ts
+  s_f502669abb98a1::t_60315cd29dcfb1 103
+apps/desktop/src/pages/Home.tsx
+  s_cb86e5158ce33d::t_4d82088ceb9586 23
+  s_cb86e5158ce33d::t_48b86db9854ae6 10
+  s_cb86e5158ce33d::t_2fc98c19e94ae1 74,78-79,81-89
+  s_cb86e5158ce33d::t_f8b78b1b9f9b2a 190
+  s_cb86e5158ce33d::t_369e3131dc4ed7 161-164,166,168-184,187
+  s_cb86e5158ce33d::t_4d2ad57ef8939f 2
+  s_cb86e5158ce33d::t_3ae7604a6a394b 41-54
+  s_cb86e5158ce33d::t_88f19e43d2c02b 98
+  s_cb86e5158ce33d::t_85b213cda71d38 142-143
+  s_3e482f793b0360::t_2be73a2436244c 38,156,251
+apps/desktop/src/settings/DataItems.tsx
+  s_8118f075ca7bdd::t_771d2a0c398b7c 12
+apps/desktop/src-tauri/Cargo.lock
+  s_e79aa2f0faa5cc::t_f0c6d97602123e 1255-1264,2235-2264,2506-2511,2619-2630,2885-2896,2977-2982,3019-3032,3605,3611-3613,3618,3736-3747,3758-3784,3817-3825,4192-4201,4453,4486-4496,4521,4804-4837,4848,4871,5032,5341-5346,5662-5670,6195,6241-6250,6300,6504-6518
+apps/desktop/src/components/Empty.tsx
+  s_3e482f793b0360::t_06df948d9256a3 2,5,8
+apps/desktop/src/components/Mascot.tsx
+  s_3e482f793b0360::t_1808d798d1fda4 1-6
+apps/desktop/src/mobile/ui.tsx
+  s_3e482f793b0360::t_dff4227fdfe94e 1,39
+apps/desktop/src/pages/Reader.tsx
+  s_3e482f793b0360::t_773dea2ca410c9 125
+apps/desktop/src/pages/Words.tsx
+  s_3e482f793b0360::t_75f8518fed9507 82
+apps/desktop/test/util.test.ts
+  s_f502669abb98a1::t_8caf50246f54e6 2,24-39
+packages/core/test/review/review.test.ts
+  s_f502669abb98a1::t_7d5b58c03c19e7 4-5,170-172,215-275
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "acb78a98a9f5c4ac0f01b05e641290f746c624ea",
+  "prompts": {},
+  "sessions": {
+    "s_27dd52042b3acb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2e695f6d-ec39-452e-9028-cd8d49ca3716",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_349e056e3139f9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ea6b27b3-1f01-48d7-b95d-1afd5b7a9659",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_3c6da279925773": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df2d0379-da0c-46c5-a31f-b676c88cb6da",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_3e482f793b0360": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dde9d247-1bab-4815-8d4f-5c4b496fe5e0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_8118f075ca7bdd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e726b28f-65fc-4e9d-a7b8-ff3ccb0f616a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_9b33cfb7d42aa8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "15f55e93-4a52-4632-a694-3ed402360542",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_afab21a9e61dbb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ec0ab33f-81be-48e6-9fae-1a4e08d261af",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_cb86e5158ce33d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74f36338-7b15-4c76-99f1-5543eb484e34",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_e79aa2f0faa5cc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4c4dc5f0-b0fc-43ee-819e-8c7d7b8cb64e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_f502669abb98a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1dedb85d-de29-4f55-b203-b41133084ed5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
