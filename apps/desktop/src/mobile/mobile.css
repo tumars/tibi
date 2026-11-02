@@ -1,12 +1,12 @@
 
 /* 手机端独立壳（00 §3.13，M7）：样式取自原型 docs/prototypes/mobile.html，只用于 mobile.html 入口，不和桌面的 styles.css 混用 */
-:root { --bg: #f2f2f7; --surface: #fff; --sunken: #f2f2f7; --fill: rgba(118,118,128,.12); --paper: #fff; --hover: rgba(0,0,0,.05); --line: rgba(60,60,67,.12); --line-2: rgba(60,60,67,.2); --ink: #000; --ink-2: #48484d; --ink-3: #8a8a8e; --accent-fill: #3d52e0; --chev: #c4c4c7; --seg-on: #fff; --accent: #3d52e0; --accent-wash: rgba(61,82,224,.08); --warm: #f5a043; --warm-wash: rgba(245,160,67,.14); --ok: #2f9e5f; --mid: #c98a1b; --hard: #c2452d; --hl-new: #cfe0ff; --hl-1: #f5dd9a; --hl-2: #f8e8b8; --hl-3: #fbf1d4; --hl-4: #e9e9e7;
+:root { --bg: #f2f2f7; --surface: #fff; --sunken: #f2f2f7; --fill: rgba(118,118,128,.12); --paper: #fff; --hover: rgba(0,0,0,.05); --line: rgba(60,60,67,.12); --line-2: rgba(60,60,67,.2); --ink: #000; --ink-2: #48484d; --ink-3: #8a8a8e; --accent-deep: #2f3fa8; --accent-fill: #3d52e0; --chev: #c4c4c7; --seg-on: #fff; --accent: #3d52e0; --accent-wash: rgba(61,82,224,.08); --warm: #f5a043; --warm-wash: rgba(245,160,67,.14); --ok: #2f9e5f; --mid: #c98a1b; --hard: #c2452d; --hl-new: #cfe0ff; --hl-1: #f5dd9a; --hl-2: #f8e8b8; --hl-3: #fbf1d4; --hl-4: #e9e9e7;
   --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
   --f-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", sans-serif; --f-read: Charter, "Charis SIL", Georgia, serif; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #000; --surface: #1c1c1e; --sunken: #2c2c2e; --fill: rgba(118,118,128,.24); --paper: #000; --hover: rgba(255,255,255,.07); --line: rgba(84,84,88,.45); --line-2: rgba(84,84,88,.75); --ink: #fff; --ink-2: #c7c7cc; --ink-3: #8d8d93; --accent-fill: #5468ec; --chev: #5a5a5f; --seg-on: #636366; --accent: #7d8cf0; --accent-wash: rgba(125,140,240,.13); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16); --hl-new: #2a3f6e; --hl-1: #6b5a1e; --hl-2: #5a4d22; --hl-3: #4a4330; --hl-4: #2a2a2d; } }
-:root[data-theme="dark"] { --bg: #000; --surface: #1c1c1e; --sunken: #2c2c2e; --fill: rgba(118,118,128,.24); --paper: #000; --hover: rgba(255,255,255,.07); --line: rgba(84,84,88,.45); --line-2: rgba(84,84,88,.75); --ink: #fff; --ink-2: #c7c7cc; --ink-3: #8d8d93; --accent-fill: #5468ec; --chev: #5a5a5f; --seg-on: #636366; --accent: #7d8cf0; --accent-wash: rgba(125,140,240,.13); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16); --hl-new: #2a3f6e; --hl-1: #6b5a1e; --hl-2: #5a4d22; --hl-3: #4a4330; --hl-4: #2a2a2d; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #000; --surface: #1c1c1e; --sunken: #2c2c2e; --fill: rgba(118,118,128,.24); --paper: #000; --hover: rgba(255,255,255,.07); --line: rgba(84,84,88,.45); --line-2: rgba(84,84,88,.75); --ink: #fff; --ink-2: #c7c7cc; --ink-3: #8d8d93; --accent-deep: #3a4bc4; --accent-fill: #5468ec; --chev: #5a5a5f; --seg-on: #636366; --accent: #7d8cf0; --accent-wash: rgba(125,140,240,.13); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16); --hl-new: #2a3f6e; --hl-1: #6b5a1e; --hl-2: #5a4d22; --hl-3: #4a4330; --hl-4: #2a2a2d; } }
+:root[data-theme="dark"] { --bg: #000; --surface: #1c1c1e; --sunken: #2c2c2e; --fill: rgba(118,118,128,.24); --paper: #000; --hover: rgba(255,255,255,.07); --line: rgba(84,84,88,.45); --line-2: rgba(84,84,88,.75); --ink: #fff; --ink-2: #c7c7cc; --ink-3: #8d8d93; --accent-deep: #3a4bc4; --accent-fill: #5468ec; --chev: #5a5a5f; --seg-on: #636366; --accent: #7d8cf0; --accent-wash: rgba(125,140,240,.13); --warm: #f7ab55; --warm-wash: rgba(247,171,85,.16); --hl-new: #2a3f6e; --hl-1: #6b5a1e; --hl-2: #5a4d22; --hl-3: #4a4330; --hl-4: #2a2a2d; }
 /* 护眼纸面：写在深色规则之后，深色主题下也压得住；手机的高亮色是不透明的，米色上看不清，这里换半透明 */
-:root[data-paper="sepia"] { --bg: #ece5d5; --surface: #f7f1e3; --sunken: #efe7d6; --fill: rgba(118,118,128,.12); --paper: #f7f1e3; --hover: rgba(0,0,0,.05); --line: rgba(60,60,67,.12); --line-2: rgba(60,60,67,.2); --ink: #000; --ink-2: #48484d; --ink-3: #6e6e73; --accent-fill: #3d52e0; --chev: #b8b2a4; --seg-on: #f7f1e3; --accent: #3d52e0; --accent-wash: rgba(61,82,224,.08); --warm: #f5a043; --warm-wash: rgba(245,160,67,.14); --hl-new: rgba(110,155,220,.34); --hl-1: rgba(226,170,50,.50); --hl-2: rgba(226,170,50,.36); --hl-3: rgba(226,170,50,.23); --hl-4: rgba(226,170,50,.12); }
+:root[data-paper="sepia"] { --bg: #ece5d5; --surface: #f7f1e3; --sunken: #efe7d6; --fill: rgba(118,118,128,.12); --paper: #f7f1e3; --hover: rgba(0,0,0,.05); --line: rgba(60,60,67,.12); --line-2: rgba(60,60,67,.2); --ink: #000; --ink-2: #48484d; --ink-3: #6e6e73; --accent-deep: #2f3fa8; --accent-fill: #3d52e0; --chev: #b8b2a4; --seg-on: #f7f1e3; --accent: #3d52e0; --accent-wash: rgba(61,82,224,.08); --warm: #f5a043; --warm-wash: rgba(245,160,67,.14); --hl-new: rgba(110,155,220,.34); --hl-1: rgba(226,170,50,.50); --hl-2: rgba(226,170,50,.36); --hl-3: rgba(226,170,50,.23); --hl-4: rgba(226,170,50,.12); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-ui); -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
@@ -51,11 +51,13 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 button.card { transition: transform .15s; } button.card:active { transform: scale(.98); }
 /* iOS 26 按钮：胶囊；主按钮用强调色填充，次按钮用系统灰填充，"开始"这类用浅强调色 */
 .btn { height: 48px; padding: 0 20px; border-radius: 999px; font-size: 16px; font-weight: 600; background: var(--fill); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.btn.pri { background: var(--accent-fill); color: #fff; }
+.btn.pri { background: var(--accent-fill); color: #fff; box-shadow: 0 2px 0 var(--accent-deep); transition: transform .08s, box-shadow .08s; }
 .btn.tint { background: var(--accent-wash); color: var(--accent); }
 .btn.full { width: 100%; }
 .btn.sm { height: 34px; padding: 0 15px; font-size: 14px; border-radius: 999px; }
 .btn:active { transform: scale(.98); }
+.btn.pri:active { transform: translateY(2px); box-shadow: none; }
+.btn.pri:disabled { box-shadow: none; }
 .chips { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px; margin: 0 -16px; scrollbar-width: none; } .chips::-webkit-scrollbar { display: none; }
 .chip { flex: none; height: 34px; padding: 0 14px; border-radius: 17px; background: var(--surface); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .chip.on { background: var(--accent-fill); color: #fff; }
@@ -95,7 +97,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 /* 右侧圆钮：空着时是"+"（导入：粘贴、文件、拍书页），有字时变成发送 */
 .ask .send { width: 38px; height: 38px; border-radius: 50%; background: var(--fill); color: var(--ink); display: grid; place-items: center; transition: background .15s; }
 .ask .send svg { width: 18px; height: 18px; } .ask .send .go { display: none; }
-.dock.has .send { background: var(--accent-fill); color: #fff; } .dock.has .send .go { display: block; } .dock.has .send .p { display: none; }
+.dock.has .send { background: var(--accent-fill); color: #fff; box-shadow: 0 2px 0 var(--accent-deep); } .dock.has .send:active { transform: translateY(2px); box-shadow: none; } .dock.has .send .go { display: block; } .dock.has .send .p { display: none; }
 .mini { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .mini > div { background: var(--surface); border-radius: 20px; padding: 12px 14px; } .mini b { font-size: 21px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; } .mini small { font-size: 11.5px; color: var(--ink-3); margin-left: 3px; } .mini span { display: block; font-size: 12px; color: var(--ink-2); }
 .mini .bar { height: 4px; border-radius: 2px; background: var(--line); margin-top: 6px; overflow: hidden; } .mini .bar i { display: block; height: 100%; background: var(--accent); }
@@ -226,7 +228,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .sheet .ysync { background: var(--sunken); } .ysync a { gap: 10px; } .ysync a + a::before { left: 16px; } .ysync a #yState { flex: 1; } .ysync #ySyncNow .r em { color: var(--accent); }
 .toast { position: absolute; left: 50%; bottom: calc(96px + var(--sab)); transform: translateX(-50%); z-index: 40; background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 22px; font-size: 13.5px; white-space: nowrap; display: flex; gap: 12px; align-items: center; }
 .toast button { color: var(--accent); font-weight: 600; filter: brightness(1.4); }
-@media (prefers-reduced-motion: reduce) { .sheet, .tabs, .rdtop, .rdbar { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .sheet, .tabs, .rdtop, .rdbar, .btn { transition: none; } .btn.pri:active, .dock.has .send:active { transform: none; } }
 
 /* —— 以下是实现时补的（原型里是静态内容） —— */
 #root { height: 100%; }
