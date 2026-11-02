@@ -2,7 +2,7 @@
  * 界面用到的方法签名（06 §3 的子集，M0 / M1）。类型只从 @tibi/core 取类型，不引运行时。
  */
 import type {
-  Answer, AnswerResult, WidgetBlock, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession, Skill,
+  Answer, AnswerResult, MessageBlock, MessageStep, WidgetBlock, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession, Skill,
   DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, Task, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval,
 } from '@tibi/core';
 
@@ -87,7 +87,7 @@ export interface MethodTable {
   'memory.delete': { params: { id: Id }; result: Undo };
   'memory.pause': { params: { paused: boolean }; result: Ok };
   'memory.clear': { params: Record<string, never>; result: Undo };
-  'chat.open': { params: { conversation_id?: Id; document_id?: Id; today?: boolean }; result: Conversation & { messages: Message[]; cursor?: string; active?: TaskId[]; approvals?: Approval[] } };
+  'chat.open': { params: { conversation_id?: Id; document_id?: Id; today?: boolean }; result: Conversation & { messages: Message[]; cursor?: string; active?: TaskId[]; approvals?: Approval[]; live?: { id: TaskId; blocks: MessageBlock[]; steps: MessageStep[] }[] } };
   'chat.send': { params: { conversation_id: Id; text: string; context?: { page: string; document_id?: Id; section_id?: Id; sentence_id?: Id; selection?: string; card_id?: Id }; skill?: string; tier?: 'fast' | 'deep'; provider_id?: string }; result: { submission_id: TaskId } };
   'chat.cancel': { params: { submission_id: TaskId }; result: Ok };
   'chat.widget_update': { params: { message_id: Id; widget_id: Id; state: unknown; result?: string }; result: Ok };

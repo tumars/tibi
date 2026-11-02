@@ -15,6 +15,9 @@ export function localDay(t: number = now()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** 正在生成的回答（进程内）：离开再回来时接上已经说出来的部分 */
+export const liveAnswers = new Map<string, () => { blocks: MessageBlock[]; steps: MessageStep[] }>();
+
 /** 正在打开的文章对话（进程内去重） */
 const OPENING = new Map<string, Promise<Conversation>>();
 
@@ -134,10 +137,14 @@ export class Conversations {
   }
 
   /** 进行中的任务和等确认的审批：离开再回来时接上 */
-  async activity(conversation_id: string): Promise<{ active: string[]; approvals: Approval[] }> {
+  async activity(conversation_id: string): Promise<{ active: string[]; approvals: Approval[]; live: { id: string; blocks: MessageBlock[]; steps: MessageStep[] }[] }> {
     const active = await this.db.all<{ id: string }>("SELECT id FROM jobs WHERE conversation_id = ? AND status IN ('queued', 'running', 'waiting_approval') AND deleted_at IS NULL ORDER BY created_at", [conversation_id]);
     const rows = await this.db.all<{ approval: string }>("SELECT j.approval FROM jobs j LEFT JOIN jobs p ON p.id = j.parent_job_id WHERE j.status = 'waiting_approval' AND j.approval IS NOT NULL AND j.deleted_at IS NULL AND COALESCE(j.conversation_id, p.conversation_id) = ? ORDER BY j.updated_at", [conversation_id]);
-    return { active: active.map(r => r.id), approvals: rows.map(r => j.parse<Approval | null>(r.approval, null)).filter((a): a is Approval => !!a && !('decision' in a)) };
+    return {
+      active: active.map(r => r.id),
+      approvals: rows.map(r => j.parse<Approval | null>(r.approval, null)).filter((a): a is Approval => !!a && !('decision' in a)),
+      live: active.flatMap(r => { const l = liveAnswers.get(r.id); return l ? [{ id: r.id, ...l() }] : []; }),
+    };
   }
 
   /** 卡片上的操作结果：重开对话能恢复，下一轮也带给模型 */
@@ -148,8 +155,12 @@ export class Conversations {
       const c = j.parse<MessageContent>(row.content, {});
       const block = c.blocks?.find(b => b.type === 'widget' && b.id === widget_id);
       if (!block || block.type !== 'widget') throw new TibiError('not_found', '找不到这张卡片');
+      const wasDone = quizDone(block);
       block.state = state; if (result) block.result = result; else delete block.result;
       await tx.run('UPDATE messages SET content = ?, updated_at = ? WHERE id = ?', [j.str(c), now(), message_id]);
+      // 练习做完记一条学习事件（做错的词给整理记忆用）；再做一遍算新的一次
+      const done = quizDone(block);
+      if (done && !wasDone) await tx.run('INSERT INTO learning_events(id, type, payload, consolidated, created_at) VALUES (?,?,?,0,?)', [uuidv7(), 'quiz_done', j.str(done), now()]);
     });
   }
 
@@ -183,6 +194,16 @@ export class Conversations {
     const rows = await this.db.all<MsgRow>('SELECT id, role, content, job_id, created_at FROM messages WHERE conversation_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ?', [conversation_id, limit]);
     return rows.reverse().map(toMessage);
   }
+}
+
+function quizDone(b: MessageBlock): { total: number; correct: number; wrong: string[] } | undefined {
+  if (b.type !== 'widget' || b.kind !== 'quiz') return undefined;
+  const picks = (b.state as { picks?: string[] } | undefined)?.picks ?? [];
+  const items = b.data.items;
+  if (!items.length || picks.length < items.length) return undefined;
+  const norm = (s: string) => s.trim().toLowerCase();
+  const wrong = items.filter((q, i) => !q.answer.map(norm).includes(norm(picks[i] ?? ''))).map(q => q.term);
+  return { total: items.length, correct: items.length - wrong.length, wrong };
 }
 
 /** 给模型的历史：卡片换成一句摘要，否则用户追问卡片内容时模型接不上 */

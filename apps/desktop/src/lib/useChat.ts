@@ -62,7 +62,13 @@ export function useChat(conversationId: string | undefined, o: { skill?: string;
       active.forEach(id => mine.current.add(id));
       setLive(ls => [
         ...ls.filter(l => !c.messages.some(m => m.role === 'assistant' && m.task_id === l.id)),
-        ...active.filter(id => !ls.some(l => l.id === id) && !c.messages.some(m => m.role === 'assistant' && m.task_id === id)).map(id => ({ id, text: '', blocks: [], tools: [], done: false, resumed: true })),
+        ...active.filter(id => !ls.some(l => l.id === id) && !c.messages.some(m => m.role === 'assistant' && m.task_id === id)).map(id => {
+          // 接上已经说出来的部分，后面的增量接着往上加；进程重启过就没有，只能等说完
+          const seen = c.live?.find(x => x.id === id);
+          return seen
+            ? { id, text: '', blocks: seen.blocks, tools: seen.steps.map(s => ({ tool: s.tool, summary: s.summary, done: true, status: s.status })), done: false }
+            : { id, text: '', blocks: [], tools: [], done: false, resumed: true };
+        }),
       ]);
       setApprovals(c.approvals ?? []);
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }

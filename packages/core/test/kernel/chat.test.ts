@@ -475,6 +475,54 @@ describe('消息操作与写入回执', () => {
   });
 });
 
+describe('接续与学习事件', () => {
+  it('回答中重开对话：拿到已经说出来的部分', async () => {
+    const k = await makeKernelCore({ turns: [{ text: '先说一半', toolCalls: [{ name: 'ask_fake', args: {} }] }, { text: '好' }] });
+    k.kernel.registerCapabilities({ ask_fake: capability({ name: 'ask_fake', description: '要确认', perm: 'confirm', params: Type.Object({}), async run() { return {}; } }) });
+    const { skillDef } = await import('../../src/kernel/skills.js');
+    skillDef('tibi')!.allowed_tools.push('ask_fake');
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '问' });
+    await until(() => k.events.some(e => e.event === 'approval.requested'));
+    const opened = await k.call('chat.open', { conversation_id: conv.id });
+    expect(opened.live).toEqual([{ id: submission_id, blocks: [{ type: 'text', text: '先说一半' }], steps: [] }]);
+    await k.call('tasks.approve', { id: submission_id, decision: 'allow' });
+    await k.kernel.jobs.wait(submission_id);
+    skillDef('tibi')!.allowed_tools.pop();
+    expect((await k.call('chat.open', { conversation_id: conv.id })).live).toEqual([]);
+  });
+
+  it('上一句没有回答：历史里补占位，用户消息不连着', async () => {
+    const k = await makeKernelCore({ turns: [{ error: '500' }, { text: '好' }] });
+    const conv = await k.call('chat.open', {});
+    const a = await k.call('chat.send', { conversation_id: conv.id, text: '第一句' });
+    await k.kernel.jobs.wait(a.submission_id);
+    const b = await k.call('chat.send', { conversation_id: conv.id, text: '第二句' });
+    await k.kernel.jobs.wait(b.submission_id);
+    const msgs = JSON.parse(k.stream.contexts[k.stream.contexts.length - 1]!) as { role: string }[];
+    const roles = msgs.map(m => m.role).filter(r => r !== 'system');
+    expect(roles).toEqual(['user', 'assistant', 'user']);
+    expect(JSON.stringify(msgs)).toContain('这句没有得到回答');
+  });
+
+  it('练习做完记 quiz_done，只记一次；再做一遍算新的', async () => {
+    const k = await makeKernelCore();
+    const conv = await k.call('chat.open', {});
+    const block = { type: 'widget', id: 'w1', v: 1, kind: 'quiz', summary: 's', data: { items: [{ term: 'upshot', type: 'choice', prompt: 'upshot', options: ['结果', '原因'], answer: ['结果'] }, { term: 'borrow', type: 'choice', prompt: 'borrow', options: ['借', '还'], answer: ['借'] }] } };
+    await k.db.run("INSERT INTO messages(id, conversation_id, role, content, created_at, updated_at) VALUES ('m1', ?, 'assistant', ?, 1, 1)", [conv.id, JSON.stringify({ text: '', blocks: [block] })]);
+    const update = (picks: string[]) => k.call('chat.widget_update', { message_id: 'm1', widget_id: 'w1', state: { picks } });
+    const events = async () => k.db.all<{ payload: string }>("SELECT payload FROM learning_events WHERE type = 'quiz_done'");
+    await update(['原因']);
+    expect(await events()).toEqual([]);
+    await update(['原因', '借']);
+    await update(['原因', '借']);
+    expect((await events()).map(e => JSON.parse(e.payload))).toEqual([{ total: 2, correct: 1, wrong: ['upshot'] }]);
+    await update([]);
+    await update(['结果', '借']);
+    expect((await events()).length).toBe(2);
+  });
+});
+
 describe('崩溃恢复', () => {
   it('恢复后模型重新发起同样的写操作：不再执行一遍', async () => {
     const k = await makeKernelCore({ turns: [{ toolCalls: [{ name: 'record_fake', args: { card: 'c1', rating: 3 } }] }, { text: '记好了' }] });

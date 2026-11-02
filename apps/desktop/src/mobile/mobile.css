@@ -249,6 +249,19 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .mdtable th { font-weight: 600; white-space: nowrap; background: var(--sunken); }
 .mdtable td { border-top: .5px solid var(--line-2); }
 .thread .tool { font-size: 12.5px; color: var(--ink-3); display: flex; gap: 6px; align-items: center; }
+.thread .process { font-size: 12.5px; color: var(--ink-3); margin-bottom: 6px; }
+.thread .process > summary { display: flex; align-items: center; gap: 6px; list-style: none; min-height: 28px; }
+.thread .process > summary::-webkit-details-marker { display: none; }
+.thread .process > summary::after { content: '›'; transition: transform .15s; }
+.thread .process[open] > summary::after { transform: rotate(90deg); }
+.thread .process .pt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread .process .spin { flex: none; width: 11px; height: 11px; border: 2px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%; animation: tspin .8s linear infinite; }
+@keyframes tspin { to { transform: rotate(360deg); } }
+.thread .process .toolline { margin: 4px 0 0 2px; }
+.thread .process .toolline.off, .thread .process.off > summary { color: var(--hard); }
+.thread .receipts { margin-top: 8px; font-size: 12.5px; color: var(--ink-2); display: flex; flex-direction: column; gap: 4px; }
+.thread .receipts .undone > span:first-child { text-decoration: line-through; color: var(--ink-3); }
+.thread .receipts .linkbtn { min-height: 28px; padding: 0 4px; border: 0; background: none; color: var(--accent); font: inherit; }
 .thread .err { color: var(--hard); font-size: 13px; }
 .typing { display: inline-flex; gap: 4px; } .typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: tp 1s infinite alternate; } .typing i:nth-child(2) { animation-delay: .2s; } .typing i:nth-child(3) { animation-delay: .4s; } @keyframes tp { to { opacity: .2; } }
 .approve { background: var(--surface); border-radius: 18px; padding: 12px 14px; box-shadow: inset 0 0 0 1.5px var(--accent); }
