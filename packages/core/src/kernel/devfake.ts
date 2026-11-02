@@ -28,7 +28,23 @@ const stream: StreamFn = (model, context) => {
   const lastUser = [...msgs].reverse().find(m => m.role === 'user');
   const c = lastUser?.content;
   const last = typeof c === 'string' ? c : Array.isArray(c) ? c.map(x => (x as { text?: string }).text ?? '').join('') : '';
-  const text = reply(all, last);
+  // 走通对话卡片："卡片 查词 upshot"、"卡片 辨析 a b"、"卡片 练习"
+  const demo = msgs[msgs.length - 1]?.role === 'user' ? last.match(/^卡片 (查词|辨析|练习)\s*(.*)$/) : null;
+  if (demo) {
+    const words = demo[2]!.split(/\s+/).filter(Boolean);
+    const call = demo[1] === '查词' ? { name: 'lookup_word', args: { word: words[0] ?? 'upshot' } } : demo[1] === '辨析' ? { name: 'compare_words', args: { words } } : { name: 'create_quiz', args: { count: 3, ...(words.length ? { types: words } : {}) } };
+    const toolCall = { type: 'toolCall' as const, id: `dev_${Date.now()}`, name: call.name, arguments: call.args as never };
+    const base: AssistantMessage = { role: 'assistant', content: [], api: model.api, provider: model.provider, model: model.id, usage: { input: 50, output: 20, cacheRead: 0, cacheWrite: 0, totalTokens: 70, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: 'toolUse', timestamp: Date.now() };
+    queueMicrotask(() => {
+      s.push({ type: 'start', partial: base });
+      s.push({ type: 'toolcall_start', contentIndex: 0, partial: base });
+      s.push({ type: 'toolcall_end', contentIndex: 0, toolCall, partial: base });
+      const final: AssistantMessage = { ...base, content: [toolCall] };
+      s.push({ type: 'done', reason: 'toolUse', message: final }); s.end(final);
+    });
+    return s;
+  }
+  const text = msgs[msgs.length - 1]?.role === 'toolResult' ? '（假模型）卡片显示在上面。' : reply(all, last);
   const base: AssistantMessage = { role: 'assistant', content: [], api: model.api, provider: model.provider, model: model.id, usage: { input: 50, output: 20, cacheRead: 0, cacheWrite: 0, totalTokens: 70, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: 'stop', timestamp: Date.now() };
   void (async () => {
     s.push({ type: 'start', partial: base });

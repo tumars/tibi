@@ -5,7 +5,7 @@ import type { Dict } from '../dict/types.js';
 import type { EventSink, JobRunner } from '../kernel/types.js';
 import type { CompleteOptions, CompleteResult } from '../kernel/complete.js';
 import type { Platform } from '../platform.js';
-import { TibiError } from '../types.js';
+import { TibiError, type WidgetSpec } from '../types.js';
 
 /**
  * 方法与能力的定义方式（06 §1、§5）：一份 TypeBox 参数 schema + 处理函数。
@@ -52,6 +52,8 @@ export interface CapabilityDef<P extends TSchema = TSchema, R = unknown> {
   /** 崩溃重跑时能否安全重放（有幂等键的写能力 = safe） */
   replay?: 'never' | 'safe';
   run: (params: Static<P>, ctx: Ctx) => Promise<R>;
+  /** 结果怎么显示成对话卡片；不适合显示时返回 undefined */
+  widget?(result: R, params: Static<P>): WidgetSpec | undefined;
 }
 
 export function capability<P extends TSchema, R>(def: CapabilityDef<P, R>): CapabilityDef<P, R> { return def; }

@@ -1,7 +1,7 @@
 import { Type } from '@sinclair/typebox';
 import { now } from '../../db/driver.js';
 import { capability, S, type CapabilityMap } from '../../rpc/define.js';
-import { TibiError, type AnswerResult, type CardType, type Rating } from '../../types.js';
+import { TibiError, type AnswerResult, type CardType, type Rating, type WidgetSpec } from '../../types.js';
 import { loadParams, retention } from './fsrs.js';
 import { gradeAnswer, judgeTyped, normalizeAnswer } from './grade.js';
 import { forecast, makeStep, pickCardType, pickDistractors, shuffle } from './queue.js';
@@ -104,6 +104,17 @@ export const reviewCapabilities: CapabilityMap = {
         items.push({ term_id: id, term: term.text_display, card_type: type, prompt: type === 'cloze' ? step.context.sentence.replace(new RegExp(`\\b${term.text_display.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'), '____') : step.context.sentence, answer: type === 'choice' ? [step.options!.find(o => o.id === (step as { correct_option?: string }).correct_option)!.text] : step.context.answer, options: step.options?.map(o => ({ text: o.text, from: o.from })), context: step.context.id ? { sentence_id: step.context.id, sentence: step.context.sentence } : undefined });
       }
       return { items: shuffle(items) };
+    },
+    widget(r) {
+      // 卡片只支持选择和填空；recognize 靠自评，不适合临时练习
+      const items: Extract<WidgetSpec, { kind: 'quiz' }>['data']['items'] = [];
+      for (const i of r.items) {
+        if (i.card_type === 'choice' && i.options?.length) items.push({ term: i.term, type: 'choice', prompt: i.prompt, options: i.options.map(o => o.text), answer: i.answer });
+        // 词没有语境句时题干只剩空格，没法答
+        else if (i.card_type === 'cloze' && i.prompt.replace(/_+/g, '').trim()) items.push({ term: i.term, type: 'cloze', prompt: i.prompt, answer: i.answer });
+      }
+      if (!items.length) return undefined;
+      return { kind: 'quiz', summary: `练习 ${items.length} 题，考 ${items.map(i => i.term).join('、')}`, data: { items } };
     },
   }),
 };

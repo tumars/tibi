@@ -1,0 +1,30 @@
+/* 对话卡片：桌面和手机共用，颜色走两边都有的变量 */
+.wg-blocks { display: flex; flex-direction: column; gap: 10px; }
+.wg { background: var(--surface); border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; font-size: 13.5px; line-height: 1.6; min-width: 0; color: var(--ink); }
+.thread .a .wg { box-shadow: inset 0 0 0 1px var(--line); background: var(--sunken); }
+.wg-hd { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.wg-k { font-size: 11.5px; color: var(--ink-3); }
+.wg-prog { margin-left: auto; font-variant-numeric: tabular-nums; }
+.wg-word { font-family: var(--f-read); font-size: 20px; font-weight: 600; line-height: 1.25; }
+.wg-w1 { font-family: var(--f-read); font-size: 15px; font-weight: 600; }
+.wg-mean { white-space: pre-wrap; font-weight: 500; }
+.wg-en { font-family: var(--f-read); font-size: 14px; color: var(--ink-2); }
+.wg-zh { font-family: var(--f-ui); font-size: 12.5px; color: var(--ink-3); }
+.wg-q { font-size: 15px; color: var(--ink); }
+.wg-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wg-acts .btn { display: inline-flex; align-items: center; gap: 5px; }
+.wg-ok { color: var(--ok); font-weight: 500; }
+.wg-bad { color: var(--hard); font-weight: 500; }
+.wg-cmp { display: flex; flex-direction: column; }
+.wg-cmp > div { padding: 9px 0; border-top: 1px solid var(--line); }
+.wg-cmp > div:first-child { border-top: 0; padding-top: 0; }
+.wg-cmp > div:last-child { padding-bottom: 0; }
+.wg-opts { display: flex; flex-direction: column; gap: 6px; }
+.wg-opt { font: inherit; text-align: left; padding: 7px 11px; border: 0; border-radius: 9px; box-shadow: inset 0 0 0 1px var(--line-2); background: transparent; color: var(--ink); cursor: pointer; }
+.wg-opt:hover:not(:disabled) { background: var(--hover); }
+.wg-opt:disabled { cursor: default; color: var(--ink-3); }
+.wg-opt.right { color: var(--ok); box-shadow: inset 0 0 0 1.5px var(--ok); font-weight: 500; }
+.wg-opt.wrong { color: var(--hard); box-shadow: inset 0 0 0 1.5px var(--hard); }
+.wg-fill { display: flex; gap: 8px; align-items: center; }
+.wg-fill input { flex: 1; min-width: 0; font: inherit; font-family: var(--f-read); height: 32px; padding: 0 10px; border: 0; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line-2); background: transparent; color: var(--ink); outline: none; }
+.wg-fill input:focus { box-shadow: inset 0 0 0 1.5px var(--accent); }

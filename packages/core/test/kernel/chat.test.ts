@@ -167,3 +167,69 @@ describe('chat.* 与 pi 桥接', () => {
     expect(kernel.registry.listForMcp().some(c => c.name === 'run_skill')).toBe(false);
   });
 });
+
+describe('对话卡片', () => {
+  async function run(turns: Parameters<typeof makeKernelCore>[0]) {
+    const k = await makeKernelCore(turns);
+    k.kernel.registerCapabilities({
+      card_fake: capability({ name: 'card_fake', description: '假卡片', perm: 'read', params: Type.Object({ w: Type.String() }), async run(p) { return { w: p.w }; }, widget: r => r.w === 'none' ? undefined : r.w === 'boom' ? (() => { throw new Error('boom'); })() : { kind: 'word', summary: `词 ${r.w}`, data: { word: r.w, translation: 'n. 结果', in_wordbook: false } } }),
+    });
+    const { skillDef } = await import('../../src/kernel/skills.js');
+    skillDef('tibi')!.allowed_tools.push('card_fake');
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '查一下' });
+    const r = await k.kernel.jobs.wait(submission_id);
+    skillDef('tibi')!.allowed_tools.pop();
+    return { ...k, conv, submission_id, r };
+  }
+  const call = (w: string) => ({ name: 'card_fake', args: { w } });
+
+  it('工具结果变成卡片：按顺序保存所有文字，发事件，失败或不适合时不出卡', async () => {
+    const { call: rpc, conv, events, r } = await run({ turns: [{ text: '我查一下。', toolCalls: [call('a'), call('none'), call('boom')] }, { text: '这是结果。' }] });
+    expect(r.status).toBe('done');
+    const [, msg] = (await rpc('chat.history', { conversation_id: conv.id })).items;
+    expect(msg.text).toBe('我查一下。\n\n这是结果。');
+    expect(msg.blocks.map((b: { type: string }) => b.type)).toEqual(['text', 'widget', 'text']);
+    expect(events.filter(e => e.event === 'chat.block').map(e => e.data.block.id)).toEqual([msg.blocks[1].id]);
+  });
+
+  it('同样的卡不重复，一次回答最多三张；没有卡片时不写 blocks', async () => {
+    const { call: rpc, conv } = await run({ turns: [{ toolCalls: ['a', 'a', 'b', 'c', 'd'].map(call) }, { text: '好' }] });
+    const [, msg] = (await rpc('chat.history', { conversation_id: conv.id })).items;
+    expect(msg.blocks.filter((b: { type: string }) => b.type === 'widget').length).toBe(3);
+    const plain = await run({ turns: [{ text: '好' }] });
+    expect((await plain.call('chat.history', { conversation_id: plain.conv.id })).items[1].blocks).toBeUndefined();
+  });
+
+  it('操作结果能保存，下一轮的模型历史里有卡片摘要和结果', async () => {
+    const { call: rpc, conv, kernel, stream } = await run({ turns: [{ toolCalls: [call('a')] }, { text: '' }, { text: '接着说' }] });
+    const [, msg] = (await rpc('chat.history', { conversation_id: conv.id })).items;
+    expect(msg.text).toBe('');
+    await rpc('chat.widget_update', { message_id: msg.id, widget_id: msg.blocks[0].id, state: { added: true }, result: '已加入生词本' });
+    const opened = await rpc('chat.open', { conversation_id: conv.id });
+    expect(opened.messages[1].blocks[0].state).toEqual({ added: true });
+    await expect(rpc('chat.widget_update', { message_id: msg.id, widget_id: 'nope', state: {} })).rejects.toThrow();
+    const { messageForModel } = await import('../../src/kernel/conversations.js');
+    expect(messageForModel(opened.messages[1])).toBe('[界面上显示了卡片：词 a；用户操作：已加入生词本]');
+    const { submission_id } = await rpc('chat.send', { conversation_id: conv.id, text: '第二句' });
+    expect((await kernel.jobs.wait(submission_id)).status).toBe('done');
+    void stream;
+  });
+});
+
+describe('练习卡片的题目', () => {
+  it('只保留能作答的选择题和填空题；一题都没有就不出卡', async () => {
+    const { reviewCapabilities } = await import('../../src/domain/review/capabilities.js');
+    const widget = reviewCapabilities.create_quiz!.widget!;
+    const base = { term_id: 't', term: 'upshot', answer: ['upshot'], options: undefined, context: undefined };
+    const spec = widget({ items: [
+      { ...base, card_type: 'cloze', prompt: 'The ____ is clear.' },
+      { ...base, card_type: 'cloze', prompt: '____' },
+      { ...base, card_type: 'recognize', prompt: 'upshot' },
+      { ...base, card_type: 'choice', prompt: 'upshot', answer: ['结果'], options: [{ text: '结果', from: 'a' }, { text: '原因', from: 'b' }] },
+    ] }, {}) as { data: { items: { type: string; options?: string[] }[] } };
+    expect(spec.data.items.map(i => i.type)).toEqual(['cloze', 'choice']);
+    expect(spec.data.items[1]!.options).toEqual(['结果', '原因']);
+    expect(widget({ items: [{ ...base, card_type: 'cloze', prompt: '____' }] }, {})).toBeUndefined();
+  });
+});

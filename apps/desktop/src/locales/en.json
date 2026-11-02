@@ -956,5 +956,15 @@
   "词族": "Word family",
   "英文义项与同义词": "English senses and synonyms",
   "例句、搭配、词族和辨析来自词光 Word Atlas（CC BY 4.0），由 AI 生成，未逐条审校。": "Examples, collocations, word family and usage notes are from Word Atlas (CC BY 4.0). They are AI-generated and not individually reviewed.",
-  "英文义项和同义词来自 Open English WordNet（CC BY 4.0）。": "English senses and synonyms are from Open English WordNet (CC BY 4.0)."
+  "英文义项和同义词来自 Open English WordNet（CC BY 4.0）。": "English senses and synonyms are from Open English WordNet (CC BY 4.0).",
+  "已在生词本": "In your wordbook",
+  "已加入生词本": "Added to wordbook",
+  "朗读 {word}": "Read {word} aloud",
+  "答对 {n} / {total}": "{n} / {total} correct",
+  "再做一遍": "Try again",
+  "选出 {word} 的意思": "Choose the meaning of {word}",
+  "填入合适的词": "Fill in the blank",
+  "你的答案": "Your answer",
+  "确定": "OK",
+  "正确答案：{answer}": "Answer: {answer}"
 }

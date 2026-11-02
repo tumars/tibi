@@ -2,7 +2,7 @@
  * 界面用到的方法签名（06 §3 的子集，M0 / M1）。类型只从 @tibi/core 取类型，不引运行时。
  */
 import type {
-  Answer, AnswerResult, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession, Skill,
+  Answer, AnswerResult, WidgetBlock, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession, Skill,
   DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, Task, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval,
 } from '@tibi/core';
 
@@ -89,6 +89,7 @@ export interface MethodTable {
   'chat.open': { params: { conversation_id?: Id; document_id?: Id; today?: boolean }; result: Conversation & { messages: Message[] } };
   'chat.send': { params: { conversation_id: Id; text: string; context?: { page: string; document_id?: Id; section_id?: Id; sentence_id?: Id; selection?: string; card_id?: Id }; skill?: string; tier?: 'fast' | 'deep' }; result: { submission_id: TaskId } };
   'chat.cancel': { params: { submission_id: TaskId }; result: Ok };
+  'chat.widget_update': { params: { message_id: Id; widget_id: Id; state: unknown; result?: string }; result: Ok };
   'chat.rename': { params: { conversation_id: Id; title: string }; result: Conversation };
   'chat.delete': { params: { conversation_id: Id }; result: Ok };
   'tasks.approve': { params: { id: TaskId; decision: 'allow' | 'deny' | 'edit'; edited?: Record<string, unknown>; always?: boolean }; result: TaskSummary };
@@ -121,6 +122,7 @@ export interface EventTable {
   'usage.updated': { skill_id: string; month_cost: number; total: number };
   'model.status': { ok: boolean; reason?: 'offline' | 'unauthorized' | 'budget' };
   'chat.delta': { conversation_id: Id; submission_id: TaskId; delta: string; done?: boolean };
+  'chat.block': { conversation_id: Id; submission_id: TaskId; block: WidgetBlock };
   'chat.tool': { conversation_id?: Id; task_id: TaskId; phase: 'start' | 'end'; tool: string; skill_id: string; summary: string; duration_ms?: number };
   'sync.update': { state: 'idle' | 'syncing' | 'error'; pushed?: number; pulled?: number; last_synced_at?: number; error?: { code: string; message: string } };
 }

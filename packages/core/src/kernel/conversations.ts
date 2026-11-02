@@ -1,6 +1,6 @@
 import { j, now, type Database } from '../db/driver.js';
 import { uuidv7 } from '../ids.js';
-import { TibiError, type Conversation, type Message, type SkillId } from '../types.js';
+import { TibiError, type Conversation, type Message, type MessageBlock, type SkillId } from '../types.js';
 
 /** 对话与消息（01 §7 conversations / messages / thread_links）：先写库再显示 */
 
@@ -8,7 +8,7 @@ interface ConvRow extends Record<string, string | number | null> { id: string; k
 interface LinkRow extends Record<string, string | number | null> { skill_id: string; document_id: string | null; trigger: string }
 interface MsgRow extends Record<string, string | number | null> { id: string; role: string; content: string; job_id: string | null; created_at: number }
 
-export interface MessageContent { text?: string; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number } }
+export interface MessageContent { text?: string; blocks?: MessageBlock[]; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number } }
 
 export function localDay(t: number = now()): string {
   const d = new Date(t);
@@ -105,6 +105,19 @@ export class Conversations {
     return { id, role, ...content, task_id: job_id, created_at: t };
   }
 
+  /** 卡片上的操作结果：重开对话能恢复，下一轮也带给模型 */
+  async updateWidget(message_id: string, widget_id: string, state: unknown, result?: string): Promise<void> {
+    await this.db.transaction(async tx => {
+      const row = await tx.get<{ content: string }>('SELECT content FROM messages WHERE id = ? AND deleted_at IS NULL', [message_id]);
+      if (!row) throw new TibiError('not_found', '找不到这条消息');
+      const c = j.parse<MessageContent>(row.content, {});
+      const block = c.blocks?.find(b => b.type === 'widget' && b.id === widget_id);
+      if (!block || block.type !== 'widget') throw new TibiError('not_found', '找不到这张卡片');
+      block.state = state; if (result) block.result = result; else delete block.result;
+      await tx.run('UPDATE messages SET content = ?, updated_at = ? WHERE id = ?', [j.str(c), now(), message_id]);
+    });
+  }
+
   async history(conversation_id: string, opts: { cursor?: string; limit?: number } = {}): Promise<{ items: Message[]; total: number; cursor?: string }> {
     const limit = opts.limit ?? 50;
     const before = opts.cursor ? Number(opts.cursor) : Number.MAX_SAFE_INTEGER;
@@ -121,6 +134,12 @@ export class Conversations {
   }
 }
 
+/** 给模型的历史：卡片换成一句摘要，否则用户追问卡片内容时模型接不上 */
+export function messageForModel(m: Message): string {
+  if (!m.blocks?.length) return m.text ?? '';
+  return m.blocks.map(b => b.type === 'text' ? b.text : `[界面上显示了卡片：${b.summary}${b.result ? `；用户操作：${b.result}` : ''}]`).join('\n\n');
+}
+
 function toConversation(r: ConvRow, link?: LinkRow | null): Conversation {
   return {
     id: r.id, kind: r.kind as Conversation['kind'], day: r.day ?? undefined, device: r.device as 'desktop' | 'mobile',
@@ -130,5 +149,5 @@ function toConversation(r: ConvRow, link?: LinkRow | null): Conversation {
 }
 function toMessage(r: MsgRow): Message {
   const c = j.parse<MessageContent>(r.content, {});
-  return { id: r.id, role: r.role as Message['role'], text: c.text, tool: c.tool, task_id: r.job_id ?? undefined, created_at: r.created_at };
+  return { id: r.id, role: r.role as Message['role'], text: c.text, blocks: c.blocks, tool: c.tool, task_id: r.job_id ?? undefined, created_at: r.created_at };
 }

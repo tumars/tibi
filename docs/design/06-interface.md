@@ -214,6 +214,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `chat.list` | `{ limit?: number }` | `Conversation[]` | 左栏"最近" |
 | `chat.history` | `{ conversation_id: ConvId; cursor?: string }` | `Page<Message>` |  |
 | `chat.cancel` | `{ submission_id: TaskId }` | `Ok` |  |
+| `chat.widget_update` | `{ message_id: Id; widget_id: Id; state: unknown; result?: string }` | `Ok` | 保存卡片上的操作结果；`result` 下一轮带给模型 |
 | `chat.rename` | `{ conversation_id: ConvId; title: string }` | `Conversation` |  |
 | `chat.delete` | `{ conversation_id: ConvId }` | `Ok` | 硬删：对话、thread_links，以及 skill_audit 里引用它的 args 与 undo_payload；不可撤销 |
 
@@ -293,6 +294,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | 事件 | 载荷 | 谁在听 |
 |---|---|---|
 | `chat.delta` | `{ conversation_id: ConvId; submission_id: TaskId; delta: string; done?: boolean }` | 对话页、各页 Tibi 面板逐字显示 |
+| `chat.block` | `{ conversation_id: ConvId; submission_id: TaskId; block: WidgetBlock }` | 工具结束后显示对话卡片（查词、辨析、练习） |
 | `chat.tool` | `{ conversation_id: ConvId; task_id: TaskId; phase: 'start' \| 'end'; tool: string; skill_id: SkillId; summary: string; duration_ms?: number }` | 收起的过程卡；任务详情的过程区 |
 | `task.update` | `{ task: TaskSummary; steps?: TaskStep[] }` | 运行记录列表、左栏徽标、对话页进度；节流 ≤ 4 次 / 秒 |
 | `task.done` | `{ task: TaskSummary; result?: { document_id?: Id; summary: string; action?: { label: string; route: string } } }` | 带动作的通知（"导入完成 · 开始阅读"） |

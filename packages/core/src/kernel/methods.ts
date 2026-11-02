@@ -39,6 +39,11 @@ export function chatMethods(deps: KernelMethodDeps): MethodMap {
     'chat.list': method(Type.Object({ limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })) }), async (p, _ctx) => convs().list(p.limit ?? 20), '左栏"最近"'),
     'chat.history': method(Type.Object({ conversation_id: Type.String(), cursor: Type.Optional(Type.String()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })) }), async (p) => convs().history(p.conversation_id, p)),
     'chat.cancel': method(Type.Object({ submission_id: Type.String() }), async (p) => { await deps.runner.cancel(p.submission_id); return { ok: true as const }; }),
+    'chat.widget_update': method(Type.Object({ message_id: Type.String(), widget_id: Type.String(), state: Type.Unknown(), result: Type.Optional(Type.String({ maxLength: 300 })) }), async (p) => {
+      if (JSON.stringify(p.state ?? null).length > 8000) throw new TibiError('invalid_params', '卡片状态太大');
+      await convs().updateWidget(p.message_id, p.widget_id, p.state, p.result);
+      return { ok: true as const };
+    }, '保存卡片上的操作结果'),
     'chat.rename': method(Type.Object({ conversation_id: Type.String(), title: Type.String({ minLength: 1 }) }), async (p) => convs().rename(p.conversation_id, p.title)),
     'chat.delete': method(Type.Object({ conversation_id: Type.String() }), async (p) => {
       // 先停掉这段对话还在跑的任务，否则回答写回时对话已经没了

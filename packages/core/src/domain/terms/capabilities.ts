@@ -6,6 +6,8 @@ import { getTerm, getTermByText } from './repo.js';
 import { addPhrase, addWords, applyStatus, setContextMeaning } from './service.js';
 import { listTerms, termDetail, VIEWS } from './views.js';
 
+const firstLine = (s: string) => s.split('\n')[0]!.trim();
+
 /** 能力层·词典与词汇（06 §5）：技能工具 / MCP 工具 / 界面直接调用共用 */
 export const termsCapabilities: CapabilityMap = {
   lookup_word: capability({
@@ -16,7 +18,13 @@ export const termsCapabilities: CapabilityMap = {
       const entry = await ctx.dict.lookup(lemma);
       const term = await getTermByText(ctx.db, lemma);
       const examples = (await ctx.dict.examples?.(lemma)) ?? [];
-      return { entry, lemma, status: term && !term.deleted_at ? (term.status as Status) : undefined, term_id: term?.id, examples };
+      const live = term && !term.deleted_at ? term : undefined;
+      return { entry, lemma, status: live ? (live.status as Status) : undefined, term_id: term?.id, examples, in_wordbook: !!live?.in_wordbook && live.status >= 0 && live.status <= 4 };
+    },
+    widget(r) {
+      if (!r.entry) return undefined;
+      const e = r.entry;
+      return { kind: 'word', summary: `${e.word}：${firstLine(e.translation)}`, data: { word: e.word, phonetic: e.phonetic, pos: e.pos, translation: e.translation, example: r.examples[0], in_wordbook: r.in_wordbook } };
     },
   }),
   compare_words: capability({
@@ -35,6 +43,10 @@ export const termsCapabilities: CapabilityMap = {
         }
       }
       return { entries, collocations, corpus_examples };
+    },
+    widget(r) {
+      if (r.entries.length < 2) return undefined;
+      return { kind: 'compare', summary: `对比 ${r.entries.map(e => e.word).join('、')}`, data: { words: r.entries.map(e => ({ word: e.word, phonetic: e.phonetic, translation: firstLine(e.translation), example: r.corpus_examples.find(x => x.word === e.word)?.sentence })) } };
     },
   }),
   get_term: capability({

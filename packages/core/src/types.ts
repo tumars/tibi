@@ -113,7 +113,15 @@ export interface PracticeResult { practice_id: Id; accuracy: number; duration_ms
 
 // 对话与任务
 export interface Conversation { id: ConvId; kind: 'chat' | 'day' | 'document' | 'skill'; day?: string; device: 'desktop' | 'mobile'; skill_id: SkillId; title: string; document_id?: Id; trigger: 'user' | 'auto' | 'event' | 'mcp'; created_at: Ts; updated_at: Ts }
-export interface Message { id: string; role: 'user' | 'assistant' | 'tool'; text?: string; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; task_id?: TaskId; created_at: Ts }
+/** 对话卡片（第一期）：数据来自能力结果，由界面用固定组件渲染；模型不碰样式 */
+export type WidgetSpec =
+  | { kind: 'word'; summary: string; data: { word: string; phonetic?: string; pos?: string; translation: string; example?: { en: string; zh?: string }; in_wordbook: boolean } }
+  | { kind: 'compare'; summary: string; data: { words: { word: string; phonetic?: string; translation: string; example?: string }[] } }
+  | { kind: 'quiz'; summary: string; data: { items: { term: string; type: 'choice' | 'cloze'; prompt: string; options?: string[]; answer: string[] }[] } };
+/** summary 写进后续对话历史，界面渲染出错时也显示它；result 是用户在卡片上的操作结果，下一轮带给模型 */
+export type WidgetBlock = WidgetSpec & { type: 'widget'; id: string; v: 1; state?: unknown; result?: string };
+export type MessageBlock = { type: 'text'; text: string } | WidgetBlock;
+export interface Message { id: string; role: 'user' | 'assistant' | 'tool'; text?: string; blocks?: MessageBlock[]; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; task_id?: TaskId; created_at: Ts }
 export interface TaskSummary {
   id: TaskId; state: TaskState; skill_id: SkillId; title: string; document_title?: string; trigger: string; model: string;
   step: { index: number; total: number; label: string }; started_at: Ts; duration_ms: number; cost: number; error?: string;

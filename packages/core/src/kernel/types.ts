@@ -54,7 +54,7 @@ export interface JobRunner {
 }
 
 /** Core → 界面事件（06 §4） */
-export type CoreEventName = 'chat.delta' | 'chat.tool' | 'task.update' | 'task.done' | 'approval.requested' | 'approval.resolved' | 'data.changed' | 'usage.updated' | 'sync.update' | 'model.status';
+export type CoreEventName = 'chat.delta' | 'chat.block' | 'chat.tool' | 'task.update' | 'task.done' | 'approval.requested' | 'approval.resolved' | 'data.changed' | 'usage.updated' | 'sync.update' | 'model.status';
 export interface EventSink { emit(event: CoreEventName, data: unknown): void }
 
 export class EventBus implements EventSink {

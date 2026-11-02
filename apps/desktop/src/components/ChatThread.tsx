@@ -3,6 +3,7 @@ import { ArrowUp, Square } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Markdown } from '../lib/md';
+import { Blocks } from './Widgets';
 import { useChat, type ChatContext } from '../lib/useChat';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
@@ -24,7 +25,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
   const [text, setText] = useState('');
   const scroll = useRef<HTMLDivElement>(null);
   const sent = useRef(new Set<string>());
-  const { msgs, live, approvals, ready, send: sendRaw, decide, running, cancel } = useChat(conversationId, { skill, context, onConv });
+  const { msgs, live, approvals, ready, send: sendRaw, decide, running, cancel, widgetStates, updateWidget } = useChat(conversationId, { skill, context, onConv });
   const send = useCallback(async (t: string, ctx?: ChatContext, sk?: string, tier?: 'fast' | 'deep') => { setText(''); await sendRaw(t, ctx, sk, tier); }, [sendRaw]);
   useEffect(() => { requestAnimationFrame(() => { const el = scroll.current; if (el) el.scrollTop = el.scrollHeight; }); }, [msgs, live, approvals]);
   useEffect(() => {
@@ -42,12 +43,13 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
           e.preventDefault();
           void rpc.call('documents.import', { source: { type: 'url', url: a.href } }).then(() => toast(tl('正在导入这篇，好了会提示')), err => toast(errorInfo(err).message, { kind: 'err' }));
         }}>
-          {msgs.filter(m => m.role !== 'tool' && m.text).map(m => m.role === 'user'
+          {msgs.filter(m => m.role !== 'tool' && (m.text || m.blocks?.length)).map(m => m.role === 'user'
             ? <div key={m.id} className="msg u">{m.text}</div>
-            : <div key={m.id} className="msg a"><Markdown text={m.text!} /><div className="prov-line"><span>Tibi</span>{m.task_id && <> · <a href={`#/tasks?t=${m.task_id}`}>{tl('查看过程')}</a></>}</div></div>)}
+            : <div key={m.id} className="msg a">{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} /> : <Markdown text={m.text!} />}<div className="prov-line"><span>Tibi</span>{m.task_id && <> · <a href={`#/tasks?t=${m.task_id}`}>{tl('查看过程')}</a></>}</div></div>)}
           {live.map(l => <div key={l.id} className="msg a">
-            {l.tools.map((t, i) => <div key={i} className="toolline">{t.done ? '✓' : <span className="spin" />}{t.summary}</div>)}
-            {l.text ? <Markdown text={l.text} /> : !l.error && <span className="typing" aria-label={tl('Tibi 正在想')}><i /><i /><i /></span>}
+            {l.tools.map((t, i) => <div key={i} className="toolline">{t.done ? '✓' : !l.done && <span className="spin" />}{t.summary}</div>)}
+            {l.blocks.length > 0 && <Blocks blocks={l.blocks} states={widgetStates} update={updateWidget} />}
+            {!l.error && !l.done && l.blocks[l.blocks.length - 1]?.type !== 'text' && <span className="typing" aria-label={tl('Tibi 正在想')}><i /><i /><i /></span>}
             {l.error && <div className="chaterr">{l.error}{/连接模型|API Key|model/i.test(l.error) && <> · <button className="linkbtn" onClick={() => nav(`/welcome?step=3&back=${encodeURIComponent(back)}`)}>{tl('去连接模型')}</button></>}</div>}
           </div>)}
           {approvals.map(a => <div key={a.task_id} className="approve">

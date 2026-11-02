@@ -5,10 +5,11 @@ import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completio
 import { deepseekProvider } from '@earendil-works/pi-ai/providers/deepseek';
 import { friendlyModelError } from './model-errors.js';
 import { j, now, type Database } from '../db/driver.js';
+import { uuidv7 } from '../ids.js';
 import type { Ctx } from '../rpc/define.js';
-import { TibiError, type SkillId, type Tier } from '../types.js';
+import { TibiError, type MessageBlock, type SkillId, type Tier, type WidgetBlock } from '../types.js';
 import type { CapabilityRegistry, UiContext } from './capabilities.js';
-import { Conversations } from './conversations.js';
+import { Conversations, messageForModel } from './conversations.js';
 import type { JobRunnerImpl } from './jobs.js';
 import { resolveSkill, type ResolvedSkill } from './skills.js';
 import type { EventSink, JobContext } from './types.js';
@@ -77,9 +78,9 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
   const convs = new Conversations(db);
   const systemPrompt = await buildSystemPrompt(deps, ctx, skill, args);
   const history = args.conversation_id ? await convs.recent(args.conversation_id, 20) : [];
-  const messages: Message[] = history.filter(m => m.role !== 'tool' && m.text).map(m => m.role === 'user'
+  const messages: Message[] = history.filter(m => m.role !== 'tool' && messageForModel(m)).map(m => m.role === 'user'
     ? { role: 'user', content: m.text!, timestamp: m.created_at }
-    : { role: 'assistant', content: [{ type: 'text', text: m.text! }], api: resolved.model.api, provider: resolved.model.provider, model: resolved.model.id, usage: emptyUsage(), stopReason: 'stop', timestamp: m.created_at } as AssistantMessage);
+    : { role: 'assistant', content: [{ type: 'text', text: messageForModel(m) }], api: resolved.model.api, provider: resolved.model.provider, model: resolved.model.id, usage: emptyUsage(), stopReason: 'stop', timestamp: m.created_at } as AssistantMessage);
   // 最后一条如果就是这次的输入（chat.send 先写库），不要重复
   if (messages.length && messages[messages.length - 1]!.role === 'user' && (messages[messages.length - 1] as { content: unknown }).content === args.input) messages.pop();
 
@@ -97,12 +98,15 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
   const usage = { tokens_in: 0, tokens_out: 0, cost: 0 };
   let turn = 0; let text = ''; let errorMessage: string | undefined;
   const toolStart = new Map<string, number>();
+  const toolArgs = new Map<string, unknown>();
+  const blocks: MessageBlock[] = [];
   const unsub = agent.subscribe(async ev => {
     if (ev.type === 'message_update' && ev.assistantMessageEvent.type === 'text_delta') {
       events.emit('chat.delta', { conversation_id: args.conversation_id, submission_id: job.job_id, delta: ev.assistantMessageEvent.delta });
     } else if (ev.type === 'message_end' && ev.message.role === 'assistant') {
       const m = ev.message as AssistantMessage; turn++;
       text = m.content.filter((c): c is { type: 'text'; text: string } => c.type === 'text').map(c => c.text).join('');
+      if (text) blocks.push({ type: 'text', text });
       if (m.stopReason === 'error' || m.stopReason === 'aborted') errorMessage = m.errorMessage ?? m.stopReason;
       const u = m.usage ?? emptyUsage();
       const costUsd = safeCost(resolved.model, u);
@@ -112,9 +116,13 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
       await recordUsage(db, { job_id: job.job_id, job_step_id: stepId, skill_id: skill.id, model: m.model, input_tokens: u.input, cached_tokens: u.cacheRead, output_tokens: u.output, cost_cny: cny });
       events.emit('usage.updated', { skill_id: skill.id, month_cost: await skillMonth(db, skill.id), total: await monthTotal(db) });
     } else if (ev.type === 'tool_execution_start') {
-      toolStart.set(ev.toolCallId, now());
+      toolStart.set(ev.toolCallId, now()); toolArgs.set(ev.toolCallId, ev.args);
       events.emit('chat.tool', { conversation_id: args.conversation_id, task_id: job.job_id, phase: 'start', tool: ev.toolName, skill_id: skill.id, summary: `Tibi 正在${registry.get(ev.toolName)?.description ?? ev.toolName}` });
     } else if (ev.type === 'tool_execution_end') {
+      if (args.conversation_id && !ev.isError) {
+        const block = toWidgetBlock(registry, ev.toolName, ev.result?.details, toolArgs.get(ev.toolCallId), blocks);
+        if (block) { blocks.push(block); events.emit('chat.block', { conversation_id: args.conversation_id, submission_id: job.job_id, block }); }
+      }
       events.emit('chat.tool', { conversation_id: args.conversation_id, task_id: job.job_id, phase: 'end', tool: ev.toolName, skill_id: skill.id, summary: ev.isError ? '出错了' : '完成', duration_ms: ev.durationMs ?? (now() - (toolStart.get(ev.toolCallId) ?? now())) });
     }
   });
@@ -127,8 +135,24 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
   if (job.signal.aborted) throw new TibiError('busy', '已取消');
   if (errorMessage) throw new TibiError('model_unavailable', friendlyModelError(errorMessage));
   events.emit('chat.delta', { conversation_id: args.conversation_id, submission_id: job.job_id, delta: '', done: true });
-  if (args.conversation_id) await convs.addMessage(args.conversation_id, 'assistant', { text }, job.job_id);
+  if (args.conversation_id) {
+    // 保存所有轮次的文字，和流式时看到的一致；没有卡片就不写 blocks
+    const all = blocks.filter(b => b.type === 'text').map(b => b.text).join('\n\n');
+    await convs.addMessage(args.conversation_id, 'assistant', blocks.some(b => b.type === 'widget') ? { text: all, blocks } : { text: all }, job.job_id);
+  }
   return { text, usage };
+}
+
+/** 一次回答最多三张卡；同样内容不重复显示。模型可能为了核实而反复查词 */
+const MAX_WIDGETS = 3;
+function toWidgetBlock(registry: CapabilityRegistry, tool: string, result: unknown, params: unknown, blocks: MessageBlock[]): WidgetBlock | undefined {
+  const shown = blocks.filter((b): b is WidgetBlock => b.type === 'widget');
+  if (shown.length >= MAX_WIDGETS) return undefined;
+  try {
+    const spec = registry.get(tool)?.widget?.(result, params);
+    if (!spec || shown.some(b => b.kind === spec.kind && b.summary === spec.summary)) return undefined;
+    return { ...spec, type: 'widget', id: uuidv7(), v: 1 };
+  } catch { return undefined; }   // 卡片只是显示方式，转换失败不能影响回答
 }
 
 function emptyUsage(): Usage { return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }; }
