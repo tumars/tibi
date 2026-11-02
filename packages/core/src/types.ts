@@ -35,7 +35,7 @@ export interface Document extends DocumentSummary {
   sections: { id: Id; idx: number; title: string; status: string; progress: number; word_count: number }[];
   ai?: { summary?: AiResult; advice?: AiResult; phrases?: AiResult; hard_sentences?: AiResult; glossary?: AiResult; characters?: AiResult };
 }
-export interface Token { t: string; l: string; s: number; e: number; status?: Status; phrase_id?: Id }
+export interface Token { t: string; l: string; s: number; e: number; status?: Status; phrase_id?: Id; gloss?: string }
 export interface Sentence { id: Id; idx: number; paragraph_idx: number; block_type: BlockType; text: string; tokens: Token[]; translation?: string }
 export type SectionBlock = { type: 'code'; lang?: string; code: string } | { type: 'sentences'; ids: Id[]; block_type: BlockType; paragraph_idx: number };
 export interface SectionContent {

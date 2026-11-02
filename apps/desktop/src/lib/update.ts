@@ -18,11 +18,31 @@ export async function checkUpdate(): Promise<UpdateInfo> {
   return invoke<UpdateInfo>('update_check');
 }
 
-/** 下载并安装，成功后应用会重启（这个 Promise 不会再返回）；onProgress 收到 0–1，总大小未知时是 undefined */
-export async function installUpdate(onProgress: (ratio?: number) => void): Promise<void> {
+// 这两个下载地址同时写在 capabilities/default.json 的 opener:allow-open-url 里，改这里要一起改
+export const RELEASES_URL = 'https://github.com/tumars/tibi/releases/latest';
+const MIRROR_LATEST = 'https://dl.ferecord.com/latest/';
+
+/** 国内下载这台电脑能用的安装包；文件名由壳按编译目标给（芯片在 WebView 里看不准） */
+export async function mirrorDownloadUrl(): Promise<string | undefined> {
+  if (!isTauri()) return undefined;
+  const { invoke } = await import('@tauri-apps/api/core');
+  return MIRROR_LATEST + await invoke<string>('update_mirror_asset');
+}
+
+/** 安装进行到哪一步；下载时 ratio 是 0–1，总大小未知时是 undefined */
+export type InstallStage = { stage: 'downloading'; ratio?: number } | { stage: 'backing_up' } | { stage: 'installing' };
+
+/** 更新前备份失败：还没停 Core、没安装，要用户决定（确认后带 skipBackup 再调，不用重新下载） */
+export class BackupFailed extends Error {}
+const BACKUP_FAILED = 'backup_failed:';
+
+/** 下载、备份并安装，成功后应用会重启（这个 Promise 不会再返回） */
+export async function installUpdate(onStage: (s: InstallStage) => void, opts: { skipBackup?: boolean } = {}): Promise<void> {
   const [{ invoke }, { listen }] = await Promise.all([import('@tauri-apps/api/core'), import('@tauri-apps/api/event')]);
-  const off = await listen<{ got: number; total?: number | null }>('update_progress', e => onProgress(e.payload.total ? e.payload.got / e.payload.total : undefined));
-  try { await invoke('update_install'); } finally { off(); }
+  const off = await listen<{ stage: InstallStage['stage']; got?: number; total?: number | null }>('update_progress', ({ payload: p }) => onStage(p.stage === 'downloading' ? { stage: p.stage, ratio: p.total && p.got !== undefined ? p.got / p.total : undefined } : { stage: p.stage }));
+  try { await invoke('update_install', { skipBackup: !!opts.skipBackup }); }
+  catch (e) { const m = String(e); throw m.startsWith(BACKUP_FAILED) ? new BackupFailed(m.slice(BACKUP_FAILED.length)) : e; }
+  finally { off(); }
 }
 
 /** 开着自动检查时每天看一次（托盘里常驻也算）；检查失败不打扰，第二天再试。返回停止函数 */

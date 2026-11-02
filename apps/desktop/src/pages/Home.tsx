@@ -9,7 +9,7 @@ import { openSample, Samples } from '../components/Samples';
 import { Top } from '../components/Shell';
 import { ActionChip, ModelPicker, SlashMenu, useSlashMenu } from '../components/Composer';
 import { parseSlash, type SlashAction } from '../lib/slash';
-import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
+import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, isTauri, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
@@ -148,11 +148,11 @@ export function Home() {
           <div className={`composer${over ? ' over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}>
               {action && <ActionChip action={action} onClear={() => { setAction(undefined); ta.current?.focus(); }} />}
               <textarea ref={ta} value={text} rows={2} aria-label={tl('输入')}
-                placeholder={action?.placeholder ?? tl('粘贴网址或一段英文就会导入，也可以直接问 Tibi；输入 / 选择要做的事')}
+                placeholder={action?.placeholder ?? tl('粘贴网址或英文来导入，也可以直接问 Tibi')}
                 onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
                 onChange={e => { setText(e.target.value); slash.textChanged(); }}
                 onKeyDown={e => {
-                  if (e.nativeEvent.isComposing || slash.handleKey(e)) return;
+                  if (isImeKey(e.nativeEvent) || slash.handleKey(e)) return;
                   if (e.key === 'Backspace' && action && !text) { setAction(undefined); return; }
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void submit(); }
                 }} />
@@ -160,6 +160,7 @@ export function Home() {
               <div className="cbar">
                 <button className="attach" title={tl('添加文件')} onClick={pickFile}><Plus size={16} /></button>
                 {!action && !menu.length && text.trim() && <span className="hint">{typedAction ? typedAction.title : ({ url: tl('导入这个网址'), text: tl('导入这段英文'), ask: tl('问 Tibi') } as const)[k]}</span>}
+                {!action && !menu.length && !text.trim() && focus && <span className="hint">{tl('输入 / 选择要做的事')}</span>}
                 <span className="sp" />
                 <ModelPicker value={model} onChange={setModel} />
                 <button className="send" disabled={!canSend} onClick={submit} aria-label={tl('发送')}><ArrowUp size={17} /></button>
@@ -223,7 +224,8 @@ export function Home() {
           </div>
           {shelf.length ? <div className="docs">{shelf.slice(0, 8).map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} />)}</div>
             : connected || status ? <Empty title={tl('书架还是空的')} text={tl('粘贴网址或拖入文件就能导入，也可以先读一篇示例。')} action={<Samples />} />
-            : <Empty image={coreDown ? 'error-offline' : undefined} title={tl('连不上 Tibi Core')} text={tl('先运行 pnpm core:dev，再刷新。')} />}
+            : import.meta.env.DEV ? <Empty image={coreDown ? 'error-offline' : undefined} title={tl('连不上 Tibi Core')} text={tl('先运行 pnpm core:dev，再刷新。')} />
+            : <Empty image={coreDown ? 'error-offline' : undefined} title={tl('暂时读不到你的数据')} text={tl('你的数据还在本机。可以重试，不行就重启 Tibi。')} action={<button className="btn" onClick={() => { void useCore.getState().refresh(); void load(); }}>{tl('重试')}</button>} />}
         </section>
       </div></div>
 

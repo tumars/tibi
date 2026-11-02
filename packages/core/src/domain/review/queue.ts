@@ -2,6 +2,8 @@ import { now, type Database, type Row } from '../../db/driver.js';
 import type { Dict } from '../../dict/types.js';
 import type { CardType, QueueItem, Status } from '../../types.js';
 import { startOfToday } from '../shared/cards.js';
+import { contextMeaning } from '../terms/service.js';
+import { fullMeaning, glossSummary } from '../terms/views.js';
 import type { CardRow } from './fsrs.js';
 import { CARD_COLUMNS } from './fsrs.js';
 import { levenshtein } from './grade.js';
@@ -59,7 +61,10 @@ export async function makeStep(db: Database, dict: Dict, cw: CardWithTerm, card_
   const forms = await termForms(db, term);
   const surface = ctx?.surface?.toLowerCase();
   const answer = surface && !forms.includes(surface) ? [...forms, surface] : forms;
-  const meaning = term.short_gloss || firstMeaning(term.meaning) || firstMeaning(ctx?.meaning_in_context) || firstMeaning((await dict.lookup(term.text))?.translation);
+  // 释义优先级：这句里的语境义 > 用户写的释义 > 词典多义摘要 > 短释义；语境义含示例预生成的结果
+  const inContext = ctx?.sentence_id ? await contextMeaning(db, term.id, term.text, ctx.sentence_id) : undefined;
+  const translation = (await dict.lookup(term.text))?.translation;
+  const meaning = firstMeaning(inContext) || firstMeaning(term.meaning) || glossSummary(translation) || term.short_gloss || '';
   const sentence = ctx?.sentence_text ?? ctx?.text ?? `${term.text_display}`;
   const context: QueueItem['context'] = {
     id: ctx?.id ?? '', sentence, answer, ...(ctx?.surface ? { surface: ctx.surface } : {}), translation: ctx?.translation ?? '', source: ctx?.source === 'article' ? 'article' : 'dictionary',
@@ -69,14 +74,16 @@ export async function makeStep(db: Database, dict: Dict, cw: CardWithTerm, card_
   if (card_type === 'choice' && !opts.intro && meaning) {
     const distractors = await pickDistractors(db, dict, term, 3, ctx?.document_id ?? undefined, meaning);
     if (distractors.length >= 2) {
-      options = shuffle([{ id: 'x', text: meaning }, ...distractors.map(d => ({ id: 'x', text: d.text, from: d.from }))]);
+      // 正确项只有一个义项（如语境义）时，干扰项也只留首义：不能靠长短认出答案
+      const single = !/[，；]/.test(meaning);
+      options = shuffle([{ id: 'x', text: meaning }, ...distractors.map(d => ({ id: 'x', text: single ? d.text.split(/[，；]/)[0]! : d.text, from: d.from }))]);
       options.forEach((o, i) => { o.id = 'abcd'[i]!; });
     }
   }
   if (!opts.intro && ((card_type === 'choice' && !options) || (card_type === 'recognize' && !meaning))) card_type = 'cloze';
   const item: Omit<QueueItem, 'step'> = {
-    // 用户没写释义时用语境释义或词典短释义，答完（尤其答错）后答案区才有中文意思可看
-    card_id: card.id, term: { ...toTerm(term, card), meaning: term.meaning || ctx?.meaning_in_context || meaning }, card_type, is_new: card.state === 0, intro: !!opts.intro, retry: opts.retry ?? 0,
+    // 用户没写释义时用语境释义或完整词典释义，答完（尤其答错）后答案区才有中文意思可看
+    card_id: card.id, term: { ...toTerm(term, card), meaning: term.meaning || inContext || fullMeaning(translation) || meaning }, card_type, is_new: card.state === 0, intro: !!opts.intro, retry: opts.retry ?? 0,
     self_rated: card_type === 'recognize', context, hint: meaning || undefined,
     ...(card.last_review ? { last_review: card.last_review } : {}), ...(term.note ? { note: term.note } : {}),
   };
@@ -95,7 +102,7 @@ export function firstMeaning(m: string | null | undefined): string {
 
 /** 词条的短释义：用户写的优先，没有就查词典。取词时大多数词条的 meaning 是空的 */
 async function glossOf(dict: Dict, t: TermRow): Promise<string> {
-  return t.short_gloss || firstMeaning(t.meaning) || firstMeaning((await dict.lookup(t.text))?.translation);
+  return firstMeaning(t.meaning) || glossSummary((await dict.lookup(t.text))?.translation) || t.short_gloss || '';
 }
 
 /**

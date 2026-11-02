@@ -6,7 +6,7 @@ import { Empty } from '../components/Empty';
 import { Modal } from '../components/Modal';
 import { Top } from '../components/Shell';
 import { fmtMinutes, fmtPct, GENRE_NAMES, throttle } from '../lib/util';
-import { SectionView, type Mode } from '../reader/Section';
+import { SectionView } from '../reader/Section';
 import { SummaryPanel } from '../reader/SummaryPanel';
 import { TibiPanel } from '../reader/TibiPanel';
 import { ReadAloud } from '../reader/ReadAloud';
@@ -23,7 +23,7 @@ export function Reader() {
   const [doc, setDoc] = useState<Document>();
   const [content, setContent] = useState<SectionContent>();
   const [err, setErr] = useState<string>();
-  const [mode, setMode] = useState<Mode>('all');
+  const mode = useUi(s => s.readerMode); const setMode = useUi(s => s.setReaderMode);
   const [gloss, setGloss] = useState(false);
   const [translations, setTranslations] = useState(false);
   const [legend, setLegend] = useState(false);
@@ -75,7 +75,20 @@ export function Reader() {
     }
   }, [content, doc]);
 
-  const saveProgress = useMemo(() => throttle((sid: string, progress: number, sentence_id: string) => { void rpc.call('sections.progress', { id: sid, sentence_id, progress }).catch(() => undefined); }, 1500), []);
+  // 存不上只提示一次，存上了再清掉；继续滚动时自然会重试
+  const saveFailed = useRef(false);
+  const saveProgress = useMemo(() => throttle((sid: string, progress: number, sentence_id: string) => {
+    rpc.call('sections.progress', { id: sid, sentence_id, progress }).then(() => { saveFailed.current = false; }, () => {
+      if (!saveFailed.current) toast(tl('阅读位置暂时存不上，继续阅读时会再试'), { kind: 'err' });
+      saveFailed.current = true;
+    });
+  }, 1500), []);
+  // 切章、离开、关窗口前把还没发的那次发出去，不让下一章的位置把它盖掉
+  useEffect(() => {
+    const flush = () => saveProgress.flush();
+    addEventListener('pagehide', flush);
+    return () => { removeEventListener('pagehide', flush); flush(); };
+  }, [sectionId, saveProgress]);
   const onScroll = useCallback(() => {
     const el = scrollRef.current; if (!el || !content) return;
     const p = el.scrollHeight <= el.clientHeight ? 1 : el.scrollTop / (el.scrollHeight - el.clientHeight);

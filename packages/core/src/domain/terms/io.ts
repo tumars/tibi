@@ -2,7 +2,7 @@ import { now } from '../../db/driver.js';
 import type { Ctx } from '../../rpc/define.js';
 import { TibiError, type Status } from '../../types.js';
 import { lemmatize } from '../text/lemma.js';
-import { shortGloss } from './views.js';
+import { fullMeaning, shortGloss } from './views.js';
 import { getTermByText, insertTerm, logStatus, setTermStatus } from './repo.js';
 import { addWords } from './service.js';
 
@@ -33,9 +33,12 @@ export async function exportTerms(ctx: Ctx, o: { format: 'csv' | 'anki' | 'txt';
     LEFT JOIN documents d ON d.id = tc.document_id
     WHERE t.deleted_at IS NULL AND ${where} ORDER BY t.created_at`, o.ids ?? []);
   const withCtx = o.with_contexts !== false;
-  const meaning = (r: Row) => r.meaning || r.short_gloss || '';
   const stamp = new Date().toISOString().slice(0, 10);
   if (o.format === 'txt') return { filename: `tibi-words-${stamp}.txt`, text: rows.map(r => r.text_display || r.text).join('\n') + '\n', count: rows.length };
+  // 用户写的释义优先，否则导出完整词典释义；短释义是行间注释用的，可能只剩一个义项
+  const meanings = new Map<string, string>();
+  for (const r of rows) meanings.set(r.id, r.meaning || (r.kind === 'word' ? fullMeaning((await ctx.dict.lookup(r.text))?.translation) : undefined) || r.short_gloss || '');
+  const meaning = (r: Row) => meanings.get(r.id) ?? '';
   if (o.format === 'csv') {
     const head = ['word', 'meaning', 'status', 'encounters', 'added', 'next_review', ...(withCtx ? ['sentence', 'translation', 'source'] : [])];
     const lines = rows.map(r => [r.text_display || r.text, meaning(r), STATUS[r.status] ?? r.status, r.encounter_count, day(r.created_at), day(r.due), ...(withCtx ? [r.sentence ?? '', r.translation ?? '', r.title ?? ''] : [])].map(csvCell).join(','));

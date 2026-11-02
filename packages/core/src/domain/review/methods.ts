@@ -6,7 +6,9 @@ import { method, S, type Ctx, type MethodMap } from '../../rpc/define.js';
 import { TibiError, type PracticeMode, type QueueItem, type Rating } from '../../types.js';
 import type { PracticeItem } from './practice-types.js';
 import { loadParams, preview } from './fsrs.js';
-import { buildSteps, forecast, makeStep, pickCardType, shuffle } from './queue.js';
+import { contextMeaning } from '../terms/service.js';
+import { glossSummary } from '../terms/views.js';
+import { buildSteps, firstMeaning, forecast, makeStep, pickCardType, shuffle } from './queue.js';
 import { getCard, getCardByTerm, getSession, getTerm, insertSession, openSession, saveSession, sessionSteps, termContexts, type SessionRow, type TermRow } from './repo.js';
 import { answerStep, nextStep, overrideRating, toReviewSession, undoLast } from './session.js';
 import { pickDistractors } from './queue.js';
@@ -124,7 +126,8 @@ export const reviewMethods: MethodMap = {
       const ctxs = await termContexts(ctx.db, t.id);
       const c = ctxs.find(x => x.source === 'article') ?? ctxs[0];
       const sentence = c?.sentence_text ?? c?.text ?? '';
-      const meaning = t.short_gloss || (t.meaning ?? '').split(/\n|;/)[0] || '';
+      const inContext = c?.sentence_id ? await contextMeaning(ctx.db, t.id, t.text, c.sentence_id) : undefined;
+      const meaning = firstMeaning(inContext) || firstMeaning(t.meaning) || glossSummary((await ctx.dict.lookup(t.text))?.translation) || t.short_gloss || '';
       const base: PracticeItem = { id: uuidv7(), mode, sentence, answer: t.text_display, source: { term_id: t.id, ...(c?.document_id ? { document_id: c.document_id } : {}) } };
       if (mode === 'dictation') { if (!sentence) continue; items.push(base); }
       else if (mode === 'spell') items.push({ ...base, sentence: meaning, explain: `${t.text_display.length} 个字母` });
@@ -152,7 +155,8 @@ export const reviewMethods: MethodMap = {
     const accuracy = p.results.length ? p.results.reduce((s, r) => s + r.accuracy, 0) / p.results.length : 0;
     const duration_ms = p.results.reduce((s, r) => s + r.duration_ms, 0);
     const t = now();
-    await ctx.db.run('INSERT INTO practice_logs(id, mode, source, document_id, items, accuracy, duration_ms, created_at) VALUES (?,?,?,?,?,?,?,?)', [p.practice_id, meta.mode, meta.source, meta.document_id, p.results.length, accuracy, duration_ms, t]);
+    // 一题都没批改（全跳过）：只清掉这一轮的记录，不写成绩
+    if (p.results.length) await ctx.db.run('INSERT INTO practice_logs(id, mode, source, document_id, items, accuracy, duration_ms, created_at) VALUES (?,?,?,?,?,?,?,?)', [p.practice_id, meta.mode, meta.source, meta.document_id, p.results.length, accuracy, duration_ms, t]);
     await ctx.db.run('DELETE FROM settings WHERE key = ?', [key]);
     const best = await ctx.db.get<{ best: number; rounds: number }>("SELECT COALESCE(max(accuracy), 0) AS best, count(*) AS rounds FROM practice_logs WHERE mode = 'dictation'");
     return { practice_id: p.practice_id, accuracy, duration_ms, best: { dictation_accuracy: Number(best?.best ?? 0), rounds: Number(best?.rounds ?? 0) } };

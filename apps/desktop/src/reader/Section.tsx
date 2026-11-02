@@ -22,7 +22,7 @@ export const SectionView = memo(function SectionView({ content, mode, gloss, ove
       if (t.s > pos) parts.push(gap(sent.text.slice(pos, t.s), pos));
       const st = overrides.get(t.l) ?? t.status;
       const sel = selected && selected.sentence === sent.id && selected.s === t.s;
-      parts.push(<span key={t.s} className={wordClass(st) + (sel ? ' sel' : '')} data-g={gloss && st !== undefined && st <= 4 ? (t as { gloss?: string }).gloss : undefined} onClick={e => onWord(e, t.t, t.l, sent, t.s)}>{sent.text.slice(t.s, t.e)}</span>);
+      parts.push(<span key={t.s} className={wordClass(st) + (sel ? ' sel' : '')} data-g={gloss && st !== undefined && st <= 4 ? t.gloss : undefined} onClick={e => onWord(e, t.t, t.l, sent, t.s)}>{sent.text.slice(t.s, t.e)}</span>);
       pos = t.e;
     }
     if (pos < sent.text.length) parts.push(gap(sent.text.slice(pos), pos));

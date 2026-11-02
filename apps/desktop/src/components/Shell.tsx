@@ -61,7 +61,7 @@ export function Shell() {
         <div className="sidefoot">
           <div className="streak" title={tl('今日 {minutes} / {goal} 分钟', { minutes, goal })}>
             <svg className="sring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" strokeWidth="4" /><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" strokeWidth="4" strokeLinecap="round" strokeDasharray="87.96" strokeDashoffset={ring} transform="rotate(-90 18 18)" /></svg>
-            <div className="hide-c"><div className="t">{!connected ? tl('Core 未连接') : streak > 0 ? tl('连续 {streak} 天', { streak }) : tl('今天开始')}</div><div className="s">{connected ? tl('今日 {minutes} / {goal} 分钟', { minutes, goal }) : tl('界面只显示空状态')}</div></div>
+            <div className="hide-c"><div className="t">{!connected ? (import.meta.env.DEV ? tl('Core 未连接') : tl('暂时读不到数据')) : streak > 0 ? tl('连续 {streak} 天', { streak }) : tl('今天开始')}</div><div className="s">{connected ? tl('今日 {minutes} / {goal} 分钟', { minutes, goal }) : import.meta.env.DEV ? tl('界面只显示空状态') : tl('重启 Tibi 试试')}</div></div>
           </div>
           <div className="user">
             <span className="av">{tl('你')}</span>

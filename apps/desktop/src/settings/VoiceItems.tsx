@@ -14,6 +14,9 @@ export function VoiceItems() {
   const [rate, setRate] = useState(tts.current().rate);
   const [sys, setSys] = useState<tts.Voice[]>([]);
   const [dl, setDl] = useState<{ state: 'idle' | 'loading' | 'ready' | 'err'; pct: number }>({ state: tts.kokoroDownloaded() ? 'ready' : 'idle', pct: 0 });
+  // 系统语音是异步加载的，刚打开时列表可能还是空的：等一会儿再说"没有"
+  const [voicesSettled, setVoicesSettled] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setVoicesSettled(true), 1500); return () => clearTimeout(t); }, []);
   useEffect(() => { const f = () => setSys(tts.systemVoices()); f(); try { speechSynthesis.addEventListener('voiceschanged', f); return () => speechSynthesis.removeEventListener('voiceschanged', f); } catch { return undefined; } }, []);
   const voices = engine === 'kokoro' ? tts.KOKORO_VOICES : sys;
 
@@ -36,8 +39,9 @@ export function VoiceItems() {
       </div></div>
     </div>
     <div className="item">
-      <div><div className="t">{tl('音色')}</div><div className="d">{voices.length ? tl('点"试听"听一句') : tl('这台电脑没有英文系统语音')}</div></div>
+      <div><div className="t">{tl('音色')}</div><div className="d">{voices.length ? tl('点"试听"听一句') : voicesSettled ? tl('暂未检测到美音或英音系统语音，可以换用 Kokoro') : tl('正在查找系统语音…')}</div></div>
       <div className="ctl">
+        {!voices.length && voicesSettled && <button className="btn sm" disabled={dl.state === 'loading'} onClick={() => void setE('kokoro')}>{dl.state === 'ready' ? tl('使用 Kokoro') : tl('下载 Kokoro（约 92 MB）')}</button>}
         <select className="input" value={voice} onChange={async e => { setVoice(e.target.value); tts.configure({ voice: e.target.value }); await save({ 'tts.voice': e.target.value }); }} aria-label={tl('音色')}>
           {engine === 'system' && <option value="">{tl('系统默认')}</option>}
           {voices.map(v => <option key={v.id} value={v.id}>{v.label}{engine === 'system' ? (v.accent === 'gb' ? tl('（英音）') : tl('（美音）')) : ''}</option>)}

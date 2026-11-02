@@ -2,7 +2,7 @@ import { Volume2 } from 'lucide-react';
 import { Mascot } from '../components/Mascot';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { speak } from '../lib/util';
+import { speak, isImeKey } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
@@ -45,11 +45,13 @@ export function Practice() {
   const [checked, setChecked] = useState<{ accuracy: number; detail?: React.ReactNode }>();
   const [done, setDone] = useState<Result<'practice.finish'>>();
   const [busy, setBusy] = useState(false);
+  const [gradeIssue, setGradeIssue] = useState<'nomodel' | 'failed'>();
+  const [skipped, setSkipped] = useState(0);
   const t0 = useRef(Date.now());
   const item = run?.items[run.idx];
 
   const start = async () => {
-    setDone(undefined); setChecked(undefined); setAnswer('');
+    setDone(undefined); setChecked(undefined); setAnswer(''); setGradeIssue(undefined);
     try {
       const r = await rpc.call('practice.start', { mode, source, count: 5 });
       if (!r.items.length) { toast(source === 'recent' ? tl('生词本里还没有能练的词（听写和易混词需要读过的句子）') : tl('这里还没有能练的词')); return; }
@@ -65,37 +67,45 @@ export function Practice() {
     if (mode === 'confusable') { const ok = choice === item.answer; setChecked({ accuracy: ok ? 100 : 0, detail: <p>{ok ? tl('选对了。') : <>{tl('应该是')} <b>{item.answer}</b>{tl('。')}</>}{item.explain ? ` ${item.explain}` : ''}</p> }); return; }
     // 造句：交给 Tibi 批改
     if (!answer.trim()) return;
-    if (!modelOk) { setChecked({ accuracy: 0, detail: <p className="lbl">{tl('没连模型，这题先不批改。')}<button className="linkbtn" onClick={() => nav('/welcome?step=3&back=%2Freview%3Ftab%3Dpractice')}>{tl('去连接')}</button></p> }); return; }
-    setBusy(true);
+    if (!modelOk) { setGradeIssue('nomodel'); return; }
+    setBusy(true); setGradeIssue(undefined);
     try {
       const g = await rpc.call('practice.grade', { word: item.answer ?? '', text: answer, sentence: item.sentence || undefined });
       setChecked({ accuracy: g.score, detail: <><p><b>{tl('{score} 分', { score: g.score })}</b>{tl('{v0}。{feedback}', { v0: g.ok ? '' : tl(' · 目标词用得不太对'), feedback: g.feedback })}</p>{g.better && g.better !== answer.trim() && <p className="better">{g.better}</p>}</> });
-    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    } catch (e) { const i = errorInfo(e); setGradeIssue(i.code === 'model_unavailable' ? 'nomodel' : 'failed'); toast(i.message, { kind: 'err' }); }
     setBusy(false);
+  };
+  // 批改过的题才进 results；跳过的题不算成绩
+  const advance = async (cur: NonNullable<typeof run>, results: typeof cur.results) => {
+    setGradeIssue(undefined);
+    if (cur.idx + 1 >= cur.items.length) {
+      try {
+        const r = await rpc.call('practice.finish', { practice_id: cur.id, results });
+        if (results.length) { setSkipped(cur.items.length - results.length); setDone(r); } else toast(tl('这一轮没有批改的题，不记成绩'));
+      } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+      setRun(undefined); return;
+    }
+    setRun({ ...cur, idx: cur.idx + 1, results }); setAnswer(''); setChecked(undefined); t0.current = Date.now();
   };
   const next = async () => {
     if (!run || !item || !checked) return;
-    const results = [...run.results, { item_id: item.id, accuracy: checked.accuracy, duration_ms: Date.now() - t0.current }];
-    if (run.idx + 1 >= run.items.length) {
-      try { setDone(await rpc.call('practice.finish', { practice_id: run.id, results })); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-      setRun(undefined); return;
-    }
-    setRun({ ...run, idx: run.idx + 1, results }); setAnswer(''); setChecked(undefined); t0.current = Date.now();
+    await advance(run, [...run.results, { item_id: item.id, accuracy: checked.accuracy, duration_ms: Date.now() - t0.current }]);
   };
+  const connectModel = () => nav('/welcome?step=3&back=%2Freview%3Ftab%3Dpractice');
 
   if (done) return <div className="rvcard pdone">
     {done.accuracy >= 80 && <div className="pstk"><Mascot id="sticker-1" /></div>}
     <h3>{tl('这一轮练完了')}</h3>
     <p className="big">{Math.round(done.accuracy)}%</p>
-    <p className="lbl">{tl('准确率 · 用时 {v0} 秒', { v0: Math.round(done.duration_ms / 1000) })}{mode === 'dictation' && done.best.rounds > 1 ? tl(' · 听写最好 {v0}%', { v0: Math.round(done.best.dictation_accuracy) }) : ''}{tl('。练习不影响复习排期。')}</p>
+    <p className="lbl">{tl('准确率 · 用时 {v0} 秒', { v0: Math.round(done.duration_ms / 1000) })}{mode === 'dictation' && done.best.rounds > 1 ? tl(' · 听写最好 {v0}%', { v0: Math.round(done.best.dictation_accuracy) }) : ''}{skipped ? tl(' · 跳过 {v0} 题', { v0: skipped }) : ''}{tl('。练习不影响复习排期。')}</p>
     <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}><button className="btn pri" onClick={start}>{tl('再来一轮')}</button><button className="btn" onClick={() => setDone(undefined)}>{tl('换个练法')}</button></div>
   </div>;
 
   if (!run || !item) return <div className="pstart">
     <div className="pmodes">{MODES.map(m => <button key={m.key} className={mode === m.key ? 'on' : ''} onClick={() => setMode(m.key)}><b>{m.label}</b><span>{m.desc}</span></button>)}</div>
     <div className="psrc"><span className="lbl">{tl('词从哪来')}</span><div className="seg">{SOURCES.map(s => <button key={s.key} className={source === s.key ? 'on' : ''} onClick={() => setSource(s.key)}>{s.label}</button>)}</div></div>
-    <button className="btn pri" style={{ height: 44 }} onClick={start}>{tl('开始 · 5 题')}</button>
-    <p className="lbl">{tl('练习不计分，不影响复习排期；成绩单独记录。')}{mode === 'produce' && !modelOk ? tl('造句要连接模型才能批改。') : ''}</p>
+    <button className="btn pri" style={{ height: 44 }} disabled={mode === 'produce' && !modelOk} onClick={start}>{tl('开始 · 5 题')}</button>
+    <p className="lbl">{tl('练习不计分，不影响复习排期；成绩单独记录。')}{mode === 'produce' && !modelOk && <>{tl('造句要连接模型才能批改。')}<button className="linkbtn" onClick={connectModel}>{tl('去连接')}</button></>}</p>
   </div>;
 
   return <div className="rvcard practice">
@@ -108,8 +118,9 @@ export function Practice() {
     {mode === 'confusable'
       ? <div className="opts">{item.options?.map(o => <button key={o} className={`ropt${checked ? (o === item.answer ? ' ok' : ' dim') : ''}`} disabled={!!checked} onClick={() => void check(o)}>{o}</button>)}</div>
       : <textarea className="input pin" value={answer} autoFocus rows={mode === 'spell' ? 1 : 3} disabled={!!checked} onChange={e => setAnswer(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); if (checked) void next(); else void check(); } }} placeholder={mode === 'spell' ? tl('拼写') : mode === 'dictation' ? tl('听到什么写什么') : tl('写一句话')} />}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !isImeKey(e.nativeEvent)) { e.preventDefault(); if (checked) void next(); else void check(); } }} placeholder={mode === 'spell' ? tl('拼写') : mode === 'dictation' ? tl('听到什么写什么') : tl('写一句话')} />}
     {checked && <div className="pres">{checked.detail}</div>}
-    <div className="pfoot">{!checked ? (mode !== 'confusable' && <button className="btn pri" disabled={busy || !answer.trim()} onClick={() => void check()}>{busy ? tl('正在批改…') : mode === 'produce' ? tl('请 Tibi 批改') : tl('检查')}</button>) : <button className="btn pri" onClick={() => void next()}>{run.idx + 1 >= run.items.length ? tl('看结果') : tl('下一题')}</button>}</div>
+    {!checked && gradeIssue && <div className="pres"><p className="lbl">{gradeIssue === 'nomodel' ? <>{tl('没连模型，这题批改不了，也不会记成绩。')}<button className="linkbtn" onClick={connectModel}>{tl('去连接')}</button></> : tl('这次没批改成。可以再试一次，或者跳过这题。')}</p></div>}
+    <div className="pfoot">{!checked ? (mode !== 'confusable' && <>{gradeIssue && <button className="btn" disabled={busy} onClick={() => void advance(run, run.results)}>{tl('跳过这题')}</button>}<button className="btn pri" disabled={busy || !answer.trim()} onClick={() => void check()}>{busy ? tl('正在批改…') : mode === 'produce' ? tl('请 Tibi 批改') : tl('检查')}</button></>) : <button className="btn pri" onClick={() => void next()}>{run.idx + 1 >= run.items.length ? tl('看结果') : tl('下一题')}</button>}</div>
   </div>;
 }

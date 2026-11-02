@@ -32,7 +32,7 @@ interface DocumentSummary { id: Id; kind: Kind; genre: Genre; title: string; aut
 interface Document extends DocumentSummary { sections: { id: Id; idx: number; title: string; status: string; progress: number; word_count: number }[];
   ai?: { summary?: AiResult; advice?: AiResult; phrases?: AiResult; hard_sentences?: AiResult; glossary?: AiResult; characters?: AiResult } }
 interface SampleInfo { id: string; title: string; author?: string; genre: Genre; source: string; minutes: number; is_default: boolean; document_id?: Id }   // 内置示例；导入过的带 document_id
-interface Token { t: string; l: string; s: number; e: number; status?: Status; phrase_id?: Id }   // 原文 · lemma · 偏移 · 状态
+interface Token { t: string; l: string; s: number; e: number; status?: Status; phrase_id?: Id; gloss?: string }   // 原文 · lemma · 偏移 · 状态 · 行间释义
 interface Sentence { id: Id; idx: number; paragraph_idx: number; block_type: 'prose' | 'heading' | 'list_item' | 'quote'; text: string; tokens: Token[]; translation?: string }
 interface SectionContent { id: Id; document_id: Id; title: string; blocks: ({ type: 'code'; lang?: string; code: string } | { type: 'sentences'; ids: Id[] })[];
   sentences: Sentence[]; phrases: { id: Id; text: string; sentence_ids: Id[] }[]; counts: { new: number; learning: number; unsure: number }; ai?: Record<string, AiResult> }
@@ -295,7 +295,7 @@ CAPS = [
   ]),
   ('找文章', [
     ('search_feeds', "{ interests?: string[]; genres?: Genre[]; max_unknown_ratio?: number; since?: Ts; limit?: number }", "{ url: string; title: string; site: string; published_at?: Ts; excerpt: string; est_minutes: number; est_unknown_ratio?: number }[]", 'read', '从用户订阅的来源与内置推荐源拉取候选；难度估算用摘要粗算。M5：内置 Hacker News Best、Rust Blog、Go Blog、Quanta、Ars Technica，设置里可关掉或加自己的 RSS / Atom；一小时内用缓存；书架里已有的不再推荐'),
-    ('web_search', '{ q: string; limit?: number }', '{ url: string; title: string; snippet: string }[]', 'read', '可选，需在设置里配置搜索服务；M5 还没有接任何搜索服务，调用返回 conflict'),
+    ('web_search', '{ q: string; limit?: number }', '{ url: string; title: string; snippet: string }[]', 'read', '走 DeepSeek Search API（2026-11-02），和模型共用 Key，费用计入预算；没连 DeepSeek 时返回 conflict，技能改用订阅源'),
   ]),
   ('词汇', [
     ('get_term', '{ text: string } | { id: Id }', 'TermDetail', 'read', ''),

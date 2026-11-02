@@ -46,8 +46,14 @@ export function classifyInput(text: string): 'url' | 'text' | 'ask' {
 
 export function throttle<A extends unknown[]>(fn: (...a: A) => void, ms: number) {
   let t = 0; let timer: ReturnType<typeof setTimeout> | undefined; let last: A | undefined;
-  return (...a: A) => { last = a; const now = Date.now(); if (now - t >= ms) { t = now; fn(...a); } else if (!timer) timer = setTimeout(() => { timer = undefined; t = Date.now(); fn(...last!); }, ms - (now - t)); };
+  const run = (...a: A) => { last = a; const now = Date.now(); if (now - t >= ms) { t = now; fn(...a); } else if (!timer) timer = setTimeout(() => { timer = undefined; t = Date.now(); fn(...last!); }, ms - (now - t)); };
+  /** 还有一次等着没发的话，现在就发 */
+  run.flush = () => { if (!timer) return; clearTimeout(timer); timer = undefined; t = Date.now(); fn(...last!); };
+  return run;
 }
+
+/** 这次按键是输入法在用（选词、确认）。WebKit 确认时先结束组合再发 keydown，isComposing 已是 false，只有 keyCode 还是 229 */
+export function isImeKey(e: KeyboardEvent) { return e.isComposing || e.keyCode === 229; }
 
 /** 单词发音、句子朗读：走设置里选的引擎（系统语音 / Kokoro，lib/tts） */
 export function speak(text: string) {

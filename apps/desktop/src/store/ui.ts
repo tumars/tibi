@@ -1,6 +1,8 @@
 import { useLayoutEffect } from 'react';
 import { create } from 'zustand';
 
+/** 阅读器的标注模式：全部标注 / 仅生词 / 纯净阅读 */
+export type ReaderMode = 'all' | 'new' | 'clean';
 export interface Toast { id: number; text: string; kind?: 'err'; action?: { label: string; run: () => void } }
 
 interface UiState {
@@ -8,6 +10,7 @@ interface UiState {
   theme: 'auto' | 'light' | 'dark'; setTheme(t: 'auto' | 'light' | 'dark'): void;
   sepia: boolean; setSepia(on: boolean): void;
   lessMascot: boolean; setLessMascot(on: boolean): void;
+  readerMode: ReaderMode; setReaderMode(m: ReaderMode): void;
   toasts: Toast[]; toast(text: string, opts?: { kind?: 'err'; action?: Toast['action']; ms?: number }): void; dismiss(id: number): void;
 }
 
@@ -33,6 +36,8 @@ export const useUi = create<UiState>((set, get) => ({
   lessMascot: read('tibi-less-mascot', false),
   // 减少吉祥物：插画和狐狸靠 <html data-mascot> 在样式里隐藏，导航里的狐狸和 Tibi 头像不算；文案由各处读这个值
   setLessMascot(on) { const r = document.documentElement; if (on) r.dataset.mascot = 'less'; else delete r.dataset.mascot; write('tibi-less-mascot', on); set({ lessMascot: on }); },
+  readerMode: (() => { const m = read<unknown>('tibi-reader-mode', 'all'); return m === 'new' || m === 'clean' ? m : 'all'; })(),
+  setReaderMode(m) { write('tibi-reader-mode', m); set({ readerMode: m }); },
   toasts: [],
   toast(text, opts = {}) {
     const id = ++seq;

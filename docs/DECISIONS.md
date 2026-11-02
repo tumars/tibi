@@ -163,7 +163,7 @@
 | T10 | 复习用 ts-fsrs 6.0 的 `DefaultScheduler`（FSRS-7 默认），卡片字段按库的命名映射到表（`stability_fast` ← `stabilityFast`、`learning_steps` ← `learningStep`） | 01 §4 |
 | T29 | 词典页只用本地数据，不接在线词典（补充数据见 T31），也暂不打包 Tatoeba 例句库。例句取自用户自己读过的文章（FTS）。中文反查用 `LIKE` 加部分索引 `stardict(frq) WHERE frq > 0`（约 0.5 MB），不够再扫全表，不建中文全文索引 | 在线词典违背"只有主动用到的功能才联网"；Tatoeba 例句（CC BY 2.0 FR）要署名，可能要细到每句的作者，以后单做。实测 77 万词条：单字母前缀约 50 ms，全表 `LIKE` 不到 80 ms |
 | T30 | 词形还原：词典收了这个词头、又没说它是变形（`lemma_map` 里没有）时，规则不再改写；人工的 `IRREGULAR` 表不受影响。已导入文章里存的旧原形不回填，重新导入才更新 | 2 万个常用词里 419 个被规则改错（interest → inter、matter → mat、summer → sum），修后只剩 `IRREGULAR` 里的 7 个 |
-| T31 | 桌面端软件更新：官方 updater 插件 + GitHub Releases 的 `latest.json`，更新包用独立的 Ed25519 密钥签名（公钥在 `tauri.conf.json`，私钥只在仓库密钥 `TAURI_SIGNING_PRIVATE_KEY`）。只经壳的 `update_check` / `update_install` 命令，不把插件开放给 WebView。Release 不再标预发布。自动检查默认关，只提醒不自动装；安装前备份，再停 Core | 没有服务器，也守住"只有用到的功能才联网"。`/releases/latest/` 会跳过预发布；Windows 上 Core 占着可执行文件，安装器换不掉。国内源（对象存储，发布后同步，先于 GitHub）只存文件，签名校验不变；GitHub 在中国大陆不稳定，公共代理又不可控 |
+| T31 | 桌面端软件更新：官方 updater 插件 + GitHub Releases 的 `latest.json`，更新包用独立的 Ed25519 密钥签名（公钥在 `tauri.conf.json`，私钥只在仓库密钥 `TAURI_SIGNING_PRIVATE_KEY`）。只经壳的 `update_check` / `update_install` 命令，不把插件开放给 WebView。Release 不再标预发布。自动检查默认关，只提醒不自动装；安装前备份，再停 Core；备份失败要用户确认才继续 | 没有服务器，也守住"只有用到的功能才联网"。`/releases/latest/` 会跳过预发布；Windows 上 Core 占着可执行文件，安装器换不掉。国内源（对象存储，发布后同步，先于 GitHub）只存文件，签名校验不变；GitHub 在中国大陆不稳定，公共代理又不可控 |
 | T32 | 词典补充数据写进同一个 `dict.db`：词光 Word Atlas（固定提交）给例句、搭配、词族、辨析、CEFR，Open English WordNet 2025 给英文义项和同义词；词条末尾写明来源，词光标"AI 生成，未逐条审校"。只进词典页，不进词卡和复习 | ECDICT 没有例句和近义词。两者都是 CC BY 4.0，分发只需署名（设置"致谢"、README、词条末尾）。词光只收 7,298 个雅思词且未审校，所以和 WordNet 并列显示、不混在一起。`dict.db` 从 91 MB 涨到 119 MB |
 
 ## 待决定

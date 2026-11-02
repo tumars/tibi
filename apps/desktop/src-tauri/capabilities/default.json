@@ -17,7 +17,9 @@
       "allow": [
         { "url": "https://x.com/Tumars" },
         { "url": "https://github.com/tumars" },
-        { "url": "https://www.ferecord.com/" }
+        { "url": "https://www.ferecord.com/" },
+        { "url": "https://github.com/tumars/tibi/releases/latest" },
+        { "url": "https://dl.ferecord.com/latest/*" }
       ]
     },
     "deep-link:default",

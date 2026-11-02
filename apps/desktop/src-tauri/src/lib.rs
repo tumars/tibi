@@ -361,7 +361,7 @@ fn run_desktop() {
                 tauri::async_runtime::spawn(async move { register_paths(&app, &paths).await; });
             }
         })
-        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command, update::update_check, update::update_install])
+        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command, update::update_check, update::update_install, update::update_mirror_asset])
         .run(tauri::generate_context!())
         .expect("Tibi 启动失败");
 }

@@ -77,7 +77,7 @@ export async function toTerm(db: Database, dict: Dict, r: ListRow | TermRow, opt
   const card = 'card_id' in r && r.card_id ? r : await db.get<{ card_id: string; due: number; lapses: number; stability: number }>('SELECT id AS card_id, due, lapses, stability FROM cards WHERE term_id = ? AND deleted_at IS NULL', [r.id]);
   const doc_count = 'doc_count' in r ? Number(r.doc_count) : Number((await db.get<{ n: number }>('SELECT count(DISTINCT document_id) AS n FROM term_contexts WHERE term_id = ? AND document_id IS NOT NULL AND deleted_at IS NULL', [r.id]))?.n ?? 0);
   return {
-    id: r.id, kind: r.kind, text: r.text, display: r.text_display, ipa: entry?.phonetic, meaning: r.meaning ?? firstLine(entry?.translation) ?? '', short_gloss: r.short_gloss ?? undefined,
+    id: r.id, kind: r.kind, text: r.text, display: r.text_display, ipa: entry?.phonetic, meaning: r.meaning ?? fullMeaning(entry?.translation) ?? '', short_gloss: r.short_gloss ?? undefined,
     status: r.status as Status, forms, star: entry?.collins, exam: entry?.exam ?? [], tags, encounter_count: Number(r.encounter_count), doc_count,
     due: card?.due != null ? Number(card.due) : undefined, lapses: Number(card?.lapses ?? 0), added_at: Number(r.created_at), last_seen_at: r.last_seen_at != null ? Number(r.last_seen_at) : undefined,
   };
@@ -88,10 +88,27 @@ export function firstLine(s: string | undefined | null): string | undefined {
   return s.split('\n')[0]!.trim();
 }
 
+/** 完整词典释义，排成一行（词卡、列表、导出用）；"n. 编辑者\n[计] 编译程序" → "n. 编辑者；[计] 编译程序" */
+export function fullMeaning(s: string | undefined | null): string | undefined {
+  return s?.split('\n').map(l => l.trim()).filter(Boolean).join('；') || undefined;
+}
+
+/** 题面用的多义摘要：首行前几个义项 + 第一条领域义（没有语境时不替用户猜是哪个意思）；"编辑者；编译程序" */
+export function glossSummary(translation: string | undefined | null): string | undefined {
+  const lines = translation?.split('\n').map(l => l.trim()).filter(Boolean) ?? [];
+  const senses = (l: string) => l.split(/;|；/)[0]!.replace(/\[[^\]]*\]/g, '').replace(/^\s*[a-z]+\.\s*/i, '').replace(/\s+[a-z]+\.?\s*$/i, '').split(/[,，]\s*/).map(s => s.trim()).filter(Boolean);
+  const head = lines[0] ? senses(lines[0]).slice(0, 3) : [];
+  const domain = lines.slice(1).find(l => /^\[[^\]]+\]/.test(l));
+  const extra = domain ? senses(domain)[0] : undefined;
+  const text = head.join('，') + (extra && !head.includes(extra) ? `；${extra}` : '');
+  return text.slice(0, 24) || undefined;
+}
+
 /** 简短释义（2–6 字，行间释义用）：取词典首义去掉词性与分号后面的部分 */
 export function shortGloss(translation: string | undefined | null): string | undefined {
   const line = firstLine(translation); if (!line) return undefined;
-  return line.replace(/^[a-z]+\.\s*/i, '').split(/[;，,；]/)[0]!.trim().slice(0, 8) || undefined;
+  // 括号里的补充说明先去掉，不然 8 字一截只剩半句："词法单元（token）" → "词法单元"
+  return line.replace(/^[a-z]+\.\s*/i, '').replace(/[（(][^）)]*[）)]/g, '').split(/[;，,；、]/)[0]!.trim().slice(0, 8) || undefined;
 }
 
 export async function termDetail(db: Database, dict: Dict, r: TermRow): Promise<TermDetail> {

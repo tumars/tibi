@@ -4,8 +4,19 @@ import { TibiError, type AiResult, type SectionBlock, type Sentence, type Sectio
 import { recordUndo, registerUndo } from '../shared/undo.js';
 import { getTermsByTexts } from '../terms/repo.js';
 import { applyStatus } from '../terms/service.js';
+import { shortGloss } from '../terms/views.js';
 import { getSection, listSentences, getDocument, listSections } from './repo.js';
 import { splitBlocks } from '../text/segment.js';
+
+/** 这一章每句已有的语境义（句子 id → lemma → 释义）：预生成结果打底，term_contexts 里写回的优先 */
+async function sentenceMeanings(db: Database, section_id: string): Promise<Map<string, Record<string, string>>> {
+  const out = new Map<string, Record<string, string>>();
+  const ai = await db.all<{ target_id: string; output: string }>("SELECT a.target_id, a.output FROM ai_results a JOIN sentences s ON s.id = a.target_id WHERE a.scope = 'sentence' AND a.task = 'context_meanings' AND a.deleted_at IS NULL AND s.section_id = ? ORDER BY a.created_at", [section_id]);
+  for (const a of ai) out.set(a.target_id, { ...out.get(a.target_id), ...j.parse<Record<string, string>>(a.output, {}) });
+  const own = await db.all<{ sentence_id: string; text: string; meaning: string }>("SELECT tc.sentence_id, t.text, tc.meaning_in_context AS meaning FROM term_contexts tc JOIN terms t ON t.id = tc.term_id JOIN sentences s ON s.id = tc.sentence_id WHERE tc.meaning_in_context IS NOT NULL AND tc.deleted_at IS NULL AND s.section_id = ?", [section_id]);
+  for (const c of own) out.set(c.sentence_id, { ...out.get(c.sentence_id), [c.text]: c.meaning });
+  return out;
+}
 
 /** sections.get：阅读器一次取齐——句子、tokens、词状态、短语、计数（06 §3） */
 export async function sectionContent(db: Database, section_id: string, opts: { translations?: boolean; ai?: boolean } = {}): Promise<SectionContent> {
@@ -20,12 +31,16 @@ export async function sectionContent(db: Database, section_id: string, opts: { t
   const phraseRows = await db.all<{ id: string; text: string; sentence_id: string }>("SELECT t.id, t.text, tc.sentence_id FROM terms t JOIN term_contexts tc ON tc.term_id = t.id AND tc.deleted_at IS NULL JOIN sentences s ON s.id = tc.sentence_id WHERE t.kind = 'phrase' AND t.deleted_at IS NULL AND t.status NOT IN (98) AND s.section_id = ?", [section_id]);
   const phraseMap = new Map<string, { id: string; text: string; sentence_ids: string[] }>();
   for (const p of phraseRows) { const e = phraseMap.get(p.id) ?? { id: p.id, text: p.text, sentence_ids: [] }; e.sentence_ids.push(p.sentence_id); phraseMap.set(p.id, e); }
+  const inContext = await sentenceMeanings(db, section_id);
   const sentences: Sentence[] = rows.map(r => {
     const tokens = j.parse<Token[]>(r.tokens, []).map(t => {
       const term = terms.get(t.l);
       const out: Token = { t: t.t, l: t.l, s: t.s, e: t.e };
       if (term && !term.deleted_at && term.status !== 5 && term.status !== 97) {
         out.status = term.status as Status;
+        // 行间释义：这句里的语境义 > 用户写的释义 > 词典短释义。待确认的词也带上，确认成学习中后不用重新取
+        const gloss = term.status === 98 ? undefined : shortGloss(inContext.get(r.id)?.[t.l]) || shortGloss(term.meaning) || term.short_gloss;
+        if (gloss) out.gloss = gloss;
         if (!seenCount.has(term.id)) { seenCount.add(term.id); if (term.status === 0) counts.new++; else if (term.status >= 1 && term.status <= 4) counts.learning++; else if (term.status === 99) counts.unsure++; }
       }
       return out;
