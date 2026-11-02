@@ -14,7 +14,9 @@ pub struct Pending(Mutex<Option<Update>>);
 
 #[tauri::command]
 pub async fn update_check(app: AppHandle, pending: State<'_, Pending>) -> Result<Value, String> {
-    let update = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?;
+    // 超时只管检查，不管下载：连不上国内源时要尽快试 GitHub，而插件默认不设超时
+    let updater = app.updater_builder().timeout(Duration::from_secs(15)).build().map_err(|e| e.to_string())?;
+    let update = updater.check().await.map_err(|e| e.to_string())?;
     let info = match &update {
         Some(u) => json!({ "available": true, "version": u.version }),
         None => json!({ "available": false }),

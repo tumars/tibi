@@ -4,7 +4,7 @@
 
 ## 1. 第一次打开
 
-1. 从 [Releases](https://github.com/tumars/tibi/releases) 下载安装（未签名版本：macOS 右键 → 打开；Windows SmartScreen 选"仍要运行"）。
+1. 从 [Releases](https://github.com/tumars/tibi/releases) 下载安装，GitHub 打不开时用 [README](../../README.md#安装) 里的国内下载（未签名版本：macOS 右键 → 打开；Windows SmartScreen 选"仍要运行"）。
 2. 引导页问你三件事：怎么称呼你、英语水平、学英语的目标。水平决定一开始哪些词标成生词。
 3. 可以顺手**校准词汇量**：7 组词，只点确定认识的（里面混了几个不存在的词，用来校正乱点），约 3–4 分钟。以后在 设置 → 通用 → 校准词汇量 随时重测。
 4. 读第一篇：选一篇内置示例，或粘贴一个英文网址。

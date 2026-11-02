@@ -3,6 +3,7 @@
 #   macOS：APPLE_CERTIFICATE、APPLE_CERTIFICATE_PASSWORD、APPLE_SIGNING_IDENTITY、APPLE_ID、APPLE_PASSWORD、APPLE_TEAM_ID
 #   Windows：暂不签（以后接 Azure Trusted Signing）
 # 软件更新（T31）：配了 TAURI_SIGNING_PRIVATE_KEY 才出更新包和 latest.json。私钥丢了，已安装的版本就再也收不到更新。
+# 国内源：配了变量 CN_MIRROR_BASE_URL 才打进应用，发布后由 mirror-cn.yml 同步。
 name: Release
 # 手动触发（Actions 页面 → Release → Run workflow）只出构建产物、不建 Release，用来在打 tag 之前验证打包；可以勾选跑哪些。
 # 省 Actions 分钟（私有仓库：Linux ×1、Windows ×2、macOS ×10 计）：两个手机冒烟测试默认不跑，手动勾选才跑；打 tag 时也不跑。
@@ -133,11 +134,25 @@ jobs:
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          CN_MIRROR_BASE_URL: ${{ vars.CN_MIRROR_BASE_URL }}
         run: |
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then echo "没配更新签名密钥，不出更新包"; exit 0; fi
           { echo "TAURI_SIGNING_PRIVATE_KEY<<__TIBI_EOF__"; echo "$TAURI_SIGNING_PRIVATE_KEY"; echo "__TIBI_EOF__"; } >> "$GITHUB_ENV"
           echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=" >> "$GITHUB_ENV"
-          echo "UPDATER_ARGS=--config src-tauri/tauri.updater.conf.json" >> "$GITHUB_ENV"
+          args="--config src-tauri/tauri.updater.conf.json"
+          # 配了国内源（mirror-cn.yml）就排在 GitHub 前面；连不上时插件自动查下一个
+          if [ -n "$CN_MIRROR_BASE_URL" ]; then
+            node -e "
+              const fs = require('fs');
+              const conf = './apps/desktop/src-tauri/tauri.conf.json';
+              const base = process.env.CN_MIRROR_BASE_URL.replace(/\/+$/, '');
+              if (!base.startsWith('https://')) throw new Error('CN_MIRROR_BASE_URL 必须是 https');
+              const endpoints = [base + '/latest.json', ...require(conf).plugins.updater.endpoints];
+              fs.writeFileSync('apps/desktop/src-tauri/tauri.updater-cn.conf.json', JSON.stringify({ plugins: { updater: { endpoints } } }));
+            "
+            args="$args --config src-tauri/tauri.updater-cn.conf.json"
+          fi
+          echo "UPDATER_ARGS=$args" >> "$GITHUB_ENV"
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

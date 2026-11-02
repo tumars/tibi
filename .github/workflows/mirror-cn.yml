@@ -1,0 +1,75 @@
+# Release 发布后同步到国内对象存储（T31）。GitHub 在中国大陆不稳定，已安装的应用先查这里，连不上再查 GitHub。
+# 配了下面这些才同步，没配就跳过。任何 S3 兼容的存储都行（阿里云 OSS、腾讯云 COS）：
+#   变量 CN_MIRROR_BASE_URL：存储桶的公开 https 地址。release.yml 打包时会把它写进应用，改了只对之后发的版本生效
+#   密钥 CN_S3_ENDPOINT、CN_S3_REGION、CN_S3_BUCKET、CN_S3_ACCESS_KEY_ID、CN_S3_SECRET_ACCESS_KEY
+# 手动触发（Actions 页面 → Mirror to CN → Run workflow）可以补同步某个 tag。
+name: Mirror to CN
+on:
+  release:
+    # 草稿发布时触发；草稿阶段不同步，否则人工检查前用户就会收到更新
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要同步的 tag（如 v0.1.0）
+        required: true
+
+concurrency:
+  group: mirror-cn
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TAG: ${{ inputs.tag || github.event.release.tag_name }}
+      BASE_URL: ${{ vars.CN_MIRROR_BASE_URL }}
+      BUCKET: ${{ secrets.CN_S3_BUCKET }}
+      S3_ENDPOINT: ${{ secrets.CN_S3_ENDPOINT }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.CN_S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CN_S3_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.CN_S3_REGION }}
+      # OSS、COS 不支持新版 AWS CLI 默认加的校验头
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+    steps:
+      - name: 配了才同步
+        id: guard
+        run: |
+          for k in BASE_URL BUCKET S3_ENDPOINT AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION; do
+            if [ -z "${!k}" ]; then echo "没配 $k，跳过同步"; exit 0; fi
+          done
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - if: steps.guard.outputs.ready
+        uses: actions/checkout@v4
+      - name: 下载 Release 文件
+        if: steps.guard.outputs.ready
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release download "$TAG" --dir dist
+      - name: 生成国内源的 latest.json 和校验和
+        if: steps.guard.outputs.ready
+        run: node .github/scripts/cn-mirror-prep.mjs dist out "$BASE_URL" "$TAG"
+      - name: 上传
+        if: steps.guard.outputs.ready
+        run: |
+          aws configure set default.s3.addressing_style virtual
+          s3() { aws s3 --endpoint-url "$S3_ENDPOINT" "$@"; }
+          s3 cp dist "s3://$BUCKET/$TAG/" --recursive --exclude latest.json --no-progress
+          s3 cp out/SHA256SUMS.txt "s3://$BUCKET/$TAG/SHA256SUMS.txt" --no-progress
+          while IFS=$'\t' read -r file alias; do
+            s3 cp "s3://$BUCKET/$TAG/$file" "s3://$BUCKET/latest/$alias" --no-progress
+          done < out/aliases.tsv
+          s3 cp out/SHA256SUMS.txt "s3://$BUCKET/latest/SHA256SUMS.txt" --no-progress
+          # 最后才换 latest.json：之前失败的话，用户还停在旧版本，不会查到下载不了的新版本
+          s3 cp out/latest.json "s3://$BUCKET/latest.json" --cache-control no-cache --content-type application/json --no-progress
+      - name: 确认能从公开地址取到
+        if: steps.guard.outputs.ready
+        run: |
+          curl -fsS "${BASE_URL%/}/latest.json" | node -e "
+            const v = JSON.parse(require('fs').readFileSync(0, 'utf8')).version;
+            if (v !== process.env.TAG.replace(/^v/, '')) throw new Error('线上 latest.json 的版本是 ' + v);
+          "
