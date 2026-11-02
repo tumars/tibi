@@ -1,0 +1,42 @@
+apps/desktop/src/mobile/mobile.css
+  s_d424fec2f0708d::t_ca0d9664e06972 252-264
+apps/desktop/src/mobile/ui.tsx
+  s_d424fec2f0708d::t_112f993189e656 56
+  s_d424fec2f0708d::t_12eb46083f9648 6
+  s_d424fec2f0708d::t_58c8aa15583143 59-61
+  s_d424fec2f0708d::t_11418dfe5e4b8b 45
+packages/core/src/kernel/agent.ts
+  s_d424fec2f0708d::t_5a65ebf68c0410 133
+  s_d424fec2f0708d::t_91d90e69ea444a 102-103,105,107-114
+  s_d424fec2f0708d::t_9f14daa4e9e794 13
+  s_d424fec2f0708d::t_2445feb1769f96 173
+packages/core/src/kernel/conversations.ts
+  s_d424fec2f0708d::t_8fe9d36fe1a28c 143-147
+  s_d424fec2f0708d::t_0e31da521229f2 158,161-163
+  s_d424fec2f0708d::t_770e355f9948b5 199-208
+  s_d424fec2f0708d::t_b21414a4d6efac 18-20
+  s_d424fec2f0708d::t_04edee4591dea0 140
+packages/core/test/kernel/chat.test.ts
+  s_d424fec2f0708d::t_3d49aae14c1c92 478-525
+apps/desktop/src/lib/useChat.ts
+  s_d424fec2f0708d::t_95230b31dd6fbd 65-71
+apps/desktop/src/rpc/methods.ts
+  s_d424fec2f0708d::t_da761843dd3d8f 5
+  s_d424fec2f0708d::t_6a4e88ace279ba 90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9590fa09281df9be5e257466bbd3f9e1cca699aa",
+  "prompts": {},
+  "sessions": {
+    "s_d424fec2f0708d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c2bc5ba0-5c55-41d2-b745-998f0349453a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
