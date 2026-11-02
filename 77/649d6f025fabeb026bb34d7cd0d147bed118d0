@@ -1,0 +1,73 @@
+docs/design/06-interface.md
+  s_7c35eecbaf556c::t_e62847fb013498 217,297
+apps/desktop/src/lib/useChat.ts
+  s_7c35eecbaf556c::t_265bc6094f406f 1,12-13,16-21,27,29-31,34-44,47-49,57,66-67,84
+packages/core/src/rpc/define.ts
+  s_7c35eecbaf556c::t_e62847fb013498 8,55
+  s_7c35eecbaf556c::t_471141c152b76f 56
+packages/core/src/kernel/agent.ts
+  s_7c35eecbaf556c::t_e62847fb013498 8,10,12,81,83,101-102,109,119,122-125,138-142,146-155
+  s_7c35eecbaf556c::t_5cbe3e4527e51b 156-157
+packages/core/src/domain/review/capabilities.ts
+  s_7c35eecbaf556c::t_97759d9bf42913 113-114
+  s_7c35eecbaf556c::t_265bc6094f406f 117
+  s_7c35eecbaf556c::t_e62847fb013498 108-109,116,118
+  s_7c35eecbaf556c::t_1d86af479e3ba1 110-112
+  s_7c35eecbaf556c::t_4cf89fde15c8b7 115
+  s_7c35eecbaf556c::t_96ce044344ab02 4
+packages/core/src/kernel/methods.ts
+  s_7c35eecbaf556c::t_e62847fb013498 42-46
+packages/core/src/kernel/skills.gen.ts
+  s_7c35eecbaf556c::t_e62847fb013498 24,30,66
+packages/core/src/domain/terms/capabilities.ts
+  s_7c35eecbaf556c::t_e62847fb013498 9-10,21-27,47-49
+  s_7c35eecbaf556c::t_8982da40fb4f53 50
+packages/core/test/kernel/chat.test.ts
+  s_7c35eecbaf556c::t_265bc6094f406f 170-218
+  s_7c35eecbaf556c::t_611d10f8fe96b5 219-235
+packages/core/src/kernel/devfake.ts
+  s_7c35eecbaf556c::t_d20f215bf472e1 35
+  s_7c35eecbaf556c::t_e62847fb013498 31-34,36-47
+packages/core/src/types.ts
+  s_7c35eecbaf556c::t_e62847fb013498 116-124
+apps/desktop/src/components/ChatThread.tsx
+  s_7c35eecbaf556c::t_265bc6094f406f 6,28,46,48,50-52
+packages/core/src/kernel/conversations.ts
+  s_7c35eecbaf556c::t_e62847fb013498 3,11,108-120,137-142,152
+apps/desktop/src/locales/en.json
+  s_7c35eecbaf556c::t_3d493713ecd941 965
+  s_7c35eecbaf556c::t_265bc6094f406f 959-964,966-969
+apps/desktop/src/mobile/ui.tsx
+  s_7c35eecbaf556c::t_265bc6094f406f 4,44,53,56-57
+apps/desktop/src/rpc/methods.ts
+  s_7c35eecbaf556c::t_e62847fb013498 5,92,125
+packages/core/src/kernel/types.ts
+  s_7c35eecbaf556c::t_e62847fb013498 57
+packages/core/skills/tibi/SKILL.md
+  s_7c35eecbaf556c::t_e62847fb013498 4,17-18
+apps/desktop/src/components/widgets.css
+  s_7c35eecbaf556c::t_265bc6094f406f 1-30
+apps/desktop/src/components/Widgets.tsx
+  s_7c35eecbaf556c::t_3d493713ecd941 83-84
+  s_7c35eecbaf556c::t_265bc6094f406f 1-82,85-100,102,104-119
+  s_7c35eecbaf556c::t_17abb025b34138 101
+  s_7c35eecbaf556c::t_52abf77f2ed832 103
+packages/core/skills/tutor/SKILL.md
+  s_7c35eecbaf556c::t_e62847fb013498 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "77649d6f025fabeb026bb34d7cd0d147bed118d0",
+  "prompts": {},
+  "sessions": {
+    "s_7c35eecbaf556c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f81ec16f-a193-400c-849c-20579316041f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
