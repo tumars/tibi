@@ -1,0 +1,192 @@
+apps/desktop/src/styles.css
+  s_d424fec2f0708d::t_256fbd2f55d3d2 547,577-578
+  s_cc28ae01fef59c::t_b632f0174a0caa 295-298
+  s_cc52557a333fa9::t_b6079e9198277b 515-517
+  s_cc52557a333fa9::t_a163f6683ce9d2 155-157
+  s_d424fec2f0708d::t_80fc1a2bfab41d 519
+  s_b0ed49cf179907::t_b13db6734cde1f 44-47
+  s_d424fec2f0708d::t_c8fce8d14fe081 565-574
+  s_d424fec2f0708d::t_1a18f57439b6a7 576
+  s_b0ed49cf179907::t_5b90ada2d8e0fb 66
+  s_cc52557a333fa9::t_b252465b286133 511
+  s_cc52557a333fa9::t_1e403d3844196b 518
+  s_d424fec2f0708d::t_78f319aa58edb5 548-564
+apps/desktop/src/locales/en.json
+  s_d424fec2f0708d::t_d5683d27983a27 31-37
+  s_83e088aec27544::t_608fc755d4a83f 315,559
+  s_d424fec2f0708d::t_762dece35320f8 6-24
+  s_83e088aec27544::t_653f165ba253e5 941,968
+  s_a3281bcd3632f2::t_94a987c7654380 931-933
+  s_d424fec2f0708d::t_a117714453c9f8 2-5
+  s_d424fec2f0708d::t_ed1c29df8195ba 25-30
+apps/desktop/src/settings/ModelItems.tsx
+  s_83e088aec27544::t_653f165ba253e5 52
+  s_d424fec2f0708d::t_7779abcf50d19e 49-51
+  s_d424fec2f0708d::t_284755bdc0d19f 15-21,27-29
+  s_d424fec2f0708d::t_f3e78b118b7277 30
+  s_83e088aec27544::t_f145860efa6789 53
+  s_d424fec2f0708d::t_2c54c5e655cfcc 13
+apps/desktop/src/mobile/Today.tsx
+  s_d424fec2f0708d::t_1a2180f6a18d6b 33-37
+  s_d424fec2f0708d::t_d94fb02a0d5b0f 27
+  s_d424fec2f0708d::t_d4c4628fee5c7a 21
+apps/desktop/src/rpc/methods.ts
+  s_d424fec2f0708d::t_c84a20cc854f20 90
+  s_d424fec2f0708d::t_bda1257b47efb9 129
+  s_a3281bcd3632f2::t_fe240a077df703 73
+  s_d424fec2f0708d::t_e71152a9423c29 91
+  s_d424fec2f0708d::t_505bc5a4da5972 94-95
+apps/desktop/src/components/ChatThread.tsx
+  s_d424fec2f0708d::t_bb13c049e9d7c3 160,165
+  s_d424fec2f0708d::t_d45e065b8a1049 152
+  s_d424fec2f0708d::t_9de13cbe51b2c3 26-27
+  s_d424fec2f0708d::t_109d85f414414b 41-48
+  s_d424fec2f0708d::t_f38af13f080a01 121-129
+  s_cc52557a333fa9::t_2fe11aff27da4b 81,90-92,106-113,119,132
+  s_d424fec2f0708d::t_a233e2ad5e484d 120
+  s_d424fec2f0708d::t_a5eb1267d8a558 153
+  s_d424fec2f0708d::t_bd9b167e331363 138-140
+  s_d424fec2f0708d::t_6c09023020c347 154-158
+  s_cc52557a333fa9::t_43b9344b171cd6 191
+  s_cc52557a333fa9::t_59f37dd677353a 8
+  s_d424fec2f0708d::t_b3994d58cdd20e 161-163
+  s_d424fec2f0708d::t_4ae350edc4633f 49,51-56
+  s_d424fec2f0708d::t_1d0964c928c7b5 168
+  s_d424fec2f0708d::t_857974cce3cd8a 166
+  s_d424fec2f0708d::t_51669360876523 82-89,93-105
+  s_cc52557a333fa9::t_1828fa88eec7e7 24
+  s_cc52557a333fa9::t_08331995911990 35-36,38
+  s_cc52557a333fa9::t_51517b82ebcecd 182-190,193
+  s_d424fec2f0708d::t_798f3e43d10427 2
+  s_d424fec2f0708d::t_9ca32c529501d2 115
+  s_d424fec2f0708d::t_089a027c524c2c 172-181
+  s_d424fec2f0708d::t_ee21ced75f3b9f 9-11
+  s_d424fec2f0708d::t_583213c4bfa8b5 136-137,143
+  s_d424fec2f0708d::t_bcdf1beac81b9f 151
+  s_cc52557a333fa9::t_998db8b37af747 37
+  s_d424fec2f0708d::t_dbc640d5c1cd13 114,116-118,130-131
+  s_d424fec2f0708d::t_950d5bba45720d 3
+  s_d424fec2f0708d::t_7859c38427231d 59
+  s_cc52557a333fa9::t_0480caa8538b2d 6-7
+  s_d424fec2f0708d::t_419f70c7975377 141-142
+  s_d424fec2f0708d::t_ba658f433ecf07 64-65
+  s_cc52557a333fa9::t_908ef58b57ff7b 78
+  s_d424fec2f0708d::t_52296a89e5ab16 60
+  s_d424fec2f0708d::t_8f92b46d4a5810 57-58,61-63,66-75
+  s_d424fec2f0708d::t_e4030ee730b2dc 50
+  s_cc52557a333fa9::t_7184948becca36 133
+  s_d424fec2f0708d::t_5970cf3438b981 25
+apps/desktop/src/components/Composer.tsx
+  s_cc52557a333fa9::t_ac459a0abe7914 1,3
+  s_cc52557a333fa9::t_f5eba88aa540b7 2,4-7,9-61,80,88-89
+  s_cc52557a333fa9::t_f55195a911f8a7 8
+  s_cc52557a333fa9::t_9dd4cb50dbb441 62-79,81-87
+apps/desktop/src/components/Process.tsx
+  s_d424fec2f0708d::t_2e8fb792784cf2 23-30
+  s_d424fec2f0708d::t_4859a7f7fcc956 16
+  s_d424fec2f0708d::t_7cbae035b9f464 2-15,17-22,31-47
+  s_d424fec2f0708d::t_5a370a692d07c1 1
+apps/desktop/src/lib/useChat.ts
+  s_d424fec2f0708d::t_fb13dd1bc48ac0 133-145
+  s_d424fec2f0708d::t_f55850203fb310 119,122-127
+  s_cc52557a333fa9::t_20e358e9bbe008 111
+  s_d424fec2f0708d::t_f180a30ac3fb11 47-48
+  s_cc52557a333fa9::t_7c8beadd4417e5 117
+  s_d424fec2f0708d::t_58fe6954d23129 54-58
+  s_d424fec2f0708d::t_9149297c1ccb42 147
+  s_d424fec2f0708d::t_893e469f263256 114
+  s_d424fec2f0708d::t_31f153d622efc8 160
+  s_d424fec2f0708d::t_f12167e8acf38b 70-79,102-109,116
+  s_d424fec2f0708d::t_e8c77c0441c89f 81-83,85-101
+  s_d424fec2f0708d::t_68a8cb8ec655a4 46,51-53,59-68
+  s_d424fec2f0708d::t_178d4fb42c4325 112-113,115
+  s_d424fec2f0708d::t_715932c019e477 153-154
+  s_d424fec2f0708d::t_d4b46f9a41dcb6 13-14
+  s_d424fec2f0708d::t_a715cfe6799509 110
+apps/desktop/src/pages/Home.tsx
+  s_cc52557a333fa9::t_985bd8c0acab10 153,155
+  s_cc52557a333fa9::t_cc67fa3a23fb3e 2
+  s_cc52557a333fa9::t_ed9ca1b7bef307 149
+  s_cc52557a333fa9::t_7a0c3dd89113f4 85
+  s_cc52557a333fa9::t_b3d9aec8160e3e 164
+  s_cc52557a333fa9::t_403cdea84cf225 10
+  s_cc52557a333fa9::t_a77be9c3292c43 37
+  s_cc52557a333fa9::t_1b1ba332cb2a80 42-43
+  s_cc52557a333fa9::t_e9b0ccb3592705 11
+  s_cc52557a333fa9::t_db34425867e17a 159
+apps/desktop/src/components/Widgets.tsx
+  s_d424fec2f0708d::t_16736397c9361f 124
+  s_d424fec2f0708d::t_b84f029770df41 17
+  s_d424fec2f0708d::t_da3c85f7c950af 127
+  s_d424fec2f0708d::t_82f469959acdaa 115
+  s_d424fec2f0708d::t_51fd5aad91af74 62
+  s_d424fec2f0708d::t_6a0a872c099960 76-87
+  s_d424fec2f0708d::t_393d501b54c05b 118
+apps/desktop/src/pages/Chat.tsx
+  s_cc52557a333fa9::t_81035920163ea9 19
+  s_cc52557a333fa9::t_9f710a644698dd 17
+apps/desktop/src/components/SelectAsk.tsx
+  s_d424fec2f0708d::t_aadbb83ecb6d95 1-69
+apps/desktop/src/mobile/ui.tsx
+  s_d424fec2f0708d::t_bb92f10d6c7f10 43-45
+  s_d424fec2f0708d::t_243e5dbcec1a69 54-55
+  s_d424fec2f0708d::t_02fbe7428e0821 61-62
+  s_d424fec2f0708d::t_13c366dd23d079 57-58,60
+  s_d424fec2f0708d::t_f9986dfbb15cdc 47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "77622dd4359357996aa1411020f1674b36b207ef",
+  "prompts": {},
+  "sessions": {
+    "s_83e088aec27544": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93165e38-8a3a-4d4c-a013-e65d3f30c1d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_a3281bcd3632f2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3c1aa584-4daa-48c1-9d09-6eb001319eb9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_b0ed49cf179907": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "52671ed1-8636-4b2f-884a-ced737d50e65",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_cc28ae01fef59c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8477b7f-0f3b-496e-9c94-e2fad2491947",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_cc52557a333fa9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2f9abc37-f2b8-4fd8-91f3-6f20cea8d380",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_d424fec2f0708d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c2bc5ba0-5c55-41d2-b745-998f0349453a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
