@@ -1,0 +1,41 @@
+apps/desktop/src/settings/search.ts
+  s_29e92ff00225e5::t_93c2f316942ace 28-29
+apps/desktop/src/pages/Settings.tsx
+  s_29e92ff00225e5::t_fce433f34df9e2 151-156
+  s_29e92ff00225e5::t_1cd5d04d3bbcd4 16
+apps/desktop/src/styles.css
+  s_29e92ff00225e5::t_bef735a4a53091 328
+  s_29e92ff00225e5::t_e0e01bba5da68b 329
+apps/desktop/src/settings/AuthorItems.tsx
+  s_29e92ff00225e5::t_59dcaf94b9d8d0 1-36
+apps/desktop/src-tauri/capabilities/default.json
+  s_29e92ff00225e5::t_a50d88395175d1 15-22
+apps/desktop/src/locales/en.json
+  s_29e92ff00225e5::t_c08258f84d33a4 658-666
+docs/CHANGELOG.md
+  s_1309c02fe53e19::t_8f9a08c4b362a9 179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "db0fa31a917384ac60494b765607d81263349598",
+  "prompts": {},
+  "sessions": {
+    "s_1309c02fe53e19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4523abd9-114f-4fcb-aa4b-c1caea45e6f1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_29e92ff00225e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f73090c3-630d-4aab-953f-c9f195b552b9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
