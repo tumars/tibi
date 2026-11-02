@@ -13,10 +13,6 @@
 mod keychain {
     const SERVICE: &str = "app.tibi";
 
-    pub fn set(r: &str, secret: &str) -> Result<(), String> {
-        keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.set_password(secret).map_err(|e| format!("写入钥匙串失败：{e}"))
-    }
-
     pub fn delete(r: &str) -> Result<(), String> {
         match keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
