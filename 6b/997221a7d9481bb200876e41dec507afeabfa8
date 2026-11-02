@@ -1,0 +1,43 @@
+docs/design/03-visual-language.md
+  s_b5dccb82d9fd3a::t_a0953b23691649 179
+  s_b5dccb82d9fd3a::t_7a32b69c3a1e83 178
+apps/desktop/scripts/gen-icons.mjs
+  s_b5dccb82d9fd3a::t_f601205c06e0e3 1,11,13-14,23,31
+  s_b5dccb82d9fd3a::t_a0953b23691649 12
+docs/design/09-app-icon.md
+  s_b5dccb82d9fd3a::t_0626d0af6a2721 3-4,27-37
+  s_b5dccb82d9fd3a::t_a14f91e2388d78 1-2,70-81
+  s_b5dccb82d9fd3a::t_0febd2a0a07897 51-58
+  s_b5dccb82d9fd3a::t_33c46def1de527 6,14-18
+  s_b5dccb82d9fd3a::t_a0953b23691649 5,7-13
+  s_b5dccb82d9fd3a::t_7a32b69c3a1e83 50,59-69
+  s_b5dccb82d9fd3a::t_4688bf20ec966e 38-49
+  s_b5dccb82d9fd3a::t_732e2f29a22558 82-105
+  s_b5dccb82d9fd3a::t_6e2a2b0afd28c3 19-26
+docs/CHANGELOG.md
+  s_1309c02fe53e19::t_545062c10dddb1 178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6b997221a7d9481bb200876e41dec507afeabfa8",
+  "prompts": {},
+  "sessions": {
+    "s_1309c02fe53e19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4523abd9-114f-4fcb-aa4b-c1caea45e6f1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_b5dccb82d9fd3a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a19b2d-f198-7950-9c6c-ec866bcf3e84",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
