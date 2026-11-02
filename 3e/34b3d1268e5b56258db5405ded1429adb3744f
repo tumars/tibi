@@ -1,0 +1,44 @@
+docs/DECISIONS.md
+  s_1309c02fe53e19::t_29268135f3a55a 166
+.github/workflows/mirror-cn.yml
+  s_1309c02fe53e19::t_4076098ee206b0 1-75
+docs/guide/README.md
+  s_1309c02fe53e19::t_c40a39e090aaa2 7
+.github/scripts/cn-mirror-prep.mjs
+  s_1309c02fe53e19::t_9b97d6692b349c 1-38
+docs/CHANGELOG.md
+  s_1309c02fe53e19::t_c7a85b2ce2adbe 175
+.github/workflows/release.yml
+  s_1309c02fe53e19::t_9dc2a718395cb8 6
+  s_1309c02fe53e19::t_996832f2f5ffb2 137,142-155
+apps/desktop/src-tauri/src/update.rs
+  s_1309c02fe53e19::t_2547412c62848e 17-19
+PRIVACY.md
+  s_20a9924180be77::t_bb5c784dc8131f 25
+README.md
+  s_20a9924180be77::t_61fd5a4df6cd32 40-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3e34b3d1268e5b56258db5405ded1429adb3744f",
+  "prompts": {},
+  "sessions": {
+    "s_1309c02fe53e19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4523abd9-114f-4fcb-aa4b-c1caea45e6f1",
+        "model": "unknown"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_20a9924180be77": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a197b1-172f-7e03-8608-0bc8010b8f40",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
