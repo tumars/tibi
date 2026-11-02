@@ -1,52 +1,24 @@
-import { Fragment, type ReactNode } from 'react';
+import ReactMarkdown, { type Components } from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
+import remarkCjkFriendly from 'remark-cjk-friendly';
+import remarkGfm from 'remark-gfm';
 
 /**
- * Tibi 回答用的极简 Markdown：段落、列表、### 标题、引用、代码块，行内 **粗体**、*斜体*、`代码`、[链接](https://…)。
- * 只生成 React 元素，不用 innerHTML（模型输出当不可信文本）。
+ * Tibi 回答用的 Markdown（含 GFM 表格、删除线、任务列表）。
+ * 模型输出当不可信文本：HTML 只显示成文字，图片只留说明文字（不替模型请求外部地址），链接只放行 http(s)。
+ * 单个换行保留成换行；remark-cjk-friendly 让 **“中文标点”** 紧贴文字时也能加粗。
  */
-function inline(text: string, key: string): ReactNode[] {
-  const out: ReactNode[] = []; let i = 0; let n = 0;
-  const re = /(\*\*([^*]+)\*\*|\*([^*\s][^*]*)\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\))/g;
-  for (const m of text.matchAll(re)) {
-    if (m.index! > i) out.push(text.slice(i, m.index));
-    const k = `${key}-${n++}`;
-    if (m[2]) out.push(<b key={k}>{m[2]}</b>);
-    else if (m[3]) out.push(<i key={k}>{m[3]}</i>);
-    else if (m[4]) out.push(<code key={k}>{m[4]}</code>);
-    else if (m[5]) out.push(<a key={k} href={m[6]} target="_blank" rel="noopener noreferrer">{m[5]}</a>);
-    i = m.index! + m[0].length;
-  }
-  if (i < text.length) out.push(text.slice(i));
-  return out;
-}
+const plugins = [remarkGfm, remarkCjkFriendly, remarkBreaks];
+
+const heading: Components['h1'] = ({ children }) => <h4>{children}</h4>;   // 对话里字号不分级
+
+const components: Components = {
+  h1: heading, h2: heading, h3: heading, h4: heading, h5: heading, h6: heading,
+  a: ({ href, children }) => /^https?:\/\//i.test(href ?? '') ? <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> : <>{children}</>,
+  img: ({ alt }) => <>{alt}</>,
+  table: ({ children }) => <div className="mdtable"><table>{children}</table></div>,   // 宽表在自己的框里横向滚动
+};
 
 export function Markdown({ text }: { text: string }) {
-  const lines = text.replace(/\r\n?/g, '\n').split('\n');
-  const blocks: ReactNode[] = []; let i = 0; let k = 0;
-  while (i < lines.length) {
-    const l = lines[i]!;
-    if (!l.trim()) { i++; continue; }
-    if (l.startsWith('```')) {
-      const buf: string[] = []; i++;
-      while (i < lines.length && !lines[i]!.startsWith('```')) buf.push(lines[i++]!);
-      i++; blocks.push(<pre key={k++}>{buf.join('\n')}</pre>); continue;
-    }
-    const h = l.match(/^#{1,4}\s+(.*)$/);
-    if (h) { blocks.push(<h4 key={k++}>{inline(h[1]!, `h${k}`)}</h4>); i++; continue; }
-    if (/^\s*([-*•]|\d+[.)])\s+/.test(l)) {
-      const ordered = /^\s*\d/.test(l); const items: string[] = [];
-      while (i < lines.length && /^\s*([-*•]|\d+[.)])\s+/.test(lines[i]!)) items.push(lines[i++]!.replace(/^\s*([-*•]|\d+[.)])\s+/, ''));
-      const Tag = ordered ? 'ol' : 'ul';
-      blocks.push(<Tag key={k++}>{items.map((t, j) => <li key={j}>{inline(t, `l${k}-${j}`)}</li>)}</Tag>); continue;
-    }
-    if (l.startsWith('>')) {
-      const buf: string[] = [];
-      while (i < lines.length && lines[i]!.startsWith('>')) buf.push(lines[i++]!.replace(/^>\s?/, ''));
-      blocks.push(<blockquote key={k++}>{inline(buf.join(' '), `q${k}`)}</blockquote>); continue;
-    }
-    const buf: string[] = [];
-    while (i < lines.length && lines[i]!.trim() && !/^(```|#{1,4}\s|>|\s*([-*•]|\d+[.)])\s+)/.test(lines[i]!)) buf.push(lines[i++]!);
-    blocks.push(<p key={k++}>{buf.map((b, j) => <Fragment key={j}>{j > 0 && <br />}{inline(b, `p${k}-${j}`)}</Fragment>)}</p>);
-  }
-  return <>{blocks}</>;
+  return <ReactMarkdown remarkPlugins={plugins} components={components}>{text.replace(/^(\s*)•\s+/gm, '$1- ')}</ReactMarkdown>;
 }

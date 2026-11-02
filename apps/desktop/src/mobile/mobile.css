@@ -235,6 +235,19 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .thread .a p { margin: 0 0 8px; } .thread .a p:last-child { margin-bottom: 0; }
 .thread .a ul, .thread .a ol { margin: 4px 0 8px; padding-left: 20px; }
 .thread .a pre { white-space: pre-wrap; font-size: 13px; background: var(--sunken); padding: 8px 10px; border-radius: 10px; }
+.thread .a h4, .chat .a h4 { margin: 10px 0 4px; font-size: inherit; font-weight: 600; }
+.thread .a code, .chat .a code { font-size: .88em; padding: 1px 4px; border-radius: 4px; background: var(--sunken); }
+.thread .a pre code, .chat .a pre code { padding: 0; background: none; font-size: inherit; }
+.thread .a blockquote, .chat .a blockquote { margin: 6px 0; padding-left: 10px; box-shadow: inset 2px 0 0 var(--line-2); color: var(--ink-2); }
+.thread .a hr, .chat .a hr { margin: 12px 0; border: 0; border-top: .5px solid var(--line-2); }
+.chat .a p { margin: 0 0 8px; } .chat .a p:last-child { margin-bottom: 0; }
+.chat .a ul, .chat .a ol { margin: 4px 0 8px; padding-left: 20px; }
+.chat .a pre { white-space: pre-wrap; font-size: 13px; background: var(--sunken); padding: 8px 10px; border-radius: 10px; }
+.mdtable { margin: 8px 0; overflow-x: auto; border-radius: 12px; box-shadow: inset 0 0 0 .5px var(--line-2); }
+.mdtable table { min-width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.5; }
+.mdtable th, .mdtable td { padding: 6px 10px; text-align: left; vertical-align: top; }
+.mdtable th { font-weight: 600; white-space: nowrap; background: var(--sunken); }
+.mdtable td { border-top: .5px solid var(--line-2); }
 .thread .tool { font-size: 12.5px; color: var(--ink-3); display: flex; gap: 6px; align-items: center; }
 .thread .err { color: var(--hard); font-size: 13px; }
 .typing { display: inline-flex; gap: 4px; } .typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: tp 1s infinite alternate; } .typing i:nth-child(2) { animation-delay: .2s; } .typing i:nth-child(3) { animation-delay: .4s; } @keyframes tp { to { opacity: .2; } }
