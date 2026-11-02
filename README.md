@@ -37,7 +37,7 @@
 | Windows 10 / 11 | `Tibi_x.y.z_x64-setup.exe` 或 `.msi` |
 | Linux | `.AppImage` 或 `.deb` |
 
-GitHub 打不开或下载太慢时，用国内下载：[macOS（Apple 芯片）](https://tibi-releases-1252518482.cos.ap-guangzhou.myqcloud.com/latest/Tibi_aarch64.dmg) · [macOS（Intel）](https://tibi-releases-1252518482.cos.ap-guangzhou.myqcloud.com/latest/Tibi_x64.dmg) · [Windows](https://tibi-releases-1252518482.cos.ap-guangzhou.myqcloud.com/latest/Tibi_x64-setup.exe) · [Linux（AppImage）](https://tibi-releases-1252518482.cos.ap-guangzhou.myqcloud.com/latest/Tibi_amd64.AppImage) · [Linux（deb）](https://tibi-releases-1252518482.cos.ap-guangzhou.myqcloud.com/latest/Tibi_amd64.deb) · [SHA-256 校验和](https://tibi-releases-1252518482.cos.ap-guangzhou.myqcloud.com/latest/SHA256SUMS.txt)
+GitHub 打不开或下载太慢时，用国内下载：[macOS（Apple 芯片）](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) · [macOS（Intel）](https://dl.ferecord.com/latest/Tibi_x64.dmg) · [Windows](https://dl.ferecord.com/latest/Tibi_x64-setup.exe) · [Linux（AppImage）](https://dl.ferecord.com/latest/Tibi_amd64.AppImage) · [Linux（deb）](https://dl.ferecord.com/latest/Tibi_amd64.deb) · [SHA-256 校验和](https://dl.ferecord.com/latest/SHA256SUMS.txt)
 
 还没有签名的版本第一次打开时：macOS 在 Finder 里右键 → 打开；Windows 出现 SmartScreen 时点「更多信息 → 仍要运行」。
 

@@ -1,6 +1,6 @@
 # Release 发布后同步到国内对象存储（T31）。GitHub 在中国大陆不稳定，已安装的应用先查这里，连不上再查 GitHub。
 # 配了下面这些才同步，没配就跳过。任何 S3 兼容的存储都行（阿里云 OSS、腾讯云 COS）：
-#   变量 CN_MIRROR_BASE_URL：存储桶的公开 https 地址。release.yml 打包时会把它写进应用，改了只对之后发的版本生效
+#   变量 CN_MIRROR_BASE_URL：公开 https 地址（现在是 https://dl.ferecord.com，CNAME 到存储桶；腾讯云免费证书，90 天要续签并重新绑定）。release.yml 打包时会把它写进应用，改了只对之后发的版本生效
 #   密钥 CN_S3_ENDPOINT、CN_S3_REGION、CN_S3_BUCKET、CN_S3_ACCESS_KEY_ID、CN_S3_SECRET_ACCESS_KEY
 # 手动触发（Actions 页面 → Mirror to CN → Run workflow）可以补同步某个 tag。
 name: Mirror to CN
