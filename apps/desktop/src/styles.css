@@ -325,6 +325,8 @@ h2.st .sp { flex: 1; }
 .about-art { margin-bottom: 12px; } .about-art img { display: block; width: 180px; height: 180px; margin: 0 auto; border-radius: var(--r-l); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .about-art img { filter: brightness(.8); } }
 :root[data-theme="dark"] .about-art img { filter: brightness(.8); }
+.donate { display: flex; flex-wrap: wrap; gap: 24px; } .donate figure { margin: 0; text-align: center; } .donate figcaption { margin-top: 6px; font-size: 12.5px; color: var(--ink-3); }
+.donate img { display: block; width: 180px; height: auto; border-radius: var(--r-m); border: 1px solid var(--line); }
 .done .k3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; } .done .k3 div { background: var(--sunken); border-radius: var(--r-l); padding: 12px; } .done .k3 b { display: block; font-size: 22px; } .done .k3 span { font-size: 11.5px; color: var(--ink-3); }
 
 /* 设置 */

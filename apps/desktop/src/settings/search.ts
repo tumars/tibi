@@ -25,6 +25,8 @@ export const SETTINGS: { label: string; sec: string; kw: string }[] = [
   { label: '导出学习汇总', sec: 'data', kw: '导出 汇总 export' },
   { label: '检查更新', sec: 'about', kw: '更新 升级 新版本 版本 update upgrade version' },
   { label: '自动检查更新', sec: 'about', kw: '更新 升级 自动 update auto' },
+  { label: '关于作者', sec: 'about', kw: '作者 开发者 博客 twitter github author developer' },
+  { label: '请作者喝咖啡', sec: 'about', kw: '捐赠 打赏 赞助 支付宝 微信 收款码 donate coffee sponsor alipay wechat' },
 ];
 
 const ROWS = '.item, .prov, .pform';

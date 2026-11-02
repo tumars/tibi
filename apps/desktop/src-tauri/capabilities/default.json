@@ -12,6 +12,14 @@
     "core:event:default",
     "dialog:allow-open",
     "opener:allow-reveal-item-in-dir",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://x.com/Tumars" },
+        { "url": "https://github.com/tumars" },
+        { "url": "https://www.ferecord.com/" }
+      ]
+    },
     "deep-link:default",
     "notification:default"
   ]

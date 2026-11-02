@@ -13,6 +13,7 @@ import { SkillItems } from '../settings/SkillItems';
 import { McpItems } from '../settings/McpItems';
 import { SyncItems } from '../settings/SyncItems';
 import { UpdateItems } from '../settings/UpdateItems';
+import { AuthorItems, DonateItems } from '../settings/AuthorItems';
 import { useSettingsSearch } from '../settings/search';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
@@ -147,7 +148,12 @@ export function Settings() {
             <div className="item"><div><div className="t">Tibi {status?.version ?? ''}</div><div className="d">{tl('开源 · MIT 协议 · 本地优先的 AI 英语阅读工具')}</div></div></div>
             <UpdateItems />
             <div className="item"><div><div className="t">{tl('致谢')}</div><div className="d">ECDICT · Open English WordNet · Word Atlas · FSRS · pi · Tauri · Charis SIL</div></div></div>
-          </div></section>
+          </div>
+            <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('关于作者')}</h3>
+            <div className="group"><AuthorItems /></div>
+            <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('请作者喝咖啡')}</h3>
+            <div className="group"><DonateItems /></div>
+          </section>
           {searching && total === 0 && <div className="snores">{tl('没有找到「{v0}」', { v0: query.trim() })}</div>}
         </div>
       </div></div></div>
