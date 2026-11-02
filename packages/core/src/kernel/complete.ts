@@ -5,7 +5,7 @@ import type { Ctx } from '../rpc/define.js';
 import { TibiError, type Tier } from '../types.js';
 import type { ResolvedModel } from './agent.js';
 import { friendlyModelError } from './model-errors.js';
-import { checkBudget, monthSpent, recordUsage, USD_CNY } from './usage.js';
+import { checkBudget, monthSpent, recordUsage, skillMonthCost, USD_CNY } from './usage.js';
 
 /**
  * 一次性模型调用（不走技能、不建任务）：M1 的语境释义和"测试连接"用（06 terms.context_meaning、providers.test）。
@@ -34,7 +34,7 @@ export async function completeOnce(ctx: Ctx, resolve: Resolver, o: CompleteOptio
   if (!usd && u) { try { usd = calculateCost(resolved.model, u).total; } catch { usd = 0; } }
   const cost = usd * USD_CNY;
   if (u) await recordUsage(ctx.db, { job_id: o.job_id, skill_id: o.skill_id, model: msg.model, input_tokens: u.input, cached_tokens: u.cacheRead, output_tokens: u.output, cost_cny: cost });
-  ctx.events.emit('usage.updated', { skill_id: o.skill_id, month_cost: cost, total: await monthSpent(ctx.db) });
+  ctx.events.emit('usage.updated', { skill_id: o.skill_id, month_cost: o.skill_id ? await skillMonthCost(ctx.db, o.skill_id) : cost, total: await monthSpent(ctx.db) });
   const text = msg.content.filter((c): c is { type: 'text'; text: string } => c.type === 'text').map(c => c.text).join('').trim();
   return { text, model: msg.model, latency_ms, cost };
 }

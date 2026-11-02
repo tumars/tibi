@@ -16,14 +16,17 @@ export type Turn = { text?: string; toolCalls?: { name: string; args: Record<str
  * 假的 streamFn：按脚本依次回复。每次调用吐出一条 assistant 消息（文本、工具调用或错误），
  * 用量固定：输入 100、输出 20 token。
  */
-export function scriptedStream(turns: Turn[]): StreamFn & { calls: number } {
-  let i = 0;
-  const fn = ((model: Model<Api>) => {
+export function scriptedStream(turns: Turn[]): StreamFn & { calls: number; reset(): void; contexts: string[]; systems: string[] } {
+  let i = 0; let run = 0;
+  const fn = ((model: Model<Api>, context: unknown, options?: { signal?: AbortSignal }) => {
+    fn.contexts.push(JSON.stringify((context as { messages: unknown }).messages));
+    fn.systems.push(JSON.stringify((context as { systemPrompt?: unknown }).systemPrompt ?? ''));
     const stream = createAssistantMessageEventStream();
     const turn = turns[Math.min(i, turns.length - 1)] ?? { text: '' }; i++; (fn as { calls: number }).calls = i;
     const base: AssistantMessage = { role: 'assistant', content: [], api: model.api, provider: model.provider, model: model.id, usage: { input: 100, output: 20, cacheRead: 0, cacheWrite: 0, totalTokens: 120, cost: { input: 0.0001, output: 0.00004, cacheRead: 0, cacheWrite: 0, total: 0.00014 } }, stopReason: 'stop', timestamp: Date.now() };
     queueMicrotask(() => {
       stream.push({ type: 'start', partial: base });
+      if (options?.signal?.aborted) { const err = { ...base, stopReason: 'aborted' as const, errorMessage: 'aborted' }; stream.push({ type: 'error', reason: 'aborted', error: err }); stream.end(err); return; }
       if (turn.error) { const err = { ...base, stopReason: 'error' as const, errorMessage: turn.error }; stream.push({ type: 'error', reason: 'error', error: err }); stream.end(err); return; }
       let idx = 0;
       if (turn.text) {
@@ -33,7 +36,7 @@ export function scriptedStream(turns: Turn[]): StreamFn & { calls: number } {
         base.content.push({ type: 'text', text: turn.text }); idx++;
       }
       for (const tc of turn.toolCalls ?? []) {
-        const call: ToolCall = { type: 'toolCall', id: `call_${i}_${idx}`, name: tc.name, arguments: tc.args as never };
+        const call: ToolCall = { type: 'toolCall', id: `call_${run}_${i}_${idx}`, name: tc.name, arguments: tc.args as never };
         stream.push({ type: 'toolcall_start', contentIndex: idx, partial: base });
         stream.push({ type: 'toolcall_end', contentIndex: idx, toolCall: call, partial: base });
         base.content.push(call); idx++;
@@ -43,8 +46,10 @@ export function scriptedStream(turns: Turn[]): StreamFn & { calls: number } {
       stream.end(final);
     });
     return stream;
-  }) as StreamFn & { calls: number };
-  fn.calls = 0;
+  }) as StreamFn & { calls: number; reset(): void; contexts: string[]; systems: string[] };
+  fn.calls = 0; fn.contexts = []; fn.systems = [];
+  /** 脚本从头再来，工具调用 id 换一批：相当于崩溃恢复后模型重新回答 */
+  fn.reset = () => { i = 0; run++; };
   return fn;
 }
 
@@ -54,7 +59,8 @@ export async function makeKernelCore(opts: { turns?: Turn[]; noModel?: boolean }
   await db.run("INSERT INTO user_profile(id, created_at, updated_at) VALUES ('1', ?, ?)", [t, t]);
   const bus = new EventBus();
   const stream = scriptedStream(opts.turns ?? [{ text: '好的。' }]);
-  const resolveModel = opts.noModel ? undefined : async (): Promise<ResolvedModel> => ({ model: FAKE_MODEL, apiKey: 'k', streamFn: stream });
+  const resolved: { tier: string; provider_id?: string }[] = [];
+  const resolveModel = opts.noModel ? undefined : async (_ctx: unknown, tier: string, provider_id?: string): Promise<ResolvedModel> => { resolved.push({ tier, provider_id }); return { model: FAKE_MODEL, apiKey: 'k', streamFn: stream }; };
   const kernel = createKernel(db, bus, { resolveModel });
   const core = new Core({ db, platform: fakePlatform({ isOnline: () => true }), jobs: kernel.jobs });
   kernel.bind(caller => core.ctx(caller), core.events);
@@ -62,7 +68,7 @@ export async function makeKernelCore(opts: { turns?: Turn[]; noModel?: boolean }
   if (!core.dispatcher.has('system.undo')) core.use(undoMethods);
   const events: { event: CoreEventName; data: any }[] = [];
   core.events.on((event, data) => events.push({ event, data }));
-  return { db, core, kernel, events, stream, call: <T = any>(m: string, p: unknown) => core.call<T>(m, p) };
+  return { db, core, kernel, events, stream, resolved, call: <T = any>(m: string, p: unknown) => core.call<T>(m, p) };
 }
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));

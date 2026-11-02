@@ -4,6 +4,16 @@ import { capability } from '../../src/index.js';
 import { makeKernelCore, until } from './helpers.js';
 
 describe('chat.* 与 pi 桥接', () => {
+  it('chat.send：选定的模型传给模型解析；不选时按技能档位', async () => {
+    const { kernel, call, resolved } = await makeKernelCore({ turns: [{ text: '一' }, { text: '二' }] });
+    const conv = await call('chat.open', {});
+    const a = await call('chat.send', { conversation_id: conv.id, text: '第一句', provider_id: 'p1' });
+    await kernel.jobs.wait(a.submission_id);
+    const b = await call('chat.send', { conversation_id: conv.id, text: '第二句' });
+    await kernel.jobs.wait(b.submission_id);
+    expect(resolved.map(r => r.provider_id)).toEqual(['p1', undefined]);
+  });
+
   it('chat.open / send：消息落库、流式事件、工具调用经审批、用量入账', async () => {
     const { kernel, call, events, db, stream } = await makeKernelCore({ turns: [
       { toolCalls: [{ name: 'lookup_fake', args: { word: 'upshot' } }] },
@@ -214,6 +224,276 @@ describe('对话卡片', () => {
     const { submission_id } = await rpc('chat.send', { conversation_id: conv.id, text: '第二句' });
     expect((await kernel.jobs.wait(submission_id)).status).toBe('done');
     void stream;
+  });
+});
+
+describe('中断与接续', () => {
+  const pushTool = async (skill: string, tool: string) => {
+    const { skillDef } = await import('../../src/kernel/skills.js');
+    skillDef(skill)!.allowed_tools.push(tool);
+    return () => { skillDef(skill)!.allowed_tools.pop(); };
+  };
+
+  it('模型出错：已成功轮次的文字留下来并标记中断；重试时替换', async () => {
+    const k = await makeKernelCore({ turns: [{ text: '先说一半', toolCalls: [{ name: 'noop_fake', args: {} }] }, { error: '401 unauthorized' }, { text: '完整回答' }] });
+    k.kernel.registerCapabilities({ noop_fake: capability({ name: 'noop_fake', description: '空操作', perm: 'read', params: Type.Object({}), async run() { return {}; } }) });
+    const off = await pushTool('tibi', 'noop_fake');
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '问题' });
+    expect((await k.kernel.jobs.wait(submission_id)).status).toBe('deferred');
+    let items = (await k.call('chat.history', { conversation_id: conv.id })).items;
+    expect(items[1].text).toBe('先说一半');
+    expect(items[1].interrupted.reason).toBe('error');
+    expect(items[1].interrupted.message).toContain('401');
+    await k.call('tasks.retry', { id: submission_id });
+    expect((await k.kernel.jobs.wait(submission_id)).status).toBe('done');
+    off();
+    items = (await k.call('chat.history', { conversation_id: conv.id })).items;
+    expect(items.map((m: { text: string }) => m.text)).toEqual(['问题', '完整回答']);
+    expect(items[1].interrupted).toBeUndefined();
+  });
+
+  it('什么都没说就失败：错误留在对话里，不进模型历史；没连模型也一样', async () => {
+    const k = await makeKernelCore({ turns: [{ error: '401 unauthorized' }] });
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '问题' });
+    await k.kernel.jobs.wait(submission_id);
+    const [, msg] = (await k.call('chat.history', { conversation_id: conv.id })).items;
+    expect(msg.text).toBe(''); expect(msg.interrupted.message).toContain('401');
+    const { messageForModel } = await import('../../src/kernel/conversations.js');
+    expect(messageForModel(msg)).toBe('');
+    const none = await makeKernelCore({ noModel: true });
+    const c2 = await none.call('chat.open', {});
+    const { submission_id: s2 } = await none.call('chat.send', { conversation_id: c2.id, text: '问题' });
+    await none.kernel.jobs.wait(s2);
+    expect((await none.call('chat.history', { conversation_id: c2.id })).items[1].interrupted.message).toContain('模型');
+  });
+
+  it('同一段对话一次只答一句；答完可以再发', async () => {
+    const k = await makeKernelCore({ turns: [{ toolCalls: [{ name: 'mark_fake', args: {} }] }, { text: '好' }] });
+    k.kernel.registerCapabilities({ mark_fake: capability({ name: 'mark_fake', description: '标记', perm: 'confirm', params: Type.Object({}), async run() { return {}; } }) });
+    const off = await pushTool('tibi', 'mark_fake');
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '一' });
+    await expect(k.call('chat.send', { conversation_id: conv.id, text: '二' })).rejects.toThrow('还在回答');
+    expect((await k.call('chat.history', { conversation_id: conv.id })).items.length).toBe(1);
+    await until(() => k.events.some(e => e.event === 'approval.requested'));
+    await k.call('tasks.approve', { id: submission_id, decision: 'allow' });
+    await k.kernel.jobs.wait(submission_id);
+    off();
+    const again = await k.call('chat.send', { conversation_id: conv.id, text: '二' });
+    await k.kernel.jobs.wait(again.submission_id);
+  });
+
+  it('自定义模型的单价按人民币填，换算后花费对得上', async () => {
+    const k = await makeKernelCore();
+    const { customModelCost } = await import('../../src/kernel/agent.js');
+    expect((await customModelCost(k.db, 'p1')).input).toBe(0);
+    await k.db.run("INSERT INTO settings(key, value, updated_at) VALUES ('provider.price.p1', ?, 0)", [JSON.stringify({ input: 7.2, output: 14.4 })]);
+    const cost = await customModelCost(k.db, 'p1');
+    expect(cost.input).toBeCloseTo(1); expect(cost.output).toBeCloseTo(2);
+  });
+
+  it('翻历史：同一毫秒的消息不跳过', async () => {
+    const k = await makeKernelCore();
+    const conv = await k.call('chat.open', {});
+    for (let i = 0; i < 5; i++) await k.db.run("INSERT INTO messages(id, conversation_id, role, content, created_at, updated_at) VALUES (?, ?, 'user', ?, 1000, 1000)", [`m${i}`, conv.id, JSON.stringify({ text: String(i) })]);
+    const a = await k.call('chat.history', { conversation_id: conv.id, limit: 2 });
+    const b = await k.call('chat.history', { conversation_id: conv.id, limit: 2, cursor: a.cursor });
+    const c = await k.call('chat.history', { conversation_id: conv.id, limit: 2, cursor: b.cursor });
+    expect([...c.items, ...b.items, ...a.items].map((m: { text: string }) => m.text)).toEqual(['0', '1', '2', '3', '4']);
+    expect(c.cursor).toBeUndefined();
+  });
+
+  it('停止：已有内容留下来；等审批时重开对话能接上', async () => {
+    const k = await makeKernelCore({ turns: [{ text: '我先记一下', toolCalls: [{ name: 'mark_fake', args: { term: 'upshot' } }] }, { text: '不该出现' }] });
+    k.kernel.registerCapabilities({ mark_fake: capability({ name: 'mark_fake', description: '标记一个词', perm: 'confirm', params: Type.Object({ term: Type.String() }), async run() { return { ok: true }; } }) });
+    const off = await pushTool('tibi', 'mark_fake');
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '问题' });
+    await until(() => k.events.some(e => e.event === 'approval.requested'));
+    const opened = await k.call('chat.open', { conversation_id: conv.id });
+    expect(opened.active).toEqual([submission_id]);
+    expect(opened.approvals.map((a: { task_id: string }) => a.task_id)).toEqual([submission_id]);
+    expect(opened.approvals[0].conversation_id).toBe(conv.id);
+    await k.call('chat.cancel', { submission_id });
+    off();
+    const after = await k.call('chat.open', { conversation_id: conv.id });
+    expect(after.active).toEqual([]); expect(after.approvals).toEqual([]);
+    expect(after.messages[1].text).toBe('我先记一下');
+    expect(after.messages[1].interrupted).toEqual({ reason: 'cancel' });
+  });
+
+  it('子任务的审批算在父任务的对话上', async () => {
+    const k = await makeKernelCore({ turns: [
+      { toolCalls: [{ name: 'run_skill', args: { skill_id: 'scout', input: '找文章', wait: true } }] },
+      { toolCalls: [{ name: 'save_fake', args: { url: 'u' } }] },
+      { text: '子任务好了' },
+      { text: '都好了' },
+    ] });
+    k.kernel.registerCapabilities({ save_fake: capability({ name: 'save_fake', description: '存一篇', perm: 'confirm', params: Type.Object({ url: Type.String() }), async run() { return { ok: true }; } }) });
+    const off = await pushTool('scout', 'save_fake');
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '找点文章' });
+    await until(() => k.events.some(e => e.event === 'approval.requested'));
+    const appr = k.events.find(e => e.event === 'approval.requested')!.data.approval;
+    expect(appr.task_id).not.toBe(submission_id);
+    expect(appr.conversation_id).toBe(conv.id);
+    expect((await k.call('chat.open', { conversation_id: conv.id })).approvals.map((a: { task_id: string }) => a.task_id)).toEqual([appr.task_id]);
+    await k.call('tasks.approve', { id: appr.task_id, decision: 'allow' });
+    expect((await k.kernel.jobs.wait(submission_id)).status).toBe('done');
+    off();
+  });
+
+  it('工具结束事件带结果：成功、失败、拒绝', async () => {
+    const k = await makeKernelCore({ turns: [{ toolCalls: [{ name: 'ok_fake', args: {} }, { name: 'bad_fake', args: {} }, { name: 'ask_fake', args: {} }] }, { text: '好' }] });
+    k.kernel.registerCapabilities({
+      ok_fake: capability({ name: 'ok_fake', description: '成功', perm: 'read', params: Type.Object({}), async run() { return {}; } }),
+      bad_fake: capability({ name: 'bad_fake', description: '失败', perm: 'read', params: Type.Object({}), async run() { throw new Error('坏了'); } }),
+      ask_fake: capability({ name: 'ask_fake', description: '要确认', perm: 'confirm', params: Type.Object({}), async run() { return {}; } }),
+    });
+    const offs = [await pushTool('tibi', 'ok_fake'), await pushTool('tibi', 'bad_fake'), await pushTool('tibi', 'ask_fake')];
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '问题' });
+    await until(() => k.events.some(e => e.event === 'approval.requested'));
+    await k.call('tasks.approve', { id: submission_id, decision: 'deny' });
+    await k.kernel.jobs.wait(submission_id);
+    offs.forEach(off => off());
+    const ends = k.events.filter(e => e.event === 'chat.tool' && e.data.phase === 'end');
+    expect(Object.fromEntries(ends.map(e => [e.data.tool, e.data.status]))).toEqual({ ok_fake: 'ok', bad_fake: 'error', ask_fake: 'denied' });
+  });
+});
+
+describe('过程卡、审批卡、压缩、上下文', () => {
+  const addTool = async (name: string) => {
+    const { skillDef } = await import('../../src/kernel/skills.js');
+    skillDef('tibi')!.allowed_tools.push(name);
+    return () => { skillDef('tibi')!.allowed_tools.pop(); };
+  };
+
+  it('步骤写进回答，带具体对象；重开还在', async () => {
+    const k = await makeKernelCore({ turns: [{ toolCalls: [{ name: 'look_fake', args: { word: 'affect' } }] }, { text: '好' }] });
+    k.kernel.registerCapabilities({ look_fake: capability({ name: 'look_fake', description: '查一个词（查词典）', perm: 'read', params: Type.Object({ word: Type.String() }), async run() { return {}; } }) });
+    const off = await addTool('look_fake');
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '问' });
+    await k.kernel.jobs.wait(submission_id);
+    off();
+    expect(k.events.find(e => e.event === 'chat.tool')!.data.summary).toBe('Tibi 正在查一个词：affect');
+    expect((await k.call('chat.history', { conversation_id: conv.id })).items[1].steps).toEqual([{ tool: 'look_fake', summary: '查一个词：affect', status: 'ok' }]);
+  });
+
+  it('审批卡正文可读；修改后允许用改过的内容，且要过校验', async () => {
+    let saved = '';
+    const k = await makeKernelCore({ turns: [{ toolCalls: [{ name: 'rem_fake', args: { content: '总把 affect 和 effect 搞混', memory_id: 'x1' } }] }, { text: '好' }] });
+    k.kernel.registerCapabilities({ rem_fake: capability({ name: 'rem_fake', description: '记住一件事', perm: 'confirm', params: Type.Object({ content: Type.String({ maxLength: 50 }), memory_id: Type.String() }), async run(p) { saved = p.content; return {}; } }) });
+    const off = await addTool('rem_fake');
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '问' });
+    await until(() => k.events.some(e => e.event === 'approval.requested'));
+    const a = k.events.find(e => e.event === 'approval.requested')!.data.approval;
+    expect(a.body).toBe('总把 affect 和 effect 搞混');
+    expect(a.editable).toEqual({ field: 'content', value: '总把 affect 和 effect 搞混' });
+    expect(a.impact).toBe('写入数据');
+    await k.call('tasks.approve', { id: submission_id, decision: 'edit', edited: { content: '总把两个词搞混' } });
+    await k.kernel.jobs.wait(submission_id);
+    off();
+    expect(saved).toBe('总把两个词搞混');
+  });
+
+  it('易变上下文在用户消息前缀，不在系统提示，也不写进历史', async () => {
+    const k = await makeKernelCore({ turns: [{ text: '一' }, { text: '二' }] });
+    const conv = await k.call('chat.open', {});
+    const a = await k.call('chat.send', { conversation_id: conv.id, text: '第一句', context: { page: 'reader' } });
+    await k.kernel.jobs.wait(a.submission_id);
+    const b = await k.call('chat.send', { conversation_id: conv.id, text: '第二句' });
+    await k.kernel.jobs.wait(b.submission_id);
+    const sent = k.stream.contexts[1]!;
+    expect(sent.match(/<context>/g)!.length).toBe(2);   // 只有这一轮的前缀，外加系统提示里的说明
+    expect(sent).toContain('第一句');
+    expect(sent.indexOf('## 当前状态')).toBeGreaterThan(sent.indexOf('第一句'));
+    expect((await k.call('chat.history', { conversation_id: conv.id })).items[0].text).toBe('第一句');
+  });
+
+  it('长对话：旧内容摘要进系统提示，原文保留；摘要失败不影响回答', async () => {
+    const k = await makeKernelCore({ turns: [{ text: '摘要：查过 affect' }, { text: '回答' }, { error: '500' }, { text: '回答二' }] });
+    const conv = await k.call('chat.open', {});
+    const seed = async (from: number, n: number) => { for (let i = 0; i < n; i++) await k.db.run("INSERT INTO messages(id, conversation_id, role, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)", [`m${from + i}`, conv.id, i % 2 ? 'assistant' : 'user', JSON.stringify({ text: `旧${from + i}` }), 1000 + from + i, 1000]); };
+    await seed(0, 40);
+    const a = await k.call('chat.send', { conversation_id: conv.id, text: '新问题' });
+    await k.kernel.jobs.wait(a.submission_id);
+    expect(k.stream.calls).toBe(2);
+    expect(k.stream.contexts[1]).toContain('摘要：查过 affect');
+    expect(k.stream.contexts[0]).toContain('旧0');
+    expect(k.stream.contexts[1]).not.toContain('"旧0"');
+    const msgs = await k.db.get<{ n: number }>('SELECT count(*) AS n FROM messages WHERE conversation_id = ?', [conv.id]);
+    expect(msgs?.n).toBe(42);
+    const { items } = await k.call('chat.history', { conversation_id: conv.id, limit: 1 });
+    expect(items[0].steps[0]).toEqual({ tool: 'compact', summary: '整理前面的对话', status: 'ok' });
+    // 再攒够一批，这次摘要失败：回答照常，旧摘要还在
+    await seed(100, 20);
+    await k.db.run('UPDATE messages SET created_at = 2000 + rowid WHERE id LIKE ?', ['m1__']);
+    const b = await k.call('chat.send', { conversation_id: conv.id, text: '再问' });
+    expect((await k.kernel.jobs.wait(b.submission_id)).status).toBe('done');
+    expect(k.stream.contexts[k.stream.contexts.length - 1]).toContain('摘要：查过 affect');
+  });
+});
+
+describe('消息操作与写入回执', () => {
+  it('回到某句话之前：后面的作废，返回原话和技能；回答中不能改；摘要失效', async () => {
+    const k = await makeKernelCore({ turns: [{ text: '一' }, { text: '二' }] });
+    const conv = await k.call('chat.open', {});
+    const a = await k.call('chat.send', { conversation_id: conv.id, text: '第一句', skill: 'tutor' });
+    await k.kernel.jobs.wait(a.submission_id);
+    const b = await k.call('chat.send', { conversation_id: conv.id, text: '第二句' });
+    await k.kernel.jobs.wait(b.submission_id);
+    const { items } = await k.call('chat.history', { conversation_id: conv.id });
+    await k.db.run('UPDATE conversations SET summary = ? WHERE id = ?', [JSON.stringify({ text: '旧', upto: Date.now() + 1000 }), conv.id]);
+    expect(await k.call('chat.rewind', { conversation_id: conv.id, message_id: items[0].id })).toEqual({ text: '第一句', skill: 'tutor' });
+    expect((await k.call('chat.history', { conversation_id: conv.id })).items).toEqual([]);
+    expect((await k.db.get<{ summary: string | null }>('SELECT summary FROM conversations WHERE id = ?', [conv.id]))?.summary).toBeNull();
+    await expect(k.call('chat.rewind', { conversation_id: conv.id, message_id: items[2].id })).rejects.toThrow('找不到');
+  });
+
+  it('写操作留回执；撤销后记下来，模型历史里也有', async () => {
+    const undo = { undo_id: 'u1', expires_at: Date.now() + 1000 };
+    const k = await makeKernelCore({ turns: [{ toolCalls: [{ name: 'add_fake', args: { words: [{ text: 'upshot' }] } }] }, { text: '好' }] });
+    k.kernel.registerCapabilities({ add_fake: capability({ name: 'add_fake', description: '把几个词加入生词本（建卡）', perm: 'write', params: Type.Object({ words: Type.Array(Type.Object({ text: Type.String() })) }), async run() { return { undo }; } }) });
+    const { skillDef } = await import('../../src/kernel/skills.js');
+    skillDef('tibi')!.allowed_tools.push('add_fake');
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '记一下' });
+    await k.kernel.jobs.wait(submission_id);
+    skillDef('tibi')!.allowed_tools.pop();
+    const msg = (await k.call('chat.history', { conversation_id: conv.id })).items[1];
+    expect(msg.receipts).toEqual([{ summary: '已把几个词加入生词本：upshot', undo }]);
+    await k.call('chat.receipt_undone', { message_id: msg.id, undo_id: 'u1' });
+    const after = (await k.call('chat.history', { conversation_id: conv.id })).items[1];
+    expect(after.receipts[0].undone).toBe(true);
+    const { messageForModel } = await import('../../src/kernel/conversations.js');
+    expect(messageForModel(after)).toContain('[用户撤销了：已把几个词加入生词本：upshot]');
+  });
+});
+
+describe('崩溃恢复', () => {
+  it('恢复后模型重新发起同样的写操作：不再执行一遍', async () => {
+    const k = await makeKernelCore({ turns: [{ toolCalls: [{ name: 'record_fake', args: { card: 'c1', rating: 3 } }] }, { text: '记好了' }] });
+    let runs = 0;
+    k.kernel.registerCapabilities({ record_fake: capability({ name: 'record_fake', description: '记一次复习', perm: 'write', replay: 'never', params: Type.Object({ card: Type.String(), rating: Type.Integer() }), async run() { runs++; return { n: runs }; } }) });
+    const { skillDef } = await import('../../src/kernel/skills.js');
+    skillDef('tibi')!.allowed_tools.push('record_fake');
+    const conv = await k.call('chat.open', {});
+    const { submission_id } = await k.call('chat.send', { conversation_id: conv.id, text: '复习' });
+    await k.kernel.jobs.wait(submission_id);
+    expect(runs).toBe(1);
+    // 写完之后、任务结束之前进程崩溃：任务回到 running，模型重新回答（工具调用 id 不同）
+    await k.db.run("UPDATE jobs SET status = 'running', finished_at = NULL WHERE id = ?", [submission_id]);
+    await k.db.run("DELETE FROM messages WHERE role = 'assistant'");
+    k.stream.reset();
+    await k.kernel.jobs.resumeAll();
+    await k.kernel.jobs.wait(submission_id);
+    skillDef('tibi')!.allowed_tools.pop();
+    expect(runs).toBe(1);
   });
 });
 

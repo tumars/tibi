@@ -121,7 +121,11 @@ export type WidgetSpec =
 /** summary 写进后续对话历史，界面渲染出错时也显示它；result 是用户在卡片上的操作结果，下一轮带给模型 */
 export type WidgetBlock = WidgetSpec & { type: 'widget'; id: string; v: 1; state?: unknown; result?: string };
 export type MessageBlock = { type: 'text'; text: string } | WidgetBlock;
-export interface Message { id: string; role: 'user' | 'assistant' | 'tool'; text?: string; blocks?: MessageBlock[]; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; task_id?: TaskId; created_at: Ts }
+/** 回答没说完就结束了：用户停止（cancel）或模型出错（error，message 可直接显示） */
+export interface MessageInterrupted { reason: 'cancel' | 'error'; message?: string }
+export interface Message { id: string; role: 'user' | 'assistant' | 'tool'; text?: string; blocks?: MessageBlock[]; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; task_id?: TaskId; interrupted?: MessageInterrupted; /** 这次回答做过的步骤（收起的过程卡） */ steps?: MessageStep[]; /** 用到的技能名（主对话不写） */ skill?: string; /** Tibi 写了什么：回答下面显示一行，能撤销 */ receipts?: MessageReceipt[]; created_at: Ts }
+export interface MessageReceipt { summary: string; undo?: Undo; undone?: boolean }
+export interface MessageStep { tool: string; summary: string; status: 'ok' | 'error' | 'denied' }
 export interface TaskSummary {
   id: TaskId; state: TaskState; skill_id: SkillId; title: string; document_title?: string; trigger: string; model: string;
   step: { index: number; total: number; label: string }; started_at: Ts; duration_ms: number; cost: number; error?: string;
@@ -129,7 +133,7 @@ export interface TaskSummary {
 export interface TaskStep { id: string; label: string; state: 'wait' | 'run' | 'ok' | 'err' | 'appr'; duration_ms?: number; skill_id?: SkillId; children?: TaskStep[] }
 export interface Task extends TaskSummary { conversation_id: ConvId; steps: TaskStep[]; transcript: Message[]; usage: { tokens_in: number; tokens_out: number; cost: number }; approval?: Approval }
 export interface Approval {
-  task_id: TaskId; skill_id?: SkillId; tool: string; title: string; body: string; impact: string; undoable: boolean; untrusted: boolean;
+  task_id: TaskId; /** 审批属于哪段对话（子任务算父任务的对话） */ conversation_id?: ConvId; skill_id?: SkillId; tool: string; title: string; body: string; impact: string; undoable: boolean; untrusted: boolean;
   editable?: { field: string; value: string }; requested_at: Ts;
 }
 

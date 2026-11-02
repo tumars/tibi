@@ -64,8 +64,8 @@ export function createKernel(db: Database, initialEvents: EventSink, opts: Kerne
   const agentDeps: AgentDeps = { db, events, registry, runner, makeCtx: caller => needCtx()(caller), resolveModel: opts.resolveModel, uiContext: () => ui };
 
   // 'skill' 流水线：一次技能运行（主对话、run_skill、skills.runNow 都走它）
-  runner.register('skill', async (job: JobContext, input: { skill_id: SkillId; input: string; conversation_id?: string; tier?: 'fast' | 'deep'; context?: unknown }) => {
-    const r = await runSkill(agentDeps, { skill_id: input.skill_id, input: input.input, conversation_id: input.conversation_id, tier: input.tier, context: input.context, job });
+  runner.register('skill', async (job: JobContext, input: { skill_id: SkillId; input: string; conversation_id?: string; tier?: 'fast' | 'deep'; provider_id?: string; context?: unknown }) => {
+    const r = await runSkill(agentDeps, { skill_id: input.skill_id, input: input.input, conversation_id: input.conversation_id, tier: input.tier, provider_id: input.provider_id, context: input.context, job });
     return { text: r.text, usage: r.usage, summary: r.text.slice(0, 80) };
   });
 

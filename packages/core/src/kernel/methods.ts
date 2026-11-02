@@ -19,20 +19,23 @@ export function chatMethods(deps: KernelMethodDeps): MethodMap {
   return {
     'chat.open': method(Type.Object({ conversation_id: Type.Optional(Type.String()), document_id: Type.Optional(Type.String()), today: Type.Optional(Type.Boolean()) }), async (p, ctx) => {
       const c = await convs().open({ ...p, device: ctx.platform.info().platform === 'ios' || ctx.platform.info().platform === 'android' ? 'mobile' : 'desktop' });
-      const { items } = await convs().history(c.id, { limit: 50 });
-      return { ...c, messages: items };
+      const { items, cursor } = await convs().history(c.id, { limit: 50 });
+      return { ...c, messages: items, cursor, ...await convs().activity(c.id) };
     }, '给 document_id 时续上该文章的线程；today 为 true 时打开或新建当天的对话；都不给则新建'),
     'chat.send': method(Type.Object({
       conversation_id: Type.String(), text: Type.String({ minLength: 1 }),
       context: Type.Optional(Type.Object({ page: Type.String(), document_id: Type.Optional(Type.String()), section_id: Type.Optional(Type.String()), sentence_id: Type.Optional(Type.String()), selection: Type.Optional(Type.String()), card_id: Type.Optional(Type.String()) })),
-      skill: Type.Optional(skillIdSchema), tier: Type.Optional(Type.Union([Type.Literal('fast'), Type.Literal('deep')])),
+      skill: Type.Optional(skillIdSchema), tier: Type.Optional(Type.Union([Type.Literal('fast'), Type.Literal('deep')])), provider_id: Type.Optional(Type.String()),
     }), async (p, ctx) => {
       const conv = await convs().get(p.conversation_id);
       if (!conv) throw new TibiError('not_found', '找不到这个对话');
+      // 同一段对话一次只答一句：并发的回答会互相看不到对方的上下文
+      const { active } = await convs().activity(p.conversation_id);
+      if (active.length) throw new TibiError('busy', 'Tibi 还在回答上一句，说完再发');
       if (p.context) deps.setUiContext(p.context);
       const skill_id: SkillId = p.skill ?? 'tibi';
       await convs().addMessage(p.conversation_id, 'user', { text: p.text });
-      const { task_id } = await deps.runner.submit('skill', { kind: 'skill', skill_id, conversation_id: p.conversation_id, title: p.text.slice(0, 40), trigger: 'user', input: { skill_id, input: p.text, conversation_id: p.conversation_id, tier: p.tier } });
+      const { task_id } = await deps.runner.submit('skill', { kind: 'skill', skill_id, conversation_id: p.conversation_id, title: p.text.slice(0, 40), trigger: 'user', input: { skill_id, input: p.text, conversation_id: p.conversation_id, tier: p.tier, provider_id: p.provider_id } });
       await deps.db.run('UPDATE messages SET job_id = ? WHERE conversation_id = ? AND role = ? AND job_id IS NULL', [task_id, p.conversation_id, 'user']);
       return { submission_id: task_id };
     }, '立即返回；文本增量与工具调用走事件'),
@@ -44,6 +47,17 @@ export function chatMethods(deps: KernelMethodDeps): MethodMap {
       await convs().updateWidget(p.message_id, p.widget_id, p.state, p.result);
       return { ok: true as const };
     }, '保存卡片上的操作结果'),
+    'chat.rewind': method(Type.Object({ conversation_id: Type.String(), message_id: Type.String() }), async (p) => {
+      const { active } = await convs().activity(p.conversation_id);
+      if (active.length) throw new TibiError('busy', 'Tibi 还在回答，说完再改');
+      const { text, job_id } = await convs().rewind(p.conversation_id, p.message_id);
+      const job = job_id ? await deps.db.get<{ skill_id: SkillId | null }>('SELECT skill_id FROM jobs WHERE id = ?', [job_id]) : undefined;
+      return { text, skill: job?.skill_id ?? undefined };
+    }, '回到这句话之前：这条和之后的消息作废，已写入的词不动；返回原话和当时用的技能'),
+    'chat.receipt_undone': method(Type.Object({ message_id: Type.String(), undo_id: Type.String() }), async (p) => {
+      await convs().markUndone(p.message_id, p.undo_id);
+      return { ok: true as const };
+    }, '记下用户撤销了回答里的哪次写入'),
     'chat.rename': method(Type.Object({ conversation_id: Type.String(), title: Type.String({ minLength: 1 }) }), async (p) => convs().rename(p.conversation_id, p.title)),
     'chat.delete': method(Type.Object({ conversation_id: Type.String() }), async (p) => {
       // 先停掉这段对话还在跑的任务，否则回答写回时对话已经没了

@@ -25,6 +25,8 @@ export class CapabilityRegistry {
   private caps = new Map<string, CapabilityDef<any, any>>();
   /** 正在运行的 Agent（tool_search 命中后把工具加进对话） */
   readonly liveTools = new Map<string, { add(tools: AgentTool[]): void }>();
+  /** 每次运行（一个 JobContext）已经用掉的工具步骤 */
+  private readonly usedSteps = new WeakMap<JobContext, Set<string>>();
 
   constructor(private readonly db: Database, private readonly runner: JobRunnerImpl) {}
 
@@ -62,12 +64,13 @@ export class CapabilityRegistry {
     if (!job) return { ok: false, reason: '这个操作需要确认，但不在任务里，无法审批' };
     const req: Omit<Approval, 'task_id' | 'requested_at'> = {
       skill_id: ctx.caller.skill_id as SkillId | undefined, tool: def.name,
-      title: `Tibi 想${def.description.replace(/[。.]$/, '')}`, body: summarize(params), impact: def.perm === 'confirm' ? '写入数据，需要你确认' : '写入数据，可撤销',
-      undoable: !!def.undoable, untrusted: tainted,
+      title: `Tibi 想${def.description.replace(/[。.]$/, '')}`, body: summarize(params), impact: external ? '访问外部网络' : '写入数据',
+      undoable: !!def.undoable, untrusted: tainted, editable: editableField(params),
     };
     const d = await job.approve(req);
     if (d.decision === 'deny') return { ok: false, reason: '用户拒绝了这个操作' };
-    return { ok: true, approval: d.decision === 'edit' ? 'edited' : 'approved', params: d.decision === 'edit' && d.edited ? { ...(params as object), ...d.edited } : params };
+    // 改过的参数和模型给的一样要过校验
+    return { ok: true, approval: d.decision === 'edit' ? 'edited' : 'approved', params: d.decision === 'edit' && d.edited ? validateParams(def.params, { ...(params as object), ...d.edited }) : params };
   }
 
   /** 直接调用一项能力（校验参数 → 权限 → 执行） */
@@ -93,6 +96,8 @@ export class CapabilityRegistry {
       async execute(toolCallId, params) {
         const name = `tool.${def.name}#${toolCallId}`;
         try {
+          const done = await self.replayedStep(def, params, job, name);
+          if (done) return { content: [{ type: 'text', text: JSON.stringify(done.output ?? null) }], details: done.output };
           const out = await job.step(name, async () => {
             const p = validateParams(def.params, params);
             const auth = await self.authorize(def, p, ctx);
@@ -108,10 +113,43 @@ export class CapabilityRegistry {
       },
     } as AgentTool;
   }
+
+  /**
+   * 崩溃恢复或重试时模型会重新回答，工具调用 id 是新的，按名字匹配不到检查点。
+   * 不能安全重放的写操作，按能力和参数找上一次运行里已完成的步骤，一步只抵一次（同一次运行里重复调用仍会执行）。
+   */
+  private async replayedStep(def: CapabilityDef<any, any>, params: unknown, job: JobContext, name: string): Promise<{ output: unknown } | undefined> {
+    let used = this.usedSteps.get(job);
+    if (!used) this.usedSteps.set(job, used = new Set());
+    used.add(name);
+    if (def.perm === 'read' || def.replay === 'safe') return undefined;
+    const rows = await this.db.all<{ name: string; output: string | null }>("SELECT name, output FROM job_steps WHERE job_id = ? AND kind = 'tool' AND status = 'done' AND input = ? ORDER BY idx", [job.job_id, j.str(params)]);
+    const hit = rows.find(r => r.name.startsWith(`tool.${def.name}#`) && !used.has(r.name));
+    if (!hit) return undefined;
+    used.add(hit.name);
+    return { output: j.parse(hit.output, null) };
+  }
 }
 
+/** 审批卡正文：把参数里给人看的值列出来（id 这类不列）；没有就退回 JSON */
 function summarize(params: unknown): string {
-  try { const s = JSON.stringify(params); return s.length > 300 ? s.slice(0, 300) + '…' : s; } catch { return ''; }
+  const cut = (s: string) => (s.length > 300 ? s.slice(0, 300) + '…' : s);
+  try {
+    const main = editableField(params);
+    if (main) return cut(main.value);   // 类型这类枚举值对人没意义
+    if (params && typeof params === 'object' && !Array.isArray(params)) {
+      const vals = Object.entries(params).filter(([k]) => !/(^|_)id$/.test(k)).map(([, v]) => (typeof v === 'string' ? v : Array.isArray(v) && v.every(x => typeof x === 'string') ? v.join('、') : '')).filter(Boolean);
+      if (vals.length) return cut(vals.join('\n'));
+    }
+    return cut(JSON.stringify(params));
+  } catch { return ''; }
+}
+
+/** 用户可以在审批卡上直接改的那段文字 */
+function editableField(params: unknown): Approval['editable'] {
+  const p = params as Record<string, unknown> | null;
+  const field = ['content', 'text', 'meaning', 'title'].find(k => typeof p?.[k] === 'string');
+  return field ? { field, value: p![field] as string } : undefined;
 }
 
 /** 界面上下文（chat.send 的 context），内核缓存最近一次 */

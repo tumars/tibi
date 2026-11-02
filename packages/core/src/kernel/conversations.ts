@@ -1,6 +1,6 @@
 import { j, now, type Database } from '../db/driver.js';
 import { uuidv7 } from '../ids.js';
-import { TibiError, type Conversation, type Message, type MessageBlock, type SkillId } from '../types.js';
+import { TibiError, type Approval, type Conversation, type Message, type MessageBlock, type MessageInterrupted, type MessageReceipt, type MessageStep, type SkillId } from '../types.js';
 
 /** 对话与消息（01 §7 conversations / messages / thread_links）：先写库再显示 */
 
@@ -8,7 +8,7 @@ interface ConvRow extends Record<string, string | number | null> { id: string; k
 interface LinkRow extends Record<string, string | number | null> { skill_id: string; document_id: string | null; trigger: string }
 interface MsgRow extends Record<string, string | number | null> { id: string; role: string; content: string; job_id: string | null; created_at: number }
 
-export interface MessageContent { text?: string; blocks?: MessageBlock[]; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number } }
+export interface MessageContent { text?: string; blocks?: MessageBlock[]; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; interrupted?: MessageInterrupted; steps?: MessageStep[]; skill?: string; receipts?: MessageReceipt[] }
 
 export function localDay(t: number = now()): string {
   const d = new Date(t);
@@ -105,6 +105,41 @@ export class Conversations {
     return { id, role, ...content, task_id: job_id, created_at: t };
   }
 
+  /** 同一任务重试或恢复时，上次没说完的回答作废 */
+  async dropAnswer(conversation_id: string, job_id: string): Promise<void> {
+    const t = now();
+    await this.db.run("UPDATE messages SET deleted_at = ?, updated_at = ? WHERE conversation_id = ? AND job_id = ? AND role = 'assistant' AND deleted_at IS NULL", [t, t, conversation_id, job_id]);
+  }
+
+  /** 回到这句话之前：这条和它之后的消息作废（已写入的词不动）。摘要里如果含被删的内容就重新来 */
+  async rewind(conversation_id: string, message_id: string): Promise<{ text: string; job_id: string | null }> {
+    const m = await this.db.get<{ content: string; job_id: string | null; created_at: number; role: string }>('SELECT content, job_id, created_at, role FROM messages WHERE id = ? AND conversation_id = ? AND deleted_at IS NULL', [message_id, conversation_id]);
+    if (!m || m.role !== 'user') throw new TibiError('not_found', '找不到这句话');
+    const t = now();
+    await this.db.run('UPDATE messages SET deleted_at = ?, updated_at = ? WHERE conversation_id = ? AND deleted_at IS NULL AND (created_at > ? OR (created_at = ? AND id >= ?))', [t, t, conversation_id, m.created_at, m.created_at, message_id]);
+    const s = await this.summary(conversation_id);
+    if (s && s.upto >= m.created_at) await this.db.run('UPDATE conversations SET summary = NULL WHERE id = ?', [conversation_id]);
+    return { text: j.parse<MessageContent>(m.content, {}).text ?? '', job_id: m.job_id };
+  }
+
+  /** 用户撤销了 Tibi 的一次写入：记下来，重开不再显示按钮，下一轮模型也知道 */
+  async markUndone(message_id: string, undo_id: string): Promise<void> {
+    await this.db.transaction(async tx => {
+      const row = await tx.get<{ content: string }>('SELECT content FROM messages WHERE id = ? AND deleted_at IS NULL', [message_id]);
+      if (!row) throw new TibiError('not_found', '找不到这条消息');
+      const c = j.parse<MessageContent>(row.content, {});
+      for (const r of c.receipts ?? []) if (r.undo?.undo_id === undo_id) r.undone = true;
+      await tx.run('UPDATE messages SET content = ?, updated_at = ? WHERE id = ?', [j.str(c), now(), message_id]);
+    });
+  }
+
+  /** 进行中的任务和等确认的审批：离开再回来时接上 */
+  async activity(conversation_id: string): Promise<{ active: string[]; approvals: Approval[] }> {
+    const active = await this.db.all<{ id: string }>("SELECT id FROM jobs WHERE conversation_id = ? AND status IN ('queued', 'running', 'waiting_approval') AND deleted_at IS NULL ORDER BY created_at", [conversation_id]);
+    const rows = await this.db.all<{ approval: string }>("SELECT j.approval FROM jobs j LEFT JOIN jobs p ON p.id = j.parent_job_id WHERE j.status = 'waiting_approval' AND j.approval IS NOT NULL AND j.deleted_at IS NULL AND COALESCE(j.conversation_id, p.conversation_id) = ? ORDER BY j.updated_at", [conversation_id]);
+    return { active: active.map(r => r.id), approvals: rows.map(r => j.parse<Approval | null>(r.approval, null)).filter((a): a is Approval => !!a && !('decision' in a)) };
+  }
+
   /** 卡片上的操作结果：重开对话能恢复，下一轮也带给模型 */
   async updateWidget(message_id: string, widget_id: string, state: unknown, result?: string): Promise<void> {
     await this.db.transaction(async tx => {
@@ -120,11 +155,27 @@ export class Conversations {
 
   async history(conversation_id: string, opts: { cursor?: string; limit?: number } = {}): Promise<{ items: Message[]; total: number; cursor?: string }> {
     const limit = opts.limit ?? 50;
-    const before = opts.cursor ? Number(opts.cursor) : Number.MAX_SAFE_INTEGER;
-    const rows = await this.db.all<MsgRow>('SELECT id, role, content, job_id, created_at FROM messages WHERE conversation_id = ? AND deleted_at IS NULL AND created_at < ? ORDER BY created_at DESC LIMIT ?', [conversation_id, before, limit + 1]);
+    // 游标带 id：同一毫秒写入的消息不会被跳过
+    const [at, id] = (opts.cursor ?? '').split('_');
+    const before = at ? Number(at) : Number.MAX_SAFE_INTEGER;
+    const rows = await this.db.all<MsgRow>('SELECT id, role, content, job_id, created_at FROM messages WHERE conversation_id = ? AND deleted_at IS NULL AND (created_at < ? OR (created_at = ? AND id < ?)) ORDER BY created_at DESC, id DESC LIMIT ?', [conversation_id, before, before, id ?? '', limit + 1]);
     const total = await this.db.get<{ n: number }>('SELECT count(*) AS n FROM messages WHERE conversation_id = ? AND deleted_at IS NULL', [conversation_id]);
     const page = rows.slice(0, limit).reverse();
-    return { items: page.map(toMessage), total: Number(total?.n ?? 0), cursor: rows.length > limit ? String(page[0]!.created_at) : undefined };
+    return { items: page.map(toMessage), total: Number(total?.n ?? 0), cursor: rows.length > limit ? `${page[0]!.created_at}_${page[0]!.id}` : undefined };
+  }
+
+  /** 旧内容的摘要（05 §6）：upto 之前的消息都已摘进去，原文仍在 messages */
+  async summary(id: string): Promise<{ text: string; upto: number } | undefined> {
+    const r = await this.db.get<{ summary: string | null }>('SELECT summary FROM conversations WHERE id = ?', [id]);
+    return j.parse<{ text: string; upto: number } | undefined>(r?.summary, undefined);
+  }
+  async saveSummary(id: string, text: string, upto: number): Promise<void> {
+    await this.db.run('UPDATE conversations SET summary = ?, updated_at = ? WHERE id = ?', [j.str({ text, upto }), now(), id]);
+  }
+  /** 还没摘进去的旧消息：摘要之后、before 之前 */
+  async between(id: string, after: number, before: number): Promise<Message[]> {
+    const rows = await this.db.all<MsgRow>('SELECT id, role, content, job_id, created_at FROM messages WHERE conversation_id = ? AND deleted_at IS NULL AND created_at > ? AND created_at < ? ORDER BY created_at, id', [id, after, before]);
+    return rows.map(toMessage);
   }
 
   /** 最近 N 条（给模型的会话历史） */
@@ -136,8 +187,9 @@ export class Conversations {
 
 /** 给模型的历史：卡片换成一句摘要，否则用户追问卡片内容时模型接不上 */
 export function messageForModel(m: Message): string {
-  if (!m.blocks?.length) return m.text ?? '';
-  return m.blocks.map(b => b.type === 'text' ? b.text : `[界面上显示了卡片：${b.summary}${b.result ? `；用户操作：${b.result}` : ''}]`).join('\n\n');
+  const text = m.blocks?.length ? m.blocks.map(b => b.type === 'text' ? b.text : `[界面上显示了卡片：${b.summary}${b.result ? `；用户操作：${b.result}` : ''}]`).join('\n\n') : m.text ?? '';
+  const undone = m.receipts?.filter(r => r.undone).map(r => `[用户撤销了：${r.summary}]`) ?? [];
+  return [text && m.interrupted ? `${text}\n\n[这段回答没有说完就中断了]` : text, ...undone].filter(Boolean).join('\n\n');
 }
 
 function toConversation(r: ConvRow, link?: LinkRow | null): Conversation {
@@ -149,5 +201,5 @@ function toConversation(r: ConvRow, link?: LinkRow | null): Conversation {
 }
 function toMessage(r: MsgRow): Message {
   const c = j.parse<MessageContent>(r.content, {});
-  return { id: r.id, role: r.role as Message['role'], text: c.text, blocks: c.blocks, tool: c.tool, task_id: r.job_id ?? undefined, created_at: r.created_at };
+  return { id: r.id, role: r.role as Message['role'], text: c.text, blocks: c.blocks, tool: c.tool, task_id: r.job_id ?? undefined, interrupted: c.interrupted, steps: c.steps, skill: c.skill, receipts: c.receipts, created_at: r.created_at };
 }

@@ -203,7 +203,7 @@ export class JobRunnerImpl implements JobRunner {
 
   // ---------- 审批 ----------
   private async requestApproval(id: TaskId, entry: Active, req: Omit<Approval, 'task_id' | 'requested_at'>): Promise<ApprovalDecision> {
-    const row = await this.db.get<{ skill_id: string | null; approval: string | null }>('SELECT skill_id, approval FROM jobs WHERE id = ?', [id]);
+    const row = await this.db.get<{ skill_id: string | null; approval: string | null; conversation_id: string | null }>('SELECT j.skill_id, j.approval, COALESCE(j.conversation_id, p.conversation_id) AS conversation_id FROM jobs j LEFT JOIN jobs p ON p.id = j.parent_job_id WHERE j.id = ?', [id]);
     // 重开前已经决定过（tasks.approve 在任务不在内存时写的）
     const stored = j.parse<{ decision?: string; edited?: Record<string, unknown>; tool?: string } | null>(row?.approval, null);
     if (stored?.decision && stored.tool === req.tool) {
@@ -215,7 +215,7 @@ export class JobRunnerImpl implements JobRunner {
       const rule = await this.db.get<{ value: string }>('SELECT value FROM settings WHERE key = ?', [autoRuleKey(row?.skill_id, req.tool)]);
       if (rule && j.parse<boolean>(rule.value, false)) return { decision: 'allow' };
     }
-    const approval: Approval = { ...req, task_id: id, untrusted: req.untrusted || entry.ctx.tainted, requested_at: now() };
+    const approval: Approval = { ...req, task_id: id, conversation_id: row?.conversation_id ?? undefined, untrusted: req.untrusted || entry.ctx.tainted, requested_at: now() };
     await this.db.run("UPDATE jobs SET status = 'waiting_approval', approval = ?, updated_at = ? WHERE id = ?", [j.str(approval), now(), id]);
     this.events.emit('approval.requested', { approval });
     this.emitUpdate(id, true);
