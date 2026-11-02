@@ -1,4 +1,4 @@
-import { Mascot } from '../components/Mascot';
+import { isStreakMilestone, Mascot } from '../components/Mascot';
 import type { Rating } from '@tibi/core';
 import { RotateCcw, Volume2, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -37,6 +37,7 @@ export function MReview() {
 
 function Session({ onExit }: { onExit: () => void }) {
   const nav = useNavigate();
+  const streak = useCore(s => s.streak);
   const r = useReviewSession();
   const { session, err, phase, setPhase, typed, setTyped, hints, setHints, done, item } = r;
   const close = async () => { await r.pause(); onExit(); };
@@ -45,10 +46,11 @@ function Session({ onExit }: { onExit: () => void }) {
   if (!session) return <div className="screen" id="s-review" />;
   if (done || !item) {
     const s = r.summary();
+    const medal = session.kind !== 'drill' && isStreakMilestone(streak);
     return <div className="screen" id="s-review"><div className="topgap" /><div className="pad done">
       {session.steps.length === 0 ? <Empty image="empty-review" title={tl('今天没有要复习的')} text={tl('读文章时点开的生词会排进来。')} /> : <>
-        <div className="fx"><Mascot id="celebrate-review" /></div>
-        <h3>{tl('今天的复习完成了')}</h3>
+        <div className="fx"><Mascot id={medal ? 'celebrate-streak' : 'celebrate-review'} /></div>
+        <h3>{medal ? tl('连续 {n} 天。Tibi 有点意外。', { n: streak }) : tl('今天的复习完成了')}</h3>
         <div className="k3"><div><b>{s.graded}</b><span>{tl('张卡')}</span></div><div><b>{s.correctPct}%</b><span>{tl('首次就答对')}</span></div><div><b>{s.minutes}</b><span>{tl('分钟')}</span></div></div>
         {s.wrong.length > 0 && <button className="btn full" style={{ marginBottom: 8 }} onClick={() => void r.drill(s.wrong)}>{tl('再练 {length} 个错词（不计分）', { length: s.wrong.length })}</button>}
         <button className="story" style={{ width: '100%' }} onClick={() => void r.story()}><b>{tl('读一篇用到这些词的短文')}</b><span>{tl('Tibi 写好后放进书架')}</span></button>

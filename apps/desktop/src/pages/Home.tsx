@@ -141,8 +141,8 @@ export function Home() {
   const k = classifyInput(text.trim());
   const typedAction = action ? undefined : parseSlash(text, actions)?.action;
   const canSend = !!text.trim() || !!action?.empty;
-  const foxState = task ? 'reading' : focus ? 'listening' : 'idle';
   const hour = new Date().getHours();
+  const foxState = task ? 'reading' : focus ? 'listening' : hour >= 23 || hour < 5 ? 'sleeping' : 'idle';
   const greeting = hour < 5 ? tl('夜深了') : hour < 11 ? tl('早上好') : hour < 13 ? tl('中午好') : hour < 18 ? tl('下午好') : tl('晚上好');
   // 欢迎语第二行只是一句邀请，不报状态：在读的文章、待复习、没读的文章下面的卡片都有，这里再说就重复了（00 §3.5）
   const welcomeLine = docs.length === 0 ? tl('读过的文章里的生词会自动进入复习') : hour < 5 ? tl('睡前读一小段？') : tl('今天想读点什么？');
@@ -153,8 +153,8 @@ export function Home() {
       <div className="scroll"><div className="page home">
         <section className="hero">
           <div className="welcome">
-            {!coreDown && <Fox className="hero-fox" size={104} state={foxState} />}
-            <h1>{greeting}{nickname ? <>{tl('，')}<span className="name">{nickname}</span></> : ''}</h1>
+            {!coreDown && <Fox className="hero-fox" size={124} state={foxState} />}
+            <h1><span className="hl">{greeting}</span>{nickname ? <>{tl('，')}<span className="name">{nickname}</span></> : ''}</h1>
             <div className="sub">{welcomeLine}</div>
           </div>
           <div className={`composer${over ? ' over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}>

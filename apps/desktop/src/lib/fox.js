@@ -7,7 +7,7 @@
 (() => {
   const STATES = ['idle', 'listening', 'thinking', 'reading', 'happy', 'sleeping', 'surprised'];
   const LABEL = { idle: '待机', listening: '倾听', thinking: '思考', reading: '阅读', happy: '开心', sleeping: '睡觉', surprised: '惊讶' };
-  const C = { fur: '#f5a043', furDk: '#e3842a', cream: '#fff4e2', flank: '#cfc3b4', inner: '#ffc7a6', ink: '#2b1f17', blush: '#ff8f7d', tongue: '#f2766a', mouth: '#8a2e24', book: '#3b5bfd' };
+  const C = { fur: '#f5a043', furDk: '#e3842a', cream: '#fff4e2', flank: '#cfc3b4', inner: '#ffc7a6', ink: '#2b1f17', blush: '#ff8f7d', tongue: '#f2766a', mouth: '#8a2e24', book: '#3d52e0' };
 
   const CSS = `
 .fox { display: block; overflow: visible; }
@@ -18,9 +18,13 @@
 .fox .head { transform-origin: 100px 140px; animation: fox-bob 3.4s ease-in-out infinite; transition: transform .35s cubic-bezier(.3,1.5,.5,1); }
 .fox .ear-l { transform-origin: 66px 46px; transition: transform .3s cubic-bezier(.3,1.6,.5,1); }
 .fox .ear-r { transform-origin: 134px 46px; transition: transform .3s cubic-bezier(.3,1.6,.5,1); animation: fox-ear 6.5s infinite; }
-.fox .eyes { transform-origin: 100px 80px; animation: fox-blink 4.8s infinite; }
+.fox .eyes { transform-origin: 100px 86px; animation: fox-blink 4.8s infinite; }
+.fox .brows { transition: transform .25s ease; }
+.fox[data-state="listening"] .brows, .fox[data-state="surprised"] .brows { transform: translateY(-4px); }
+.fox[data-state="listening"] .pupils circle.p { r: 10px; }
+.fox[data-state="thinking"] .pupils circle.p, .fox[data-state="reading"] .pupils circle.p { r: 11px; }
 .fox .pupils { transition: transform .3s ease; }
-.fox .lids { transition: transform .25s ease, opacity .2s; transform-origin: 100px 62px; }
+.fox .lids { transition: transform .25s ease, opacity .2s; transform-origin: 100px 70px; }
 .fox .e-happy, .fox .e-closed, .fox .m-open, .fox .book, .fox .fx > g { display: none; }
 @keyframes fox-tail { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(8deg); } }
 @keyframes fox-breathe { 50% { transform: scale(1.02, .985); } }
@@ -74,7 +78,7 @@
 .fox .zz text:nth-child(2) { animation-delay: 1s; } .fox .zz text:nth-child(3) { animation-delay: 2s; }
 @keyframes fox-z { 0% { opacity: 0; transform: translate(0, 4px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(10px, -16px); } }
 /* 惊讶：眼睛睁圆、瞳孔变小、耳朵竖、弹一下、感叹号 */
-.fox[data-state="surprised"] .e-open { transform-origin: 100px 80px; transform: scale(1.1); }
+.fox[data-state="surprised"] .e-open { transform-origin: 100px 86px; transform: scale(1.1); }
 .fox[data-state="surprised"] .pupils { transform: translate(0, 0) ; }
 .fox[data-state="surprised"] .pupils circle.p { r: 6px; }
 .fox[data-state="surprised"] .ear-l { transform: rotate(-8deg) translateY(-6px) scaleY(1.12); }
@@ -125,21 +129,23 @@
     <g class="head">
       <g class="ear-l"><path d="M48 60c-8-24-4-46 8-50 10-2 24 14 32 32z" fill="${C.fur}"/><path d="M57 50c-4-14-2-28 4-30 6 0 14 10 19 21z" fill="${C.inner}"/></g>
       <g class="ear-r"><path d="M152 60c8-24 4-46-8-50-10-2-24 14-32 32z" fill="${C.fur}"/><path d="M143 50c4-14 2-28-4-30-6 0-14 10-19 21z" fill="${C.inner}"/></g>
-      <rect x="30" y="28" width="140" height="108" rx="50" fill="${C.fur}"/>
-      <path d="M30 104c0-10 22-8 44-6 10 1 16 1 26 1s16 0 26-1c22-2 44-4 44 6 0 22-26 34-70 34s-70-12-70-34z" fill="${C.cream}"/>
-      <ellipse class="blush" cx="52" cy="110" rx="11" ry="6" fill="${C.blush}" opacity=".5"/><ellipse class="blush" cx="148" cy="110" rx="11" ry="6" fill="${C.blush}" opacity=".5"/>
+      <path d="M100 26C54 26 26 58 24 98c-2 26 28 42 76 42s78-16 76-42c-2-40-30-72-76-72z" fill="${C.fur}"/>
+      <path d="M25 104c13-4 25 2 41 2 14 0 22-14 34-14s20 14 34 14c16 0 28-6 41-2 1 22-27 36-75 36s-76-14-75-36z" fill="${C.cream}"/>
+      <path d="M25 104c-3 18 13 30 27 33-10-11-14-23-12-35-6-1-11 0-15 2z" fill="${C.flank}"/><path d="M175 104c3 18-13 30-27 33 10-11 14-23 12-35 6-1 11 0 15 2z" fill="${C.flank}"/>
+      <ellipse class="blush" cx="53" cy="114" rx="11" ry="6" fill="${C.blush}" opacity=".5"/><ellipse class="blush" cx="147" cy="114" rx="11" ry="6" fill="${C.blush}" opacity=".5"/>
+      <path class="brows" d="M58 62q12-6 24-1M118 61q12-5 24 1" stroke="${C.furDk}" stroke-width="3" stroke-linecap="round" fill="none"/>
       <g class="eyes">
         <g class="e-open">
-          <circle cx="74" cy="80" r="19" fill="#fff"/><circle cx="126" cy="80" r="19" fill="#fff"/>
-          <g class="pupils"><circle class="p" cx="76" cy="82" r="10" fill="${C.ink}"/><circle class="p" cx="124" cy="82" r="10" fill="${C.ink}"/><circle cx="80" cy="78" r="3.6" fill="#fff"/><circle cx="128" cy="78" r="3.6" fill="#fff"/></g>
-          <g class="lids"><path d="M57.8 70a19 19 0 0 1 32.4 0z" fill="${C.fur}"/><path d="M109.8 70a19 19 0 0 1 32.4 0z" fill="${C.fur}"/><path d="M58.5 70.6q15.5-3.6 31 0M110.5 70.6q15.5-3.6 31 0" stroke="${C.furDk}" stroke-width="3.2" stroke-linecap="round" fill="none"/></g>
+          <circle cx="70" cy="86" r="16" fill="#fff"/><circle cx="130" cy="86" r="16" fill="#fff"/>
+          <g class="pupils"><circle class="p" cx="71" cy="87" r="13" fill="${C.ink}"/><circle class="p" cx="129" cy="87" r="13" fill="${C.ink}"/><circle cx="76" cy="84" r="3.4" fill="#fff"/><circle cx="134" cy="84" r="3.4" fill="#fff"/></g>
+          <g class="lids"><path d="M54 80a16 16 0 0 1 32 0z" fill="${C.fur}"/><path d="M114 80a16 16 0 0 1 32 0z" fill="${C.fur}"/><path d="M53 80.5q17-1.5 34 0M113 80.5q17-1.5 34 0" stroke="${C.ink}" stroke-width="3.4" stroke-linecap="round" fill="none"/></g>
         </g>
-        <g class="e-happy" stroke="${C.ink}" stroke-width="6" stroke-linecap="round" fill="none"><path d="M60 86q14-18 28 0"/><path d="M112 86q14-18 28 0"/></g>
-        <g class="e-closed" stroke="${C.ink}" stroke-width="5" stroke-linecap="round" fill="none"><path d="M60 80q14 12 28 0"/><path d="M112 80q14 12 28 0"/></g>
+        <g class="e-happy" stroke="${C.ink}" stroke-width="5.5" stroke-linecap="round" fill="none"><path d="M57 91q13-17 26 0"/><path d="M117 91q13-17 26 0"/></g>
+        <g class="e-closed" stroke="${C.ink}" stroke-width="4.6" stroke-linecap="round" fill="none"><path d="M57 86q13 11 26 0"/><path d="M117 86q13 11 26 0"/></g>
       </g>
-      <path d="M90 100c0-6 20-6 20 0 0 6-6 10-10 10s-10-4-10-10z" fill="${C.ink}"/><ellipse cx="96" cy="100" rx="3" ry="1.8" fill="#fff" opacity=".6"/>
-      <path class="m-shut" d="M100 110v4M100 114c-3 5-10 5-12 1M100 114c3 5 10 5 12 1" stroke="${C.ink}" stroke-width="3.4" stroke-linecap="round" fill="none"/>
-      <g class="m-open"><path d="M86 112c3 16 25 16 28 0z" fill="${C.mouth}"/><path d="M92 121c4-4 12-4 16 0-2 4-6 5-8 5s-6-1-8-5z" fill="${C.tongue}"/></g>
+      <path d="M93 103c0-5 14-5 14 0 0 4-4 7-7 7s-7-3-7-7z" fill="${C.ink}"/><ellipse cx="97" cy="102.5" rx="2.2" ry="1.3" fill="#fff" opacity=".6"/>
+      <path class="m-shut" d="M100 110v3M100 113c-2 4-8 4-10 1M100 113c2 4 8 4 10 1" stroke="${C.ink}" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+      <g class="m-open"><path d="M88 112c3 15 21 15 24 0z" fill="${C.mouth}"/><path d="M93 120c3-3 11-3 14 0-2 4-5 5-7 5s-5-1-7-5z" fill="${C.tongue}"/></g>
     </g>
   </g>
 </svg>`;
