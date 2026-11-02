@@ -1,4 +1,4 @@
-export type MascotId = 'empty-library' | 'empty-review' | 'empty-tasks' | 'empty-words' | 'celebrate-review' | 'celebrate-streak' | 'error-generic' | 'error-offline' | 'about';
+export type MascotId = 'empty-library' | 'empty-review' | 'empty-tasks' | 'empty-words' | 'celebrate-review' | 'celebrate-streak' | 'sticker-1' | 'error-generic' | 'error-offline' | 'about';
 
 /** 连续学习到这些天数时，复习完成页换成奖牌（07 §3） */
 export const isStreakMilestone = (streak: number) => streak === 7 || streak === 30 || streak === 100;

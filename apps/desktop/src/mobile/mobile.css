@@ -296,3 +296,11 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .tagsheet .chip { background: var(--fill); }
 .tagsheet .chip.on { background: var(--accent-fill); }
 .tagsheet .taglist:first-of-type { margin-top: 0; }
+/* 童趣时刻（03 §8）：升档弹一下；减少吉祥物时隐藏插画 */
+.lvup { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-3); }
+.lvup .pop { font-weight: 600; animation: lvpop .45s cubic-bezier(.3,1.7,.5,1); }
+@keyframes lvpop { from { transform: scale(.6); } to { transform: scale(1); } }
+.pstk img { display: block; width: 88px; height: 88px; margin: 0 auto 6px; }
+:root[data-mascot="less"] :is(.empty img, .done .fx, .pstk) { display: none; }
+:root[data-mascot="less"] .lvup .pop { animation: none; }
+@media (prefers-reduced-motion: reduce) { .lvup .pop { animation: none; } }

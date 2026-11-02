@@ -66,7 +66,7 @@ Character reference sheet of CHARACTER on a plain light grey (#f2f2f1) backgroun
 | onboarding-read | 预留未用（引导第 2 步 读第一篇；引导页用 SVG 小狐狸） | 1024×1024 | 已出 |
 | error-offline | 原型：首页失败态（模型不可用 / 离线）；应用：首页连不上 Core | 1024×1024 | 应用已用 |
 | error-generic | 原型：首页失败态（出错了）；应用：复习、文章打不开 | 1024×1024 | 应用已用 |
-| sticker-* | 对话里的贴纸反应（6 张：赞、笑、疑问、加油、睡、惊） | 512×512 | 已出 |
+| sticker-* | 贴纸（6 张：赞、笑、疑问、加油、睡、惊）。`sticker-1` 用在准确率 80% 以上的练习成绩页，其他未用；不放进 AI 的回答 | 512×512 | sticker-1 应用已用，其他已出 |
 | about | 设置 → 关于（仅桌面端，手机端没有关于页） | 1024×1024 | 应用已用 |
 | icon-face | 应用图标上层（Icon Composer），只有正脸 | 1024×1024 | 已出 |
 
@@ -157,8 +157,8 @@ Only the head of CHARACTER, front view, perfectly centred, filling 80% of the sq
 
 ## 5. 落地到原型
 
-SVG 小狐狸和插画不同框，每个位置只放一只：要跟着输入、思考、完成切换状态的位置用 SVG（首页、手机版首页、引导页；统计页空状态在 `empty-stats` 出图前暂用 SVG，R17 定为改用插画）；静态画面用插画（书架、复习、运行记录、生词本的空状态，复习完成页，首页失败态的 `error-generic` / `error-offline`，含 `mobile.html`）。未用的素材：`hero-*`、`onboarding-*`、`icon-face`、`sticker-*`（贴纸留到"做时刻"那一步，不放进 AI 的回答）。
+SVG 小狐狸和插画不同框，每个位置只放一只：要跟着输入、思考、完成切换状态的位置用 SVG（首页、手机版首页、引导页；统计页空状态在 `empty-stats` 出图前暂用 SVG，R17 定为改用插画）；静态画面用插画（书架、复习、运行记录、生词本的空状态，复习完成页，首页失败态的 `error-generic` / `error-offline`，含 `mobile.html`）。未用的素材：`hero-*`、`onboarding-*`、`icon-face`、除 `sticker-1` 外的贴纸。
 
-应用用的是 `apps/desktop/public/mascot/` 里的副本（只放状态列为“应用已用”的 9 张），改图后要同步过去；代码入口是 `components/Mascot.tsx`。首页有 SVG 小狐狸，所以书架空状态不放插画；连不上 Core 时显示 `error-offline`，同时隐藏小狐狸。
+应用用的是 `apps/desktop/public/mascot/` 里的副本（只放状态列为“应用已用”的 10 张），改图后要同步过去；代码入口是 `components/Mascot.tsx`。首页有 SVG 小狐狸，所以书架空状态不放插画；连不上 Core 时显示 `error-offline`，同时隐藏小狐狸。
 
 替换时更新 `03-visual-language.md` §7.2 与本文件状态列。

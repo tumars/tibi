@@ -4,6 +4,7 @@ import { tl } from '../lib/i18n';
 /** 设置项：名称、所在分组、关键词（00 §3.8：输入"深色""api key""fsrs"能找到）。全局搜索和设置页内搜索共用 */
 export const SETTINGS: { label: string; sec: string; kw: string }[] = [
   { label: '外观', sec: 'general', kw: '深色 浅色 主题 dark light theme appearance' },
+  { label: '减少吉祥物', sec: 'general', kw: '狐狸 插画 可爱 动画 mascot fox' },
   { label: '界面语言', sec: 'general', kw: 'english 英文 中文 language' },
   { label: 'Tibi 怎么称呼你', sec: 'general', kw: '昵称 名字 nickname name' },
   { label: '权限模式', sec: 'general', kw: '审批 确认 自动 permission' },

@@ -11,7 +11,7 @@ import { ACTIONS, matchActions, parseSlash, slashQuery, type ActionId, type Slas
 import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
 import { errorInfo, isTauri, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
-import { toast } from '../store/ui';
+import { toast, useUi } from '../store/ui';
 import { DocCard } from './Library';
 import { tl } from '../lib/i18n';
 
@@ -36,7 +36,7 @@ export function Home() {
   const [kind, setKind] = useState<Kind>('all');
   const [tier, setTier] = useState<'fast' | 'deep'>('fast');
   const due = useCore(s => s.due); const connected = useCore(s => s.connected); const status = useCore(s => s.status); const coreDown = useCore(s => !s.connected && !s.status && !!s.error);
-  const goal = useCore(s => s.goal); const nickname = useCore(s => s.nickname);
+  const goal = useCore(s => s.goal); const nickname = useCore(s => s.nickname); const lessMascot = useUi(s => s.lessMascot);
   const ta = useRef<HTMLTextAreaElement>(null);
   const [action, setAction] = useState<SlashAction>();   // / 选中的动作，显示在输入框上方
   const [offSkills, setOffSkills] = useState<string[]>([]);   // 设置里关掉的技能不进菜单；导入是固定流程，不能关
@@ -142,10 +142,11 @@ export function Home() {
   const typedAction = action ? undefined : parseSlash(text, actions)?.action;
   const canSend = !!text.trim() || !!action?.empty;
   const hour = new Date().getHours();
-  const foxState = task ? 'reading' : focus ? 'listening' : hour >= 23 || hour < 5 ? 'sleeping' : 'idle';
+  const late = hour >= 23 || hour < 5;
+  const foxState = task ? 'reading' : focus ? 'listening' : late ? 'sleeping' : 'idle';
   const greeting = hour < 5 ? tl('夜深了') : hour < 11 ? tl('早上好') : hour < 13 ? tl('中午好') : hour < 18 ? tl('下午好') : tl('晚上好');
   // 欢迎语第二行只是一句邀请，不报状态：在读的文章、待复习、没读的文章下面的卡片都有，这里再说就重复了（00 §3.5）
-  const welcomeLine = docs.length === 0 ? tl('读过的文章里的生词会自动进入复习') : hour < 5 ? tl('睡前读一小段？') : tl('今天想读点什么？');
+  const welcomeLine = docs.length === 0 ? tl('读过的文章里的生词会自动进入复习') : late && !lessMascot ? tl('Tibi 睡了，你随意。') : hour < 5 ? tl('睡前读一小段？') : tl('今天想读点什么？');
 
   return (
     <>

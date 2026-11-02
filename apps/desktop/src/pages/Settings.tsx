@@ -28,6 +28,7 @@ export function Settings() {
   useEffect(() => { rpc.call('settings.get', { keys: ['reminder.time'] }).then(r => setReminder((r['reminder.time'] as string) ?? 'off'), () => undefined); }, []);
   useEffect(() => { rpc.call('settings.get', { keys: ['review.recognize'] }).then(r => setRecognize(!!r['review.recognize']), () => undefined); }, []);
   const theme = useUi(s => s.theme); const setTheme = useUi(s => s.setTheme);
+  const lessMascot = useUi(s => s.lessMascot); const setLessMascot = useUi(s => s.setLessMascot);
   const status = useCore(s => s.status);
   const [params] = useSearchParams();
   const [sec, setSec] = useState<string>(params.get('sec') ?? 'general');
@@ -87,6 +88,7 @@ export function Settings() {
         <div>
           <section className="ssec" id="s-general"><h2>{tl('通用')}</h2><div className="group">
             <div className="item"><div><div className="t">{tl('外观')}</div></div><div className="ctl"><div className="seg">{(['auto', 'light', 'dark'] as const).map(t => <button key={t} className={theme === t ? 'on' : ''} onClick={() => setTheme(t)}>{{ auto: tl('跟随系统'), light: tl('浅色'), dark: tl('深色') }[t]}</button>)}</div></div></div>
+            <div className="item"><div><div className="t">{tl('减少吉祥物')}</div><div className="d">{tl('隐藏插画和首页的狐狸，文案也更直白')}</div></div><div className="ctl"><Switch label={tl('减少吉祥物')} checked={lessMascot} onChange={setLessMascot} /></div></div>
             <div className="item"><div><div className="t">{tl('界面语言')}</div><div className="d">{tl('只换界面上的字；Tibi 讲解用的语言在「学习与复习」里。切换后界面会重新载入')}</div></div><div className="ctl"><div className="seg">{([['zh', '中文'], ['en', 'English']] as const).map(([v, l]) => <button key={v} className={lang === v ? 'on' : ''} onClick={() => { if (v !== lang) setLang(v); }}>{l}</button>)}</div></div></div>
             <div className="item"><div><div className="t">{tl('Tibi 怎么称呼你')}</div></div><div className="ctl"><input className="input" style={{ width: 120 }} value={profile?.assistant_prefs?.nickname ?? profile?.display_name ?? ''} onChange={e => setProfile(p => p && { ...p, display_name: e.target.value })} onBlur={e => patch({ display_name: e.target.value, assistant_prefs: { ...(profile?.assistant_prefs ?? { language: 'mixed', permission: 'default' }), nickname: e.target.value } })} /></div></div>
             <div className="item"><div><div className="t">{tl('权限模式')}</div><div className="d">{tl('Tibi 要写入数据（记住一件事、改熟练度等）之前要不要先问你。读过网页内容的任务写入时一律先问')}</div></div><div className="ctl"><div className="seg">{([['ask', tl('每次都问')], ['default', tl('标词自动，其余问')], ['auto', tl('全部自动')]] as const).map(([v, l]) => <button key={v} className={(profile?.assistant_prefs?.permission ?? 'default') === v ? 'on' : ''} onClick={() => patch({ assistant_prefs: { ...(profile?.assistant_prefs ?? { nickname: '你', language: 'mixed' }), permission: v } })}>{l}</button>)}</div></div></div>

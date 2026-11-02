@@ -65,7 +65,7 @@ export function Me() {
 function WordsList() {
   const [items, setItems] = useState<Term[]>();
   useEffect(() => { rpc.call('terms.list', { view: 'all', sort: 'added', limit: 100 }).then(r => setItems(r.items), () => setItems([])); }, []);
-  return <><h2>{tl('生词本')}</h2>{items && !items.length ? <Empty image="empty-words" title={tl('这里还没有词')} text={tl('读文章时点开的生词会出现在这里。')} /> :
+  return <><h2>{tl('生词本')}</h2>{items && !items.length ? <Empty image="empty-words" quip={tl('罐子还是空的。')} title={tl('这里还没有词')} text={tl('读文章时点开的生词会出现在这里。')} /> :
     <div className="card">{items?.map(t => <div key={t.id} className="doc"><span className="b"><span className="t">{t.display}</span><span className="m">{t.meaning}</span></span><span className={`stage s${t.status}`}>{STATUS_NAMES[t.status]}</span></div>)}</div>}</>;
 }
 
@@ -158,9 +158,11 @@ export function ModelPanel({ onDone }: { onDone: () => void }) {
 
 function Look() {
   const theme = useUi(s => s.theme); const setTheme = useUi(s => s.setTheme);
+  const less = useUi(s => s.lessMascot); const setLess = useUi(s => s.setLessMascot);
   return <><h2>{tl('外观与语言')}</h2>
     <div className="seg">{(['auto', 'light', 'dark'] as const).map(t => <button key={t} className={theme === t ? 'on' : ''} onClick={() => setTheme(t)}>{{ auto: tl('跟随系统'), light: tl('浅色'), dark: tl('深色') }[t]}</button>)}</div>
     <div className="seg" style={{ marginTop: 12 }}><button className={lang === 'zh' ? 'on' : ''} onClick={() => lang !== 'zh' && setLang('zh')}><Languages size={14} /> 中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => lang !== 'en' && setLang('en')}>English</button></div>
+    <div className="seg" style={{ marginTop: 12 }}><button className={less ? '' : 'on'} onClick={() => setLess(false)}>{tl('显示吉祥物')}</button><button className={less ? 'on' : ''} onClick={() => setLess(true)}>{tl('减少吉祥物')}</button></div>
   </>;
 }
 

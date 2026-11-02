@@ -1,4 +1,5 @@
 import { Volume2 } from 'lucide-react';
+import { Mascot } from '../components/Mascot';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { speak } from '../lib/util';
@@ -83,6 +84,7 @@ export function Practice() {
   };
 
   if (done) return <div className="rvcard pdone">
+    {done.accuracy >= 80 && <div className="pstk"><Mascot id="sticker-1" /></div>}
     <h3>{tl('这一轮练完了')}</h3>
     <p className="big">{Math.round(done.accuracy)}%</p>
     <p className="lbl">{tl('准确率 · 用时 {v0} 秒', { v0: Math.round(done.duration_ms / 1000) })}{mode === 'dictation' && done.best.rounds > 1 ? tl(' · 听写最好 {v0}%', { v0: Math.round(done.best.dictation_accuracy) }) : ''}{tl('。练习不影响复习排期。')}</p>

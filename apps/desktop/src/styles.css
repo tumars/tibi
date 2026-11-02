@@ -733,3 +733,12 @@ h2.st .sp { flex: 1; }
 .modal .tagsug + .acts, .modal .tagbox + .acts { margin-top: 16px; }
 .item .t .tag.def { font-size: 11px; font-weight: 500; color: var(--accent); background: var(--accent-wash); padding: 1px 7px; border-radius: 99px; margin-left: 6px; vertical-align: 1px; }
 @media (prefers-reduced-motion: reduce) { .btn, .send, .tile .go { transition: none; } .btn:active, .send:active, .tile .go:active { transform: none !important; } }
+/* 童趣时刻（03 §8）：升档弹一下；减少吉祥物时隐藏插画 */
+.lvup { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-3); margin: 2px 0 6px; }
+.lvup .pop { font-weight: 600; animation: lvpop .45s cubic-bezier(.3,1.7,.5,1); }
+@keyframes lvpop { from { transform: scale(.6); } to { transform: scale(1); } }
+.pstk img { display: block; width: 88px; height: 88px; margin: 0 auto 6px; }
+:root[data-mascot="less"] :is(.hero-fox, .empty img, .done img, .pstk) { display: none; }
+:root[data-mascot="less"] .welcome h1 .hl { background-image: none; }
+:root[data-mascot="less"] .lvup .pop { animation: none; }
+@media (prefers-reduced-motion: reduce) { .lvup .pop { animation: none; } }
