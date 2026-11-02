@@ -1,0 +1,22 @@
+apps/desktop/src/styles.css
+  s_b0ed49cf179907::t_942f77fd740839 65
+  s_b0ed49cf179907::t_8948747dded19d 46
+apps/desktop/src/components/Shell.tsx
+  s_b0ed49cf179907::t_a02c9c9e85bc90 44-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "48e58d02ee313d8fdd659895d88dbc89c53d6cb3",
+  "prompts": {},
+  "sessions": {
+    "s_b0ed49cf179907": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "52671ed1-8636-4b2f-884a-ced737d50e65",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
