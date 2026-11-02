@@ -1,0 +1,65 @@
+docs/design/00-concept-design.md
+  s_cc52557a333fa9::t_31da0ce92431e3 293
+  s_cc52557a333fa9::t_5ebe463e791a05 279
+docs/design/06-interface.md
+  s_d424fec2f0708d::t_0e741154fef8b4 212
+  s_d424fec2f0708d::t_c49656e7cb2bb4 98,213-214,301
+  s_d424fec2f0708d::t_5e8446a5ecbf9a 93,215
+  s_83e088aec27544::t_653f165ba253e5 454
+  s_a3281bcd3632f2::t_7c4a17f1df803e 264-265
+docs/design/overview.html
+  s_d424fec2f0708d::t_5e8446a5ecbf9a 497,534
+  s_83e088aec27544::t_653f165ba253e5 176,200,554
+  s_d424fec2f0708d::t_0e741154fef8b4 543
+  s_d424fec2f0708d::t_c49656e7cb2bb4 502,538,544
+docs/design/_src/build_interface.py
+  s_a3281bcd3632f2::t_b8470870ab8155 213-214
+  s_d424fec2f0708d::t_afabba785efee3 176
+  s_83e088aec27544::t_653f165ba253e5 255
+  s_d424fec2f0708d::t_850f8b8f5aad65 243
+  s_d424fec2f0708d::t_247fdfbfd6ef7a 77
+  s_d424fec2f0708d::t_fa041d66967208 242
+  s_d424fec2f0708d::t_9a391e8caa21b2 174-175
+  s_d424fec2f0708d::t_890479a34ace5c 173
+  s_d424fec2f0708d::t_c67b8730ce9356 72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "752a8f1785288feb1e2a5b71f1b187df1eed1452",
+  "prompts": {},
+  "sessions": {
+    "s_83e088aec27544": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93165e38-8a3a-4d4c-a013-e65d3f30c1d0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_a3281bcd3632f2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3c1aa584-4daa-48c1-9d09-6eb001319eb9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_cc52557a333fa9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2f9abc37-f2b8-4fd8-91f3-6f20cea8d380",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_d424fec2f0708d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c2bc5ba0-5c55-41d2-b745-998f0349453a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
