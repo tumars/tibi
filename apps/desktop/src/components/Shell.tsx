@@ -41,9 +41,11 @@ export function Shell() {
       <aside className="side" data-tauri-drag-region>
         <div className="brand" data-tauri-drag-region="deep">
           <span className="logo"><img src="/logo.svg" alt="" /><span className="hide-c">Tibi</span></span>
-          <button className="ibtn" onClick={toggleSide} title={collapsed ? tl('展开侧栏（⌘\\）') : tl('折叠侧栏（⌘\\）')}><PanelLeft /></button>
+          <span className="brand-acts">
+            <button className="ibtn" title={tl('搜索（⌘K）')} onClick={() => window.dispatchEvent(new Event('tibi:search'))}><Search /></button>
+            <button className="ibtn side-toggle" onClick={toggleSide} title={collapsed ? tl('展开侧栏（⌘\\）') : tl('折叠侧栏（⌘\\）')}><PanelLeft /></button>
+          </span>
         </div>
-        <button className="nav-search" style={{ display: 'flex', alignItems: 'center', gap: 10, height: 32, padding: '0 10px', borderRadius: 'var(--r-m)', color: 'var(--ink-2)' }} title={tl('搜索（⌘K）')} onClick={() => window.dispatchEvent(new Event('tibi:search'))}><Search size={17} /><span className="hide-c">{tl('搜索')}</span><span className="kbd hide-c" style={{ marginLeft: 'auto' }}>⌘K</span></button>
         <nav className="nav">
           {NAV.map(n => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive || (n.to === '/library' && reading) ? 'cur' : '')} title={n.label}>

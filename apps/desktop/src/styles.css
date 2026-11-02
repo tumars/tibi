@@ -43,8 +43,7 @@ svg { flex: none; }
 .app.collapsed .brand .ibtn { margin-left: -2px; }   /* 与下方导航图标对齐 */
 .brand-acts { display: flex; align-items: center; gap: 2px; }
 .app.collapsed .brand-acts { flex-direction: column; align-items: flex-start; gap: 6px; }
-.app.mac .side-toggle, .app.mac.collapsed .brand .side-toggle { position: fixed; top: 0; left: 78px; height: 28px; margin: 0; z-index: 10; }   /* 红绿灯右侧，与灯同一水平线 */
-.app.mac.collapsed .main { margin-top: 30px; }   /* 窄栏下按钮越出侧栏，给它留一条标题栏，不压卡片 */
+.app.mac:not(.collapsed) .side-toggle { position: fixed; top: 0; left: 78px; height: 28px; z-index: 10; }   /* 红绿灯右侧，与灯同一水平线；折叠时回到窄栏 */
 .ibtn { width: 30px; height: 30px; border-radius: var(--r-s); display: grid; place-items: center; color: var(--ink-3); transition: background .15s, color .15s; }
 .ibtn:hover { background: var(--hover); color: var(--ink); }
 .ibtn svg { width: 17px; height: 17px; }
@@ -63,7 +62,7 @@ svg { flex: none; }
 .user { display: flex; align-items: center; gap: 8px; padding: 0 4px 0 8px; }
 .user .av { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 12px; font-weight: 600; }
 .app.collapsed .user { flex-direction: column; align-items: flex-start; gap: 4px; padding: 0 0 0 4px; }   /* 窄栏：设置按钮排到头像下方，与导航图标对齐 */
-.main { margin: 12px 12px 12px 0; background: var(--surface); border-radius: var(--r-l); box-shadow: 0 0 0 1px var(--line); display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; transition: margin-top .3s cubic-bezier(.22,.8,.24,1); }
+.main { margin: 12px 12px 12px 0; background: var(--surface); border-radius: var(--r-l); box-shadow: 0 0 0 1px var(--line); display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .app.collapsed .main, .main { }
 .top { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 14px 0 16px; }
 .crumb { display: flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--ink-3); min-width: 0; }
