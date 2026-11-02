@@ -2,12 +2,13 @@ import { isStreakMilestone, Mascot } from '../components/Mascot';
 import type { Rating } from '@tibi/core';
 import { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { PlayButton, usePlayback } from '../review/PlayButton';
 import { Practice } from '../review/Practice';
 import { useReviewSession } from '../review/useReviewSession';
 import { Empty } from '../components/Empty';
 import { LevelUp } from '../components/LevelUp';
 import { Top } from '../components/Shell';
-import { speak, splitAnswer, STATUS_NAMES } from '../lib/util';
+import { splitAnswer, STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
@@ -21,6 +22,7 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
   const streak = useCore(s => s.streak); const less = useUi(s => s.lessMascot);
   const { session, err, phase, setPhase, typed, setTyped, hints, setHints, done, item, load, answer, next, override, undo, pause: pauseSession, drill, story, summary, segClass } = useReviewSession();
   const inputRef = useRef<HTMLInputElement>(null);
+  const { playing, toggle: togglePlay } = usePlayback(!item ? '' : item.intro ? item.term.display : item.context.sentence);
   const pause = async () => { await pauseSession(); nav('/'); };
 
   // 键盘：空格显示答案、Enter 检查 / 继续、1–4 选项或评分、Z 撤销、P 播放
@@ -44,11 +46,11 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
         else if (phase.kind === 'answered' && phase.result.auto) void override(n);
       }
       if (e.key.toLowerCase() === 'z') void undo();
-      if (e.key.toLowerCase() === 'p') speak(item.context.sentence);
+      if (e.key.toLowerCase() === 'p') togglePlay();
     };
     addEventListener('keydown', onKey); return () => removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item, phase, typed, done, next, answer]);
+  }, [item, phase, typed, done, next, answer, togglePlay]);
 
   useEffect(() => { if (item?.card_type === 'cloze' && phase.kind === 'ask') inputRef.current?.focus(); }, [item, phase]);
 
@@ -107,7 +109,7 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
             <span>{tl('· 熟练度')} <span className={`stage s${item.term.status}`}>{STATUS_NAMES[item.term.status]}</span></span>
             {item.is_new && !item.retry && <span>{tl('· 新词')}</span>}
             <span className="sp" />
-            <button className="linkbtn" onClick={() => speak(item.intro ? item.term.display : ctx.sentence)}>{tl('播放')} <span className="kbd">P</span></button>
+            <PlayButton playing={playing} onToggle={togglePlay} shortcut="P" />
           </div>
           {item.intro ? (
             <>

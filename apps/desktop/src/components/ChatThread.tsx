@@ -1,12 +1,12 @@
 import type { Conversation } from '@tibi/core';
-import { ArrowDown, ArrowUp, Copy, Pencil, RotateCcw, Square, Volume2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, Pause, Pencil, Play, RotateCcw, Square, Volume2 } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Markdown } from '../lib/md';
 import { parseSlash, type SlashAction } from '../lib/slash';
 import { classifyInput } from '../lib/util';
 import { ActionChip, ModelPicker, SlashMenu, useSlashMenu } from './Composer';
-import { say } from '../lib/tts';
+import { pause, resume, say, stop } from '../lib/tts';
 import { ApprovalCard, ProcessCard, Receipts } from './Process';
 import { SelectAsk } from './SelectAsk';
 import { Blocks } from './Widgets';
@@ -25,6 +25,25 @@ export interface Pending { key: string; text: string; context?: ChatContext; ski
 
 interface Queued { id: string; text: string; skill?: string; model?: string }
 const queues = new Map<string, Queued[]>();
+
+/**
+ * 朗读一条回答：按一下读，读的时候暂停，暂停时接着读；同时只读一条，点别的回答就换过去。
+ * 暂停不了（Kokoro 合成中、Android）就停下，再按从头读。被查词发音之类打断时回到没在读的样子。
+ */
+function useMsgAloud() {
+  const [cur, setCur] = useState<{ id: string; paused: boolean }>();
+  const run = useRef(0);   // 每次开始或停止都加一，旧的 say() 结束时不再改状态
+  const active = useRef(false);
+  const halt = useCallback(() => { run.current++; if (active.current) stop(); active.current = false; setCur(undefined); }, []);
+  const toggle = (id: string, text: string) => {
+    if (cur?.id === id && !cur.paused) { if (pause()) setCur({ id, paused: true }); else halt(); return; }
+    if (cur?.id === id && resume()) { setCur({ id, paused: false }); return; }
+    const my = ++run.current; active.current = true; setCur({ id, paused: false });
+    void say(text.replace(/[*_`#>]/g, '')).finally(() => { if (my === run.current) { active.current = false; setCur(undefined); } });
+  };
+  useEffect(() => halt, [halt]);
+  return { cur, toggle, halt };
+}
 
 export function ChatThread({ conversationId, skill, context, pending, placeholder = tl('继续问 Tibi…'), empty, back, onConv }: {
   conversationId: string; skill?: string; context?: ChatContext; pending?: Pending; placeholder?: string; empty?: React.ReactNode;
@@ -118,6 +137,9 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
     }
   };
   const visible = msgs.filter(m => m.role !== 'tool' && (m.text || m.blocks?.length || m.interrupted));
+  const aloud = useMsgAloud();
+  // 换了对话，或正在读的这条被改写、重答冲掉了：别留着没有按钮能停的声音
+  useEffect(() => { if (aloud.cur && !msgs.some(m => m.id === aloud.cur!.id)) aloud.halt(); }, [msgs, aloud.cur, aloud.halt]);
   // 上一句正常答完才接着发；停止或出错时留着，让用户决定
   const stuck = !!visible[visible.length - 1]?.interrupted;
   useEffect(() => { if (ready && queue[0] && !running && !live.length && !stuck) void sendQueued(queue[0]); });
@@ -151,10 +173,16 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
           {cursor && <button className="linkbtn loadolder" onClick={older}>{tl('加载更早的消息')}</button>}
           {visible.map((m, i) => m.role === 'user'
             ? <div key={m.id} className={`msg u${editing === m.id ? ' editing' : ''}`}>{m.text}{!running && !m.id.startsWith('local-') && <button className="msgedit" aria-label={tl('改这句')} title={tl('改这句')} onClick={() => { setEditing(m.id); fill(m.text ?? ''); }}><Pencil size={12} /></button>}</div>
-            : <div key={m.id} className="msg a">{m.steps && <ProcessCard steps={m.steps} />}{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} fill={fill} /> : m.text && <Markdown text={m.text} />}{m.receipts && <Receipts items={m.receipts} undo={id => void undoReceipt(m.id, id)} />}{m.interrupted && <div className="chaterr">{m.interrupted.reason === 'cancel' ? tl('已停止') : m.interrupted.message || tl('出错了')}{m.interrupted.message && modelError(m.interrupted.message) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{i === visible.length - 1 && !running && m.task_id && <> · <button className="linkbtn" onClick={() => void retry(m.task_id!)}>{tl('重试')}</button></>}</div>}<div className="prov-line"><span>Tibi</span>{m.skill && <> · <span>{m.skill}</span></>}{m.task_id && <> · <a href={`#/tasks?t=${m.task_id}`}>{tl('查看过程')}</a></>}{m.text && <span className="msgacts">
+            : <div key={m.id} className="msg a">{m.steps && <ProcessCard steps={m.steps} />}{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} fill={fill} /> : m.text && <Markdown text={m.text} />}{m.receipts && <Receipts items={m.receipts} undo={id => void undoReceipt(m.id, id)} />}{m.interrupted && <div className="chaterr">{m.interrupted.reason === 'cancel' ? tl('已停止') : m.interrupted.message || tl('出错了')}{m.interrupted.message && modelError(m.interrupted.message) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{i === visible.length - 1 && !running && m.task_id && <> · <button className="linkbtn" onClick={() => void retry(m.task_id!)}>{tl('重试')}</button></>}</div>}<div className="prov-line"><span>Tibi</span>{m.skill && <> · <span>{m.skill}</span></>}{m.task_id && <> · <a href={`#/tasks?t=${m.task_id}`}>{tl('查看过程')}</a></>}{m.text && <span className={`msgacts${aloud.cur?.id === m.id ? ' on' : ''}`}>
               <button aria-label={tl('复制')} title={tl('复制')} onClick={() => void navigator.clipboard.writeText(m.text!).then(() => toast(tl('已复制')), () => toast(tl('没能复制'), { kind: 'err' }))}><Copy size={13} /></button>
-              <button aria-label={tl('朗读')} title={tl('朗读')} onClick={() => void say(m.text!.replace(/[*_`#>]/g, ''))}><Volume2 size={13} /></button>
+              {(() => {
+                const c = aloud.cur?.id === m.id ? aloud.cur : undefined;
+                const label = !c ? tl('朗读') : c.paused ? tl('继续') : tl('暂停');
+                return <button aria-label={label} title={label} onClick={() => aloud.toggle(m.id, m.text!)}>{!c ? <Volume2 size={13} /> : c.paused ? <Play size={13} /> : <Pause size={13} />}</button>;
+              })()}
               {i === visible.length - 1 && !running && !m.interrupted && <button aria-label={tl('重新回答')} title={tl('重新回答')} onClick={() => void regenerate(i)}><RotateCcw size={13} /></button>}
+              {/* 放最后：点完消失时，别的按钮不会滑到鼠标下面 */}
+              {aloud.cur?.id === m.id && <button aria-label={tl('停止')} title={tl('停止')} onClick={aloud.halt}><Square size={11} fill="currentColor" /></button>}
             </span>}</div></div>)}
           {live.map(l => <div key={l.id} className="msg a">
             {l.resumed && !l.done && <div className="toolline"><span className="spin" />{tl('Tibi 还在回答，说完就显示')}</div>}

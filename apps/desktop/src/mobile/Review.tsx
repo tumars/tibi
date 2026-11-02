@@ -1,9 +1,10 @@
 import { isStreakMilestone, Mascot } from '../components/Mascot';
 import type { Rating } from '@tibi/core';
-import { RotateCcw, Volume2, X } from 'lucide-react';
+import { RotateCcw, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { tl } from '../lib/i18n';
-import { speak, splitAnswer, STATUS_NAMES } from '../lib/util';
+import { splitAnswer, STATUS_NAMES } from '../lib/util';
+import { PlayButton, usePlayback } from '../review/PlayButton';
 import { Practice } from '../review/Practice';
 import { useReviewSession } from '../review/useReviewSession';
 import { useCore } from '../store/core';
@@ -42,6 +43,7 @@ function Session({ onExit }: { onExit: () => void }) {
   const streak = useCore(s => s.streak); const less = useUi(s => s.lessMascot);
   const r = useReviewSession();
   const { session, err, phase, setPhase, typed, setTyped, hints, setHints, done, item } = r;
+  const { playing, toggle: togglePlay } = usePlayback(!item ? '' : item.intro ? item.term.display : item.context.sentence);
   const close = async () => { await r.pause(); onExit(); };
   const answer = async (a: Parameters<typeof r.answer>[0]) => { await r.answer(a); };
   if (err) return <div className="screen" id="s-review"><div className="topgap" /><Empty image="error-generic" title={tl('复习还没准备好')} text={err} action={<button className="btn sm" onClick={() => void r.load()}>{tl('重试')}</button>} /></div>;
@@ -75,7 +77,7 @@ function Session({ onExit }: { onExit: () => void }) {
         <div className="k"><span>{item.intro ? tl('初见') : { choice: tl('选义'), cloze: tl('语境填空'), recognize: tl('识别') }[item.card_type]}</span>
           {item.retry > 0 && <span className="rt">{tl('重练 · 不计分')}</span>}
           {res?.status_change ? <LevelUp from={res.status_change.from} to={res.status_change.to} /> : <span className={`stage s${item.term.status}`}>{STATUS_NAMES[item.term.status]}</span>}<span className="sp" style={{ flex: 1 }} />
-          <button aria-label={tl('播放')} onClick={() => speak(item.intro ? item.term.display : ctx.sentence)}><Volume2 size={18} /></button></div>
+          <PlayButton playing={playing} onToggle={togglePlay} /></div>
         {item.intro ? <>
           <div className="ihw">{item.term.display}{item.term.ipa && <small>/{item.term.ipa}/</small>}</div>
           <p style={{ fontSize: 15 }}>{item.term.meaning}</p>
