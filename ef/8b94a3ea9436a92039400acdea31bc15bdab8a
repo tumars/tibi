@@ -1,0 +1,61 @@
+apps/desktop/src/pages/Review.tsx
+  s_cc28ae01fef59c::t_234a29c158993b 11
+  s_cc28ae01fef59c::t_22eedf3c2529a7 53
+  s_cc28ae01fef59c::t_1d76bebabf8b23 25
+  s_cc28ae01fef59c::t_9a892b2eae95ba 49
+  s_cc28ae01fef59c::t_c53f9f15b06066 5
+  s_cc28ae01fef59c::t_44617eda7896dd 112
+apps/desktop/src/review/PlayButton.tsx
+  s_cc28ae01fef59c::t_293ac89a13792c 1-25,27-31
+  s_cc28ae01fef59c::t_b9f011cec60a30 26
+apps/desktop/src/mobile/mobile.css
+  s_cc28ae01fef59c::t_3a74f569d1d506 191-192
+apps/desktop/src/mobile/Review.tsx
+  s_cc28ae01fef59c::t_2f7c49015e680f 80
+  s_cc28ae01fef59c::t_e20af41029a01b 46
+  s_cc28ae01fef59c::t_f6352a044a87c0 6-7
+  s_cc28ae01fef59c::t_56493c48b56ee4 3
+apps/desktop/src/components/ChatThread.tsx
+  s_c3c8ab34e50b8f::t_eeb38834376b5a 9
+  s_c3c8ab34e50b8f::t_6f3ebaf4fa068f 178-182,184-185
+  s_c3c8ab34e50b8f::t_9e77ec9c75e445 140-142
+  s_c3c8ab34e50b8f::t_b915f798bf3ecc 176
+  s_c3c8ab34e50b8f::t_b89a961d10fa2b 29-47
+  s_c3c8ab34e50b8f::t_86f2a98a1d6aa3 2
+apps/desktop/src/styles.css
+  s_c3c8ab34e50b8f::t_a70b19c157da05 552
+docs/CHANGELOG.md
+  s_1309c02fe53e19::t_55067ac34cf00e 177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ef8b94a3ea9436a92039400acdea31bc15bdab8a",
+  "prompts": {},
+  "sessions": {
+    "s_1309c02fe53e19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4523abd9-114f-4fcb-aa4b-c1caea45e6f1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_c3c8ab34e50b8f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9aa56831-c362-443e-bc88-ce716fd39b55",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_cc28ae01fef59c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8477b7f-0f3b-496e-9c94-e2fad2491947",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
