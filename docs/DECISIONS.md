@@ -165,6 +165,8 @@
 | T30 | 词形还原：词典收了这个词头、又没说它是变形（`lemma_map` 里没有）时，规则不再改写；人工的 `IRREGULAR` 表不受影响。已导入文章里存的旧原形不回填，重新导入才更新 | 2 万个常用词里 419 个被规则改错（interest → inter、matter → mat、summer → sum），修后只剩 `IRREGULAR` 里的 7 个 |
 | T31 | 桌面端软件更新：官方 updater 插件 + GitHub Releases 的 `latest.json`，更新包用独立的 Ed25519 密钥签名（公钥在 `tauri.conf.json`，私钥只在仓库密钥 `TAURI_SIGNING_PRIVATE_KEY`）。只经壳的 `update_check` / `update_install` 命令，不把插件开放给 WebView。Release 不再标预发布。自动检查默认关，只提醒不自动装；安装前备份，再停 Core；备份失败要用户确认才继续 | 没有服务器，也守住"只有用到的功能才联网"。`/releases/latest/` 会跳过预发布；Windows 上 Core 占着可执行文件，安装器换不掉。国内源（对象存储，发布后同步，先于 GitHub）只存文件，签名校验不变；GitHub 在中国大陆不稳定，公共代理又不可控 |
 | T32 | 词典补充数据写进同一个 `dict.db`：词光 Word Atlas（固定提交）给例句、搭配、词族、辨析、CEFR，Open English WordNet 2025 给英文义项和同义词；词条末尾写明来源，词光标"AI 生成，未逐条审校"。只进词典页，不进词卡和复习 | ECDICT 没有例句和近义词。两者都是 CC BY 4.0，分发只需署名（设置"致谢"、README、词条末尾）。词光只收 7,298 个雅思词且未审校，所以和 WordNet 并列显示、不混在一起。`dict.db` 从 91 MB 涨到 119 MB |
+| T33 | 反问（`ask_user`）问完就结束这一轮，问题存成对话卡片，不挂起任务。选项可绑定动作（目前只有网址导入），用户点了由内核按界面操作直接执行，不再审批。网址必须来自本任务的工具结果或输入 | 挂起任务的做法重启要重跑模型和搜索（重复计费，问题也可能变），子技能会超时，对话一直占用。绑定动作才不会问完再审批一次，模型也换不了网址。详见 [05 §8](design/05-agent-architecture.md#8-权限审批与安全) |
+| T34 | Tibi 改配置只走白名单（`set_config`）和领域能力，不开放 SQL 和通用 `settings.set`。新增权限级别 `always`：每次都问，读过不可信内容的任务直接拒绝。API Key、服务商、权限模式、`mcp.*`、`perm.auto.*` 不开放，只给去设置页的卡片；这组能力不对 MCP 开放 | `settings` 里存着权限规则，通用写入等于能给自己提权；改服务商地址会把 API Key 发到别处；业务规则在方法里，写库会绕过。详见 [05 §8](design/05-agent-architecture.md#8-权限审批与安全) |
 
 ## 待决定
 

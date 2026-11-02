@@ -1033,5 +1033,16 @@
   "（美音）": " (US)",
   "试听": "Preview",
   "默认语速": "Default speed",
-  "阅读器里朗读时还可以单独调": "You can also adjust it separately while reading in the reader"
+  "阅读器里朗读时还可以单独调": "You can also adjust it separately while reading in the reader",
+  "稍等，Tibi 还在收尾": "One moment, Tibi is wrapping up",
+  "可以多选": "Pick any",
+  "将": "Will ",
+  "已开始": "Started",
+  "这些内容来自网页，选之前留意来源": "This comes from the web. Check the source before choosing",
+  "你说：{text}": "You said: {text}",
+  "已跳过": "Skipped",
+  "确定（{n}）": "OK ({n})",
+  "或者直接说": "Or just say it",
+  "或者直接说…": "Or just say it…",
+  "打开设置 · {name}": "Open Settings · {name}"
 }

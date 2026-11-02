@@ -1,4 +1,4 @@
-import type { MessageBlock, WidgetBlock } from '@tibi/core';
+import type { AskState, MessageBlock, WidgetBlock } from '@tibi/core';
 import { Component, useState, type ReactNode } from 'react';
 import { Volume2 } from 'lucide-react';
 import { tl } from '../lib/i18n';
@@ -10,11 +10,12 @@ import { toast } from '../store/ui';
 import './widgets.css';
 
 /**
- * 对话卡片（第一期）：查词、辨析、练习。数据来自能力结果，桌面和手机共用。
+ * 对话卡片：查词、辨析、练习、反问、设置入口。数据来自能力结果，桌面和手机共用。
  * 按钮直接调能力，不经过模型；操作结果经 useChat 保存，重开对话能恢复，下一轮带给模型。
  */
 type Update = (id: string, state: unknown, result?: string) => void;
 type Fill = (text: string) => void;
+type Answer = (widget_id: string, option_ids: string[], text?: string) => Promise<boolean>;
 type Of<K extends WidgetBlock['kind']> = Extract<WidgetBlock, { kind: K }>;
 
 const phonetic = (p?: string) => p && (p.startsWith('/') ? p : `/${p}/`);
@@ -105,6 +106,50 @@ function QuizCard({ b, state, update, fill }: { b: Of<'quiz'>; state?: QuizState
   </div>;
 }
 
+/** 反问：选项里的文字可能来自网页，只当纯文本显示；"将…"那行由内核生成，用户点之前看得到真正会发生什么 */
+function AskCard({ b, state, answer }: { b: Of<'ask'>; state?: AskState; answer?: Answer }) {
+  const d = b.data; const done = !!state?.answered; const closed = done || !!state?.expired || !answer;
+  const [picks, setPicks] = useState<string[]>([]);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (ids: string[], t?: string) => { setBusy(true); const ok = await answer!(b.id, ids, t); setBusy(false); if (ok) setText(''); };
+  const chosen = state?.answered?.option_ids ?? picks;
+  const resultOf = (id: string) => state?.results?.find(r => r.option_id === id);
+  return <div className="wg wg-ask">
+    <div className="wg-hd"><b>{d.question}</b>{d.multi && !closed && <span className="wg-k">{tl('可以多选')}</span>}</div>
+    <div className="wg-opts">{d.options.map(o => {
+      const on = chosen.includes(o.id); const r = resultOf(o.id);
+      return <button key={o.id} className={`wg-opt wg-askopt${on ? ' on' : ''}`} disabled={closed || busy} aria-pressed={d.multi ? on : undefined}
+        onClick={() => { if (d.multi) setPicks(p => on ? p.filter(x => x !== o.id) : [...p, o.id]); else void submit([o.id]); }}>
+        <span className="wg-asklabel">{o.label}</span>
+        {o.description && <span className="wg-k">{o.description}</span>}
+        {o.action && <span className="wg-k wg-askact">{tl('将')}{o.action.preview}</span>}
+        {r && <span className={r.ok ? 'wg-ok' : 'wg-bad'}>{r.ok ? tl('已开始') : r.message}</span>}
+      </button>;
+    })}</div>
+    {d.untrusted && !closed && <div className="wg-k">{tl('这些内容来自网页，选之前留意来源')}</div>}
+    {state?.answered?.text && <div className="wg-k">{tl('你说：{text}', { text: state.answered.text })}</div>}
+    {state?.expired && <div className="wg-k">{tl('已跳过')}</div>}
+    {!closed && <>
+      {d.multi && <div className="wg-acts"><button className="btn sm pri" disabled={!picks.length || busy} onClick={() => void submit(picks, text.trim() || undefined)}>{tl('确定（{n}）', { n: picks.length })}</button></div>}
+      <form className="wg-fill" onSubmit={e => { e.preventDefault(); if (text.trim()) void submit(d.multi ? picks : [], text.trim()); }}>
+        <input value={text} onChange={e => setText(e.target.value)} aria-label={tl('或者直接说')} placeholder={tl('或者直接说…')} disabled={busy} />
+        {!d.multi && <button className="btn sm" disabled={!text.trim() || busy}>{tl('发送')}</button>}
+      </form>
+    </>}
+  </div>;
+}
+
+/** Tibi 不能改的设置：只把人带过去 */
+function SettingsLinkCard({ b }: { b: Of<'settings_link'> }) {
+  // 手机没有设置页，设置都在"我的"里
+  const mobile = !!(window as { __TIBI_LOCAL_CORE__?: boolean }).__TIBI_LOCAL_CORE__;
+  return <div className="wg">
+    <div>{b.data.reason}</div>
+    <div className="wg-acts"><button className="btn sm pri" onClick={() => { location.hash = mobile ? '/me' : `/settings?sec=${encodeURIComponent(b.data.section)}`; }}>{tl('打开设置 · {name}', { name: tl(b.data.label) })}</button></div>
+  </div>;
+}
+
 /** 新版本的卡片或坏数据不能拖垮整段对话：退回摘要 */
 class Guard extends Component<{ summary: string; children: ReactNode }, { failed: boolean }> {
   override state = { failed: false };
@@ -112,17 +157,19 @@ class Guard extends Component<{ summary: string; children: ReactNode }, { failed
   override render() { return this.state.failed ? <p>{this.props.summary}</p> : this.props.children; }
 }
 
-function Widget({ b, state, update, fill }: { b: WidgetBlock; state: unknown; update: Update; fill?: Fill }) {
+function Widget({ b, state, update, fill, answer }: { b: WidgetBlock; state: unknown; update: Update; fill?: Fill; answer?: Answer }) {
   const card = b.kind === 'word' ? <WordCard b={b} state={state as never} update={update} />
     : b.kind === 'compare' ? <CompareCard b={b} />
     : b.kind === 'quiz' ? <QuizCard b={b} state={state as never} update={update} fill={fill} />
+    : b.kind === 'ask' ? <AskCard b={b} state={state as never} answer={answer} />
+    : b.kind === 'settings_link' ? <SettingsLinkCard b={b} />
     : <p>{(b as WidgetBlock).summary}</p>;
   return <Guard summary={b.summary}>{card}</Guard>;
 }
 
 /** 一条回答的内容：文字和卡片按出现的顺序排 */
-export function Blocks({ blocks, states, update, fill }: { blocks: MessageBlock[]; states: WidgetStates; update: Update; /** 把下一步建议放进输入框 */ fill?: Fill }) {
+export function Blocks({ blocks, states, update, fill, answer }: { blocks: MessageBlock[]; states: WidgetStates; update: Update; /** 把下一步建议放进输入框 */ fill?: Fill; /** 回答反问卡；不给就只读 */ answer?: Answer }) {
   return <div className="wg-blocks">{blocks.map((b, i) => b.type === 'text'
     ? <div key={i}><Markdown text={b.text} /></div>
-    : <Widget key={b.id} b={b} state={b.id in states ? states[b.id] : b.state} update={update} fill={fill} />)}</div>;
+    : <Widget key={b.id} b={b} state={b.id in states ? states[b.id] : b.state} update={update} fill={fill} answer={answer} />)}</div>;
 }

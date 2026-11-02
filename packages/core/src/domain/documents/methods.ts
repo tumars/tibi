@@ -98,9 +98,9 @@ export const documentsMethods: MethodMap = {
       if (p.patch.is_archived !== undefined) await tx.run('UPDATE documents SET is_archived = ?, updated_at = ? WHERE id = ?', [p.patch.is_archived ? 1 : 0, t, p.id]);
       if (p.patch.tags) await setDocumentTags(tx, p.id, p.patch.tags, { source: 'user', replace: true });
     });
-    await recordUndo(ctx.db, ctx, { tool: 'documents.update', args: p, undo_payload: { id: p.id, prev: { title: d.title, genre: d.genre, is_favorite: d.is_favorite, is_archived: d.is_archived, tags: prevTags } } });
+    const undo = await recordUndo(ctx.db, ctx, { tool: 'documents.update', args: p, undo_payload: { id: p.id, prev: { title: d.title, genre: d.genre, is_favorite: d.is_favorite, is_archived: d.is_archived, tags: prevTags } } });
     ctx.events.emit('data.changed', { table: 'documents', ids: [p.id] });
-    return toDocument(ctx.db, (await getDocument(ctx.db, p.id))!);
+    return { ...await toDocument(ctx.db, (await getDocument(ctx.db, p.id))!), undo };
   }, '改 genre 会让相关 ai_results 失效'),
   'documents.delete': method(Type.Object({ id: S.id }), async (p, ctx) => softDeleteDocument(ctx, p.id), '软删，可撤销'),
   'documents.reanalyze': method(Type.Object({ id: S.id, ai: Type.Optional(Type.Boolean()) }), async (p, ctx) => {

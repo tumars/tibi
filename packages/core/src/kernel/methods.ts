@@ -2,17 +2,26 @@ import { Type } from '@sinclair/typebox';
 import { j, now, type Database } from '../db/driver.js';
 import { method, type Ctx, type MethodMap } from '../rpc/define.js';
 import { TibiError, type Approval, type Message, type SkillId, type Task, type TaskState, type TaskSummary } from '../types.js';
-import type { UiContext } from './capabilities.js';
+import type { CapabilityRegistry, UiContext } from './capabilities.js';
 import { Conversations } from './conversations.js';
+import { answerAsk } from './ask.js';
 import { JobRunnerImpl, toState } from './jobs.js';
 import { skillIdSchema } from './skills.js';
 import { budgets, monthStart } from './usage.js';
 
 /** chat.* 与 tasks.*（06 §3） */
 
-export interface KernelMethodDeps { db: Database; runner: JobRunnerImpl; setUiContext: (c: UiContext | undefined) => void }
+export interface KernelMethodDeps { db: Database; runner: JobRunnerImpl; registry: CapabilityRegistry; setUiContext: (c: UiContext | undefined) => void }
 
 const stateSchema = Type.Union((['run', 'appr', 'paused', 'done', 'err', 'cancel'] as TaskState[]).map(s => Type.Literal(s)));
+
+/** 写下用户这句话并开一轮回答 */
+export async function submitTurn(deps: Pick<KernelMethodDeps, 'db' | 'runner'>, conversation_id: string, text: string, o: { skill_id: SkillId; tier?: 'fast' | 'deep'; provider_id?: string; tainted?: boolean }): Promise<string> {
+  await new Conversations(deps.db).addMessage(conversation_id, 'user', { text });
+  const { task_id } = await deps.runner.submit('skill', { kind: 'skill', skill_id: o.skill_id, conversation_id, title: text.slice(0, 40), trigger: 'user', tainted: o.tainted, input: { skill_id: o.skill_id, input: text, conversation_id, tier: o.tier, provider_id: o.provider_id } });
+  await deps.db.run('UPDATE messages SET job_id = ? WHERE conversation_id = ? AND role = ? AND job_id IS NULL', [task_id, conversation_id, 'user']);
+  return task_id;
+}
 
 export function chatMethods(deps: KernelMethodDeps): MethodMap {
   const convs = () => new Conversations(deps.db);
@@ -34,11 +43,10 @@ export function chatMethods(deps: KernelMethodDeps): MethodMap {
       if (active.length) throw new TibiError('busy', 'Tibi 还在回答上一句，说完再发');
       if (p.context) deps.setUiContext(p.context);
       const skill_id: SkillId = p.skill ?? 'tibi';
-      await convs().addMessage(p.conversation_id, 'user', { text: p.text });
-      const { task_id } = await deps.runner.submit('skill', { kind: 'skill', skill_id, conversation_id: p.conversation_id, title: p.text.slice(0, 40), trigger: 'user', input: { skill_id, input: p.text, conversation_id: p.conversation_id, tier: p.tier, provider_id: p.provider_id } });
-      await deps.db.run('UPDATE messages SET job_id = ? WHERE conversation_id = ? AND role = ? AND job_id IS NULL', [task_id, p.conversation_id, 'user']);
-      return { submission_id: task_id };
+      await convs().expireAsks(p.conversation_id);
+      return { submission_id: await submitTurn(deps, p.conversation_id, p.text, { skill_id, tier: p.tier, provider_id: p.provider_id }) };
     }, '立即返回；文本增量与工具调用走事件'),
+    'chat.answer': method(Type.Object({ message_id: Type.String(), widget_id: Type.String(), option_ids: Type.Array(Type.String(), { maxItems: 8 }), text: Type.Optional(Type.String({ maxLength: 2000 })) }), async (p, ctx) => answerAsk(deps, p, ctx), '回答反问卡：选项绑定的动作由内核直接执行（用户自己点的，不再审批）；有补充或选项没绑定动作时接着开一轮，返回 submission_id'),
     'chat.list': method(Type.Object({ limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })) }), async (p, _ctx) => convs().list(p.limit ?? 20), '左栏"最近"'),
     'chat.history': method(Type.Object({ conversation_id: Type.String(), cursor: Type.Optional(Type.String()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })) }), async (p) => convs().history(p.conversation_id, p)),
     'chat.cancel': method(Type.Object({ submission_id: Type.String() }), async (p) => { await deps.runner.cancel(p.submission_id); return { ok: true as const }; }),

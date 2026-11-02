@@ -40,7 +40,8 @@ export function method<P extends TSchema, R>(params: P, handler: (params: Static
   return { params, handler, doc };
 }
 
-export type Perm = 'read' | 'write' | 'confirm';
+/** always：每次都问，全部自动和"以后都允许"都不放行；读过不可信内容的任务直接拒绝 */
+export type Perm = 'read' | 'write' | 'confirm' | 'always';
 
 export interface CapabilityDef<P extends TSchema = TSchema, R = unknown> {
   name: string;
@@ -54,6 +55,16 @@ export interface CapabilityDef<P extends TSchema = TSchema, R = unknown> {
   run: (params: Static<P>, ctx: Ctx) => Promise<R>;
   /** 结果怎么显示成对话卡片；不适合显示时返回 undefined */
   widget?(result: R, params: Static<P>): WidgetSpec | undefined;
+  /** 权限随参数变（如 set_config 按配置项分级）；不给就用 perm */
+  permFor?(params: Static<P>): Perm;
+  /** 审批卡正文：给人看的说明（如文章标题），不给就从参数里摘 */
+  describe?(params: Static<P>, ctx: Ctx): Promise<string>;
+  /** 调用后结束这一轮，等用户下一步。true 时同一批的写操作不会执行；函数按结果决定 */
+  terminal?: boolean | ((result: R) => boolean);
+  /** false：不对 MCP 开放（配置、反问这类只在应用里用的能力） */
+  mcp?: false;
+  /** 能绑到反问选项上（用户点了直接执行）：不允许绑定时抛错；preview 由这里生成，不用模型写的文案；urls 要能在本任务的工具结果里找到 */
+  askable?(params: Static<P>): { preview: string; urls?: string[] };
 }
 
 export function capability<P extends TSchema, R>(def: CapabilityDef<P, R>): CapabilityDef<P, R> { return def; }

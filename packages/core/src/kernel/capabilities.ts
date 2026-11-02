@@ -1,8 +1,9 @@
 import { Type, type TSchema } from '@sinclair/typebox';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { j, now, type Database } from '../db/driver.js';
+import { sha256Hex } from '../hash.js';
 import { capability, validateParams, type CapabilityDef, type CapabilityMap, type Ctx } from '../rpc/define.js';
-import { TibiError, type Approval, type SkillId } from '../types.js';
+import { TibiError, type Approval, type SkillId, type WidgetSpec } from '../types.js';
 import type { JobRunnerImpl } from './jobs.js';
 import type { JobContext } from './types.js';
 import { resolveSkill, skillDef } from './skills.js';
@@ -17,7 +18,7 @@ import { resolveSkill, skillDef } from './skills.js';
 /** 读过不可信内容后必须审批的外联能力（05 §8） */
 const EXTERNAL = new Set(['fetch_url', 'web_search']);
 /** 这些能力是技能内部调度用的，不暴露给 MCP */
-const INTERNAL = new Set(['run_skill', 'tool_search']);
+const INTERNAL = new Set(['run_skill', 'tool_search', 'ask_user']);
 
 export type Authorization = { ok: true; approval: 'auto' | 'approved' | 'edited'; params: unknown } | { ok: false; reason: string };
 
@@ -42,7 +43,7 @@ export class CapabilityRegistry {
   get(name: string) { return this.caps.get(name); }
   has(name: string) { return this.caps.has(name); }
   list() { return [...this.caps.values()].map(c => ({ name: c.name, description: c.description, perm: c.perm })); }
-  listForMcp() { return this.list().filter(c => !INTERNAL.has(c.name)); }
+  listForMcp() { return this.list().filter(c => !INTERNAL.has(c.name) && this.caps.get(c.name)!.mcp !== false); }
 
   /** 权限判定（02 §6、05 §8）；需要确认时在这里挂起等审批 */
   async authorize(def: CapabilityDef<any, any>, params: unknown, ctx: Ctx): Promise<Authorization> {
@@ -51,21 +52,23 @@ export class CapabilityRegistry {
     const external = EXTERNAL.has(def.name);
     // 界面直接调用：用户自己点的，直接执行
     if (ctx.caller.origin === 'ui') return { ok: true, approval: 'auto', params };
-    if (def.perm === 'read' && !(external && tainted)) return { ok: true, approval: 'auto', params };
+    const perm = def.permFor?.(params) ?? def.perm;
+    if (perm === 'read' && !(external && tainted)) return { ok: true, approval: 'auto', params };
+    if (perm === 'always' && tainted) return { ok: false, reason: '这个任务读过网页内容，不能做这项改动。请用户自己到设置里改' };
     const mode = await ctx.permission();
     const skill = ctx.caller.skill_id ? await resolveSkill(this.db, ctx.caller.skill_id).catch(() => undefined) : undefined;
     const skillAsk = skill?.write_permission === 'ask';
     let needAsk: boolean;
-    if (tainted && (def.perm !== 'read' || external)) needAsk = true;              // 读过不可信内容：写入与外联一律审批，全部自动也不放行
-    else if (def.perm === 'confirm') needAsk = mode !== 'auto';
-    else if (def.perm === 'write') needAsk = mode === 'ask' || skillAsk;
+    if (perm === 'always' || (tainted && (perm !== 'read' || external))) needAsk = true;   // 读过不可信内容：写入与外联一律审批，全部自动也不放行
+    else if (perm === 'confirm') needAsk = mode !== 'auto';
+    else if (perm === 'write') needAsk = mode === 'ask' || skillAsk;
     else needAsk = false;
     if (!needAsk) return { ok: true, approval: 'auto', params };
     if (!job) return { ok: false, reason: '这个操作需要确认，但不在任务里，无法审批' };
     const req: Omit<Approval, 'task_id' | 'requested_at'> = {
       skill_id: ctx.caller.skill_id as SkillId | undefined, tool: def.name,
-      title: `Tibi 想${def.description.replace(/[。.]$/, '')}`, body: summarize(params), impact: external ? '访问外部网络' : '写入数据',
-      undoable: !!def.undoable, untrusted: tainted, editable: editableField(params),
+      title: `Tibi 想${def.description.replace(/^管理[^：]*：/, '').split(/[（，]/)[0]!.replace(/[。.]$/, '')}`, body: def.describe ? await def.describe(params, ctx) : summarize(params), impact: external ? '访问外部网络' : '写入数据',
+      undoable: !!def.undoable, untrusted: tainted, editable: def.describe ? undefined : editableField(params), always_ask: perm === 'always', params_hash: await sha256Hex(j.str(params)),
     };
     const d = await job.approve(req);
     if (d.decision === 'deny') return { ok: false, reason: '用户拒绝了这个操作' };
@@ -105,7 +108,8 @@ export class CapabilityRegistry {
             if (EXTERNAL.has(def.name)) job.markTainted();
             return def.run(auth.params, { ...ctx, caller: { ...ctx.caller, job_step_id: name } });
           }, { kind: 'tool', input: params });
-          return { content: [{ type: 'text', text: JSON.stringify(out ?? null) }], details: out };
+          const terminate = typeof def.terminal === 'function' ? def.terminal(out) : def.terminal;
+          return { content: [{ type: 'text', text: JSON.stringify(out ?? null) }], details: out, ...(terminate ? { terminate: true } : {}) };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           return { content: [{ type: 'text', text: `错误：${msg}` }], details: { error: msg, code: e instanceof TibiError ? e.code : 'internal' }, isError: true };
@@ -160,10 +164,10 @@ export interface BuiltinDeps {
   registry: CapabilityRegistry;
   runner: JobRunnerImpl;
   uiContext: () => UiContext | undefined;
-  runSkill: (args: { skill_id: SkillId; input: string; context?: unknown; wait?: boolean; parent: Ctx }) => Promise<{ task_id: string; result?: string }>;
+  runSkill: (args: { skill_id: SkillId; input: string; context?: unknown; wait?: boolean; parent: Ctx }) => Promise<{ task_id: string; result?: string; ask?: WidgetSpec }>;
 }
 
-/** 内核自带的三项能力：get_context / run_skill / tool_search */
+/** 内核自带的能力：get_context / run_skill / tool_search（ask_user 在 ask.ts） */
 export function builtinCapabilities(deps: BuiltinDeps): CapabilityMap {
   return {
     get_context: capability({
@@ -206,8 +210,11 @@ export function builtinCapabilities(deps: BuiltinDeps): CapabilityMap {
           const parent = await ctx.db.get<{ parent_job_id: string | null }>('SELECT parent_job_id FROM jobs WHERE id = ?', [ctx.caller.job_id]);
           if (parent?.parent_job_id) throw new TibiError('permission_denied', '子对话不能再运行技能（嵌套深度上限 1）');
         }
-        return deps.runSkill({ skill_id: p.skill_id as SkillId, input: p.input, context: p.context, wait: p.wait, parent: ctx });
+        // 在任务里运行就要等结果：不等的话，结果和子技能的反问都到不了对话里
+        return deps.runSkill({ skill_id: p.skill_id as SkillId, input: p.input, context: p.context, wait: p.wait || !!ctx.caller.job_id, parent: ctx });
       },
+      widget: r => r.ask,
+      terminal: r => !!r.ask,
     }),
     tool_search: capability({
       name: 'tool_search', description: '按名称或说明搜索能力，命中的加载进当前对话', perm: 'read', params: Type.Object({ q: Type.String() }),

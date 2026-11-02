@@ -3,7 +3,7 @@
  */
 import type {
   Answer, AnswerResult, MessageBlock, MessageStep, WidgetBlock, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession, Skill,
-  DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, Task, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval,
+  DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, Task, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval, AskState,
 } from '@tibi/core';
 
 export interface MethodTable {
@@ -91,6 +91,7 @@ export interface MethodTable {
   'chat.send': { params: { conversation_id: Id; text: string; context?: { page: string; document_id?: Id; section_id?: Id; sentence_id?: Id; selection?: string; card_id?: Id }; skill?: string; tier?: 'fast' | 'deep'; provider_id?: string }; result: { submission_id: TaskId } };
   'chat.cancel': { params: { submission_id: TaskId }; result: Ok };
   'chat.widget_update': { params: { message_id: Id; widget_id: Id; state: unknown; result?: string }; result: Ok };
+  'chat.answer': { params: { message_id: Id; widget_id: Id; option_ids: string[]; text?: string }; result: { state: AskState; submission_id?: TaskId } };
   'chat.rewind': { params: { conversation_id: Id; message_id: Id }; result: { text: string; skill?: string } };
   'chat.receipt_undone': { params: { message_id: Id; undo_id: Id }; result: Ok };
   'chat.rename': { params: { conversation_id: Id; title: string }; result: Conversation };

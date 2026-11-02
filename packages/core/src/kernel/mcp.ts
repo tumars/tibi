@@ -66,6 +66,7 @@ export function makeMcpMethods(deps: { db: Database; registry: CapabilityRegistr
       if (p.name === 'tibi_task_status') return status(String((p.args as { task_id?: string })?.task_id ?? ''));
       if (SKIP.has(p.name)) throw new TibiError('permission_denied', `${p.name} 不对外开放`);
       const def = registry.get(p.name); if (!def) throw new TibiError('not_found', `没有这项能力：${p.name}`);
+      if (def.mcp === false) throw new TibiError('permission_denied', `${p.name} 不对外开放`);
       if (def.perm === 'read') return registry.call(p.name, p.args ?? {}, deps.makeCtx({ origin: 'mcp' }));
       if (!s.write.has(p.name)) throw new TibiError('permission_denied', `写工具 ${p.name} 没有在 Tibi 的设置里打开`);
       const { task_id } = await runner.submit('mcp', { kind: 'skill', title: `${p.client ?? '外部工具'}：${p.name}`, trigger: 'mcp', input: { tool: p.name, args: p.args ?? {}, client: p.client } });

@@ -84,6 +84,11 @@ registerUndo<{ memory: Memory }>('forget', async (p, ctx) => {
   await ctx.db.run('INSERT OR IGNORE INTO memories(id, type, content, subject, confidence, source_type, source_ref, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)', [m.id, m.type, m.content, m.subject ?? null, m.confidence, m.source.type, m.source.ref ?? null, m.status, m.created_at, now()]);
 });
 
+registerUndo<{ id: string; content: string }>('update_memory', async (p, ctx) => {
+  await new Memories(ctx.db).update(p.id, p.content);
+  ctx.events.emit('data.changed', { table: 'memories', ids: [p.id] });
+});
+
 const changed = (ctx: Ctx, ids: string[]) => ctx.events.emit('data.changed', { table: 'memories', ids });
 
 export const memoryMethods: MethodMap = {
@@ -125,6 +130,18 @@ export const memoryCapabilities: CapabilityMap = {
       return rows.map(r => { const pl = j.parse<Record<string, unknown>>(r.payload, {}); return { type: r.type as LearningEventType, at: r.created_at, ref: { table: 'learning_events', id: r.id }, summary: summarizeEvent(r.type, pl) }; });
     },
   }),
+  update_memory: capability({
+    name: 'update_memory', description: '管理记忆：改一条记忆的内容，可撤销（先用 search_memory 找到 id）', perm: 'confirm', undoable: true, mcp: false,
+    params: Type.Object({ id: Type.String(), content: Type.String({ minLength: 1, maxLength: 2000 }) }),
+    async describe(p, ctx) { const m = await new Memories(ctx.db).get(p.id); return `「${m?.content ?? p.id}」→「${p.content}」`; },
+    async run(p, ctx) {
+      const repo = new Memories(ctx.db);
+      const prev = await repo.get(p.id); if (!prev) throw new TibiError('not_found', '找不到这条记忆');
+      const memory = await repo.update(p.id, p.content);
+      changed(ctx, [p.id]);
+      return { memory, undo: await recordUndo(ctx.db, ctx, { tool: 'update_memory', args: { id: p.id }, undo_payload: { id: p.id, content: prev.content } }) };
+    },
+  }),
   remember: capability({
     name: 'remember', description: '记住关于用户的一件事', perm: 'confirm', undoable: true,
     params: Type.Object({ type: typeSchema, content: Type.String({ minLength: 1 }), subject: Type.Optional(Type.String()), confidence: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })), source_ref: Type.Optional(Type.String()), supersedes: Type.Optional(Type.String()) }),
@@ -136,7 +153,7 @@ export const memoryCapabilities: CapabilityMap = {
     },
   }),
   forget: capability({
-    name: 'forget', description: '忘掉一条记忆', perm: 'confirm', undoable: true, params: Type.Object({ id: Type.String() }),
+    name: 'forget', description: '管理记忆：忘掉一条记忆', perm: 'confirm', undoable: true, params: Type.Object({ id: Type.String() }),
     async run(p, ctx) {
       const m = await new Memories(ctx.db).remove(p.id);
       if (!m) throw new TibiError('not_found', '找不到这条记忆');

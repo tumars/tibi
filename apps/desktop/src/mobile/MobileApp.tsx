@@ -26,9 +26,12 @@ export function MobileApp() {
   const [imm, setImm] = useState(false);
   useEffect(() => {
     bindCoreEvents(); void useCore.getState().refresh();
-    void rpc.call('settings.get', { keys: ['tts.engine', 'tts.voice', 'tts.rate'] }).then(s => void import('../lib/tts').then(t => t.configure({ engine: (s['tts.engine'] as 'system' | 'kokoro') ?? 'system', voice: (s['tts.voice'] as string) ?? '', rate: Number(s['tts.rate'] ?? 1) })), () => undefined);
+    const loadTts = () => void rpc.call('settings.get', { keys: ['tts.engine', 'tts.voice', 'tts.rate'] }).then(s => void import('../lib/tts').then(t => t.configure({ engine: (s['tts.engine'] as 'system' | 'kokoro') ?? 'system', voice: (s['tts.voice'] as string) ?? '', rate: Number(s['tts.rate'] ?? 1) })), () => undefined);
+    loadTts();
+    // Tibi 或别的设备改了语速，马上生效
+    const offTts = rpc.on('data.changed', d => { if (d.table === 'settings') loadTts(); });
     const off = rpc.on('task.done', d => { if (d.task.skill_id === 'importer' && d.task.trigger !== 'auto' && d.result?.document_id) toast(d.result.summary || tl('导入完成')); });
-    return off;
+    return () => { off(); offTts(); };
   }, []);
   useEffect(() => { setImm(false); }, [loc.pathname]);
   // iOS 扩展：Safari 分享进来的网址、小组件快照

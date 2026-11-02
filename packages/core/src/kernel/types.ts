@@ -33,6 +33,8 @@ export interface JobSpec {
   parent_job_id?: TaskId;
   conversation_id?: Id;
   trigger?: 'user' | 'auto' | 'mcp' | 'share';
+  /** 接着读过不可信内容的任务往下做：标记不能因为换了任务就没了 */
+  tainted?: boolean;
   input: unknown;
 }
 

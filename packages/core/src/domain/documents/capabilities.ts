@@ -7,8 +7,9 @@ import { annotateSentences } from '../text/annotate.js';
 import { cefrOfDocument, difficultyOfRatio } from '../text/prelabel.js';
 import { countWords, segmentMarkdown } from '../text/segment.js';
 import { getTermsByTexts, readProfile } from '../terms/repo.js';
-import { listDocuments, submitImport } from './methods.js';
+import { checkUrlShape, listDocuments, submitImport } from './methods.js';
 import { runImport, type ImportInput } from './pipeline.js';
+import { softDeleteDocument } from './sections.js';
 import { getDocument, getSection, listSections, listSentences, setDocumentTags, toSummary, WPM } from './repo.js';
 
 /** 能力层·文章与导入流水线（06 §5） */
@@ -69,6 +70,24 @@ export const documentsCapabilities: CapabilityMap = {
       const undo = await recordUndo(ctx.db, ctx, { tool: 'tag_document', args: p, undo_payload: { id: p.id, tags: prev.tags, genre: d.genre } });
       ctx.events.emit('data.changed', { table: 'documents', ids: [p.id] });
       return { document: await toSummary(ctx.db, (await getDocument(ctx.db, p.id))!), undo };
+    },
+  }),
+  update_document: capability({
+    name: 'update_document', description: '管理文章：改标题、类型、标签、收藏、归档，可撤销', perm: 'write', undoable: true, mcp: false,
+    params: Type.Object({ id: S.id, patch: Type.Object({ title: Type.Optional(Type.String({ minLength: 1 })), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())), is_favorite: Type.Optional(Type.Boolean()), is_archived: Type.Optional(Type.Boolean()) }) }),
+    async describe(p, ctx) { const d = await getDocument(ctx.db, p.id); return `《${d?.title ?? p.id}》：${j.str(p.patch)}`; },
+    async run(p, ctx) { const { undo, id, title } = await ctx.call<{ undo: unknown; id: string; title: string }>('documents.update', p); return { id, title, undo }; },
+  }),
+  delete_documents: capability({
+    name: 'delete_documents', description: '管理文章：把文章从书架删掉（每次都要用户确认），可撤销', perm: 'always', undoable: true, mcp: false,
+    params: Type.Object({ ids: Type.Array(S.id, { minItems: 1, maxItems: 50 }) }),
+    async describe(p, ctx) {
+      const titles = await Promise.all(p.ids.map(async id => `《${(await getDocument(ctx.db, id))?.title ?? id}》`));
+      return `删除 ${p.ids.length} 篇：${titles.slice(0, 10).join('、')}${titles.length > 10 ? ' 等' : ''}`;
+    },
+    async run(p, ctx) {
+      await ctx.db.transaction(async tx => { for (const id of p.ids) await softDeleteDocument({ ...ctx, db: tx }, id); });
+      return { deleted: p.ids.length, undo: await recordUndo(ctx.db, ctx, { tool: 'delete_documents', args: p, undo_payload: { ids: p.ids } }) };
     },
   }),
   fetch_url: capability({
@@ -138,8 +157,20 @@ export const documentsCapabilities: CapabilityMap = {
       if (p.source.type === 'file' && ctx.caller.origin === 'mcp') throw new TibiError('permission_denied', '外部工具不能传本地路径');
       return submitImport(ctx, { source: p.source, hints: p.hints, origin: ctx.caller.origin === 'mcp' ? 'mcp' : 'user' } as ImportInput);
     },
+    askable(p) {
+      if (p.source.type !== 'url') throw new TibiError('permission_denied', '只有网址导入能绑到选项上');
+      const c = checkUrlShape(p.source.url);
+      if (!c.ok) throw new TibiError('invalid_source', '网址不对，或者是本机 / 局域网地址');
+      return { preview: `导入 ${c.host} 上的这篇`, urls: [p.source.url] };
+    },
   }),
 };
+
+registerUndo<{ ids: string[] }>('delete_documents', async (p, ctx) => {
+  const t = now();
+  for (const id of p.ids) await ctx.db.run('UPDATE documents SET deleted_at = NULL, updated_at = ? WHERE id = ?', [t, id]);
+  ctx.events.emit('data.changed', { table: 'documents', ids: p.ids });
+});
 
 registerUndo<{ id: string; tags: string[]; genre: string }>('tag_document', async (p, ctx) => {
   await ctx.db.run('UPDATE documents SET genre = ?, updated_at = ? WHERE id = ?', [p.genre, now(), p.id]);

@@ -1,9 +1,10 @@
 import type { Database } from '../db/driver.js';
 import { memoryCapabilities, memoryMethods } from '../domain/memory/index.js';
 import type { CapabilityMap, Ctx, MethodMap } from '../rpc/define.js';
-import { TibiError, type SkillId } from '../types.js';
+import { TibiError, type SkillId, type WidgetSpec } from '../types.js';
 import { resolveModelFromProviders, runSkill, type AgentDeps, type ResolvedModel } from './agent.js';
 import { completeOnce, type CompleteOptions, type CompleteResult } from './complete.js';
+import { askCapabilities } from './ask.js';
 import { builtinCapabilities, CapabilityRegistry, type UiContext } from './capabilities.js';
 import { JobRunnerImpl } from './jobs.js';
 import { chatMethods, taskMethods } from './methods.js';
@@ -40,7 +41,7 @@ export interface Kernel {
   bind(makeCtx: (caller: Ctx['caller']) => Ctx, events?: EventSink): void;
   registerCapabilities(map: CapabilityMap): void;
   /** 运行一项技能并等结果（run_skill wait=true、skills.runNow 的内部实现也走任务） */
-  runSkillJob(args: { skill_id: SkillId; input: string; conversation_id?: string; context?: unknown; parent_job_id?: string; trigger?: 'user' | 'auto' | 'mcp' | 'share'; wait?: boolean }): Promise<{ task_id: string; result?: string }>;
+  runSkillJob(args: { skill_id: SkillId; input: string; conversation_id?: string; context?: unknown; parent_job_id?: string; trigger?: 'user' | 'auto' | 'mcp' | 'share'; wait?: boolean }): Promise<{ task_id: string; result?: string; ask?: WidgetSpec }>;
   uiContext(): UiContext | undefined;
   setUiContext(c: UiContext | undefined): void;
   /** 一次性模型调用（Core.ai 指向它） */
@@ -66,24 +67,31 @@ export function createKernel(db: Database, initialEvents: EventSink, opts: Kerne
   // 'skill' 流水线：一次技能运行（主对话、run_skill、skills.runNow 都走它）
   runner.register('skill', async (job: JobContext, input: { skill_id: SkillId; input: string; conversation_id?: string; tier?: 'fast' | 'deep'; provider_id?: string; context?: unknown }) => {
     const r = await runSkill(agentDeps, { skill_id: input.skill_id, input: input.input, conversation_id: input.conversation_id, tier: input.tier, provider_id: input.provider_id, context: input.context, job });
-    return { text: r.text, usage: r.usage, summary: r.text.slice(0, 80) };
+    return { text: r.text, usage: r.usage, summary: r.text.slice(0, 80), ...(r.ask ? { ask: r.ask } : {}) };
   });
 
   const runSkillJob: Kernel['runSkillJob'] = async a => {
     const { task_id } = await runner.submit('skill', { kind: 'skill', skill_id: a.skill_id, parent_job_id: a.parent_job_id, conversation_id: a.conversation_id, title: a.input.slice(0, 40), trigger: a.trigger ?? 'user', input: { skill_id: a.skill_id, input: a.input, conversation_id: a.conversation_id, context: a.context } });
     if (!a.wait) return { task_id };
-    const r = await runner.wait(task_id, 5 * 60_000);
+    // 主任务取消时子技能一起停，否则它会一直等审批
+    const parent = a.parent_job_id ? runner.getContext(a.parent_job_id) : undefined;
+    parent?.signal.addEventListener('abort', () => void runner.cancel(task_id), { once: true });
+    // 等用户审批的时间不算超时
+    let r = await runner.wait(task_id, 5 * 60_000);
+    while (r.status === 'waiting_approval') r = await runner.wait(task_id, 5 * 60_000);
     if (r.status !== 'done') throw new TibiError(r.status === 'deferred' ? 'model_unavailable' : 'busy', r.error ?? `技能没有完成（${r.status}）`);
-    return { task_id, result: (r.output as { text?: string } | undefined)?.text };
+    const out = r.output as { text?: string; ask?: WidgetSpec } | undefined;
+    return { task_id, result: out?.text, ...(out?.ask ? { ask: out.ask } : {}) };
   };
 
   registry.register(builtinCapabilities({
     db, registry, runner, uiContext: () => ui,
     runSkill: a => runSkillJob({ skill_id: a.skill_id, input: a.input, context: a.context, wait: a.wait, parent_job_id: a.parent.caller.job_id, trigger: a.parent.caller.origin === 'mcp' ? 'mcp' : 'auto' }),
   }));
+  registry.register(askCapabilities({ registry }));
   registry.register(memoryCapabilities);
 
-  const methodDeps = { db, runner, setUiContext: (c: UiContext | undefined) => { ui = c; } };
+  const methodDeps = { db, runner, registry, setUiContext: (c: UiContext | undefined) => { ui = c; } };
   const methods: MethodMap = {
     ...chatMethods(methodDeps),
     ...taskMethods(methodDeps),

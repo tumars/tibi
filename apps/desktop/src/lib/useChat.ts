@@ -71,6 +71,9 @@ export function useChat(conversationId: string | undefined, o: { skill?: string;
         }),
       ]);
       setApprovals(c.approvals ?? []);
+      // 反问卡以库里为准：可能在别处答了，或者发了新消息后过期了
+      const asks = c.messages.flatMap(m => m.blocks ?? []).filter(b => b.type === 'widget' && b.kind === 'ask');
+      if (asks.length) setWidgetStates(s => { const n = { ...s }; for (const b of asks) if (b.type === 'widget') delete n[b.id]; return n; });
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   }, [conversationId, saveWidget]);
   useEffect(() => { setMsgs([]); msgsRef.current = []; setCursor(undefined); cursorSet.current = false; setLive([]); setApprovals([]); setWidgetStates({}); unsaved.current.clear(); mine.current.clear(); setReady(false); void reload(); }, [reload]);
@@ -96,6 +99,22 @@ export function useChat(conversationId: string | undefined, o: { skill?: string;
       return r;
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); return undefined; }
   }, [conversationId]);
+
+  /** 回答反问卡：选项动作由内核执行；需要接着说时开一轮新的回答 */
+  const answer = useCallback(async (widget_id: string, option_ids: string[], text?: string) => {
+    const m = msgsRef.current.find(x => x.blocks?.some(b => b.type === 'widget' && b.id === widget_id));
+    if (!m) { toast(tl('稍等，Tibi 还在收尾')); return false; }
+    try {
+      const r = await rpc.call('chat.answer', { message_id: m.id, widget_id, option_ids, text });
+      setWidgetStates(s => ({ ...s, [widget_id]: r.state }));
+      if (r.submission_id) {
+        mine.current.add(r.submission_id);
+        setLive(l => l.some(x => x.id === r.submission_id) ? l : [...l, { id: r.submission_id!, text: '', blocks: [], tools: [], done: false }]);
+      }
+      void reload();
+      return true;
+    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); void reload(); return false; }
+  }, [reload]);
 
   const undoReceipt = useCallback(async (message_id: string, undo_id: string) => {
     try {
@@ -157,11 +176,11 @@ export function useChat(conversationId: string | undefined, o: { skill?: string;
   }, [conversationId, reload]);
 
   const decide = useCallback(async (a: Approval, decision: 'allow' | 'deny' | 'edit', always = false, edited?: Record<string, unknown>) => {
-    try { await rpc.call('tasks.approve', { id: a.task_id, decision, always, edited }); setApprovals(x => x.filter(y => y.task_id !== a.task_id)); }
+    try { await rpc.call('tasks.approve', { id: a.task_id, decision, always, edited }); setApprovals(x => x.filter(y => y !== a)); }   // 同一任务的下一张审批可能已经到了，不能按 task_id 删
     catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   }, []);
   const running = live.find(l => !l.done);
   const cancel = useCallback(() => { if (running) void rpc.call('chat.cancel', { submission_id: running.id }); }, [running]);
 
-  return { msgs, live, approvals, ready, send, decide, running, cancel, retry, rewind, undoReceipt, reload, cursor, loadOlder, widgetStates, updateWidget };
+  return { msgs, live, approvals, ready, send, decide, running, cancel, retry, rewind, undoReceipt, reload, cursor, loadOlder, widgetStates, updateWidget, answer };
 }

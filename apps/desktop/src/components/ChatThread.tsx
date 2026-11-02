@@ -57,7 +57,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
   const ta = useRef<HTMLTextAreaElement>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const sent = useRef(new Set<string>());
-  const { msgs, live, approvals, ready, send: sendRaw, decide, running, cancel, retry, rewind, undoReceipt, cursor, loadOlder, widgetStates, updateWidget } = useChat(conversationId, { skill, context, onConv });
+  const { msgs, live, approvals, ready, send: sendRaw, decide, running, cancel, retry, rewind, undoReceipt, cursor, loadOlder, widgetStates, updateWidget, answer } = useChat(conversationId, { skill, context, onConv });
   const [editing, setEditing] = useState<string>();   // 正在改哪句话
   const fill = useCallback((t: string) => { setText(t); ta.current?.focus(); }, []);
   // 回答时按发送先排队：看得见、取得回，答完依次发。换页回来还在（本次运行内）
@@ -173,7 +173,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
           {cursor && <button className="linkbtn loadolder" onClick={older}>{tl('加载更早的消息')}</button>}
           {visible.map((m, i) => m.role === 'user'
             ? <div key={m.id} className={`msg u${editing === m.id ? ' editing' : ''}`}>{m.text}{!running && !m.id.startsWith('local-') && <button className="msgedit" aria-label={tl('改这句')} title={tl('改这句')} onClick={() => { setEditing(m.id); fill(m.text ?? ''); }}><Pencil size={12} /></button>}</div>
-            : <div key={m.id} className="msg a">{m.steps && <ProcessCard steps={m.steps} />}{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} fill={fill} /> : m.text && <Markdown text={m.text} />}{m.receipts && <Receipts items={m.receipts} undo={id => void undoReceipt(m.id, id)} />}{m.interrupted && <div className="chaterr">{m.interrupted.reason === 'cancel' ? tl('已停止') : m.interrupted.message || tl('出错了')}{m.interrupted.message && modelError(m.interrupted.message) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{i === visible.length - 1 && !running && m.task_id && <> · <button className="linkbtn" onClick={() => void retry(m.task_id!)}>{tl('重试')}</button></>}</div>}<div className="prov-line"><span>Tibi</span>{m.skill && <> · <span>{m.skill}</span></>}{m.task_id && <> · <a href={`#/tasks?t=${m.task_id}`}>{tl('查看过程')}</a></>}{m.text && <span className={`msgacts${aloud.cur?.id === m.id ? ' on' : ''}`}>
+            : <div key={m.id} className="msg a">{m.steps && <ProcessCard steps={m.steps} />}{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} fill={fill} answer={answer} /> : m.text && <Markdown text={m.text} />}{m.receipts && <Receipts items={m.receipts} undo={id => void undoReceipt(m.id, id)} />}{m.interrupted && <div className="chaterr">{m.interrupted.reason === 'cancel' ? tl('已停止') : m.interrupted.message || tl('出错了')}{m.interrupted.message && modelError(m.interrupted.message) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{i === visible.length - 1 && !running && m.task_id && <> · <button className="linkbtn" onClick={() => void retry(m.task_id!)}>{tl('重试')}</button></>}</div>}<div className="prov-line"><span>Tibi</span>{m.skill && <> · <span>{m.skill}</span></>}{m.task_id && <> · <a href={`#/tasks?t=${m.task_id}`}>{tl('查看过程')}</a></>}{m.text && <span className={`msgacts${aloud.cur?.id === m.id ? ' on' : ''}`}>
               <button aria-label={tl('复制')} title={tl('复制')} onClick={() => void navigator.clipboard.writeText(m.text!).then(() => toast(tl('已复制')), () => toast(tl('没能复制'), { kind: 'err' }))}><Copy size={13} /></button>
               {(() => {
                 const c = aloud.cur?.id === m.id ? aloud.cur : undefined;
@@ -189,7 +189,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
             <ProcessCard
               steps={l.tools.filter(t => t.done).map(t => ({ tool: t.tool, summary: t.summary.replace(/^Tibi 正在/, ''), status: t.status ?? 'ok' }))}
               current={l.done ? undefined : l.tools.find(t => !t.done)?.summary} />
-            {l.blocks.length > 0 && <Blocks blocks={l.blocks} states={widgetStates} update={updateWidget} />}
+            {l.blocks.length > 0 && <Blocks blocks={l.blocks} states={widgetStates} update={updateWidget} answer={answer} />}
             {!l.resumed && !l.error && !l.done && l.blocks[l.blocks.length - 1]?.type !== 'text' && <span className="typing" aria-label={tl('Tibi 正在想')}><i /><i /><i /></span>}
             {l.error && <div className="chaterr">{l.error}{modelError(l.error) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{!running && <> · <button className="linkbtn" onClick={() => void retry(l.id)}>{tl('重试')}</button></>}</div>}
           </div>)}

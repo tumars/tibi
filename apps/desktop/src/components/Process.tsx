@@ -41,7 +41,7 @@ export function ApprovalCard({ a, decide }: { a: Approval; decide: (a: Approval,
     <div className="acts">
       {editing
         ? <><button className="btn sm pri" disabled={!draft.trim()} onClick={() => decide(a, 'edit', false, { [a.editable!.field]: draft })}>{tl('改好了，允许')}</button><button className="btn sm" onClick={() => setDraft(undefined)}>{tl('取消')}</button></>
-        : <><button className="btn sm pri" onClick={() => decide(a, 'allow')}>{tl('允许')}</button><button className="btn sm" onClick={() => decide(a, 'deny')}>{tl('拒绝')}</button>{a.editable && <button className="btn sm" onClick={() => setDraft(a.editable!.value)}>{tl('修改后允许')}</button>}{!a.untrusted && <button className="btn sm" onClick={() => decide(a, 'allow', true)}>{tl('以后都允许')}</button>}</>}
+        : <><button className="btn sm pri" onClick={() => decide(a, 'allow')}>{tl('允许')}</button><button className="btn sm" onClick={() => decide(a, 'deny')}>{tl('拒绝')}</button>{a.editable && <button className="btn sm" onClick={() => setDraft(a.editable!.value)}>{tl('修改后允许')}</button>}{!a.untrusted && !a.always_ask && <button className="btn sm" onClick={() => decide(a, 'allow', true)}>{tl('以后都允许')}</button>}</>}
     </div>
   </div>;
 }

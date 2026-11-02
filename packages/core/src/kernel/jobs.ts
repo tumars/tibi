@@ -20,6 +20,8 @@ interface Active {
   promise: Promise<void>;
   ctx: JobContext;
   approval?: { resolve: (d: ApprovalDecision) => void };
+  /** 同一任务的审批一个一个来：工具是并行的，审批只有一个位置 */
+  approvalChain?: Promise<unknown>;
   stepStack: string[];
 }
 
@@ -58,8 +60,8 @@ export class JobRunnerImpl implements JobRunner {
     }
     const id = uuidv7(); const t = now();
     await this.db.run(
-      'INSERT INTO jobs(id, kind, skill_id, parent_job_id, conversation_id, status, trigger, title, input, created_at, updated_at, pipeline) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-      [id, spec.kind, spec.skill_id ?? null, spec.parent_job_id ?? null, spec.conversation_id ?? null, 'queued', spec.trigger ?? 'user', spec.title, j.str(spec.input ?? {}), t, t, pipeline],
+      'INSERT INTO jobs(id, kind, skill_id, parent_job_id, conversation_id, status, trigger, title, input, created_at, updated_at, pipeline, tainted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [id, spec.kind, spec.skill_id ?? null, spec.parent_job_id ?? null, spec.conversation_id ?? null, 'queued', spec.trigger ?? 'user', spec.title, j.str(spec.input ?? {}), t, t, pipeline, spec.tainted ? 1 : 0],
     );
     this.start(id);
     return { task_id: id };
@@ -202,16 +204,24 @@ export class JobRunnerImpl implements JobRunner {
   private clearUpdateTimer(id: TaskId) { const tm = this.updateTimer.get(id); if (tm) { clearTimeout(tm); this.updateTimer.delete(id); } }
 
   // ---------- 审批 ----------
-  private async requestApproval(id: TaskId, entry: Active, req: Omit<Approval, 'task_id' | 'requested_at'>): Promise<ApprovalDecision> {
+  private requestApproval(id: TaskId, entry: Active, req: Omit<Approval, 'task_id' | 'requested_at'>): Promise<ApprovalDecision> {
+    const asked = (entry.approvalChain ?? Promise.resolve()).then(() => this.askOnce(id, entry, req));
+    entry.approvalChain = asked.catch(() => undefined);
+    return asked;
+  }
+
+  private async askOnce(id: TaskId, entry: Active, req: Omit<Approval, 'task_id' | 'requested_at'>): Promise<ApprovalDecision> {
+    this.checkSignal(entry);
     const row = await this.db.get<{ skill_id: string | null; approval: string | null; conversation_id: string | null }>('SELECT j.skill_id, j.approval, COALESCE(j.conversation_id, p.conversation_id) AS conversation_id FROM jobs j LEFT JOIN jobs p ON p.id = j.parent_job_id WHERE j.id = ?', [id]);
     // 重开前已经决定过（tasks.approve 在任务不在内存时写的）
-    const stored = j.parse<{ decision?: string; edited?: Record<string, unknown>; tool?: string } | null>(row?.approval, null);
-    if (stored?.decision && stored.tool === req.tool) {
+    const stored = j.parse<{ decision?: string; edited?: Record<string, unknown>; tool?: string; fingerprint?: string } | null>(row?.approval, null);
+    // 只抵用户批过的那份参数：重开后模型可能换了参数，那要重新问
+    if (stored?.decision && stored.tool === req.tool && stored.fingerprint === fingerprint(req)) {
       await this.db.run('UPDATE jobs SET approval = NULL, updated_at = ? WHERE id = ?', [now(), id]);
       return { decision: stored.decision as ApprovalDecision['decision'], edited: stored.edited };
     }
     // "以后这类都自动允许"：按技能 + 能力记的规则；读过不可信内容的任务不生效
-    if (!entry.ctx.tainted && !req.untrusted) {
+    if (!entry.ctx.tainted && !req.untrusted && !req.always_ask) {
       const rule = await this.db.get<{ value: string }>('SELECT value FROM settings WHERE key = ?', [autoRuleKey(row?.skill_id, req.tool)]);
       if (rule && j.parse<boolean>(rule.value, false)) return { decision: 'allow' };
     }
@@ -234,7 +244,7 @@ export class JobRunnerImpl implements JobRunner {
     if (!row) throw new TibiError('not_found', '找不到这个任务');
     const pending = j.parse<Approval | null>(row.approval, null);
     if (row.status !== 'waiting_approval' || !pending) throw new TibiError('conflict', '这个任务没有等待确认的操作');
-    if (always && decision === 'allow' && !row.tainted && !pending.untrusted) {
+    if (always && decision === 'allow' && !row.tainted && !pending.untrusted && !pending.always_ask) {
       await this.db.run('INSERT INTO settings(key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at', [autoRuleKey(row.skill_id, pending.tool), 'true', now()]);
     }
     const entry = this.active.get(task_id);
@@ -243,7 +253,7 @@ export class JobRunnerImpl implements JobRunner {
       r.resolve({ decision, edited });
     } else {
       // 任务不在内存里（重开后还没跑到）：把决定存下来，跑到 approve() 时消费
-      await this.db.run("UPDATE jobs SET approval = ?, status = 'running', updated_at = ? WHERE id = ?", [j.str({ decision, edited, tool: pending.tool }), now(), task_id]);
+      await this.db.run("UPDATE jobs SET approval = ?, status = 'running', updated_at = ? WHERE id = ?", [j.str({ decision, edited, tool: pending.tool, fingerprint: fingerprint(pending) }), now(), task_id]);
       this.events.emit('approval.resolved', { task_id, decision });
       this.start(task_id);
     }
@@ -344,6 +354,7 @@ function stepLabel(last: string, full: string): string {
   return STEP_LABEL[last] ?? last;
 }
 
+function fingerprint(a: Pick<Approval, 'params_hash' | 'body'>) { return a.params_hash ?? a.body; }
 export function autoRuleKey(skill_id: string | null | undefined, tool: string) { return `perm.auto.${skill_id ?? '-'}.${tool}`; }
 export function toState(status: string): TaskState {
   switch (status) {

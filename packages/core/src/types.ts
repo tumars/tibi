@@ -117,7 +117,14 @@ export interface Conversation { id: ConvId; kind: 'chat' | 'day' | 'document' | 
 export type WidgetSpec =
   | { kind: 'word'; summary: string; data: { word: string; phonetic?: string; pos?: string; translation: string; example?: { en: string; zh?: string }; in_wordbook: boolean } }
   | { kind: 'compare'; summary: string; data: { words: { word: string; phonetic?: string; translation: string; example?: string }[] } }
-  | { kind: 'quiz'; summary: string; data: { items: { term: string; type: 'choice' | 'cloze'; prompt: string; options?: string[]; answer: string[] }[] } };
+  | { kind: 'quiz'; summary: string; data: { items: { term: string; type: 'choice' | 'cloze'; prompt: string; options?: string[]; answer: string[] }[] } }
+  | { kind: 'ask'; summary: string; data: AskData }
+  | { kind: 'settings_link'; summary: string; data: { section: string; label: string; reason: string } };
+/** 反问（ask_user）：存在消息里，等多久都行；action 由用户点选后内核直接执行，模型不经手 */
+export interface AskOption { id: string; label: string; description?: string; action?: { tool: string; params: unknown; preview: string } }
+export interface AskData { question: string; multi: boolean; options: AskOption[]; /** 任务读过不可信内容：卡片提示，后续任务继承这个标记 */ untrusted: boolean }
+export interface AskResult { option_id: string; ok: boolean; message: string; task_id?: TaskId }
+export interface AskState { answered?: { option_ids: string[]; text?: string; at: Ts }; expired?: boolean; results?: AskResult[] }
 /** summary 写进后续对话历史，界面渲染出错时也显示它；result 是用户在卡片上的操作结果，下一轮带给模型 */
 export type WidgetBlock = WidgetSpec & { type: 'widget'; id: string; v: 1; state?: unknown; result?: string };
 export type MessageBlock = { type: 'text'; text: string } | WidgetBlock;
@@ -134,7 +141,7 @@ export interface TaskStep { id: string; label: string; state: 'wait' | 'run' | '
 export interface Task extends TaskSummary { conversation_id: ConvId; steps: TaskStep[]; transcript: Message[]; usage: { tokens_in: number; tokens_out: number; cost: number }; approval?: Approval }
 export interface Approval {
   task_id: TaskId; /** 审批属于哪段对话（子任务算父任务的对话） */ conversation_id?: ConvId; skill_id?: SkillId; tool: string; title: string; body: string; impact: string; undoable: boolean; untrusted: boolean;
-  editable?: { field: string; value: string }; requested_at: Ts;
+  editable?: { field: string; value: string }; /** 每次都问：不显示"以后都允许" */ always_ask?: boolean; /** 批的是哪份参数：重开后模型换了参数就要重新问 */ params_hash?: string; requested_at: Ts;
 }
 
 // 技能、记忆、配置

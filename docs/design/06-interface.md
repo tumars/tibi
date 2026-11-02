@@ -95,7 +95,10 @@ interface TaskSummary { id: TaskId; state: TaskState; skill_id: SkillId; title: 
   step: { index: number; total: number; label: string }; started_at: Ts; duration_ms: number; cost: number; error?: string }
 interface TaskStep { id: string; label: string; state: 'wait' | 'run' | 'ok' | 'err' | 'appr'; duration_ms?: number; skill_id?: SkillId; children?: TaskStep[] }
 interface Task extends TaskSummary { conversation_id: ConvId; steps: TaskStep[]; transcript: Message[]; usage: { tokens_in: number; tokens_out: number; cost: number }; approval?: Approval }
-interface Approval { task_id: TaskId; conversation_id?: ConvId; skill_id?: SkillId; tool: string; title: string; body: string; impact: string; undoable: boolean; untrusted: boolean;   // untrusted = 任务读过不可信内容
+interface AskOption { id: string; label: string; description?: string; action?: { tool: string; params: unknown; preview: string } }   // preview 由内核生成
+interface AskData { question: string; multi: boolean; options: AskOption[]; untrusted: boolean }
+interface AskState { answered?: { option_ids: string[]; text?: string; at: Ts }; expired?: boolean; results?: { option_id: string; ok: boolean; message: string; task_id?: TaskId }[] }
+interface Approval { task_id: TaskId; conversation_id?: ConvId; skill_id?: SkillId; tool: string; title: string; body: string; impact: string; undoable: boolean; untrusted: boolean; always_ask?: boolean; params_hash?: string;   // untrusted = 任务读过不可信内容
   editable?: { field: string; value: string }; requested_at: Ts }
 
 // 技能、记忆、配置
@@ -210,6 +213,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
 | `chat.widget_update` | `{ message_id: Id; widget_id: Id; state: unknown; result?: string }` | `Ok` | 保存卡片上的操作结果；`result` 下一轮带给模型 |
+| `chat.answer` | `{ message_id: Id; widget_id: Id; option_ids: string[]; text?: string }` | `{ state: AskState; submission_id?: TaskId }` | 回答反问卡，一张卡只能答一次。选项绑定的动作由内核按界面操作直接执行（不再审批、不调模型）；有补充或选项没绑定动作时写一句用户消息接着开一轮（继承不可信标记），返回 `submission_id`。用户发新消息时，还开着的反问作废 |
 | `chat.rewind` | `{ conversation_id: ConvId; message_id: Id }` | `{ text: string; skill?: SkillId }` | 回到这句话之前：这条和之后的消息作废，已写入的词不动 |
 | `chat.receipt_undone` | `{ message_id: Id; undo_id: Id }` | `Ok` | 记下用户撤销了回答里的哪次写入 |
 | `chat.open` | `{ conversation_id?: ConvId; document_id?: Id; today?: boolean }` | `Conversation & { messages: Message[]; cursor?: string; active: TaskId[]; approvals: Approval[]; live: { id: TaskId; blocks: MessageBlock[]; steps: MessageStep[] }[] }` | cursor：更早的消息从这里接着翻（chat.history）。live：进行中的回答已经说出来的部分。active / approvals：进行中的任务和等确认的审批（含子任务），离开再回来时接上。给 document_id 时续上该文章的线程；today 为 true（手机首页，J9）时打开或新建当天的 day 对话；都不给则新建全局线程 |
@@ -297,7 +301,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | 事件 | 载荷 | 谁在听 |
 |---|---|---|
 | `chat.delta` | `{ conversation_id: ConvId; submission_id: TaskId; delta: string; done?: boolean }` | 对话页、各页 Tibi 面板逐字显示 |
-| `chat.block` | `{ conversation_id: ConvId; submission_id: TaskId; block: WidgetBlock }` | 工具结束后显示对话卡片（查词、辨析、练习） |
+| `chat.block` | `{ conversation_id: ConvId; submission_id: TaskId; block: WidgetBlock }` | 工具结束后显示对话卡片（查词、辨析、练习、反问、设置入口） |
 | `chat.tool` | `{ conversation_id: ConvId; task_id: TaskId; phase: 'start' \| 'end'; tool: string; skill_id: SkillId; status?: 'ok' \| 'error' \| 'denied'; summary: string; duration_ms?: number }` | 收起的过程卡；任务详情的过程区 |
 | `task.update` | `{ task: TaskSummary; steps?: TaskStep[] }` | 运行记录列表、左栏徽标、对话页进度；节流 ≤ 4 次 / 秒 |
 | `task.done` | `{ task: TaskSummary; result?: { document_id?: Id; summary: string; action?: { label: string; route: string } } }` | 带动作的通知（"导入完成 · 开始阅读"） |
@@ -405,11 +409,28 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 |---|---|---|---|---|
 | `speak` | `{ text: string; voice?: string; rate?: number }` | `{ engine: string; file_path?: string; duration_ms?: number; cached: boolean }` | 读 | 配置的引擎合成并缓存到 media/audio（字段同 audio_cache）；系统语音由 WebView 直接播放，没有 file_path |
 
+### 配置与数据管理
+
+| 能力 | 参数 | 返回 | 权限 | 说明 |
+|---|---|---|---|---|
+| `get_config` | `{}` | `{ items: { key: string; label: string; value: unknown; asks_every_time: boolean }[]; not_here: string }` | 读 | 只列白名单里的设置；不对 MCP 开放 |
+| `set_config` | `{ key: ConfigKey; value: unknown }` | `{ key: string; value: unknown; prev: unknown; undo: Undo }` | 写 · 可设自动 | `ConfigKey` 是白名单。称呼、讲解语言、目标、兴趣、每日目标、每日新词、语速、提醒按 write；复习记得率、花费上限、搜索服务、暂停记忆按 always。没有通用 settings.set，也没有 SQL。不对 MCP 开放 |
+| `configure_skill` | `{ id: SkillId; patch: { model_tier?: Tier; extra_instructions?: string; enabled?: boolean } }` | `{ skill: Skill; undo: Undo }` | 每次都问 | 附加指令会进系统提示，所以每次都问；不能放宽写入权限，不能关主对话。不对 MCP 开放 |
+| `open_settings` | `{ section: 'general' \| 'model' \| 'learning' \| 'memory' \| 'advanced' \| 'data' \| 'about'; reason: string }` | `{ shown: true }` | 读 | 显示一张去设置页的卡片。API Key、服务商和地址、权限模式、MCP、登录同步、恢复备份、清空记忆只能这样处理。不对 MCP 开放 |
+| `create_backup` | `{}` | `{ path: string; size: number; created_at: Ts }` | 需确认 | 不对 MCP 开放 |
+| `update_document` | `{ id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean } }` | `{ id: Id; title: string; undo: Undo }` | 写 · 可设自动 | 不对 MCP 开放 |
+| `delete_documents` | `{ ids: Id[] }` | `{ deleted: number; undo: Undo }` | 每次都问 | 软删，最多 50 篇，一次撤销；审批卡写标题。不对 MCP 开放 |
+| `update_memory` | `{ id: Id; content: string }` | `{ memory: Memory; undo: Undo }` | 需确认 | 不对 MCP 开放 |
+| `remove_terms` | `{ ids: Id[] }` | `{ removed: number; undo: Undo }` | 需确认 | 移出生词本，不对 MCP 开放 |
+| `list_feeds` | `{}` | `{ url: string; title: string; enabled: boolean }[]` | 读 | 不对 MCP 开放 |
+| `manage_feed` | `{ add?: { url: string; title?: string }; remove?: string; toggle?: { url: string; enabled: boolean } }` | `Ok` | 需确认 | 不对 MCP 开放 |
+
 ### 调度
 
 | 能力 | 参数 | 返回 | 权限 | 说明 |
 |---|---|---|---|---|
-| `run_skill` | `{ skill_id: SkillId; input: string; context?: unknown; wait?: boolean }` | `{ task_id: TaskId; result?: string }` | 写 · 可设自动 | 主对话专用：创建子对话；wait=true 时等结果（有超时）。会花钱，所以不算读；子对话的写操作各自过审批；嵌套深度上限 1，子对话不能再调它 |
+| `ask_user` | `{ question: string; options: { label: string; description?: string; action?: { tool: string; params: unknown } }[]; multi?: boolean }` | `{ status: string; ask: WidgetSpec }` | 读 | 反问：显示成卡片并结束这一轮，等用户回答（`chat.answer`）。`action` 只能绑定标了 askable 的能力（目前是网址形式的 `import_document`），网址必须出现在本任务的工具结果或输入里；卡片上"将…"那行由内核生成。子技能的反问交给父任务显示。不对 MCP 开放 |
+| `run_skill` | `{ skill_id: SkillId; input: string; context?: unknown; wait?: boolean }` | `{ task_id: TaskId; result?: string; ask?: WidgetSpec }` | 写 · 可设自动 | 主对话专用：创建子对话；在任务里运行时总是等结果（有超时，等审批的时间不算）。会花钱，所以不算读；子对话的写操作各自过审批；嵌套深度上限 1，子对话不能再调它 |
 | `tool_search` | `{ q: string }` | `{ name: string; description: string }[]` | 读 | 命中的工具加载进当前对话 |
 
 ## 6. MCP Server

@@ -1,6 +1,6 @@
 import { j, now, type Database } from '../db/driver.js';
 import { uuidv7 } from '../ids.js';
-import { TibiError, type Approval, type Conversation, type Message, type MessageBlock, type MessageInterrupted, type MessageReceipt, type MessageStep, type SkillId } from '../types.js';
+import { TibiError, type Approval, type AskData, type AskOption, type AskResult, type AskState, type Conversation, type Message, type MessageBlock, type MessageInterrupted, type MessageReceipt, type MessageStep, type SkillId } from '../types.js';
 
 /** 对话与消息（01 §7 conversations / messages / thread_links）：先写库再显示 */
 
@@ -155,12 +155,72 @@ export class Conversations {
       const c = j.parse<MessageContent>(row.content, {});
       const block = c.blocks?.find(b => b.type === 'widget' && b.id === widget_id);
       if (!block || block.type !== 'widget') throw new TibiError('not_found', '找不到这张卡片');
+      if (block.kind === 'ask') throw new TibiError('conflict', '反问卡要用 chat.answer 回答');
       const wasDone = quizDone(block);
       block.state = state; if (result) block.result = result; else delete block.result;
       await tx.run('UPDATE messages SET content = ?, updated_at = ? WHERE id = ?', [j.str(c), now(), message_id]);
       // 练习做完记一条学习事件（做错的词给整理记忆用）；再做一遍算新的一次
       const done = quizDone(block);
       if (done && !wasDone) await tx.run('INSERT INTO learning_events(id, type, payload, consolidated, created_at) VALUES (?,?,?,0,?)', [uuidv7(), 'quiz_done', j.str(done), now()]);
+    });
+  }
+
+  /** 认领一次回答：校验选项并标记已答，一张卡只能答一次（两边同时点、连点都走这里） */
+  async claimAsk(message_id: string, widget_id: string, option_ids: string[], text?: string): Promise<{ conversation_id: string; job_id: string | null; data: AskData; picked: AskOption[]; state: AskState }> {
+    let out!: { conversation_id: string; job_id: string | null; data: AskData; picked: AskOption[]; state: AskState };
+    await this.db.transaction(async tx => {
+      const row = await tx.get<{ conversation_id: string; job_id: string | null; content: string }>('SELECT conversation_id, job_id, content FROM messages WHERE id = ? AND deleted_at IS NULL', [message_id]);
+      if (!row) throw new TibiError('not_found', '找不到这条消息');
+      const c = j.parse<MessageContent>(row.content, {});
+      const block = c.blocks?.find(b => b.type === 'widget' && b.id === widget_id);
+      if (!block || block.type !== 'widget' || block.kind !== 'ask') throw new TibiError('not_found', '找不到这张卡片');
+      const state = (block.state ?? {}) as AskState;
+      if (state.answered) throw new TibiError('conflict', '这个问题已经答过了');
+      if (state.expired) throw new TibiError('conflict', '这个问题已经过期了');
+      const picked = block.data.options.filter(o => option_ids.includes(o.id));
+      if (picked.length !== new Set(option_ids).size) throw new TibiError('invalid_params', '没有这个选项');
+      if (!picked.length && !text) throw new TibiError('invalid_params', '选一项或者写一句');
+      if (picked.length > 1 && !block.data.multi) throw new TibiError('invalid_params', '这个问题只能选一项');
+      const claimed: AskState = { answered: { option_ids, ...(text ? { text } : {}), at: now() } };
+      block.state = claimed;
+      block.result = askResultText(picked, text);
+      await tx.run('UPDATE messages SET content = ?, updated_at = ? WHERE id = ?', [j.str(c), now(), message_id]);
+      out = { conversation_id: row.conversation_id, job_id: row.job_id, data: block.data, picked, state: claimed };
+    });
+    return out;
+  }
+
+  /** 记下选项动作的执行结果：界面显示，下一轮也带给模型 */
+  async finishAsk(message_id: string, widget_id: string, results: AskResult[]): Promise<AskState> {
+    let state!: AskState;
+    await this.db.transaction(async tx => {
+      const row = await tx.get<{ content: string }>('SELECT content FROM messages WHERE id = ?', [message_id]);
+      const c = j.parse<MessageContent>(row?.content, {});
+      const block = c.blocks?.find(b => b.type === 'widget' && b.id === widget_id);
+      if (!block || block.type !== 'widget' || block.kind !== 'ask') throw new TibiError('not_found', '找不到这张卡片');
+      state = { ...(block.state as AskState), results };
+      block.state = state;
+      block.result = [block.result, ...results.map(r => `${r.ok ? '已' : '没有成功：'}${r.message}`)].filter(Boolean).join('；');
+      await tx.run('UPDATE messages SET content = ?, updated_at = ? WHERE id = ?', [j.str(c), now(), message_id]);
+    });
+    return state;
+  }
+
+  /** 用户没回答、接着说了别的：还开着的反问作废，不能再点 */
+  async expireAsks(conversation_id: string): Promise<void> {
+    await this.db.transaction(async tx => {
+      const rows = await tx.all<{ id: string; content: string }>("SELECT id, content FROM messages WHERE conversation_id = ? AND role = 'assistant' AND deleted_at IS NULL AND content LIKE '%\"kind\":\"ask\"%' ORDER BY created_at DESC LIMIT 20", [conversation_id]);
+      for (const row of rows) {
+        const c = j.parse<MessageContent>(row.content, {});
+        let changed = false;
+        for (const b of c.blocks ?? []) {
+          if (b.type !== 'widget' || b.kind !== 'ask') continue;
+          const s = (b.state ?? {}) as AskState;
+          if (s.answered || s.expired) continue;
+          b.state = { expired: true } satisfies AskState; b.result = '用户没有回答，接着说了别的'; changed = true;
+        }
+        if (changed) await tx.run('UPDATE messages SET content = ?, updated_at = ? WHERE id = ?', [j.str(c), now(), row.id]);
+      }
     });
   }
 
@@ -204,6 +264,10 @@ function quizDone(b: MessageBlock): { total: number; correct: number; wrong: str
   const norm = (s: string) => s.trim().toLowerCase();
   const wrong = items.filter((q, i) => !q.answer.map(norm).includes(norm(picks[i] ?? ''))).map(q => q.term);
   return { total: items.length, correct: items.length - wrong.length, wrong };
+}
+
+export function askResultText(picked: AskOption[], text?: string): string {
+  return [picked.length ? `用户选了：${picked.map(o => o.label).join('、')}` : '', text ? `用户说：${text}` : ''].filter(Boolean).join('；');
 }
 
 /** 给模型的历史：卡片换成一句摘要，否则用户追问卡片内容时模型接不上 */

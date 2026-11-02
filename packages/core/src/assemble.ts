@@ -7,7 +7,7 @@ import { Core } from './core.js';
 import type { Database } from './db/driver.js';
 import type { Dict } from './dict/types.js';
 import { documentsCapabilities, documentsMethods, registerImportPipeline } from './domain/documents/index.js';
-import { profileMethods } from './domain/profile/index.js';
+import { configCapabilities, profileMethods } from './domain/profile/index.js';
 import { reviewCapabilities, reviewMethods } from './domain/review/index.js';
 import { undoMethods } from './domain/shared/undo.js';
 import { statsCapabilities, statsMethods } from './domain/stats/index.js';
@@ -46,7 +46,7 @@ export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core;
     .use(dictionaryMethods)
     .use(syncMethods);
 
-  kernel.registerCapabilities({ ...feedsCapabilities, ...documentsCapabilities, ...termsCapabilities, ...reviewCapabilities, ...statsCapabilities });
+  kernel.registerCapabilities({ ...feedsCapabilities, ...documentsCapabilities, ...termsCapabilities, ...reviewCapabilities, ...statsCapabilities, ...configCapabilities });
   registerImportPipeline(kernel.jobs, core);
   // 同步开着时按当前表结构重建触发器（08 §5）
   await SyncEngine.resume(core.db);

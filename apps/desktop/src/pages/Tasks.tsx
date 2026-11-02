@@ -42,7 +42,7 @@ function ApprovalCard({ a, cur, onDone }: { a: Approval; cur: boolean; onDone: (
       {edit === undefined ? <button className="btn sm pri" onClick={() => void decide('allow')}>{tl('允许')} <span className="kbd">A</span></button> : <button className="btn sm pri" onClick={() => void decide('edit')}>{tl('改好了，允许')}</button>}
       <button className="btn sm" onClick={() => void decide('deny')}>{tl('拒绝')} <span className="kbd">R</span></button>
       {a.editable && edit === undefined && <button className="btn sm" onClick={() => setEdit(a.editable!.value)}>{tl('修改后允许')}</button>}
-      {!a.untrusted && <button className="btn sm" onClick={() => void decide('allow', true)}>{tl('以后这类自动允许')}</button>}
+      {!a.untrusted && !a.always_ask && <button className="btn sm" onClick={() => void decide('allow', true)}>{tl('以后这类自动允许')}</button>}
     </div>
   </div>;
 }

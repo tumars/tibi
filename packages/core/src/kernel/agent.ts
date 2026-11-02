@@ -1,5 +1,5 @@
 import { Agent, type AgentTool, type StreamFn } from '@earendil-works/pi-agent-core';
-import { calculateCost, createModels, createProvider, type Api, type AssistantMessage, type Message, type Model, type Usage } from '@earendil-works/pi-ai';
+import { calculateCost, createModels, createProvider, type Api, type AssistantMessage, type Message, type Model, type ToolCall, type Usage } from '@earendil-works/pi-ai';
 // 静态导入：打成单文件 sidecar 时，动态导入会让 esbuild 把 pi-ai 的模块包成惰性初始化，静态那条路径就漏了初始化（createModels 报 "not a constructor"）
 import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy';
 import { deepseekProvider } from '@earendil-works/pi-ai/providers/deepseek';
@@ -7,7 +7,7 @@ import { friendlyModelError } from './model-errors.js';
 import { j, now, type Database } from '../db/driver.js';
 import { uuidv7 } from '../ids.js';
 import type { Ctx } from '../rpc/define.js';
-import { TibiError, type MessageBlock, type MessageReceipt, type MessageStep, type SkillId, type Tier, type Undo, type WidgetBlock } from '../types.js';
+import { TibiError, type MessageBlock, type MessageReceipt, type MessageStep, type SkillId, type Tier, type Undo, type WidgetBlock, type WidgetSpec } from '../types.js';
 import { completeOnce } from './complete.js';
 import type { CapabilityRegistry, UiContext } from './capabilities.js';
 import { Conversations, liveAnswers, messageForModel } from './conversations.js';
@@ -40,7 +40,7 @@ export interface AgentDeps {
 }
 
 export interface RunSkillArgs { skill_id: SkillId; input: string; conversation_id?: string; job: JobContext; tier?: Tier; /** 用户在输入框选定的模型，优先于档位 */ provider_id?: string; context?: unknown }
-export interface RunSkillResult { text: string; usage: { tokens_in: number; tokens_out: number; cost: number } }
+export interface RunSkillResult { text: string; usage: { tokens_in: number; tokens_out: number; cost: number }; /** 子技能的反问：自己没有对话，交给父任务显示 */ ask?: WidgetSpec }
 
 /** 从 providers 表找模型；没有可用的模型或密钥 → model_unavailable */
 export async function resolveModelFromProviders(ctx: Ctx, tier: Tier, provider_id?: string): Promise<ResolvedModel> {
@@ -114,18 +114,30 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
   }
 
   const tools: AgentTool[] = registry.toAgentTools(skill.allowed_tools, ctx, job);
-  const agent = new Agent({
+  let asked = false;
+  const agent: Agent = new Agent({
     initialState: { systemPrompt, model: resolved.model, tools, messages },
     streamFn: resolved.streamFn,
     getApiKey: () => resolved.apiKey,
     sessionId: job.job_id,
+    // 反问结束这一轮：同一批的写操作不执行（用户还没回答），读操作照常；反问本身出错（没有 terminate）就让模型接着改
+    beforeToolCall: async ({ assistantMessage, toolCall }) => {
+      const asking = terminalCall(registry, assistantMessage);
+      if (!asking || asking.id === toolCall.id) return undefined;
+      if (registry.get(toolCall.name)?.perm === 'read' && toolCall.name !== asking.name) return undefined;
+      return { block: true, reason: '要先等用户回答，这一步没有执行' };
+    },
+    afterToolCall: async ({ result, isError }) => { if (result.terminate && !isError) asked = true; return undefined; },
+    finishTurn: () => (asked ? { action: 'end' as const } : undefined),
+    // 循环拿的是开始时的工具快照：tool_search 中途加的工具要在这里交给下一轮
+    prepareNextTurnWithContext: ({ context }) => (context.tools?.length === agent.state.tools.length ? undefined : { context: { ...context, tools: agent.state.tools } }),
   });
   registry.liveTools.set(job.job_id, { add: (more) => { const have = new Set(agent.state.tools.map(t => t.name)); agent.state.tools = [...agent.state.tools, ...more.filter(t => !have.has(t.name))]; } });
   const onAbort = () => agent.abort();
   job.signal.addEventListener('abort', onAbort, { once: true });
 
   const usage = { tokens_in: 0, tokens_out: 0, cost: 0 };
-  let turn = 0; let text = ''; let errorMessage: string | undefined;
+  let turn = 0; let text = ''; let errorMessage: string | undefined; let ask: WidgetSpec | undefined;
   const toolStart = new Map<string, number>();
   const toolArgs = new Map<string, unknown>();
   const blocks: MessageBlock[] = [];
@@ -162,6 +174,9 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
       if (args.conversation_id && status === 'ok') {
         const block = toWidgetBlock(registry, ev.toolName, ev.result?.details, toolArgs.get(ev.toolCallId), blocks);
         if (block) { blocks.push(block); events.emit('chat.block', { conversation_id: args.conversation_id, submission_id: job.job_id, block }); }
+      } else if (status === 'ok') {
+        const spec = registry.get(ev.toolName)?.widget?.(ev.result?.details, toolArgs.get(ev.toolCallId));
+        if (spec?.kind === 'ask') ask = spec;
       }
       events.emit('chat.tool', { conversation_id: args.conversation_id, task_id: job.job_id, phase: 'end', tool: ev.toolName, skill_id: skill.id, status, summary: status === 'ok' ? '完成' : status === 'denied' ? '已拒绝' : '出错了', duration_ms: ev.durationMs ?? (now() - (toolStart.get(ev.toolCallId) ?? now())) });
     }
@@ -187,14 +202,19 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
   }
   events.emit('chat.delta', { conversation_id: args.conversation_id, submission_id: job.job_id, delta: '', done: true });
   if (args.conversation_id) await convs.addMessage(args.conversation_id, 'assistant', content(), job.job_id);
-  return { text, usage };
+  return { text, usage, ...(ask ? { ask } : {}) };
+}
+
+/** 这一批工具调用里结束本轮的那个（ask_user）；只取第一个，多的按写操作挡掉 */
+function terminalCall(registry: CapabilityRegistry, m: AssistantMessage) {
+  return m.content.find((c): c is ToolCall => c.type === 'toolCall' && registry.get(c.name)?.terminal === true);
 }
 
 /** 过程卡上的一行：说明的第一句 + 具体对象。"查了 affect"比"查了 1 个词"有用 */
 function toolBrief(description: string, params: unknown): string {
   const head = description.split(/[（(，,。：:；;]/)[0]!;
   const p = (params ?? {}) as Record<string, unknown>;
-  const nouns = ['word', 'words', 'term', 'terms', 'title', 'q', 'query', 'url', 'input', 'content'].flatMap(k => p[k]).map(v => (v as { text?: unknown } | null)?.text ?? v).filter((v): v is string => typeof v === 'string' && !!v);
+  const nouns = ['word', 'words', 'term', 'terms', 'title', 'q', 'query', 'url', 'input', 'content', 'key'].flatMap(k => p[k]).map(v => (v as { text?: unknown } | null)?.text ?? v).filter((v): v is string => typeof v === 'string' && !!v);
   const list = nouns.slice(0, 3).join('、');
   return list ? `${head}：${list.length > 40 ? `${list.slice(0, 40)}…` : list}` : head;
 }
@@ -234,10 +254,10 @@ async function compact(deps: AgentDeps, ctx: Ctx, resolved: ResolvedModel, convs
 const MAX_WIDGETS = 3;
 function toWidgetBlock(registry: CapabilityRegistry, tool: string, result: unknown, params: unknown, blocks: MessageBlock[]): WidgetBlock | undefined {
   const shown = blocks.filter((b): b is WidgetBlock => b.type === 'widget');
-  if (shown.length >= MAX_WIDGETS) return undefined;
   try {
     const spec = registry.get(tool)?.widget?.(result, params);
-    if (!spec || shown.some(b => b.kind === spec.kind && b.summary === spec.summary)) return undefined;
+    if (!spec || (shown.length >= MAX_WIDGETS && spec.kind !== 'ask')) return undefined;   // 反问丢了对话就断了，不占名额
+    if (shown.some(b => b.kind === spec.kind && b.summary === spec.summary)) return undefined;
     return { ...spec, type: 'widget', id: uuidv7(), v: 1 };
   } catch { return undefined; }   // 卡片只是显示方式，转换失败不能影响回答
 }

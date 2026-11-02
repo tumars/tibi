@@ -29,11 +29,16 @@ const stream: StreamFn = (model, context, options) => {
   const c = lastUser?.content;
   // 只看用户说的话，去掉系统附上的 <context> 前缀
   const last = (typeof c === 'string' ? c : Array.isArray(c) ? c.map(x => (x as { text?: string }).text ?? '').join('') : '').replace(/^<context>[\s\S]*?<\/context>\n\n/, '');
-  // 走通对话卡片和写入："卡片 查词 upshot"、"卡片 辨析 a b"、"卡片 练习"、"卡片 加词 a b"（写入回执）、"卡片 记住 一句话"（审批卡）
-  const demo = msgs[msgs.length - 1]?.role === 'user' ? last.match(/^卡片 (查词|辨析|练习|加词|记住)\s*(.*)$/) : null;
+  // 走通对话卡片和写入："卡片 查词 upshot"、"卡片 辨析 a b"、"卡片 练习"、"卡片 加词 a b"（写入回执）、"卡片 记住 一句话"（审批卡）、"卡片 反问"、"卡片 找文章 网址…"（反问卡）、"卡片 设置"、"卡片 改设置 1.2"、"卡片 改预算 30"（每次都问）
+  const demo = msgs[msgs.length - 1]?.role === 'user' ? last.match(/^卡片 (查词|辨析|练习|加词|记住|反问|找文章|设置|改设置|改预算)\s*(.*)$/) : null;
   if (demo) {
     const words = demo[2]!.split(/\s+/).filter(Boolean);
-    const call = demo[1] === '查词' ? { name: 'lookup_word', args: { word: words[0] ?? 'upshot' } } : demo[1] === '辨析' ? { name: 'compare_words', args: { words } } : demo[1] === '加词' ? { name: 'add_to_wordbook', args: { words: words.map(text => ({ text })) } } : demo[1] === '记住' ? { name: 'remember', args: { type: 'semantic', content: demo[2]! } } : { name: 'create_quiz', args: { count: 3, ...(words.length ? { types: words } : {}) } };
+    const call = demo[1] === '反问' ? { name: 'ask_user', args: { question: '想读哪种题材？', options: [{ label: '科技' }, { label: '小说', description: '轻松一点' }] } }
+      : demo[1] === '找文章' ? { name: 'ask_user', args: { question: '想读哪几篇？', multi: true, options: words.map((url, i) => ({ label: `候选文章 ${i + 1}`, description: '（假模型）推荐理由，约 5 分钟', action: { tool: 'import_document', params: { source: { type: 'url', url } } } })) } }
+      : demo[1] === '设置' ? { name: 'open_settings', args: { section: 'model', reason: 'API Key 要你自己到设置里填' } }
+      : demo[1] === '改设置' ? { name: 'set_config', args: { key: 'tts.rate', value: Number(words[0] ?? 1.2) } }
+      : demo[1] === '改预算' ? { name: 'set_config', args: { key: 'budget.month', value: Number(words[0] ?? 30) } }
+      : demo[1] === '查词' ? { name: 'lookup_word', args: { word: words[0] ?? 'upshot' } } : demo[1] === '辨析' ? { name: 'compare_words', args: { words } } : demo[1] === '加词' ? { name: 'add_to_wordbook', args: { words: words.map(text => ({ text })) } } : demo[1] === '记住' ? { name: 'remember', args: { type: 'semantic', content: demo[2]! } } : { name: 'create_quiz', args: { count: 3, ...(words.length ? { types: words } : {}) } };
     const toolCall = { type: 'toolCall' as const, id: `dev_${Date.now()}`, name: call.name, arguments: call.args as never };
     const base: AssistantMessage = { role: 'assistant', content: [], api: model.api, provider: model.provider, model: model.id, usage: { input: 50, output: 20, cacheRead: 0, cacheWrite: 0, totalTokens: 70, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: 'toolUse', timestamp: Date.now() };
     queueMicrotask(() => {

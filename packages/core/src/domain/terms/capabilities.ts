@@ -3,7 +3,7 @@ import { capability, S, type CapabilityMap } from '../../rpc/define.js';
 import { TibiError, type Status, type TermContext } from '../../types.js';
 import { lemmatize } from '../text/lemma.js';
 import { getTerm, getTermByText } from './repo.js';
-import { addPhrase, addWords, applyStatus, setContextMeaning } from './service.js';
+import { addPhrase, addWords, applyStatus, removeTerms, setContextMeaning } from './service.js';
 import { listTerms, termDetail, VIEWS } from './views.js';
 
 const firstLine = (s: string) => s.split('\n')[0]!.trim();
@@ -58,6 +58,15 @@ export const termsCapabilities: CapabilityMap = {
       if (!term || term.deleted_at) throw new TibiError('not_found', '找不到这个词');
       return termDetail(ctx.db, ctx.dict, term);
     },
+  }),
+  remove_terms: capability({
+    name: 'remove_terms', description: '管理生词本：把词移出生词本（复习卡一起停），可撤销', perm: 'confirm', undoable: true, mcp: false,
+    params: Type.Object({ ids: Type.Array(S.id, { minItems: 1, maxItems: 200 }) }),
+    async describe(p, ctx) {
+      const rows = await ctx.db.all<{ text_display: string }>(`SELECT text_display FROM terms WHERE id IN (${p.ids.map(() => '?').join(',')})`, p.ids);
+      return `移出 ${p.ids.length} 个词：${rows.slice(0, 20).map(r => r.text_display).join('、')}${rows.length > 20 ? ' 等' : ''}`;
+    },
+    async run(p, ctx) { return { removed: p.ids.length, undo: await removeTerms(ctx, p.ids) }; },
   }),
   list_terms: capability({
     name: 'list_terms', description: '生词本列表（到期 / 逾期 / 新词 / 难词 / 没进步 / 很久没遇见 / 待确认）', perm: 'read',
