@@ -1,0 +1,40 @@
+packages/core-node/src/platform.ts
+  s_5d9f227925d160::t_4d43e315681ac7 85-86
+packages/core/skills/scout/SKILL.md
+  s_5d9f227925d160::t_dd5d45cc927cbf 14-16
+apps/desktop/src/mobile/local/runtime.ts
+  s_5d9f227925d160::t_9f4c659071089e 44
+packages/core/src/domain/documents/feeds.ts
+  s_5d9f227925d160::t_542b78229f7212 4
+  s_5d9f227925d160::t_23d509c9b8c2c1 85-116
+  s_5d9f227925d160::t_79edcf641bf763 124-126
+packages/core/test/documents/feeds.test.ts
+  s_5d9f227925d160::t_a9bdc1a0f9a2d6 4
+  s_5d9f227925d160::t_7c6bb58effbfc6 21,26
+  s_5d9f227925d160::t_dc0ae7dfa24f49 12-20,23-25,27,29-33,35-56
+  s_5d9f227925d160::t_2795153208297f 22
+  s_5d9f227925d160::t_3c3191bf13a640 28
+  s_5d9f227925d160::t_d6ff7483b54d15 34
+packages/core/src/kernel/skills.gen.ts
+  s_5d9f227925d160::t_b7be83c70899aa 47
+PRIVACY.md
+  s_5d9f227925d160::t_2c8b51f2238453 21
+packages/core/src/platform.ts
+  s_5d9f227925d160::t_1939af8b0e2ed4 15-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "40c85fd94d31f3435de31495cac053fe3fd4d9a3",
+  "prompts": {},
+  "sessions": {
+    "s_5d9f227925d160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8118dcc5-b77b-4bfd-91d7-7acdb376c2c3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
