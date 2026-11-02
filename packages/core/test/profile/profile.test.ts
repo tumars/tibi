@@ -30,6 +30,33 @@ describe('画像与设置', () => {
     const t = await core.call<{ ok: boolean; error?: string }>('providers.test', { id: b.id });
     expect(t.ok).toBe(false); expect(t.error).toContain('API Key');
   });
+
+  const deepseek = (tier: 'fast' | 'deep', model: string) => ({ provider: { kind: 'llm', name: 'DeepSeek', protocol: 'openai_compatible', base_url: 'https://api.deepseek.com', auth: 'api_key', tier, model, is_default: true }, secret_ref: 'deepseek' });
+
+  it('providers.upsert：重复连接同一服务不新增，换模型也是更新', async () => {
+    const { core } = await makeReviewCore();
+    const fast = await core.call<Provider>('providers.upsert', deepseek('fast', 'deepseek-flash'));
+    const deep = await core.call<Provider>('providers.upsert', deepseek('deep', 'deepseek-v4-pro'));
+    const again = await core.call<Provider>('providers.upsert', deepseek('fast', 'deepseek-flash-2'));
+    await core.call<Provider>('providers.upsert', deepseek('deep', 'deepseek-v4-pro'));
+    const list = await core.call<Provider[]>('providers.list', {});
+    expect(list.map(x => x.id).sort()).toEqual([fast.id, deep.id].sort());
+    expect(again.id).toBe(fast.id); expect(again.model).toBe('deepseek-flash-2');
+    expect(list.map(x => x.tier).sort()).toEqual(['deep', 'fast']);
+  });
+
+  it('providers.delete：默认交给剩下的一条；最后一条才返回 secret_ref', async () => {
+    const { core } = await makeReviewCore();
+    const fast = await core.call<Provider>('providers.upsert', deepseek('fast', 'deepseek-flash'));
+    const deep = await core.call<Provider>('providers.upsert', deepseek('deep', 'deepseek-v4-pro'));
+    const r1 = await core.call<{ ok: boolean; secret_ref?: string }>('providers.delete', { id: deep.id });
+    expect(r1.secret_ref).toBeUndefined();
+    const list = await core.call<Provider[]>('providers.list', {});
+    expect(list).toHaveLength(1); expect(list[0]).toMatchObject({ id: fast.id, is_default: true });
+    const r2 = await core.call<{ ok: boolean; secret_ref?: string }>('providers.delete', { id: fast.id });
+    expect(r2.secret_ref).toBe('deepseek');
+    await expect(core.call('providers.delete', { id: fast.id })).rejects.toThrow();
+  });
 });
 
 describe('词汇量测试（R8）', () => {

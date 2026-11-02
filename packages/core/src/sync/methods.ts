@@ -5,7 +5,7 @@ import { SyncError, webdavBackend, type SyncBackend } from './backend.js';
 import { SyncEngine } from './engine.js';
 
 /**
- * 同步的方法（06 sync 组，08 §10）。后端配置存在 sync_state.backend（不含密码；WebDAV 密码在钥匙串，password_ref 指向它）。
+ * 同步的方法（06 sync 组，08 §10）。后端配置存在 sync_state.backend（不含密码；WebDAV 密码在壳的密钥存储，password_ref 指向它）。
  * 同一时间只跑一轮；自动同步（启动、每 5 分钟、改动后）走 sync.auto，没开时什么都不做。
  */
 export type BackendCfg = { kind: 'icloud' } | { kind: 'folder'; path: string } | { kind: 'webdav'; url: string; user: string; password_ref: string };

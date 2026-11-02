@@ -43,7 +43,7 @@ export function SyncItems() {
     const c = cfg(); if (!c) { toast(kind === 'webdav' ? tl('填好地址、账号和应用密码') : tl('先选一个文件夹')); return; }
     if (c.kind === 'webdav' && dav.pw) {
       const ok = await storeSecret(PW_REF, dav.pw).catch(() => false);
-      if (!ok && isTauri()) { toast(tl('应用密码没能存进钥匙串'), { kind: 'err' }); return; }
+      if (!ok && isTauri()) { toast(tl('应用密码没能保存'), { kind: 'err' }); return; }
     }
     setBusy(true); setProbe({ text: tl('正在检查…'), ready: false, join: false });
     try {

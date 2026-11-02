@@ -1,7 +1,7 @@
 import type { Provider } from '@tibi/core';
 import { useEffect, useState } from 'react';
 import { tl } from '../lib/i18n';
-import { saveProvider } from '../lib/providers';
+import { deleteProvider, saveProvider } from '../lib/providers';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
@@ -10,6 +10,7 @@ import { toast } from '../store/ui';
 export function ModelItems() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [editing, setEditing] = useState<Partial<Provider> & { key?: string }>();
+  const [removing, setRemoving] = useState<string>();
   const [price, setPrice] = useState({ input: '', output: '' });   // 自定义服务的单价：人民币 / 百万 token
   useEffect(() => { rpc.call('providers.list', {}).then(setProviders, () => undefined); }, []);
   useEffect(() => {
@@ -36,9 +37,18 @@ export function ModelItems() {
   const testProvider = async (id: string) => {
     try { const r = await rpc.call('providers.test', { id }); toast(r.ok ? tl('连接成功{v0}', { v0: r.latency_ms ? ` · ${r.latency_ms} ms` : '' }) : tl('连接失败：{v0}', { v0: r.error ?? '' }), { kind: r.ok ? undefined : 'err' }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
+  const removeProvider = async (id: string) => {
+    if (removing !== id) { setRemoving(id); return; }
+    setRemoving(undefined);
+    try {
+      await deleteProvider(id);
+      setProviders(await rpc.call('providers.list', {})); toast(tl('已删除'));
+      void useCore.getState().refresh();
+    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+  };
 
   return <>
-    {providers.map(p => <div key={p.id} className="prov"><div><div className="t" style={{ fontSize: 14, fontWeight: 500 }}>{p.name} <span className="tagc">{p.tier === 'deep' ? tl('深入') : tl('快速')}{p.is_default ? tl(' · 默认') : ''}</span> <span className="tagc" style={{ color: p.has_secret ? 'var(--ok)' : 'var(--ink-3)' }}>{p.has_secret ? tl('已配置密钥') : tl('未配置密钥')}</span></div><div className="lbl">{p.model}{p.base_url ? ` · ${p.base_url}` : ''}</div></div><div className="ctl"><button className="btn sm" onClick={() => testProvider(p.id)}>{tl('测试连接')}</button><button className="btn sm" onClick={() => setEditing({ ...p })}>{tl('编辑')}</button></div></div>)}
+    {providers.map(p => <div key={p.id} className="prov"><div><div className="t" style={{ fontSize: 14, fontWeight: 500 }}>{p.name} <span className="tagc">{p.tier === 'deep' ? tl('深入') : p.tier === 'fast' ? tl('快速') : tl('未使用')}{p.is_default ? tl(' · 默认') : ''}</span> <span className="tagc" style={{ color: p.has_secret ? 'var(--ok)' : 'var(--ink-3)' }}>{p.has_secret ? tl('已配置密钥') : tl('未配置密钥')}</span></div><div className="lbl">{p.model}{p.base_url ? ` · ${p.base_url}` : ''}</div></div><div className="ctl"><button className="btn sm" onClick={() => testProvider(p.id)}>{tl('测试连接')}</button><button className="btn sm" onClick={() => setEditing({ ...p })}>{tl('编辑')}</button><button className="btn sm" onClick={() => void removeProvider(p.id)} onBlur={() => setRemoving(undefined)}>{removing === p.id ? tl('确认删除') : tl('删除')}</button></div></div>)}
     {!providers.length && !editing && <div className="item"><div><div className="t">{tl('还没有连接模型')}</div><div className="d">{tl('不连模型时查词、标注、复习照常。导入文章的总结、语境释义需要模型。')}</div></div><div className="ctl"><button className="btn sm pri" onClick={() => setEditing({ name: 'DeepSeek', kind: 'llm', protocol: 'openai_compatible', base_url: 'https://api.deepseek.com', model: 'deepseek-flash', tier: 'fast', is_default: true })}>{tl('连接 DeepSeek')}</button><button className="btn sm" onClick={() => setEditing({ name: '', kind: 'llm', protocol: 'openai_compatible', base_url: '', model: '', tier: 'fast', is_default: !providers.length })}>{tl('其他兼容服务')}</button></div></div>}
     {editing && <div className="pform">
       <span>{tl('名称')}</span><input className="input" value={editing.name ?? ''} onChange={e => setEditing({ ...editing, name: e.target.value })} />

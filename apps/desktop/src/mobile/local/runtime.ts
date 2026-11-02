@@ -9,7 +9,7 @@ import { invokeFolderBackend } from './syncfs';
  * - SQLite：壳里的 rusqlite（local_db.rs），经 InvokeDriver
  * - 网络：http 插件的 fetch（不受 CORS 限制）；全局 fetch 也换成它，模型调用（pi-ai）、WebDAV 都走这里
  * - 网页正文：DOMParser + Readability（web/html.ts，和桌面同一份）
- * - 密钥：壳的钥匙串命令；同步：WebDAV（iCloud 要 Swift 插件，还没写）
+ * - 密钥：壳的密钥命令；同步：WebDAV（iCloud 要 Swift 插件，还没写）
  * 界面的 rpc 直接调这个 Core（localTransport），协议和桌面一样。
  */
 let started: Promise<Transport> | undefined;

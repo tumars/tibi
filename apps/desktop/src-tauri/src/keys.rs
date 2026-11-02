@@ -1,38 +1,102 @@
-//! 钥匙串（05 §8）：service = app.tibi，账户 = 引用名（如 provider.deepseek.llm）。
+//! 密钥存储（05 §8）：引用名如 provider.deepseek.llm。
 //! WebView 只能写入和删除；读取只给 sidecar 的 secret.get 反向请求（手机上 Core 在 WebView 里，经 keyring_get）。
-//! - macOS / iOS：系统钥匙串；Windows：凭据管理器；Linux：Secret Service（GNOME 钥匙串 / KWallet）
-//! - Android：keyring 没有后端（只存在内存里，重启就丢），改存应用私有目录里的 secrets.json（权限 0600，别的应用读不到）。
+//! 所有平台都存应用数据目录里的 secrets.json（权限 0600）。不进 app.db，所以不进 Tibi 的备份、导出和同步。
+//! - 桌面、iOS：不加密。钥匙串在未固定签名的构建上反复弹窗，各端也要各写一套，这里用便利换了一部分安全：
+//!   桌面上同用户的程序能读这个文件；iOS 上别的应用读不到，但设备备份可能带上它。
+//!   以前存在钥匙串（service = app.tibi）里的 Key，第一次读到时搬过来并删掉原条目。
+//! - Android：keyring 没有后端（只存在内存里，重启就丢），一直存这个文件。
 //!   gen/android 的备份规则（res/xml/backup_rules.xml、data_extraction_rules.xml）把它排除在云端备份和换机迁移之外；
 //!   值再经 Android Keystore 加密（gen/android 的 KeystorePlugin.kt，AES-256-GCM，密钥不出系统），文件里只有 "ks1:" 开头的密文。
 //!   以前存的明文照样能读，读到时顺手加密写回。
 
 #[cfg(not(target_os = "android"))]
-const SERVICE: &str = "app.tibi";
+mod keychain {
+    const SERVICE: &str = "app.tibi";
 
-#[cfg(not(target_os = "android"))]
-pub fn set(r: &str, secret: &str) -> Result<(), String> {
-    keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.set_password(secret).map_err(|e| format!("写入钥匙串失败：{e}"))
-}
-
-#[cfg(not(target_os = "android"))]
-pub fn delete(r: &str) -> Result<(), String> {
-    match keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.delete_credential() {
-        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-        Err(e) => Err(format!("删除钥匙串条目失败：{e}")),
+    pub fn set(r: &str, secret: &str) -> Result<(), String> {
+        keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.set_password(secret).map_err(|e| format!("写入钥匙串失败：{e}"))
     }
-}
 
-#[cfg(not(target_os = "android"))]
-pub fn get(r: &str) -> Result<Option<String>, String> {
-    match keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.get_password() {
-        Ok(s) => Ok(Some(s)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(e) => Err(format!("读取钥匙串失败：{e}")),
+    pub fn delete(r: &str) -> Result<(), String> {
+        match keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+            Err(e) => Err(format!("删除钥匙串条目失败：{e}")),
+        }
+    }
+
+    pub fn get(r: &str) -> Result<Option<String>, String> {
+        match keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.get_password() {
+            Ok(s) => Ok(Some(s)),
+            Err(keyring::Error::NoEntry) => Ok(None),
+            Err(e) => Err(format!("读取钥匙串失败：{e}")),
+        }
     }
 }
 
 #[cfg(target_os = "android")]
 pub use file_store::{delete, get, set};
+
+#[cfg(not(target_os = "android"))]
+pub fn set(r: &str, secret: &str) -> Result<(), String> {
+    file_store::set(r, secret)?;
+    // 旧条目留着的话，之后删掉 Key 时读取会把它搬回来
+    let _ = keychain::delete(r);
+    Ok(())
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn delete(r: &str) -> Result<(), String> {
+    file_store::delete(r)?;
+    keychain::delete(r)
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn get(r: &str) -> Result<Option<String>, String> {
+    if let Some(v) = file_store::get(r)? {
+        return Ok(Some(v));
+    }
+    migrate(keychain::get(r)?, |v| file_store::set(r, v), || keychain::delete(r))
+}
+
+/// 钥匙串里的旧 Key 搬进文件：写成功才删原条目；删失败不影响这次读取，下次写入或删除时还会再删
+#[cfg(not(target_os = "android"))]
+fn migrate(
+    legacy: Option<String>,
+    store: impl FnOnce(&str) -> Result<(), String>,
+    remove: impl FnOnce() -> Result<(), String>,
+) -> Result<Option<String>, String> {
+    let Some(v) = legacy else { return Ok(None) };
+    store(&v)?;
+    let _ = remove();
+    Ok(Some(v))
+}
+
+#[cfg(all(test, not(target_os = "android")))]
+mod tests {
+    use std::cell::Cell;
+
+    #[test]
+    fn migrate_removes_legacy_only_after_store() {
+        let removed = Cell::new(false);
+        let got = super::migrate(Some("sk".into()), |v| { assert_eq!(v, "sk"); Ok(()) }, || { removed.set(true); Ok(()) });
+        assert_eq!(got.unwrap().as_deref(), Some("sk"));
+        assert!(removed.get());
+
+        let removed = Cell::new(false);
+        let failed = super::migrate(Some("sk".into()), |_| Err("disk full".to_string()), || { removed.set(true); Ok(()) });
+        assert!(failed.is_err());
+        assert!(!removed.get());
+
+        let none = super::migrate(None, |_| panic!("没有旧 Key 不该写入"), || panic!("没有旧 Key 不该删除"));
+        assert_eq!(none.unwrap(), None);
+    }
+
+    #[test]
+    fn migrate_keeps_value_when_remove_fails() {
+        let got = super::migrate(Some("sk".into()), |_| Ok(()), || Err("denied".to_string()));
+        assert_eq!(got.unwrap().as_deref(), Some("sk"));
+    }
+}
 
 /// Android Keystore：壳里的小插件 tibi-keystore，Kotlin 那边是 gen/android/…/app/tibi/KeystorePlugin.kt
 #[cfg(target_os = "android")]
@@ -76,7 +140,7 @@ pub mod keystore {
     }
 }
 
-/// 文件存储（Android 用；所有平台都编译，方便单测）
+/// 文件存储（所有平台）
 #[allow(dead_code)]
 pub mod file_store {
     use std::collections::BTreeMap;

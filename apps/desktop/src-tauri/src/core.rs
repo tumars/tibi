@@ -4,8 +4,8 @@
 //! - 壳 → Core：`{"jsonrpc":"2.0","id":<u64>,"method":"…","params":{…}}`，Core 回 `{"jsonrpc":"2.0","id":<u64>,"result":…}` 或 `error`。
 //! - Core → 壳 事件：`{"jsonrpc":"2.0","method":"event","params":{"event":"task.done","data":{…}}}`（没有 id）→ 转成 Tauri 事件 `core_event`。
 //! - Core → 壳 反向请求（密钥）：`{"jsonrpc":"2.0","id":"h-<n>","method":"secret.get","params":{"ref":"…"}}`，
-//!   壳查钥匙串后回 `{"jsonrpc":"2.0","id":"h-<n>","result":{"secret":"…"}}`（没有就 `{"secret":null}`）。
-//!   这样 API Key 只在钥匙串里，Core 按需取、只留内存，不经过 WebView，也不进数据库和日志。
+//!   壳查密钥存储后回 `{"jsonrpc":"2.0","id":"h-<n>","result":{"secret":"…"}}`（没有就 `{"secret":null}`）。
+//!   这样 API Key 只在壳的密钥存储里（keys.rs），Core 按需取、只留内存，不经过 WebView，也不进数据库和日志。
 //!
 //! 启动顺序：先找随包的 sidecar（`tibi-core` 同目录 / `binaries/tibi-core-<triple>`），
 //! 没有就（开发）用 `node ../../packages/core-node/dist/tibi-core.js`。

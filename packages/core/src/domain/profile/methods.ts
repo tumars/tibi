@@ -76,7 +76,10 @@ export const profileMethods: MethodMap = {
     provider: Type.Object({ id: Type.Optional(S.id), kind: Type.Union(['llm', 'vision', 'image', 'tts'].map(s => Type.Literal(s))), name: Type.String(), protocol: Type.String(), base_url: Type.Optional(Type.String()), auth: Type.Literal('api_key', { default: 'api_key' }), tier: Type.Optional(Type.Union([Type.Literal('fast'), Type.Literal('deep')])), model: Type.String(), is_default: Type.Boolean({ default: false }) }),
     secret_ref: Type.Optional(Type.String()),
   }), async (p, ctx) => {
-    const t = now(); const id = p.provider.id ?? uuidv7();
+    const t = now();
+    // 没带 id：同一服务的同一档已有记录就更新它，重复连接不新增
+    const same = !p.provider.id && p.provider.tier ? await ctx.db.get<{ id: string }>('SELECT id FROM providers WHERE kind = ? AND name = ? AND base_url IS ? AND tier = ? AND deleted_at IS NULL', [p.provider.kind, p.provider.name, p.provider.base_url ?? null, p.provider.tier]) : undefined;
+    const id = p.provider.id ?? same?.id ?? uuidv7();
     await ctx.db.transaction(async tx => {
       if (p.provider.is_default) await tx.run('UPDATE providers SET is_default = 0, updated_at = ? WHERE kind = ? AND id != ?', [t, p.provider.kind, id]);
       if (p.provider.tier) await tx.run('UPDATE providers SET tier = NULL, updated_at = ? WHERE kind = ? AND tier = ? AND id != ?', [t, p.provider.kind, p.provider.tier, id]);
@@ -90,7 +93,22 @@ export const profileMethods: MethodMap = {
     // 连上模型后把"稍后补做"的文章排进任务（M2）
     void ctx.call('documents.analyze_deferred', {}).catch(() => undefined);
     return (await listProviders(ctx.db)).find(x => x.id === id)!;
-  }, '密钥先由 Rust 写入钥匙串，这里只传引用'),
+  }, '密钥先由 Rust 写入密钥存储，这里只传引用；没带 id 时，同服务同档已有记录就更新它'),
+
+  'providers.delete': method(Type.Object({ id: S.id }), async (p, ctx) => {
+    const r = await ctx.db.get<{ kind: string; secret_ref: string | null; is_default: number }>('SELECT kind, secret_ref, is_default FROM providers WHERE id = ? AND deleted_at IS NULL', [p.id]);
+    if (!r) throw new TibiError('not_found', '没有这个服务商');
+    const t = now();
+    let orphan = false;
+    await ctx.db.transaction(async tx => {
+      await tx.run('UPDATE providers SET deleted_at = ?, is_default = 0, updated_at = ? WHERE id = ?', [t, t, p.id]);
+      // 默认被删：交给还在用的一条（快速档优先），否则没配那一档的调用会找不到模型
+      if (r.is_default) await tx.run("UPDATE providers SET is_default = 1, updated_at = ? WHERE id = (SELECT id FROM providers WHERE kind = ? AND deleted_at IS NULL ORDER BY tier IS NULL, tier = 'fast' DESC, created_at LIMIT 1)", [t, r.kind]);
+      if (r.secret_ref) orphan = !(await tx.get<{ id: string }>('SELECT id FROM providers WHERE secret_ref = ? AND deleted_at IS NULL LIMIT 1', [r.secret_ref]));
+    });
+    ctx.events.emit('data.changed', { table: 'settings' });
+    return { ok: true as const, secret_ref: orphan && r.secret_ref ? r.secret_ref : undefined };
+  }, '软删；默认被删时交给剩下的一条。secret_ref 只在没有别的记录再用这个密钥时返回，由调用方从密钥存储删掉'),
 
   'providers.test': method(Type.Object({ id: S.id }), async (p, ctx) => {
     const r = await ctx.db.get<{ id: string; secret_ref: string | null }>('SELECT id, secret_ref FROM providers WHERE id = ? AND deleted_at IS NULL', [p.id]);

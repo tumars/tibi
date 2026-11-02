@@ -27,7 +27,7 @@ export function memoryBackend(files: Map<string, Uint8Array> = new Map()): SyncB
   };
 }
 
-/** WebDAV：url 是资料库根目录（如 https://dav.jianguoyun.com/dav/Tibi Sync/），密码由调用方从钥匙串取 */
+/** WebDAV：url 是资料库根目录（如 https://dav.jianguoyun.com/dav/Tibi Sync/），密码由调用方从密钥存储取 */
 export function webdavBackend(o: { url: string; user: string; password: string; fetch?: typeof fetch }): SyncBackend {
   const f = o.fetch ?? fetch;
   const base = o.url.replace(/\/?$/, '/').replace(/ /g, '%20');

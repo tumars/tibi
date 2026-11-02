@@ -8,7 +8,7 @@ import type { Core, CoreEventName, RpcRequest } from '@tibi/core';
  *   壳 → Core：请求 {jsonrpc,id,method,params}；Core → 壳：响应 {jsonrpc,id,result|error}；
  *   Core → 壳：事件 {jsonrpc:'2.0', method:'event', params:{event, data}}（没有 id）；
  *   Core → 壳：反向请求 {jsonrpc:'2.0', id:'h-…', method:'secret.get', params:{ref}}，壳回 {id, result:{secret}}
- *   （密钥只在壳的钥匙串里，Core 按需取、只留内存，05 §8）。
+ *   （密钥只在壳的密钥存储里，Core 按需取、只留内存，05 §8）。
  * - WebSocket：浏览器里开发界面时用（`pnpm core:dev`），协议与 stdio 一致（反向请求在 dev 下由环境变量代替）。
  */
 

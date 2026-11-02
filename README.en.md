@@ -20,7 +20,7 @@
 - **Remember what you read**: new words go into spaced repetition (FSRS) using the sentences you actually read, plus dictation, spelling, confusable-word and sentence-writing practice.
 - **See your progress**: known words, daily reading, review performance, a study calendar, and a short note from Tibi.
 - **Read aloud**: system voices or a local neural voice (Kokoro), sentence-level highlighting, speed control, sentence loop.
-- **Your data stays on your computer**: everything is stored in a local SQLite database; model API keys live in the system keychain; export, back up and restore any time.
+- **Your data stays on your computer**: everything is stored in a local SQLite database; model API keys are kept in a separate local file, outside the database and Tibi's backups; export, back up and restore any time.
 - **Works with other AI tools**: a built-in MCP server lets Claude Code, Codex and others read your progress and add words (writes need your approval).
 
 ## Install

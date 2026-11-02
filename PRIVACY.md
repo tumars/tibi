@@ -5,7 +5,7 @@ Tibi 是一个本地应用：没有服务器、不需要账号、不收集任何
 ## 数据存在哪里
 
 - **学习数据**（文章、生词、复习记录、对话、记忆、设置）：本机的 SQLite 数据库 `app.db`，在系统的应用数据目录里——macOS `~/Library/Application Support/app.tibi/`，Windows `%APPDATA%\app.tibi\`，Linux `~/.local/share/app.tibi/`。备份文件、OCR 语言包、MCP 令牌也在这里。
-- **模型 API Key**：系统钥匙串（macOS / iOS 钥匙串、Windows 凭据管理器、Linux Secret Service）；Android 上存在应用私有目录的 `secrets.json`，内容经 Android Keystore 加密（别的应用读不到，也不进 Google 云端备份和换机迁移）。不写进数据库，也不会出现在导出和备份里。
+- **模型 API Key 和 WebDAV 密码**：应用数据目录的 `secrets.json`。电脑上只给当前用户读写权限，但**没有加密**：以你的账号运行的其他程序能读到它，整机或数据目录的备份也会带上它。iOS 上别的应用读不到，也没有加密，设备备份可能带上它。Android 上内容经 Android Keystore 加密（别的应用读不到，也不进 Google 云端备份和换机迁移）。不写进数据库，也不会出现在 Tibi 的导出、备份和同步里。
 - **朗读语音模型**（Kokoro，可选）：界面的浏览器缓存。
 
 在 **设置 → 数据** 里可以备份和恢复；生词可以在生词本里导出（CSV / Anki）。想彻底清空就退出 Tibi 后删掉上面的数据目录。

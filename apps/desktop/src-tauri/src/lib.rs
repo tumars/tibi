@@ -1,4 +1,4 @@
-//! Tibi 的 Rust 壳：很薄，只做系统能力（06 §7）——启动 / 守护 Tibi Core、转发 JSON-RPC、钥匙串、文件选择、深链、托盘。
+//! Tibi 的 Rust 壳：很薄，只做系统能力（06 §7）——启动 / 守护 Tibi Core、转发 JSON-RPC、密钥、文件选择、深链、托盘。
 //! 业务数据全部在 Core（TypeScript），界面不直连数据库（B2）。
 
 mod core;
@@ -209,7 +209,7 @@ pub fn run() {
     run_desktop();
 }
 
-/// 手机（M7，00 §3.13）：没有 sidecar，Core 跑在 WebView 里（mobile.html），这里只给 SQLite、钥匙串、文件选择、深链。
+/// 手机（M7，00 §3.13）：没有 sidecar，Core 跑在 WebView 里（mobile.html），这里只给 SQLite、密钥、文件选择、深链。
 /// 桌面上加 --features mobile-preview 也走这里，用来在电脑上预览手机版、检查这段能编译。
 #[cfg(any(mobile, feature = "mobile-preview"))]
 fn run_mobile() {
@@ -229,7 +229,7 @@ fn run_mobile() {
         .manage(Allowed::default())
         .manage(local_db::Dbs::default())
         .setup(|app| {
-            // Android 的密钥存在应用私有目录（keys.rs）
+            // 密钥文件的目录（keys.rs）
             if let Ok(dir) = app.path().app_data_dir() {
                 keys::file_store::init(dir);
             }
@@ -279,6 +279,10 @@ fn run_desktop() {
         .manage(TrayMode::default())
         .manage(update::Pending::default())
         .setup(|app| {
+            // 密钥文件的目录，要在 Core 启动、来取密钥之前设好（keys.rs）
+            if let Ok(dir) = app.path().app_data_dir() {
+                keys::file_store::init(dir);
+            }
             // Tibi Core
             let core = Arc::new(core::CoreProcess::new(app.handle().clone()));
             app.manage(core.clone());

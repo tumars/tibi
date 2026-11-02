@@ -52,7 +52,7 @@ pi 是 Mario Zechner（libGDX 作者）发起的开源 agent 工具集，MIT 协
 ┌──────────────────────────── Tauri App ────────────────────────────┐
 │  WebView（React）：首页 / 阅读器 / 生词本 / 复习 / 统计 / 设置 / 运行记录 │
 │        │  JSON-RPC：请求 + 事件流（经 Rust 转发 sidecar 的 stdio）       │
-│  Rust 壳（很薄）：窗口、托盘、keyring 密钥、启动 / 守护 Tibi Core          │
+│  Rust 壳（很薄）：窗口、托盘、密钥存储、启动 / 守护 Tibi Core          │
 └────────┼──────────────────────────────────────────────────────────┘
          ▼
 ┌──────────────────── Tibi Core（Node 单文件可执行，sidecar）────────────┐
@@ -201,7 +201,7 @@ metadata:
 
 **密钥**：
 
-- API Key 存系统钥匙串。Core 需要时经 sidecar 通道向 Rust 按需取（`secret_get`），只留内存；不写数据库、不写日志、不进诊断信息、不发给 WebView。
+- API Key 存应用数据目录的 `secrets.json`（权限 0600；桌面和 iOS 不加密，桌面上同用户的程序能读，iOS 的设备备份可能带上；Android 再经 Keystore 加密）。Core 需要时经 sidecar 通道向 Rust 按需取（`secret_get`），只留内存；不写数据库、不写日志、不进诊断信息、不发给 WebView。
 
 **失败路径**（细节见 [06 §1](06-interface.md#1-约定)）：
 

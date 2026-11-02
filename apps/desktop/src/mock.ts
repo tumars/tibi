@@ -68,7 +68,7 @@ export function mockTransport(): Transport {
     'profile.update': (p) => ({ ...(handlers['profile.get']!({}) as object), ...p.patch }),
     'settings.get': () => ({ 'budget.month': 20, 'budget.task': 1 }), 'settings.set': (p) => p.patch,
     'providers.list': () => [{ id: 'p1', kind: 'llm', name: 'DeepSeek', protocol: 'openai_compatible', base_url: 'https://api.deepseek.com', auth: 'api_key', tier: 'fast', model: 'deepseek-flash', has_secret: true, is_default: true, month_cost: 3.2 }],
-    'providers.upsert': (p) => ({ ...p.provider, id: p.provider.id ?? 'p2', has_secret: !!p.secret_ref }), 'providers.test': () => ({ ok: true, latency_ms: 412, json_mode: true }),
+    'providers.upsert': (p) => ({ ...p.provider, id: p.provider.id ?? 'p2', has_secret: !!p.secret_ref }), 'providers.delete': () => ({ ok: true }), 'providers.test': () => ({ ok: true, latency_ms: 412, json_mode: true }),
     'system.undo': () => ({ ok: true }), 'system.registerPaths': () => ({ ok: true }),
   };
   return {
