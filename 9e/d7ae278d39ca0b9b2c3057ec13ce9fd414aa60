@@ -1,0 +1,50 @@
+packages/core/src/domain/review/methods.ts
+  s_754438ffdff4ea::t_5fedb18154f237 16
+  s_754438ffdff4ea::t_c7d9e72e50791e 64-69
+  s_754438ffdff4ea::t_fb68272f470420 107-109
+apps/desktop/src/review/Overview.tsx
+  s_754438ffdff4ea::t_9c850fac335b41 68
+  s_754438ffdff4ea::t_d956eca292d2ae 6
+  s_754438ffdff4ea::t_f748991ae99f0d 103
+  s_754438ffdff4ea::t_0d650b63abfcb9 41-48
+  s_754438ffdff4ea::t_c190184ee316b0 1-5,7-40,49-67,69-102,104-136
+packages/core/src/domain/review/index.ts
+  s_754438ffdff4ea::t_d020eb50ff1540 7
+apps/desktop/src/review/Practice.tsx
+  s_754438ffdff4ea::t_e9a032114a45b6 41
+  s_754438ffdff4ea::t_d0ab2acb6b9132 42
+apps/desktop/src/review/useReviewSession.ts
+  s_754438ffdff4ea::t_30ee2efde3c593 14
+  s_754438ffdff4ea::t_5a667420084147 40-41
+packages/core/test/review/overview.test.ts
+  s_754438ffdff4ea::t_3641774342d079 1-40
+apps/desktop/src/pages/Review.tsx
+  s_754438ffdff4ea::t_3a9ed8fc093bae 177
+  s_754438ffdff4ea::t_84fd56ad4ef085 6-7
+  s_754438ffdff4ea::t_f29c2b369a0793 80
+  s_754438ffdff4ea::t_fc613663424d02 101
+  s_754438ffdff4ea::t_caf84b6fecae25 164-167,172-176
+  s_754438ffdff4ea::t_f68d1018108005 59-60,65
+  s_754438ffdff4ea::t_3b98c62cecd992 21,24,27-28
+packages/core/src/domain/review/overview.ts
+  s_754438ffdff4ea::t_860174b6bd7824 34
+  s_754438ffdff4ea::t_96f00d4dd257bb 2,5-6
+  s_754438ffdff4ea::t_867e18d1df8c1e 63
+  s_754438ffdff4ea::t_5bbc54a0210043 1,3-4,7-33,35-62,64-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9ed7ae278d39ca0b9b2c3057ec13ce9fd414aa60",
+  "prompts": {},
+  "sessions": {
+    "s_754438ffdff4ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ad612ea4-253e-4f03-92dd-4768e21c7a46",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
