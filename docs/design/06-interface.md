@@ -176,6 +176,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `review.next` | `{ session_id: Id; step: number }` | `Ok` | 初见步"认识了"、重练步"继续"；推进游标并保存进度 |
 | `review.undo` | `{ session_id: Id }` | `AnswerResult` | 撤销上一张（恢复卡片状态与插入的重练步） |
 | `review.pause` | `{ session_id: Id }` | `Ok` | "稍后继续"；每次作答已自动保存，这里只标记暂停 |
+| `review.overview` | `{}` | `{ due, late, fresh, new_waiting, daily_new, open?, today, later_today, forecast, leeches, mistakes }` | 复习页面板（00 §3.3）：到期 / 逾期 / 今天还能学的新词、做到一半的一轮、今天做了多少、7 天预报、难词数、这周忘过的词；不建会话 |
 | `review.grade` | `{ session_id: Id; step: number; text: string }` | `—` | R6 后计分复习没有造句题，调用返回 conflict；造句批改用 practice.grade |
 | `review.quiz` | `{ term_ids?: Id[]; count?: number; from?: "session_mistakes" }` | `ReviewSession` | 不计分的会话（kind = drill，graded = false）：完成页"再练错词"、空状态"用生词出题"（G7） |
 | `review.story` | `{ term_ids: Id[] }` | `{ task_id: TaskId }` | G7"读一篇用到这些词的短文"（M3）：快速档按固定提示写 150–250 词、词汇量以内、贴近兴趣的短文，作为 tibi_generated 文章导入书架（标签"Tibi 写的"），返回导入任务；没连模型 → model_unavailable |

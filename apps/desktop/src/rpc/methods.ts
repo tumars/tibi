@@ -50,6 +50,7 @@ export interface MethodTable {
   'review.next': { params: { session_id: Id; step: number }; result: Ok };
   'review.undo': { params: { session_id: Id }; result: AnswerResult };
   'review.pause': { params: { session_id: Id }; result: Ok };
+  'review.overview': { params: Record<string, never>; result: { due: number; late: number; fresh: number; new_waiting: number; daily_new: number; open?: { session_id: Id; total: number; left: number; started_at: number; updated_at: number }; today: { reviews: number; correct: number; minutes: number; new_learned: number }; later_today: number; forecast: number[]; leeches: number; mistakes: { term_id: Id; display: string; meaning: string; lapses: number }[] } };
   'review.quiz': { params: { term_ids?: Id[]; count?: number; from?: 'session_mistakes' }; result: ReviewSession };
   'review.story': { params: { term_ids: Id[] }; result: { task_id: TaskId } };
   'practice.start': { params: { mode: 'dictation' | 'spell' | 'confusable' | 'produce'; source: 'recent' | 'mistakes' | 'leech' | 'document'; document_id?: Id; count?: number }; result: { practice_id: Id; items: { id: string; mode: string; sentence: string; options?: [string, string]; answer?: string; explain?: string; source: { document_id?: Id; term_id?: Id } }[] } };

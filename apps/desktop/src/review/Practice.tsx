@@ -35,11 +35,11 @@ export function alignWords(target: string, typed: string): { words: { w: string;
   return { words, accuracy: an.length ? Math.round((hit.size / an.length) * 100) : 0 };
 }
 
-export function Practice() {
+export function Practice({ initialMode = 'dictation', initialSource = 'recent' }: { initialMode?: Mode; initialSource?: Source } = {}) {
   const nav = useNavigate();
   const modelOk = useCore(s => !!s.status?.models.ok);
-  const [mode, setMode] = useState<Mode>('dictation');
-  const [source, setSource] = useState<Source>('recent');
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const [source, setSource] = useState<Source>(initialSource);
   const [run, setRun] = useState<{ id: string; items: Item[]; idx: number; results: { item_id: string; accuracy: number; duration_ms: number }[] }>();
   const [answer, setAnswer] = useState('');
   const [checked, setChecked] = useState<{ accuracy: number; detail?: React.ReactNode }>();

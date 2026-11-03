@@ -13,6 +13,7 @@ import { getCard, getCardByTerm, getSession, getTerm, insertSession, openSession
 import { answerStep, nextStep, overrideRating, toReviewSession, undoLast } from './session.js';
 import { pickDistractors } from './queue.js';
 import { levenshtein } from './grade.js';
+import { reviewOverview } from './overview.js';
 
 const answerSchema = Type.Object({ choice: Type.Optional(Type.String()), typed: Type.Optional(Type.String()), self_rating: Type.Optional(S.rating) });
 
@@ -60,7 +61,12 @@ export const reviewMethods: MethodMap = {
     // 查"有没有未完成的一轮"和新建放在同一个事务里：界面同时发两次 review.start 时，第二次续上第一次建的那轮
     return ctx.db.transaction(async tx => {
       if (p.resume !== false) {
-        const open = await openSession(tx);
+        let open = await openSession(tx);
+        // 没有剩下的步（比如当时什么都没到期建了一轮空的）：结掉它，按现在的到期重新排
+        if (open && open.cursor >= sessionSteps(open).length) {
+          await tx.run("UPDATE review_sessions SET status = 'finished', finished_at = ?, updated_at = ? WHERE id = ?", [now(), now(), open.id]);
+          open = undefined;
+        }
         if (open) {
           if (open.status === 'paused') await tx.run("UPDATE review_sessions SET status = 'active', updated_at = ? WHERE id = ?", [now(), open.id]);
           return toReviewSession({ ...open, status: 'active' }, await repairSteps(tx, ctx.dict, open), true, fc);
@@ -97,6 +103,9 @@ export const reviewMethods: MethodMap = {
     if (s.status === 'active') await ctx.db.run("UPDATE review_sessions SET status = 'paused', updated_at = ? WHERE id = ?", [now(), s.id]);
     return { ok: true as const };
   }, '"稍后继续"'),
+
+  'review.overview': method(Type.Object({}), async (_p, ctx) => reviewOverview(ctx.db, ctx.dict),
+    '复习页面板：到期 / 逾期 / 今天的新词、做到一半的一轮、今天做了多少、7 天预报、难词数和这周忘过的词；不建会话'),
 
   'review.quiz': method(Type.Object({ term_ids: Type.Optional(Type.Array(S.id)), count: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, default: 10 })), from: Type.Optional(Type.Literal('session_mistakes')) }), async (p, ctx) => {
     const steps = await drillSteps(ctx, p.term_ids, p.count ?? 10, p.from);

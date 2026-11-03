@@ -3,7 +3,8 @@ import type { Rating } from '@tibi/core';
 import { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { PlayButton, usePlayback } from '../review/PlayButton';
-import { Practice } from '../review/Practice';
+import { ReviewOverview } from '../review/Overview';
+import { MODES, Practice, SOURCES } from '../review/Practice';
 import { useReviewSession } from '../review/useReviewSession';
 import { Empty } from '../components/Empty';
 import { LevelUp } from '../components/LevelUp';
@@ -17,13 +18,14 @@ import { tl } from '../lib/i18n';
 const RATING = { 1: tl('忘了'), 2: tl('模糊'), 3: tl('记得'), 4: tl('轻松') } as const;
 
 /** 复习（00 §3.3，G1–G8）：题目在卡片里，所有操作固定在底部；状态和动作在 useReviewSession（手机复习页共用） */
-function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
+function ReviewSessionView({ tabs, ahead }: { tabs: React.ReactNode; ahead: boolean }) {
   const nav = useNavigate();
   const streak = useCore(s => s.streak); const less = useUi(s => s.lessMascot);
-  const { session, err, phase, setPhase, typed, setTyped, hints, setHints, done, item, load, answer, next, override, undo, pause: pauseSession, drill, story, summary, segClass } = useReviewSession();
+  const { session, err, phase, setPhase, typed, setTyped, hints, setHints, done, item, load, answer, next, override, undo, pause: pauseSession, drill, story, summary, segClass } = useReviewSession({ ahead });
   const inputRef = useRef<HTMLInputElement>(null);
   const { playing, toggle: togglePlay } = usePlayback(!item ? '' : item.intro ? item.term.display : item.context.sentence);
-  const pause = async () => { await pauseSession(); nav('/'); };
+  const pause = async () => { await pauseSession(); nav('/review'); };
+  const crumbs = [{ label: tl('复习'), to: '/review' }, { label: session?.kind === 'drill' ? tl('再练错词') : tl('今天这一轮') }];
 
   // 键盘：空格显示答案、Enter 检查 / 继续、1–4 选项或评分、Z 撤销、P 播放
   useEffect(() => {
@@ -54,13 +56,13 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
 
   useEffect(() => { if (item?.card_type === 'cloze' && phase.kind === 'ask') inputRef.current?.focus(); }, [item, phase]);
 
-  if (err) return <><Top crumbs={[{ label: tl('复习') }]} right={tabs} /><Empty image="error-generic" title={tl('复习还没准备好')} text={err} action={<button className="btn" onClick={() => load()}>{tl('重试')}</button>} /></>;
-  if (!session) return <><Top crumbs={[{ label: tl('复习') }]} right={tabs} /><div className="scroll" /></>;
+  if (err) return <><Top crumbs={crumbs} right={tabs} /><Empty image="error-generic" title={tl('复习还没准备好')} text={err} action={<button className="btn" onClick={() => load()}>{tl('重试')}</button>} /></>;
+  if (!session) return <><Top crumbs={crumbs} right={tabs} /><div className="scroll" /></>;
   if (done || !item) {
     const { graded, correctPct, minutes, wrong } = summary();
     const medal = session.kind !== 'drill' && !less && isStreakMilestone(streak);
     return <>
-      <Top crumbs={[{ label: tl('复习') }]} right={tabs} />
+      <Top crumbs={crumbs} right={tabs} />
       <div className="scroll"><div className="rv">
         {session.steps.length === 0 ? <Empty image="empty-review" title={tl('今天没有要复习的')} text={tl('读文章时点开的生词会排进来。')} action={<button className="btn" onClick={() => nav('/library')}>{tl('去读点什么')}</button>} /> : (
           <div className="done">
@@ -75,7 +77,7 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
               {wrong.length > 0 && <button className="btn" onClick={() => void drill(wrong)}>{tl('再练 {length} 个错词（不计分）', { length: wrong.length })}</button>}
               {session.kind !== 'drill' && session.steps.length > 0 && <button className="btn" onClick={() => void story()}>{tl('读一篇用到这些词的短文')}</button>}
               <button className="btn" onClick={() => nav('/review?tab=practice')}>{tl('去练习')}</button>
-              <button className="btn pri" onClick={() => nav('/')}>{tl('回首页')}</button>
+              <button className="btn pri" onClick={() => nav('/review')}>{tl('完成')}</button>
             </div>
           </div>
         )}
@@ -96,7 +98,7 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
 
   return (
     <>
-      <Top crumbs={[{ label: tl('复习') }]} right={<>{tabs}<button className="btn sm" onClick={pause}>{tl('稍后继续')}</button></>} />
+      <Top crumbs={crumbs} right={<>{tabs}<button className="btn sm" onClick={pause}>{tl('稍后继续')}</button></>} />
       <div className="scroll"><div className="rv">
         <div className="rvhead">
           <div className="segs">{session.steps.map(s => <i key={s.step} className={segClass(s)} />)}</div>
@@ -159,11 +161,18 @@ function ReviewSessionView({ tabs }: { tabs: React.ReactNode }) {
   );
 }
 
-/** 复习页（00 §3.3）：顶栏"复习 / 练习"切换；练习不计分（G8 / R6） */
+/**
+ * 复习页（00 §3.3）：进来是面板（今天要做什么、做到哪了），点开始才进一轮（?run=1）；
+ * 顶栏"复习 / 练习"切换；练习不计分（G8 / R6）
+ */
 export function Review() {
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') === 'practice' ? 'practice' : 'review';
   const tabs = <div className="seg">{(['review', 'practice'] as const).map(t => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setParams(t === 'practice' ? { tab: 'practice' } : {}, { replace: true })}>{t === 'review' ? tl('复习') : tl('练习')}</button>)}</div>;
-  if (tab === 'practice') return <><Top crumbs={[{ label: tl('复习') }]} right={tabs} /><div className="scroll"><div className="rv"><Practice /></div></div></>;
-  return <ReviewSessionView tabs={tabs} />;
+  if (tab === 'practice') {
+    const mode = MODES.find(m => m.key === params.get('mode'))?.key; const source = SOURCES.find(s => s.key === params.get('source'))?.key;
+    return <><Top crumbs={[{ label: tl('复习'), to: '/review' }, { label: tl('练习') }]} right={tabs} /><div className="scroll"><div className="rv"><Practice key={`${mode}-${source}`} initialMode={mode} initialSource={source} /></div></div></>;
+  }
+  if (params.get('run') === '1') return <ReviewSessionView tabs={tabs} ahead={params.get('ahead') === '1'} />;
+  return <><Top crumbs={[{ label: tl('复习') }]} right={tabs} /><div className="scroll"><ReviewOverview /></div></>;
 }

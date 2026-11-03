@@ -73,7 +73,7 @@ export function SearchPalette() {
     { label: tl('书架'), kw: 'library 文章', icon: <BookOpen size={15} />, run: () => go('/library') },
     { label: tl('生词本'), kw: 'words 单词', icon: <Bookmark size={15} />, run: () => go('/words') },
     { label: tl('词典'), kw: 'dictionary dict 查词', icon: <BookA size={15} />, run: () => go(q.trim() && /^[a-z][a-z' -]*$/i.test(q.trim()) ? `/dict?w=${encodeURIComponent(q.trim())}` : '/dict') },
-    { label: tl('开始复习'), kw: 'review 复习', icon: <RotateCcw size={15} />, run: () => go('/review') },
+    { label: tl('开始复习'), kw: 'review 复习', icon: <RotateCcw size={15} />, run: () => go('/review?run=1') },
     { label: tl('练习'), kw: 'practice 听写 拼写', icon: <RotateCcw size={15} />, run: () => go('/review?tab=practice') },
     { label: tl('统计'), kw: 'stats', icon: <BarChart3 size={15} />, run: () => go('/stats') },
     { label: tl('运行记录'), kw: 'tasks 任务', icon: <ListChecks size={15} />, run: () => go('/tasks') },

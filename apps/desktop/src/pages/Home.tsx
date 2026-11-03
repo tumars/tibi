@@ -200,7 +200,7 @@ export function Home() {
               <span className="k">{tl('待复习')}</span>
               <span className="v">{due}<small>{tl('张')}</small></span>
               <span className="d">{due ? tl('约 {v0} 分钟', { v0: Math.max(1, Math.round(due / 3)) }) : tl('今天没有到期的')}</span>
-              {due > 0 && <button className="go" onClick={() => nav('/review')}>{tl('开始')}</button>}
+              {due > 0 && <button className="go" onClick={() => nav('/review?run=1')}>{tl('开始')}</button>}
             </div>
             <div className="tile">
               <span className="k">{tl('今日阅读')}</span>

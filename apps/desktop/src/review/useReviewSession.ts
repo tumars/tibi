@@ -11,7 +11,7 @@ import { toast } from '../store/ui';
 export type Phase = { kind: 'ask' } | { kind: 'reveal' } | { kind: 'answered'; result: AnswerResult; chosen?: string; typed?: string };
 export interface StepResult { rating?: Rating; correct: boolean; retry: boolean; intro: boolean }
 
-export function useReviewSession() {
+export function useReviewSession(opts: { ahead?: boolean } = {}) {
   const [session, setSession] = useState<ReviewSession>();
   const [err, setErr] = useState<string>();
   const [phase, setPhase] = useState<Phase>({ kind: 'ask' });
@@ -37,7 +37,8 @@ export function useReviewSession() {
       if (s.resumed && told.current !== s.session_id) { told.current = s.session_id; toast(tl('上次复习到一半，还剩 {v0} 张', { v0: s.steps.length - s.cursor })); }
     } catch (e) { setErr(errorInfo(e).message); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  // 进来总是先续上未完成的那轮；ahead = 面板上的"提前复习今天晚些到期的"
+  useEffect(() => { void load({ resume: true, ...(opts.ahead ? { ahead: true } : {}) }); }, [load, opts.ahead]);
 
   const item: QueueItem | undefined = session?.steps[session.cursor];
 
