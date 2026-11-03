@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { AreaChart, Bars, Heatmap, StackBars } from '../components/Charts';
 import { Empty } from '../components/Empty';
@@ -9,7 +9,7 @@ import { useCore } from '../store/core';
 import { locale, tl } from '../lib/i18n';
 
 /**
- * 学习统计（00 §3.6，原型 stats.html，M3）：四项指标 → Tibi 的洞察 → 已知词数（实测实线 / 估算虚线，R8）→ 每日阅读 →
+ * 学习统计（00 §3.6，原型 stats.html，M3）：四项指标 → Tibi 的洞察 → 已掌握的词（只数用户自己标的 5 / 97）→ 每日阅读 →
  * 接下来要复习 → 复习表现 → 学习日历 → 生词本熟练度 → 按类型阅读量。范围 30 天 / 90 天 / 半年。
  */
 type Range = 30 | 90 | 180;
@@ -19,7 +19,7 @@ export function Stats() {
   const nav = useNavigate();
   const [range, setRange] = useState<Range>(30);
   const [sum, setSum] = useState<Result<'stats.summary'>>();
-  const [known, setKnown] = useState<Result<'stats.series'>>();
+  const [mastered, setMastered] = useState<Result<'stats.series'>>();
   const [daily, setDaily] = useState<Result<'stats.series'>>();
   const [cal, setCal] = useState<Result<'stats.series'>>();
   const [ret, setRet] = useState<Result<'stats.retention'>>();
@@ -31,7 +31,7 @@ export function Stats() {
 
   useEffect(() => {
     void rpc.call('stats.summary', { range }).then(setSum, () => undefined);
-    void rpc.call('stats.series', { metrics: ['known'], days: range }).then(setKnown, () => undefined);
+    void rpc.call('stats.series', { metrics: ['mastered'], days: range }).then(setMastered, () => undefined);
     void rpc.call('stats.genres', { range }).then(setGenres, () => undefined);
   }, [range]);
   useEffect(() => {
@@ -49,7 +49,7 @@ export function Stats() {
   }, [modelOk]);
   useEffect(() => { void loadInsight(); }, [loadInsight]);
 
-  const empty = sum && !sum.minutes && !sum.reviews && !sum.known_delta && !stages.some(Boolean) && !(daily?.series.minutes ?? []).some(Boolean);
+  const empty = sum && !sum.minutes && !sum.reviews && !sum.mastered && !stages.some(Boolean) && !(daily?.series.minutes ?? []).some(Boolean);
   const totalStages = stages.reduce((a, b) => a + b, 0);
   const retWeeks = ret?.weeks ?? []; const retTotal = retWeeks.reduce((a, w) => a + w.ratings.reduce((x, y) => x + y, 0), 0);
   const retRate = retTotal ? retWeeks.reduce((a, w) => a + w.ratings[1] + w.ratings[2] + w.ratings[3], 0) / retTotal : 0;
@@ -61,7 +61,7 @@ export function Stats() {
       <div className="scroll"><div className="page stats">
         {empty ? <Empty title={tl('还没有可以统计的东西')} text={tl('读一篇文章、复习几张卡，这里就会有数据。')} action={<button className="btn pri" onClick={() => nav('/')}>{tl('去首页读一篇')}</button>} /> : <>
           <div className="tiles four">
-            <button className="tile" onClick={() => jump('st-known')}><span className="k">{tl('已知词')}</span><span className="v">{(sum?.known ?? 0).toLocaleString()}<small>{tl('词')}</small></span><span className="d">{tl('{v0}内', { v0: RANGE_LABEL[range] })} {(sum?.known_delta ?? 0) >= 0 ? '+' : ''}{sum?.known_delta ?? 0}{sum?.prev_delta ? tl(' · 上期 +{prev_delta}', { prev_delta: sum.prev_delta }) : ''}</span></button>
+            <button className="tile" onClick={() => jump('st-mastered')}><span className="k">{tl('已掌握')}</span><span className="v">{(sum?.mastered ?? 0).toLocaleString()}<small>{tl('词')}</small></span><span className="d">{tl('{v0}内', { v0: RANGE_LABEL[range] })} {(sum?.mastered_delta ?? 0) >= 0 ? '+' : ''}{sum?.mastered_delta ?? 0}{sum?.prev_delta ? tl(' · 上期 +{prev_delta}', { prev_delta: sum.prev_delta }) : ''}</span></button>
             <button className="tile" onClick={() => jump('st-daily')}><span className="k">{tl('阅读')}</span><span className="v">{sum?.minutes ?? 0}<small>{tl('分钟')}</small></span><span className="d">{tl('{v0} 词', { v0: (sum?.words ?? 0).toLocaleString() })}</span></button>
             <button className="tile" onClick={() => jump('st-cal')}><span className="k">{tl('学习天数')}</span><span className="v">{sum?.study_days ?? 0}<small>{tl('天')}</small></span><span className="d">{tl('连续 {v0} 天 · 最长 {v1} 天', { v0: sum?.streak ?? 0, v1: sum?.longest_streak ?? 0 })}</span></button>
             <button className="tile" onClick={() => jump('st-ret')}><span className="k">{tl('复习')}</span><span className="v">{sum?.reviews ?? 0}<small>{tl('次')}</small></span><span className="d">{tl('记得率 {v0}', { v0: Math.round((sum?.retention ?? 0) * 100) })}%</span></button>
@@ -79,12 +79,12 @@ export function Stats() {
             </>}
           </div>
 
-          <section id="st-known"><div className="sech"><h2>{tl('已知词数')}</h2><span className="lbl">{tl('实线 = 你亲手确认的（标过、测试点亮、复习答对）+ 推断；虚线 = 按词汇量估算的部分')}</span></div>
-            {known && <AreaChart dates={known.dates} main={known.series.known ?? []} dashed={known.series.known_estimated} />}
+          <section id="st-mastered"><div className="sech"><h2>{tl('已掌握的词')}</h2><span className="lbl">{tl('复习到掌握、或你标为已知的词')}</span></div>
+            {mastered && <AreaChart dates={mastered.dates} main={mastered.series.mastered ?? []} />}
           </section>
 
           <section id="st-daily"><div className="sech"><h2>{tl('每日阅读')}</h2><span className="lbl">{tl('最近 30 天 · 虚线是每天 {goal} 分钟的目标', { goal })}</span></div>
-            {daily && <Bars values={daily.series.minutes ?? []} goal={goal} hi={v => v >= goal} title={(v, i) => tl('{v0} · {v} 分钟', { v0: new Date(daily.dates[i]!).toLocaleDateString(locale), v })} />}
+            {daily && <Bars values={daily.series.minutes ?? []} goal={goal} hi={v => v >= goal} labels={daily.dates.map((d, i, a) => (i === a.length - 1 ? tl('今天') : (a.length - 1 - i) % 7 === 0 ? new Date(d).toLocaleDateString(locale, { month: 'numeric', day: 'numeric' }) : ''))} title={(v, i) => tl('{v0} · {v} 分钟', { v0: new Date(daily.dates[i]!).toLocaleDateString(locale), v })} />}
           </section>
 
           <div className="two">
@@ -105,10 +105,10 @@ export function Stats() {
           <div className="two">
             <section><div className="sech"><h2>{tl('生词本熟练度')}</h2><a className="more" href="#/words">{tl('去生词本 →')}</a></div>
               {totalStages ? <><div className="stagebar">{stages.map((n, i) => n ? <i key={i} className={`s${i}`} style={{ flex: n }} title={`${STATUS_NAMES[i]} ${n}`} /> : null)}</div>
-                <div className="stagelegend">{stages.map((n, i) => <span key={i}><i className={`s${i}`} />{STATUS_NAMES[i]} {n}</span>)}</div></> : <p className="lbl">{tl('生词本还是空的。')}</p>}
+                <div className="stagelegend">{stages.map((n, i) => <span key={i}><i className={`s${i}`} />{STATUS_NAMES[i]}<b>{n.toLocaleString()}</b></span>)}</div></> : <p className="lbl">{tl('生词本还是空的。')}</p>}
             </section>
             <section><div className="sech"><h2>{tl('按类型阅读量')}</h2></div>
-              {genres.length ? genres.map(g => { const max = Math.max(...genres.map(x => x.words), 1); return <div key={g.genre} className="grow"><span>{GENRE_NAMES[g.genre] ?? g.genre}</span><div className="gbar"><i style={{ width: `${(g.words / max) * 100}%` }} /></div><span className="lbl">{tl('{words} 词 · 生词率 {v1}', { words: g.words.toLocaleString(), v1: (g.unknown_ratio * 100).toFixed(1) })}%</span></div>; }) : <p className="lbl">{tl('这段时间还没读文章。')}</p>}
+              {genres.length ? <div className="grows">{genres.map(g => { const max = Math.max(...genres.map(x => x.words), 1); return <Fragment key={g.genre}><span>{GENRE_NAMES[g.genre] ?? g.genre}</span><div className="gbar"><i style={{ width: `${(g.words / max) * 100}%` }} /></div><span className="lbl">{tl('{words} 词', { words: g.words.toLocaleString() })}</span></Fragment>; })}</div> : <p className="lbl">{tl('这段时间还没读文章。')}</p>}
             </section>
           </div>
         </>}

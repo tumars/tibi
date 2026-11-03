@@ -9,7 +9,12 @@ import { SKILL_DEFS } from './skills.gen.js';
  * 用户不能新建或安装（B5 已砍）。
  */
 export interface SkillDef {
-  id: SkillId; title: string; description: string; allowed_tools: string[]; model: Tier; write: 'inherit' | 'ask'; body: string;
+  id: SkillId; title: string; description: string;
+  /** 常驻工具：每轮都带给模型 */
+  allowed_tools: string[];
+  /** 按需工具（10 §3.2）：平时不带，模型用引擎的 tool_search 搜到后下一轮生效 */
+  deferred_tools: string[];
+  model: Tier; write: 'inherit' | 'ask'; body: string;
 }
 
 export interface ResolvedSkill extends SkillDef { extra_instructions?: string; enabled: boolean; write_permission: 'inherit' | 'ask' }
@@ -36,12 +41,10 @@ export async function resolveSkill(db: Database, id: string): Promise<ResolvedSk
 
 export async function skillView(db: Database, id: string): Promise<Skill> {
   const s = await resolveSkill(db, id);
-  const month = new Date(); month.setDate(1); month.setHours(0, 0, 0, 0);
-  const cost = await db.get<{ c: number | null }>('SELECT sum(cost) AS c FROM usage_records WHERE skill_id = ? AND created_at >= ?', [id, month.getTime()]);
-  return { id: s.id, title: s.title, description: s.description, tools: s.allowed_tools, model_tier: s.model, extra_instructions: s.extra_instructions, write_permission: s.write_permission, enabled: s.enabled, month_cost: Number(cost?.c ?? 0) };
+  return { id: s.id, title: s.title, description: s.description, tools: s.allowed_tools, model_tier: s.model, extra_instructions: s.extra_instructions, write_permission: s.write_permission, enabled: s.enabled };
 }
 
-export function makeSkillMethods(runNow: (skill_id: SkillId, input: string, ctxCaller: { origin: 'ui' }) => Promise<{ task_id: string }>): MethodMap {
+export function makeSkillMethods(runNow: (skill_id: SkillId, input: string) => Promise<{ conversation_id: string; submission_id: string }>): MethodMap {
   const idSchema = Type.Union(SKILL_IDS.map(s => Type.Literal(s)));
   return {
     'skills.list': method(Type.Object({}), async (_p, ctx) => Promise.all(SKILL_IDS.map(id => skillView(ctx.db, id))), '设置页"Tibi 能做的事"'),
@@ -58,7 +61,7 @@ export function makeSkillMethods(runNow: (skill_id: SkillId, input: string, ctxC
       ctx.events.emit('data.changed', { table: 'skills', ids: [p.id] });
       return skillView(ctx.db, p.id);
     }, '恢复默认'),
-    'skills.runNow': method(Type.Object({ id: idSchema, input: Type.Optional(Type.String()) }), async (p) => runNow(p.id as SkillId, p.input ?? '', { origin: 'ui' }), '/ 直接调用'),
+    'skills.runNow': method(Type.Object({ id: idSchema, input: Type.Optional(Type.String()) }), async (p) => runNow(p.id as SkillId, p.input ?? ''), '直接运行一项技能：建一段 kind = skill 的对话（不进"最近"），在里面跑一轮'),
   };
 }
 

@@ -86,7 +86,7 @@ export async function insertLog(db: Database, l: LogInput): Promise<string> {
 export async function setTermStatus(db: Database, term: TermRow, status: Status, source: string): Promise<void> {
   const t = now();
   await db.run('UPDATE terms SET status = ?, status_source = ?, status_changed_at = ?, updated_at = ? WHERE id = ?', [status, source, t, t, term.id]);
-  await db.run('INSERT INTO term_status_log(id, term_id, status, source, prelabel, document_id, created_at) VALUES (?,?,?,?,NULL,NULL,?)', [uuidv7(), term.id, status, source, t]);
+  await db.run('INSERT INTO term_status_log(id, term_id, status, source, document_id, created_at) VALUES (?,?,?,?,NULL,?)', [uuidv7(), term.id, status, source, t]);
 }
 
 export async function addLearningEvent(db: Database, type: string, payload: unknown): Promise<void> {

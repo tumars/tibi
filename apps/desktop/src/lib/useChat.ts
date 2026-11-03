@@ -11,7 +11,12 @@ import { toast } from '../store/ui';
  */
 export type WidgetStates = Record<string, unknown>;
 /** resumed：离开再回来时已经在跑的回答，前面的文字没收到，等说完从库里读 */
-export type Live = { id: string; text: string; blocks: MessageBlock[]; tools: { tool: string; summary: string; done: boolean; status?: 'ok' | 'error' | 'denied' }[]; error?: string; done: boolean; resumed?: boolean };
+/** 进行中的一步：call_id 把开始和结束配对；started_at 用来显示正在进行的耗时 */
+export type LiveStep = { call_id?: string; tool: string; summary: string; done: boolean; status?: 'ok' | 'error' | 'denied'; detail?: string; result?: string; error?: string; duration_ms?: number; started_at?: number };
+/** thinking：模型的思考过程；think_ms：思考用了多久（开始出正文或调工具时算结束） */
+export type Live = { id: string; text: string; blocks: MessageBlock[]; tools: LiveStep[]; thinking?: string; think_start?: number; think_ms?: number; error?: string; done: boolean; resumed?: boolean };
+/** 思考段落结束：第一次出正文、调工具或说完时 */
+const endThinking = (l: Live): Live => (l.think_start && l.think_ms === undefined ? { ...l, think_ms: Date.now() - l.think_start } : l);
 export type ChatContext = NonNullable<Params<'chat.send'>['context']>;
 
 function appendText(blocks: MessageBlock[], delta: string): MessageBlock[] {
@@ -53,7 +58,9 @@ export function useChat(conversationId: string | undefined, o: { skill?: string;
       if (current.current !== conversationId) return;   // 等待时换了对话
       // 只给最新一页；已经翻出来的更早消息留着
       const first = c.messages[0]?.created_at ?? Infinity;
-      const merged = [...msgsRef.current.filter(m => m.created_at < first && !m.id.startsWith('local-')), ...c.messages];
+      // 刚发出、库里还没有的句子（打开对话的请求先回来了）留着，不然气泡会消失到下次刷新
+      const pending = msgsRef.current.filter(m => m.id.startsWith('local-') && !c.messages.some(s => s.role === 'user' && s.text === m.text && s.created_at >= m.created_at - 5000));
+      const merged = [...msgsRef.current.filter(m => m.created_at < first && !m.id.startsWith('local-')), ...c.messages, ...pending];
       setMsgs(merged); msgsRef.current = merged; opts.current.onConv?.(c); setReady(true);
       if (!cursorSet.current) { cursorSet.current = true; setCursor(c.cursor); }
       for (const [id, w] of [...unsaved.current]) if (saveWidget(id, w.state, w.result)) unsaved.current.delete(id);
@@ -61,12 +68,12 @@ export function useChat(conversationId: string | undefined, o: { skill?: string;
       const active = c.active ?? [];
       active.forEach(id => mine.current.add(id));
       setLive(ls => [
-        ...ls.filter(l => !c.messages.some(m => m.role === 'assistant' && m.task_id === l.id)),
-        ...active.filter(id => !ls.some(l => l.id === id) && !c.messages.some(m => m.role === 'assistant' && m.task_id === id)).map(id => {
+        ...ls.filter(l => !c.messages.some(m => m.role === 'assistant' && m.turn_id === l.id)),
+        ...active.filter(id => !ls.some(l => l.id === id) && !c.messages.some(m => m.role === 'assistant' && m.turn_id === id)).map(id => {
           // 接上已经说出来的部分，后面的增量接着往上加；进程重启过就没有，只能等说完
           const seen = c.live?.find(x => x.id === id);
           return seen
-            ? { id, text: '', blocks: seen.blocks, tools: seen.steps.map(s => ({ tool: s.tool, summary: s.summary, done: true, status: s.status })), done: false }
+            ? { id, text: '', blocks: seen.blocks, tools: seen.steps.map(s => ({ ...s, done: true })), ...(seen.thinking ? { thinking: seen.thinking } : {}), done: false }
             : { id, text: '', blocks: [], tools: [], done: false, resumed: true };
         }),
       ]);
@@ -100,18 +107,11 @@ export function useChat(conversationId: string | undefined, o: { skill?: string;
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); return undefined; }
   }, [conversationId]);
 
-  /** 回答反问卡：选项动作由内核执行；需要接着说时开一轮新的回答 */
+  /** 回答反问卡：Tibi 在这一轮里原地等着，回答交给它接着做 */
   const answer = useCallback(async (widget_id: string, option_ids: string[], text?: string) => {
-    const m = msgsRef.current.find(x => x.blocks?.some(b => b.type === 'widget' && b.id === widget_id));
-    if (!m) { toast(tl('稍等，Tibi 还在收尾')); return false; }
     try {
-      const r = await rpc.call('chat.answer', { message_id: m.id, widget_id, option_ids, text });
+      const r = await rpc.call('chat.answer', { widget_id, option_ids, text });
       setWidgetStates(s => ({ ...s, [widget_id]: r.state }));
-      if (r.submission_id) {
-        mine.current.add(r.submission_id);
-        setLive(l => l.some(x => x.id === r.submission_id) ? l : [...l, { id: r.submission_id!, text: '', blocks: [], tools: [], done: false }]);
-      }
-      void reload();
       return true;
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); void reload(); return false; }
   }, [reload]);
@@ -124,22 +124,28 @@ export function useChat(conversationId: string | undefined, o: { skill?: string;
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   }, []);
 
-  const retry = useCallback(async (task_id: string) => {
+  /** 停止或出错的那一轮重新回答 */
+  const retry = useCallback(async (turn_id: string) => {
+    if (!conversationId) return;
     try {
-      mine.current.add(task_id);
-      await rpc.call('tasks.retry', { id: task_id });
-      setMsgs(m => m.filter(x => !(x.role === 'assistant' && x.task_id === task_id)));
-      setLive(l => [...l.filter(x => x.id !== task_id), { id: task_id, text: '', blocks: [], tools: [], done: false }]);
+      mine.current.add(turn_id);
+      await rpc.call('chat.retry', { conversation_id: conversationId, turn_id });
+      setMsgs(m => m.filter(x => !(x.role === 'assistant' && x.turn_id === turn_id)));
+      setLive(l => [...l.filter(x => x.id !== turn_id), { id: turn_id, text: '', blocks: [], tools: [], done: false }]);
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  }, []);
+  }, [conversationId]);
 
-  const send = useCallback(async (t: string, ctx?: ChatContext, sk?: string, provider_id?: string) => {
+  /** quiet：回答中插话失败时不提示（调用方改为排队等这句答完） */
+  const send = useCallback(async (t: string, ctx?: ChatContext, sk?: string, provider_id?: string, quiet = false) => {
     const q = t.trim(); if (!q || !conversationId) return false;
     const localId = `local-${Date.now()}`;
     setLive(l => l.filter(x => !x.error));   // 上一句停止后留下的提示，不要压在新消息下面
     setMsgs(m => [...m, { id: localId, role: 'user', text: q, created_at: Date.now() }]);
     try {
-      const { submission_id } = await rpc.call('chat.send', { conversation_id: conversationId, text: q, context: ctx ?? opts.current.context, skill: sk ?? opts.current.skill, provider_id });
+      // 正在回答时再发：Core 把这句插进当前回答（steered），submission_id 还是那次回答
+      const { submission_id, answered } = await rpc.call('chat.send', { conversation_id: conversationId, text: q, context: ctx ?? opts.current.context, skill: sk ?? opts.current.skill, provider_id });
+      // Tibi 在等反问的回答：这句写在卡片上（"你说：…"），不另起气泡
+      if (answered) { setMsgs(m => m.filter(x => x.id !== localId)); void reload(); }
       mine.current.add(submission_id);
       setLive(l => l.some(x => x.id === submission_id) ? l : [...l, { id: submission_id, text: '', blocks: [], tools: [], done: false }]);
       // 第一句发出去，这段对话就该出现在左栏"最近"，不等回答结束
@@ -147,36 +153,50 @@ export function useChat(conversationId: string | undefined, o: { skill?: string;
       return true;
     } catch (e) {
       setMsgs(m => m.filter(x => x.id !== localId));
-      toast(errorInfo(e).message, { kind: 'err' });
+      if (!quiet) toast(errorInfo(e).message, { kind: 'err' });
       return false;
     }
-  }, [conversationId]);
+  }, [conversationId, reload]);
 
   useEffect(() => {
     const patch = (sid: string, f: (l: Live) => Live) => setLive(ls => ls.map(l => (l.id === sid ? f(l) : l)));
     const offs = [
-      rpc.on('chat.delta', d => { if (d.conversation_id === conversationId) patch(d.submission_id, l => l.resumed ? { ...l, done: l.done || !!d.done } : ({ ...l, text: l.text + d.delta, blocks: appendText(l.blocks, d.delta), done: l.done || !!d.done })); }),
+      rpc.on('chat.delta', d => { if (d.conversation_id === conversationId) patch(d.submission_id, l => l.resumed ? { ...l, done: l.done || !!d.done } : endThinking({ ...l, text: l.text + d.delta, blocks: appendText(l.blocks, d.delta), done: l.done || !!d.done })); }),
+      rpc.on('chat.thinking', d => { if (d.conversation_id === conversationId) patch(d.submission_id, l => l.resumed ? l : ({ ...l, thinking: (l.thinking ?? '') + d.delta, think_start: l.think_start ?? Date.now(), think_ms: undefined })); }),
       rpc.on('chat.block', d => { if (d.conversation_id === conversationId) patch(d.submission_id, l => l.resumed ? l : ({ ...l, blocks: [...l.blocks, d.block] })); }),
-      rpc.on('chat.tool', d => { if (!mine.current.has(d.task_id)) return; patch(d.task_id, l => {
-        if (d.phase === 'start') return { ...l, tools: [...l.tools, { tool: d.tool, summary: d.summary, done: false }] };
-        const i = l.tools.findIndex(t => t.tool === d.tool && !t.done);
-        return { ...l, tools: l.tools.map((t, k) => (k === i ? { ...t, done: true, status: d.status } : t)) };
+      rpc.on('chat.tool', d => { if (!mine.current.has(d.turn_id)) return; patch(d.turn_id, l0 => {
+        const l = endThinking(l0);
+        if (d.phase === 'start') {
+          // 同一个调用又开始（模型连续重试：每次重试都发开始，只在最后发一次结束）：更新那一步，不另起一行
+          const same = d.call_id ? l.tools.findIndex(t => t.call_id === d.call_id && !t.done) : -1;
+          if (same >= 0) return { ...l, tools: l.tools.map((t, k) => (k === same ? { ...t, summary: d.summary } : t)) };
+          return { ...l, tools: [...l.tools, { call_id: d.call_id, tool: d.tool, summary: d.summary, detail: d.detail, done: false, started_at: Date.now() }] };
+        }
+        // 按调用 ID 配对；旧事件没有 ID 时退回按工具名找第一个没做完的
+        const i = d.call_id ? l.tools.findIndex(t => t.call_id === d.call_id && !t.done) : l.tools.findIndex(t => t.tool === d.tool && !t.done);
+        return { ...l, tools: l.tools.map((t, k) => (k === i ? { ...t, done: true, status: d.status, result: d.result, error: d.error, duration_ms: d.duration_ms ?? (t.started_at ? Date.now() - t.started_at : undefined) } : t)) };
       }); }),
-      rpc.on('task.update', d => {
-        if (!mine.current.has(d.task.id) || (d.task.state !== 'err' && d.task.state !== 'cancel')) return;
-        patch(d.task.id, l => ({ ...l, done: true, error: d.task.state === 'cancel' ? tl('已停止') : d.task.error || tl('出错了') }));
+      rpc.on('chat.end', d => {
+        if (d.conversation_id !== conversationId || !mine.current.has(d.submission_id)) return;
+        const id = d.submission_id;
+        if (d.state === 'done') {
+          patch(id, l => ({ ...l, done: true }));
+          void reload().then(() => setLive(ls => ls.filter(l => l.id !== id || !!l.error)));
+          void useCore.getState().refresh();
+          return;
+        }
+        patch(id, l => ({ ...l, done: true, error: d.state === 'cancel' ? tl('已停止') : d.error || tl('出错了') }));
         // 说了一半的回答已经写库：换成库里那条；什么都没说时留着错误提示
         void reload();
       }),
-      rpc.on('task.done', d => { if (!mine.current.has(d.task.id)) return; patch(d.task.id, l => ({ ...l, done: true })); void reload().then(() => setLive(ls => ls.filter(l => l.id !== d.task.id || !!l.error))); void useCore.getState().refresh(); }),
-      rpc.on('approval.requested', d => { if (d.approval.conversation_id === conversationId || mine.current.has(d.approval.task_id)) setApprovals(a => [...a.filter(x => x.task_id !== d.approval.task_id), d.approval]); }),
-      rpc.on('approval.resolved', d => setApprovals(a => a.filter(x => x.task_id !== d.task_id))),
+      rpc.on('approval.requested', d => { if (d.approval.conversation_id === conversationId) setApprovals(a => [...a.filter(x => x.id !== d.approval.id), d.approval]); }),
+      rpc.on('approval.resolved', d => setApprovals(a => a.filter(x => x.id !== d.id))),
     ];
     return () => offs.forEach(off => off());
   }, [conversationId, reload]);
 
   const decide = useCallback(async (a: Approval, decision: 'allow' | 'deny' | 'edit', always = false, edited?: Record<string, unknown>) => {
-    try { await rpc.call('tasks.approve', { id: a.task_id, decision, always, edited }); setApprovals(x => x.filter(y => y !== a)); }   // 同一任务的下一张审批可能已经到了，不能按 task_id 删
+    try { await rpc.call('approvals.decide', { id: a.id, decision, always, edited }); setApprovals(x => x.filter(y => y.id !== a.id)); }
     catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   }, []);
   const running = live.find(l => !l.done);

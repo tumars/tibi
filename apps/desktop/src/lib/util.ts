@@ -1,4 +1,4 @@
-import type { Status } from '@tibi/core';
+import type { DocumentSummary, Status } from '@tibi/core';
 import { tl } from './i18n';
 
 /**
@@ -16,15 +16,19 @@ export function splitAnswer(sentence: string, answers: string[], surface?: strin
   return { before: sentence, mid: '', after: '' };
 }
 
-/** 词状态 → 着色 class（03 §6：生词荧光笔、学习中渐浅、待确认虚线；5 / 97 / 98 / 无行不标） */
-export function wordClass(status: Status | undefined): string {
-  if (status === undefined || status === 5 || status === 97 || status === 98) return 'w';
-  if (status === 99) return 'w s99';
+/** 词状态 → 着色 class（03 §6：只标用户标过的生词与学习中，生词荧光笔、学习中渐浅；5 / 97 / 98 / 无行 / 其他不标） */
+export function wordClass(status: Status | number | undefined): string {
+  if (status === undefined || !(status >= 0 && status <= 4)) return 'w';
   return `w s${status}`;
 }
 
-export const STATUS_NAMES: Record<number, string> = { 0: tl('生词'), 1: tl('见过'), 2: tl('眼熟'), 3: tl('认得'), 4: tl('熟悉'), 5: tl('掌握'), 97: tl('已知'), 98: tl('忽略'), 99: tl('待确认') };
+export const STATUS_NAMES: Record<number, string> = { 0: tl('生词'), 1: tl('见过'), 2: tl('眼熟'), 3: tl('认得'), 4: tl('熟悉'), 5: tl('掌握'), 97: tl('已知'), 98: tl('忽略') };
 export const GENRE_NAMES: Record<string, string> = { tech: tl('技术'), news: tl('新闻'), lit: tl('文学'), academic: tl('学术'), general: tl('一般') };
+
+/** 值得显示的来源：网址的域名、原文件名；粘贴的文字、内置示例这类不显示 */
+export function docSource(d: Pick<DocumentSummary, 'source' | 'source_type'>): string | undefined {
+  return ['url', 'file', 'image'].includes(d.source_type) ? d.source : undefined;
+}
 
 export function fmtMinutes(n: number) { return n < 1 ? tl('不到 1 分钟') : tl('约 {v0} 分钟', { v0: Math.round(n) }); }
 export function fmtPct(n: number) { return `${Math.round(n * 100)}%`; }

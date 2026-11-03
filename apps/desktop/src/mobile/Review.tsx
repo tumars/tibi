@@ -8,7 +8,6 @@ import { PlayButton, usePlayback } from '../review/PlayButton';
 import { Practice } from '../review/Practice';
 import { useReviewSession } from '../review/useReviewSession';
 import { useCore } from '../store/core';
-import { useUi } from '../store/ui';
 import { LevelUp } from '../components/LevelUp';
 import { Empty } from './ui';
 
@@ -40,7 +39,7 @@ export function MReview() {
 
 function Session({ onExit }: { onExit: () => void }) {
   const nav = useNavigate();
-  const streak = useCore(s => s.streak); const less = useUi(s => s.lessMascot);
+  const streak = useCore(s => s.streak);
   const r = useReviewSession();
   const { session, err, phase, setPhase, typed, setTyped, hints, setHints, done, item } = r;
   const { playing, toggle: togglePlay } = usePlayback(!item ? '' : item.intro ? item.term.display : item.context.sentence);
@@ -50,11 +49,11 @@ function Session({ onExit }: { onExit: () => void }) {
   if (!session) return <div className="screen" id="s-review" />;
   if (done || !item) {
     const s = r.summary();
-    const medal = session.kind !== 'drill' && !less && isStreakMilestone(streak);
+    const medal = session.kind !== 'drill' && isStreakMilestone(streak);
     return <div className="screen" id="s-review"><div className="topgap" /><div className="pad done">
       {session.steps.length === 0 ? <Empty image="empty-review" title={tl('今天没有要复习的')} text={tl('读文章时点开的生词会排进来。')} /> : <>
         <div className="fx"><Mascot id={medal ? 'celebrate-streak' : 'celebrate-review'} /></div>
-        <h3>{medal ? tl('连续 {n} 天。Tibi 有点意外。', { n: streak }) : !less && session.kind !== 'drill' && s.graded > 0 ? tl('{n} 张，全翻完了。', { n: s.graded }) : tl('今天的复习完成了')}</h3>
+        <h3>{medal ? tl('连续 {n} 天。Tibi 有点意外。', { n: streak }) : session.kind !== 'drill' && s.graded > 0 ? tl('{n} 张，全翻完了。', { n: s.graded }) : tl('今天的复习完成了')}</h3>
         <div className="k3"><div><b>{s.graded}</b><span>{tl('张卡')}</span></div><div><b>{s.correctPct}%</b><span>{tl('首次就答对')}</span></div><div><b>{s.minutes}</b><span>{tl('分钟')}</span></div></div>
         {s.wrong.length > 0 && <button className="btn full" style={{ marginBottom: 8 }} onClick={() => void r.drill(s.wrong)}>{tl('再练 {length} 个错词（不计分）', { length: s.wrong.length })}</button>}
         <button className="story" style={{ width: '100%' }} onClick={() => void r.story()}><b>{tl('读一篇用到这些词的短文')}</b><span>{tl('Tibi 写好后放进书架')}</span></button>

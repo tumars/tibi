@@ -40,12 +40,12 @@ export const searchMethods: MethodMap = {
       } catch { /* FTS 语法不合法时只给标题结果 */ }
     }
 
-    // 单词：只列生词本里的、学过的或待确认的（标为已知 97 / 忽略 98 的除外）；英文前缀、词形、中文释义都能搜
+    // 单词：只列生词本里的和学过的（标为已知 97 / 忽略 98 的除外）；英文前缀、词形、中文释义都能搜
     const lemma = /^[A-Za-z][A-Za-z'-]*$/.test(q) ? await lemmatize(normalizeCase(q, true), ctx.dict) : undefined;
     const terms = (await ctx.db.all<{ id: string; text: string; text_display: string; meaning: string | null; status: Status; rank: number }>(
       `SELECT id, text, text_display, meaning, status,
               CASE WHEN text = ? OR text = ? THEN 0 WHEN text LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END AS rank
-       FROM terms WHERE deleted_at IS NULL AND status NOT IN (97, 98) AND (in_wordbook = 1 OR status BETWEEN 0 AND 5 OR status = 99)
+       FROM terms WHERE deleted_at IS NULL AND status NOT IN (97, 98) AND (in_wordbook = 1 OR status BETWEEN 0 AND 5)
          AND (text LIKE ? ESCAPE '\\' OR lower(text_display) LIKE ? ESCAPE '\\' OR meaning LIKE ? ESCAPE '\\')
        ORDER BY rank, length(text) LIMIT ?`,
       [q.toLowerCase(), lemma ?? '', `${q.toLowerCase().replace(/[\\%_]/g, m => `\\${m}`)}%`, L, L, like(q), n])).map(t => ({ id: t.id, text: t.text, display: t.text_display, meaning: t.meaning ?? undefined, status: t.status }));

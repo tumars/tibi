@@ -6,7 +6,7 @@ import { locale, tl } from '../lib/i18n';
 import { isImeKey } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
-import { toast, useUi } from '../store/ui';
+import { toast } from '../store/ui';
 import { MODES } from './Practice';
 
 type Data = Result<'review.overview'>;
@@ -27,7 +27,7 @@ function ago(ts: number): string {
  */
 export function ReviewOverview() {
   const nav = useNavigate();
-  const streak = useCore(s => s.streak); const less = useUi(s => s.lessMascot);
+  const streak = useCore(s => s.streak);
   const recognizeLabel = useRecognize();
   const [d, setD] = useState<Data>();
   const [err, setErr] = useState<string>();
@@ -83,7 +83,7 @@ export function ReviewOverview() {
         </div>
       ) : (
         <div className="rvhero calm">
-          {!less && d.today.reviews > 0 && <Mascot id="celebrate-review" />}
+          {d.today.reviews > 0 && <Mascot id="celebrate-review" />}
           <div className="m">
             <span className="k">{tl('今天')}</span>
             <b className="big">{d.today.reviews > 0 ? tl('今天的复习做完了') : tl('今天没有要复习的')}</b>

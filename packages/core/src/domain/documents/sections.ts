@@ -3,7 +3,6 @@ import type { Ctx } from '../../rpc/define.js';
 import { TibiError, type AiResult, type SectionBlock, type Sentence, type SectionContent, type Status, type Token } from '../../types.js';
 import { recordUndo, registerUndo } from '../shared/undo.js';
 import { getTermsByTexts } from '../terms/repo.js';
-import { applyStatus } from '../terms/service.js';
 import { shortGloss } from '../terms/views.js';
 import { getSection, listSentences, getDocument, listSections } from './repo.js';
 import { splitBlocks } from '../text/segment.js';
@@ -25,7 +24,7 @@ export async function sectionContent(db: Database, section_id: string, opts: { t
   const rows = await listSentences(db, section_id);
   const lemmas = [...new Set(rows.flatMap(r => j.parse<Token[]>(r.tokens, []).map(t => t.l)))];
   const terms = await getTermsByTexts(db, lemmas);
-  const counts = { new: 0, learning: 0, unsure: 0 };
+  const counts = { new: 0, learning: 0 };
   const seenCount = new Set<string>();
   // 短语：这一章里登记过语境的短语
   const phraseRows = await db.all<{ id: string; text: string; sentence_id: string }>("SELECT t.id, t.text, tc.sentence_id FROM terms t JOIN term_contexts tc ON tc.term_id = t.id AND tc.deleted_at IS NULL JOIN sentences s ON s.id = tc.sentence_id WHERE t.kind = 'phrase' AND t.deleted_at IS NULL AND t.status NOT IN (98) AND s.section_id = ?", [section_id]);
@@ -36,12 +35,13 @@ export async function sectionContent(db: Database, section_id: string, opts: { t
     const tokens = j.parse<Token[]>(r.tokens, []).map(t => {
       const term = terms.get(t.l);
       const out: Token = { t: t.t, l: t.l, s: t.s, e: t.e };
-      if (term && !term.deleted_at && term.status !== 5 && term.status !== 97) {
+      // 只有用户标过的生词 / 学习中（0–4）和忽略（98）带状态；5、97 不标；旧数据里的 99（待确认）当作没有行
+      if (term && !term.deleted_at && ((term.status >= 0 && term.status <= 4) || term.status === 98)) {
         out.status = term.status as Status;
-        // 行间释义：这句里的语境义 > 用户写的释义 > 词典短释义。待确认的词也带上，确认成学习中后不用重新取
+        // 行间释义：这句里的语境义 > 用户写的释义 > 词典短释义
         const gloss = term.status === 98 ? undefined : shortGloss(inContext.get(r.id)?.[t.l]) || shortGloss(term.meaning) || term.short_gloss;
         if (gloss) out.gloss = gloss;
-        if (!seenCount.has(term.id)) { seenCount.add(term.id); if (term.status === 0) counts.new++; else if (term.status >= 1 && term.status <= 4) counts.learning++; else if (term.status === 99) counts.unsure++; }
+        if (!seenCount.has(term.id)) { seenCount.add(term.id); if (term.status === 0) counts.new++; else if (term.status <= 4) counts.learning++; }
       }
       return out;
     });
@@ -89,10 +89,9 @@ export async function setProgress(db: Database, section_id: string, sentence_id:
 }
 
 /**
- * sections.finish：读完一章。mark_rest_known 只把 status = 0 的词设为 97（R5）：
- * 不动待确认（99）、不设为 5；没有行的词本来就是已知，不用管。带撤销。
+ * sections.finish：读完一章。只记进度和事件，不改任何词的状态——生词都是用户自己标的，读完不等于认识了。
  */
-export async function finishSection(ctx: Ctx, section_id: string, mark_rest_known: boolean): Promise<{ marked: number; undo?: import('../../types.js').Undo }> {
+export async function finishSection(ctx: Ctx, section_id: string): Promise<{ ok: true }> {
   const sec = await getSection(ctx.db, section_id); if (!sec) throw new TibiError('not_found', '找不到这一章');
   const t = now();
   await ctx.db.transaction(async tx => {
@@ -102,16 +101,8 @@ export async function finishSection(ctx: Ctx, section_id: string, mark_rest_know
     await tx.run('UPDATE documents SET progress = ?, last_section_id = ?, last_read_at = ?, finished_at = CASE WHEN ? THEN COALESCE(finished_at, ?) ELSE finished_at END, updated_at = ? WHERE id = ?', [allDone ? 1 : secs.reduce((a, s) => a + (s.id === section_id ? 1 : Number(s.progress)) * Number(s.word_count), 0) / (secs.reduce((a, s) => a + Number(s.word_count), 0) || 1), section_id, t, allDone ? 1 : 0, t, t, sec.document_id]);
     await tx.run('INSERT INTO learning_events(id, type, payload, created_at) VALUES (?,?,?,?)', [crypto.randomUUID(), 'section_finished', j.str({ document_id: sec.document_id, section_id, all_done: allDone }), t]);
   });
-  let marked = 0; let undo: import('../../types.js').Undo | undefined;
-  if (mark_rest_known) {
-    const rows = await ctx.db.all<{ id: string }>("SELECT DISTINCT t.id FROM terms t JOIN term_contexts tc ON tc.term_id = t.id AND tc.deleted_at IS NULL JOIN sentences s ON s.id = tc.sentence_id WHERE s.section_id = ? AND t.status = 0 AND t.kind = 'word' AND t.deleted_at IS NULL", [section_id]);
-    if (rows.length) {
-      const r = await applyStatus(ctx, rows.map(x => x.id), 97, 'page_done', sec.document_id);
-      marked = r.changed; undo = r.undo;
-    }
-  }
   ctx.events.emit('data.changed', { table: 'documents', ids: [sec.document_id] });
-  return { marked, undo };
+  return { ok: true };
 }
 
 /** documents.delete：软删，可撤销 */

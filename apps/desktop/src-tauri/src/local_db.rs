@@ -65,7 +65,8 @@ fn dict_path(app: &AppHandle) -> Option<std::path::PathBuf> {
     }
     #[cfg(not(target_os = "android"))]
     {
-        res.exists().then_some(res)
+        // 空文件是让 tauri-build 编过的占位，按没有词典处理
+        std::fs::metadata(&res).is_ok_and(|m| m.len() > 0).then_some(res)
     }
 }
 

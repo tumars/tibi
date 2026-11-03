@@ -184,18 +184,25 @@ fn window_set_tray_mode(keep_running: bool, mode: State<'_, TrayMode>) -> Value 
     json!({ "ok": true })
 }
 
-/// 深链：只认 tibi://import?url=…，其余丢弃；WebView 收到后先弹确认卡（06 §7）
+/// 深链（06 §7）：tibi://import?url=… 交给 WebView 先弹确认卡；其余 tibi:// 原样交给 WebView，
+/// 由它按白名单（core 的 deeplink.ts）解析成页面跳转，不认识的丢弃。都只是跳转，不在这里做写入
 fn handle_deep_link(app: &AppHandle, urls: &[tauri::Url]) {
     for u in urls {
-        if u.scheme() != "tibi" || u.host_str() != Some("import") {
+        if u.scheme() != "tibi" {
             continue;
         }
-        if let Some((_, v)) = u.query_pairs().find(|(k, _)| k == "url") {
-            let _ = app.emit("deep_link", json!({ "action": "import", "url": v.to_string() }));
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-                let _ = w.set_focus();
+        let payload = if u.host_str() == Some("import") {
+            match u.query_pairs().find(|(k, _)| k == "url") {
+                Some((_, v)) => json!({ "action": "import", "url": v.to_string() }),
+                None => continue,
             }
+        } else {
+            json!({ "action": "open", "url": u.as_str() })
+        };
+        let _ = app.emit("deep_link", payload);
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.show();
+            let _ = w.set_focus();
         }
     }
 }
@@ -310,10 +317,12 @@ fn run_desktop() {
                 let handle = app.handle().clone();
                 app.deep_link().on_open_url(move |event| handle_deep_link(&handle, &event.urls()));
             }
-            // E2：macOS 侧栏 vibrancy（失败不阻塞）
+            // E2：macOS 侧栏 vibrancy（失败不阻塞）。窗口透明只在 tauri.macos.conf.json 里开，圆角交给系统窗口
             #[cfg(target_os = "macos")]
             if let Some(w) = app.get_webview_window("main") {
-                let _ = window_vibrancy::apply_vibrancy(&w, window_vibrancy::NSVisualEffectMaterial::Sidebar, None, Some(12.0));
+                if let Err(e) = window_vibrancy::apply_vibrancy(&w, window_vibrancy::NSVisualEffectMaterial::Sidebar, None, None) {
+                    log::warn!("侧栏材质没加上：{e}");
+                }
             }
             // 托盘：关窗口后 Core 留在托盘继续跑（可设置）
             {
@@ -337,6 +346,12 @@ fn run_desktop() {
                     }
                     _ => {}
                 });
+                // mac 菜单栏用单色模板图，系统按深浅色着色；其他平台用应用图标
+                #[cfg(target_os = "macos")]
+                {
+                    tray = tray.icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray-template.png"))?).icon_as_template(true);
+                }
+                #[cfg(not(target_os = "macos"))]
                 if let Some(icon) = app.default_window_icon() {
                     tray = tray.icon(icon.clone());
                 }

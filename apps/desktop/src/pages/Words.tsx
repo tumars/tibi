@@ -1,19 +1,20 @@
 import type { Status, Term, TermDetail } from '@tibi/core';
-import { Volume2, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { SpeakButtons } from '../components/Speak';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Empty } from '../components/Empty';
 import { Menu } from '../components/Menu';
 import { Top } from '../components/Shell';
 import { pickFile, saveText } from '../lib/files';
-import { fmtAgo, speak, STATUS_NAMES } from '../lib/util';
+import { fmtAgo, STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc, type Params } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
 
 type View = NonNullable<Params<'terms.list'>['view']>;
 const VIEWS: { key: View; label: string }[] = [{ key: 'all', label: tl('全部') }, { key: 'due', label: tl('今天到期') }, { key: 'leech', label: tl('难词') }, { key: 'known', label: tl('不在复习里') }];
-const SUB: { key: View; label: string }[] = [{ key: 'known', label: tl('标为已知') }, { key: 'unsure', label: tl('待确认') }, { key: 'mastered', label: tl('已掌握') }, { key: 'ignored', label: tl('已忽略') }];
+const SUB: { key: View; label: string }[] = [{ key: 'known', label: tl('标为已知') }, { key: 'mastered', label: tl('已掌握') }, { key: 'ignored', label: tl('已忽略') }];
 
 function dueLabel(due?: number) {
   if (!due) return '—';
@@ -99,7 +100,7 @@ export function Words() {
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
             <b style={{ fontFamily: 'var(--f-read)', fontSize: 26 }}>{detail.display}</b>
             {detail.ipa && <span className="lbl" style={{ fontFamily: 'var(--f-read)', fontStyle: 'italic', fontSize: 14 }}>/{detail.ipa}/</span>}
-            <button className="ibtn" onClick={() => speak(detail.display)} title={tl('发音')}><Volume2 /></button>
+            <SpeakButtons text={detail.display} size={16} />
             <span className="sp" />
             <button className="ibtn" onClick={() => setDetail(undefined)} aria-label={tl('关闭')}><X /></button>
           </div>

@@ -3,17 +3,19 @@
  */
 import type {
   Answer, AnswerResult, MessageBlock, MessageStep, WidgetBlock, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession, Skill,
-  DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, Task, TaskId, TaskSummary, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval, AskState,
+  DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, TurnId, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval, AskState,
 } from '@tibi/core';
 
+export interface WebSearchConfig { provider: 'deepseek' | 'tavily' | 'off'; deepseek_ready: boolean; tavily_ready: boolean }
+
 export interface MethodTable {
-  'system.status': { params: Record<string, never>; result: { version: string; db_path: string; offline: boolean; models: { fast?: string; deep?: string; ok: boolean }; budget: { month_spent: number; limit: number; per_task: number }; pending_approvals: number; running_tasks: number } };
+  'system.status': { params: Record<string, never>; result: { version: string; db_path: string; offline: boolean; models: { fast?: string; deep?: string; ok: boolean } } };
   'system.undo': { params: { undo_id: Id }; result: Ok };
   'system.registerPaths': { params: { paths: string[] }; result: Ok };
   'system.backup': { params: { reason?: 'manual' | 'before_reset' | 'before_restore' | 'before_update' }; result: { path: string; size: number; created_at: number } };
   'system.backups': { params: Record<string, never>; result: { auto: boolean; dir_supported: boolean; items: { name: string; path: string; size: number; created_at: number; reason: 'auto' | 'manual' | 'before_reset' | 'before_restore' | 'before_update' }[] } };
   'stats.export_summary': { params: Record<string, never>; result: UsageSummary };
-  'documents.import': { params: { source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' }; result: { task_id: TaskId } };
+  'documents.import': { params: { source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' }; result: { import_id: Id } };
   'documents.samples': { params: Record<string, never>; result: SampleInfo[] };
   'documents.checkUrl': { params: { url: string }; result: { ok: boolean; url?: string; host?: string; error?: string } };
   'documents.list': { params: { kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; status?: 'unread' | 'reading' | 'done'; cursor?: string; limit?: number }; result: Page<DocumentSummary> };
@@ -21,13 +23,13 @@ export interface MethodTable {
   'documents.update': { params: { id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean } }; result: Document };
   'documents.delete': { params: { id: Id }; result: Undo };
   'sections.get': { params: { id: Id; with?: ('translations' | 'ai')[] }; result: SectionContent };
-  'sections.translate': { params: { id: Id; sentence_ids?: Id[] }; result: { task_id: TaskId } };
-  'documents.analyze': { params: { id: Id }; result: { task_id: TaskId } };
+  'sections.translate': { params: { id: Id; sentence_ids?: Id[] }; result: Ok };
+  'documents.analyze': { params: { id: Id }; result: Ok };
   'sections.progress': { params: { id: Id; sentence_id: Id; progress: number }; result: Ok };
-  'sections.finish': { params: { id: Id; mark_rest_known: boolean }; result: { marked: number; undo?: Undo } };
+  'sections.finish': { params: { id: Id }; result: Ok };
   'terms.lookup': { params: { text: string; sentence_id?: Id }; result: { dict?: DictEntry; term?: Term; context_meaning?: string; status_change?: { from: Status; to: Status }; card_created?: boolean } };
   'terms.context_meaning': { params: { text: string; sentence_id: Id }; result: { meaning: string; cached: boolean } };
-  'terms.list': { params: { view?: 'all' | 'due' | 'late' | 'new' | 'leech' | 'stuck' | 'stale' | 'unsure' | 'ignored' | 'known' | 'mastered'; status?: Status[]; kind?: 'word' | 'phrase'; document_id?: Id; tags?: string[]; q?: string; sort?: 'due' | 'added' | 'enc' | 'alpha' | 'stage' | 'freq'; cursor?: string; limit?: number }; result: Page<Term> & { counts: Record<string, number> } };
+  'terms.list': { params: { view?: 'all' | 'due' | 'late' | 'new' | 'leech' | 'stuck' | 'stale' | 'ignored' | 'known' | 'mastered'; status?: Status[]; kind?: 'word' | 'phrase'; document_id?: Id; tags?: string[]; q?: string; sort?: 'due' | 'added' | 'enc' | 'alpha' | 'stage' | 'freq'; cursor?: string; limit?: number }; result: Page<Term> & { counts: Record<string, number> } };
   'terms.export': { params: { format: 'csv' | 'anki' | 'txt'; ids?: Id[]; with_contexts?: boolean }; result: { filename: string; text: string; count: number } };
   'terms.import': { params: { path: string; format: 'csv' | 'txt' | 'anki' | 'known' }; result: { added: number; known: number; skipped: number; total: number } };
   'terms.add': { params: { entries: { text: string; meaning?: string }[] }; result: { created: Term[]; undo?: Undo } };
@@ -42,6 +44,7 @@ export interface MethodTable {
   'sync.disable': { params: Record<string, never>; result: Ok };
   'terms.get': { params: { id: Id } | { text: string }; result: TermDetail };
   'terms.setStatus': { params: { ids: Id[]; status: Status; source?: 'user' | 'page_done' }; result: { changed: number; undo: Undo } };
+  'terms.mark': { params: { text: string; status: Status; sentence_id?: Id }; result: { term: Term; previous?: Status; undo: Undo } };
   'terms.remove': { params: { ids: Id[] }; result: Undo };
   'review.start': { params: { resume?: boolean; ahead?: boolean; limit?: number }; result: ReviewSession };
   'review.preview': { params: { card_id: Id }; result: IntervalPreview };
@@ -52,33 +55,32 @@ export interface MethodTable {
   'review.pause': { params: { session_id: Id }; result: Ok };
   'review.overview': { params: Record<string, never>; result: { due: number; late: number; fresh: number; new_waiting: number; daily_new: number; open?: { session_id: Id; total: number; left: number; started_at: number; updated_at: number }; today: { reviews: number; correct: number; minutes: number; new_learned: number }; later_today: number; forecast: number[]; leeches: number; mistakes: { term_id: Id; display: string; meaning: string; lapses: number }[] } };
   'review.quiz': { params: { term_ids?: Id[]; count?: number; from?: 'session_mistakes' }; result: ReviewSession };
-  'review.story': { params: { term_ids: Id[] }; result: { task_id: TaskId } };
+  'review.story': { params: { term_ids: Id[] }; result: { import_id: Id } };
   'practice.start': { params: { mode: 'dictation' | 'spell' | 'confusable' | 'produce'; source: 'recent' | 'mistakes' | 'leech' | 'document'; document_id?: Id; count?: number }; result: { practice_id: Id; items: { id: string; mode: string; sentence: string; options?: [string, string]; answer?: string; explain?: string; source: { document_id?: Id; term_id?: Id } }[] } };
   'practice.grade': { params: { word: string; text: string; sentence?: string }; result: { score: number; ok: boolean; feedback: string; better?: string } };
   'practice.finish': { params: { practice_id: Id; results: { item_id: string; accuracy: number; duration_ms: number }[] }; result: { practice_id: Id; accuracy: number; duration_ms: number; best: { dictation_accuracy: number; rounds: number } } };
-  'stats.summary': { params: { range: 30 | 90 | 180 }; result: { known: number; known_delta: number; prev_delta: number; minutes: number; words: number; study_days: number; streak: number; longest_streak: number; reviews: number; retention: number } };
-  'stats.series': { params: { metrics: ('known' | 'minutes' | 'words' | 'reviews')[]; days: number }; result: { dates: number[]; series: Record<string, number[]> } };
+  'stats.summary': { params: { range: 30 | 90 | 180 }; result: { mastered: number; mastered_delta: number; prev_delta: number; minutes: number; words: number; study_days: number; streak: number; longest_streak: number; reviews: number; retention: number } };
+  'stats.series': { params: { metrics: ('mastered' | 'minutes' | 'words' | 'reviews')[]; days: number }; result: { dates: number[]; series: Record<string, number[]> } };
   'stats.retention': { params: { weeks: number }; result: { weeks: { ratings: [number, number, number, number]; retention: number }[]; lapses: number; leeches: number } };
-  'stats.genres': { params: { range: number }; result: { genre: Genre; words: number; unknown_ratio: number }[] };
+  'stats.genres': { params: { range: number }; result: { genre: Genre; words: number }[] };
   'stats.insight': { params: { regenerate?: boolean }; result: { insight?: { text: string; actions: { label: string; route: string }[]; generated_at: number; cost: number } } };
   'stats.forecast': { params: { days?: number }; result: { days: number[]; target_retention: number } };
   'stats.stages': { params: Record<string, never>; result: { stages: number[] } };
   'profile.get': { params: Record<string, never>; result: Profile };
   'profile.update': { params: { patch: Omit<Partial<Profile>, 'assistant_prefs'> & { assistant_prefs?: Partial<Profile['assistant_prefs']> } }; result: Profile };
-  'vocab.start': { params: Record<string, never>; result: { bands: { label: string; words: string[] }[] } };
-  'vocab.submit': { params: { picks: string[][] }; result: { estimate: number; cefr: string; bands: number[]; pseudo_hits: number } };
   'settings.get': { params: { keys?: string[] }; result: Record<string, unknown> };
   'settings.set': { params: { patch: Record<string, unknown> }; result: Record<string, unknown> };
   'providers.list': { params: Record<string, never>; result: Provider[] };
-  'providers.upsert': { params: { provider: Omit<Provider, 'id' | 'has_secret' | 'month_cost'> & { id?: Id }; secret_ref?: string }; result: Provider };
+  'providers.upsert': { params: { provider: Omit<Provider, 'id' | 'has_secret'> & { id?: Id }; secret_ref?: string }; result: Provider };
   'providers.delete': { params: { id: Id }; result: { ok: true; secret_ref?: string } };
   'providers.test': { params: { id: Id }; result: { ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string } };
-  'tasks.list': { params: { limit?: number }; result: { running: TaskSummary[]; pending: Approval[]; history: TaskSummary[]; kpis: { running: number; week_done: number; week_failed: number; month_cost: number; budget: number; top_skill: { id: string; cost: number } } } };
   'chat.list': { params: { limit?: number }; result: Conversation[] };
   'skills.list': { params: Record<string, never>; result: Skill[] };
   'skills.update': { params: { id: string; patch: { model_tier?: 'fast' | 'deep'; extra_instructions?: string; write_permission?: 'inherit' | 'ask'; enabled?: boolean } }; result: Skill };
   'skills.reset': { params: { id: string }; result: Skill };
-  'skills.runNow': { params: { id: string; input?: string }; result: { task_id: TaskId } };
+  'skills.runNow': { params: { id: string; input?: string }; result: { conversation_id: Id; submission_id: TurnId } };
+  'websearch.config': { params: Record<string, never>; result: WebSearchConfig };
+  'websearch.configure': { params: { provider: WebSearchConfig['provider'] }; result: WebSearchConfig };
   'feeds.list': { params: Record<string, never>; result: { url: string; title: string; builtin: boolean; enabled: boolean }[] };
   'mcp.config': { params: Record<string, never>; result: { enabled: boolean; write_tools: string[]; tools: { name: string; description: string; write: boolean }[] } };
   'mcp.configure': { params: { enabled?: boolean; write_tools?: string[] }; result: Ok };
@@ -88,22 +90,18 @@ export interface MethodTable {
   'memory.delete': { params: { id: Id }; result: Undo };
   'memory.pause': { params: { paused: boolean }; result: Ok };
   'memory.clear': { params: Record<string, never>; result: Undo };
-  'chat.open': { params: { conversation_id?: Id; document_id?: Id; today?: boolean }; result: Conversation & { messages: Message[]; cursor?: string; active?: TaskId[]; approvals?: Approval[]; live?: { id: TaskId; blocks: MessageBlock[]; steps: MessageStep[] }[] } };
-  'chat.send': { params: { conversation_id: Id; text: string; context?: { page: string; document_id?: Id; section_id?: Id; sentence_id?: Id; selection?: string; card_id?: Id }; skill?: string; tier?: 'fast' | 'deep'; provider_id?: string }; result: { submission_id: TaskId } };
-  'chat.cancel': { params: { submission_id: TaskId }; result: Ok };
+  'chat.open': { params: { conversation_id?: Id; document_id?: Id; today?: boolean }; result: Conversation & { messages: Message[]; cursor?: string; active?: TurnId[]; approvals?: Approval[]; live?: { id: TurnId; blocks: MessageBlock[]; steps: MessageStep[]; thinking?: string }[] } };
+  'chat.send': { params: { conversation_id: Id; text: string; context?: { page: string; document_id?: Id; section_id?: Id; sentence_id?: Id; selection?: string; card_id?: Id }; skill?: string; tier?: 'fast' | 'deep'; provider_id?: string }; result: { submission_id: TurnId; steered?: boolean; answered?: boolean } };
+  'chat.cancel': { params: { submission_id: TurnId }; result: Ok };
+  'chat.retry': { params: { conversation_id: Id; turn_id: TurnId }; result: { submission_id: TurnId } };
   'chat.widget_update': { params: { message_id: Id; widget_id: Id; state: unknown; result?: string }; result: Ok };
-  'chat.answer': { params: { message_id: Id; widget_id: Id; option_ids: string[]; text?: string }; result: { state: AskState; submission_id?: TaskId } };
+  'chat.answer': { params: { widget_id: Id; option_ids: string[]; text?: string }; result: { state: AskState } };
   'chat.rewind': { params: { conversation_id: Id; message_id: Id }; result: { text: string; skill?: string } };
   'chat.receipt_undone': { params: { message_id: Id; undo_id: Id }; result: Ok };
   'chat.rename': { params: { conversation_id: Id; title: string }; result: Conversation };
   'chat.delete': { params: { conversation_id: Id }; result: Ok };
-  'tasks.approve': { params: { id: TaskId; decision: 'allow' | 'deny' | 'edit'; edited?: Record<string, unknown>; always?: boolean }; result: TaskSummary };
-  'tasks.get': { params: { id: TaskId }; result: Task };
-  'tasks.cancel': { params: { id: TaskId }; result: TaskSummary };
-  'tasks.retry': { params: { id: TaskId }; result: TaskSummary };
-  'tasks.pause': { params: { id: TaskId }; result: TaskSummary };
-  'tasks.resume': { params: { id: TaskId }; result: TaskSummary };
-  'tasks.diagnostics': { params: { id: TaskId }; result: Record<string, unknown> };
+  'approvals.list': { params: { conversation_id?: Id }; result: Approval[] };
+  'approvals.decide': { params: { id: Id; decision: 'allow' | 'deny' | 'edit'; edited?: Record<string, unknown>; always?: boolean }; result: Ok };
   'chat.history': { params: { conversation_id: Id; cursor?: string }; result: Page<Message> };
 }
 
@@ -119,16 +117,19 @@ export interface SyncStatus {
 }
 
 export interface EventTable {
-  'task.update': { task: TaskSummary; steps?: unknown[] };
-  'task.done': { task: TaskSummary; result?: { document_id?: Id; summary: string; action?: { label: string; route: string } } };
+  /** origin = chat：Tibi 在对话里起的导入，进度和结果显示在对话的导入卡上，不弹全局提示 */
+  'import.progress': { import_id: Id; title: string; label: string; origin: 'user' | 'deeplink' | 'mcp' | 'share' | 'chat' };
+  'import.done': { import_id: Id; title: string; origin: 'user' | 'deeplink' | 'mcp' | 'share' | 'chat'; ok: boolean; document_id?: Id; duplicate?: boolean; minutes?: number; level?: string; summary?: string; action?: { label: string; route: string }; error?: string };
+  'chat.end': { conversation_id: Id; submission_id: TurnId; state: 'done' | 'error' | 'cancel'; error?: string };
   'approval.requested': { approval: Approval };
-  'approval.resolved': { task_id: TaskId; decision: 'allow' | 'deny' | 'edit' };
+  'approval.resolved': { id: Id; decision: 'allow' | 'deny' | 'edit' };
   'data.changed': { table: 'documents' | 'terms' | 'cards' | 'memories' | 'skills' | 'settings' | 'sentences'; ids?: Id[] };
-  'usage.updated': { skill_id: string; month_cost: number; total: number };
-  'model.status': { ok: boolean; reason?: 'offline' | 'unauthorized' | 'budget' };
-  'chat.delta': { conversation_id: Id; submission_id: TaskId; delta: string; done?: boolean };
-  'chat.block': { conversation_id: Id; submission_id: TaskId; block: WidgetBlock };
-  'chat.tool': { conversation_id?: Id; task_id: TaskId; phase: 'start' | 'end'; tool: string; skill_id: string; status?: 'ok' | 'error' | 'denied'; summary: string; duration_ms?: number };
+  'model.status': { ok: boolean; reason?: 'offline' | 'unauthorized' };
+  'chat.delta': { conversation_id: Id; submission_id: TurnId; delta: string; done?: boolean };
+  'chat.block': { conversation_id: Id; submission_id: TurnId; block: WidgetBlock };
+  'chat.thinking': { conversation_id: Id; submission_id: TurnId; delta: string };
+  /** call_id 把开始和结束配成一对；end 带结果摘要、出错原因和耗时 */
+  'chat.tool': { conversation_id?: Id; turn_id: TurnId; phase: 'start' | 'end'; tool: string; skill_id: string; status?: 'ok' | 'error' | 'denied'; summary: string; call_id?: string; detail?: string; result?: string; error?: string; duration_ms?: number };
   'sync.update': { state: 'idle' | 'syncing' | 'error'; pushed?: number; pulled?: number; last_synced_at?: number; error?: { code: string; message: string } };
 }
 export type EventName = keyof EventTable;

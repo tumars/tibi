@@ -3,5 +3,6 @@ export { nodePlatform, checkUrl } from './platform.js';
 export { htmlToMarkdown } from './html2md.js';
 export { SqliteDict, parseExchange } from './dict.js';
 export { createCore } from './create.js';
+export { PiEngine, type PiEngineOptions } from './engine-pi.js';
 export { attachStdio, startWebSocket } from './transport.js';
 export { folderBackend, syncFolder } from './syncfolder.js';

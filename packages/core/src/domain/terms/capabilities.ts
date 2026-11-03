@@ -69,7 +69,7 @@ export const termsCapabilities: CapabilityMap = {
     async run(p, ctx) { return { removed: p.ids.length, undo: await removeTerms(ctx, p.ids) }; },
   }),
   list_terms: capability({
-    name: 'list_terms', description: '生词本列表（到期 / 逾期 / 新词 / 难词 / 没进步 / 很久没遇见 / 待确认）', perm: 'read',
+    name: 'list_terms', description: '生词本列表（到期 / 逾期 / 新词 / 难词 / 没进步 / 很久没遇见）', perm: 'read',
     params: Type.Object({ view: Type.Optional(Type.Union(VIEWS.filter(v => !['all', 'ignored', 'known', 'mastered'].includes(v)).map(v => Type.Literal(v)))), status: Type.Optional(Type.Array(S.status)), document_id: Type.Optional(S.id), tags: Type.Optional(Type.Array(Type.String())), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })) }),
     async run(p, ctx) { const r = await listTerms(ctx.db, ctx.dict, { ...p, limit: p.limit ?? 50 } as never); return { items: r.items, counts: r.counts }; },
   }),
@@ -84,7 +84,7 @@ export const termsCapabilities: CapabilityMap = {
     },
   }),
   mark_term: capability({
-    name: 'mark_term', description: '改一个词的熟练度（0–5、97 标为已知、98 忽略）', perm: 'write', undoable: true, replay: 'safe',
+    name: 'mark_term', description: '改一个词的熟练度（0–5、97 标为已知、98 忽略）', perm: 'write', undoable: true,
     params: Type.Object({ term: Type.String(), status: S.status, sentence_id: Type.Optional(S.id) }),
     async run(p, ctx) {
       const lemma = await lemmatize(p.term.toLowerCase(), ctx.dict);
@@ -100,17 +100,17 @@ export const termsCapabilities: CapabilityMap = {
     },
   }),
   add_to_wordbook: capability({
-    name: 'add_to_wordbook', description: '把几个词加入生词本（查词典补释义，建复习卡）', perm: 'write', undoable: true, replay: 'safe',
+    name: 'add_to_wordbook', description: '把几个词加入生词本（查词典补释义，建复习卡）', perm: 'write', undoable: true,
     params: Type.Object({ words: Type.Array(Type.Object({ text: Type.String(), meaning: Type.Optional(Type.String()), sentence_id: Type.Optional(S.id) }), { minItems: 1, maxItems: 100 }) }),
     async run(p, ctx) { const r = await addWords(ctx, p.words); return { created: r.created.map(t => t.id), existed: r.existed.map(t => t.id), undo: r.undo }; },
   }),
   add_phrase: capability({
-    name: 'add_phrase', description: '把句子里的几个词标为短语', perm: 'write', undoable: true, replay: 'safe',
+    name: 'add_phrase', description: '把句子里的几个词标为短语', perm: 'write', undoable: true,
     params: Type.Object({ text: Type.String(), sentence_id: S.id, surface: Type.String(), meaning: Type.Optional(Type.String()) }),
     async run(p, ctx) { const r = await addPhrase(ctx, p.text, p.sentence_id, p.surface, p.meaning); return { term_id: r.term.id, undo: r.undo }; },
   }),
   set_context_meaning: capability({
-    name: 'set_context_meaning', description: '讲解技能把语境释义写回，下次点词直接用', perm: 'write', replay: 'safe',
+    name: 'set_context_meaning', description: '讲解技能把语境释义写回，下次点词直接用', perm: 'write',
     params: Type.Object({ term_id: S.id, sentence_id: S.id, meaning: Type.String({ minLength: 1 }), source: Type.String() }),
     async run(p, ctx) { await setContextMeaning(ctx.db, p.term_id, p.sentence_id, p.meaning); return { ok: true as const }; },
   }),

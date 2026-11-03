@@ -29,7 +29,7 @@ for (const id of readdirSync(dir).filter(d => statSync(join(dir, d)).isDirectory
   const { meta, body } = parseFrontmatter(readFileSync(join(dir, id, 'SKILL.md'), 'utf8'));
   if (meta.name !== id) throw new Error(`${id}/SKILL.md 的 name 与目录不一致`);
   defs.push({
-    id, title: meta.metadata?.title ?? id, description: meta.description ?? '', allowed_tools: meta['allowed-tools'] ?? [],
+    id, title: meta.metadata?.title ?? id, description: meta.description ?? '', allowed_tools: meta['allowed-tools'] ?? [], deferred_tools: meta['deferred-tools'] ?? [],
     model: meta.metadata?.model === 'deep' ? 'deep' : 'fast', write: meta.metadata?.write === 'ask' ? 'ask' : 'inherit', body,
   });
 }

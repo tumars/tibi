@@ -7,8 +7,8 @@ import { createCore } from '../src/index.js';
 
 /**
  * 端到端：真实内核（任务、检查点）+ 全部领域模块，在一个临时 app.db 上走一遍 M1 的最小闭环：
- * 导入一段文本 → 阅读（sections.get）→ 点生词（R5：自动见过 + 建卡）→ 复习（选义题作答）→ 统计。
- * 不带词典：词形还原退化为规则，生词判断按"无词频 = 生词"。
+ * 导入一段文本 → 阅读（sections.get）→ 加进生词本并点开（R5：自动见过）→ 复习（选义题作答）→ 统计。
+ * 不带词典：词形还原退化为规则；导入不标生词，生词只来自用户的标记。
  */
 const TEXT = `# Understanding Ownership in Rust
 
@@ -23,13 +23,14 @@ Each value has exactly one owner. When the owner goes out of scope, the value is
 let dir: string | undefined;
 afterEach(() => { if (dir) rmSync(dir, { recursive: true, force: true }); dir = undefined; });
 
-async function waitTask(core: Core, events: { event: CoreEventName; data: any }[], task_id: string) {
+async function waitImport(core: Core, events: { event: CoreEventName; data: any }[], import_id: string) {
+  void core;
   for (let i = 0; i < 200; i++) {
-    const done = events.find(e => e.event === 'task.done' && e.data?.task?.id === task_id);
+    const done = events.find(e => e.event === 'import.done' && e.data?.import_id === import_id);
     if (done) return done.data;
     await new Promise(r => setTimeout(r, 20));
   }
-  throw new Error('任务没有完成');
+  throw new Error('导入没有完成');
 }
 
 describe('端到端：导入 → 阅读 → 点词 → 复习', () => {
@@ -40,18 +41,17 @@ describe('端到端：导入 → 阅读 → 点词 → 复习', () => {
     core.events.on((event, data) => events.push({ event, data }));
 
     // 方法都挂上了
-    for (const m of ['documents.import', 'sections.get', 'terms.lookup', 'review.start', 'review.answer', 'stats.summary', 'chat.send', 'tasks.list', 'system.undo', 'profile.get', 'vocab.start']) {
+    for (const m of ['documents.import', 'sections.get', 'terms.lookup', 'review.start', 'review.answer', 'stats.summary', 'chat.send', 'approvals.list', 'system.undo', 'profile.get']) {
       expect(core.dispatcher.has(m), m).toBe(true);
     }
+    expect(core.dispatcher.has('vocab.start')).toBe(false);
 
-    // 导入：走真的任务运行器，完成后发 task.done
-    const { task_id } = await core.call<{ task_id: string }>('documents.import', { source: { type: 'text', text: TEXT } });
-    const done = await waitTask(core, events, task_id);
-    const document_id = done.result?.document_id as string;
-    expect(document_id).toBeTruthy();
-    const steps = await core.call<{ steps: { label: string; state: string }[] }>('tasks.get', { id: task_id });
-    expect(steps.steps.length).toBeGreaterThan(3);
-    expect(steps.steps.every(s => s.state === 'ok' || s.state === 'wait')).toBe(true);
+    // 导入：在后台跑，进度走 import.progress，完成后发 import.done
+    const { import_id } = await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: TEXT } });
+    const done = await waitImport(core, events, import_id);
+    const document_id = done.document_id as string;
+    expect(done.ok).toBe(true); expect(document_id).toBeTruthy();
+    expect(events.some(e => e.event === 'import.progress' && e.data.import_id === import_id)).toBe(true);
 
     // 书架里能看到
     const list = await core.call<{ items: DocumentSummary[] }>('documents.list', {});
@@ -65,12 +65,12 @@ describe('端到端：导入 → 阅读 → 点词 → 复习', () => {
     const tok = upshotSentence.tokens.find(t => t.l === 'upshot')!;
     expect(tok).toBeTruthy();
 
-    // 点词（R5）：生词自动变成"见过"并建卡
+    // 导入不标生词：没有用户标过的词就没有状态
+    expect(tok.status).toBeUndefined();
+    // 用户把它加进生词本（建卡），再点开（R5）：生词变成"见过"
+    await core.call('terms.add', { entries: [{ text: 'upshot', sentence_id: upshotSentence.id }] });
     const look = await core.call<{ status_change?: { from: Status; to: Status }; card_created?: boolean }>('terms.lookup', { text: 'upshot', sentence_id: upshotSentence.id });
-    if (tok.status === 0 || tok.status === undefined) {
-      expect(look.card_created).toBe(true);
-      expect(look.status_change?.to).toBe(1);
-    }
+    expect(look.status_change).toEqual({ from: 0, to: 1 });
 
     // 复习：新词在文章里见过，直接出题；作答一题
     const session = await core.call<ReviewSession>('review.start', {});
@@ -87,9 +87,9 @@ describe('端到端：导入 → 阅读 → 点词 → 复习', () => {
     expect(s.reviews).toBeGreaterThanOrEqual(0);
 
     // 同一篇再导入：去重
-    const again = await core.call<{ task_id: string }>('documents.import', { source: { type: 'text', text: TEXT } });
-    const d2 = await waitTask(core, events, again.task_id);
-    expect(d2.result?.document_id).toBe(document_id);
+    const again = await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: TEXT } });
+    const d2 = await waitImport(core, events, again.import_id);
+    expect(d2.document_id).toBe(document_id); expect(d2.duplicate).toBe(true);
 
     await core.db.close();
   });

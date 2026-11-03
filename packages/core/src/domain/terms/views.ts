@@ -7,10 +7,10 @@ import { startOfToday } from '../shared/cards.js';
 /**
  * 生词本的查询（00 §3.3 左栏视图、06 terms.list / terms.get）。
  * 视图：all 在学的词（生词本里 0–4）、due 今天到期（含逾期）、late 逾期、new 本周加入、leech 难词（忘了 ≥ 3 次）、
- * stuck 遇见多但没进步（遇见 ≥ 5 且仍是生词 / 见过）、stale 很久没遇见（30 天）、unsure 待确认 99、ignored 98、known 97、mastered 5。
+ * stuck 遇见多但没进步（遇见 ≥ 5 且仍是生词 / 见过）、stale 很久没遇见（30 天）、ignored 98、known 97、mastered 5。
  */
-export type View = 'all' | 'due' | 'late' | 'new' | 'leech' | 'stuck' | 'stale' | 'unsure' | 'ignored' | 'known' | 'mastered';
-export const VIEWS: View[] = ['all', 'due', 'late', 'new', 'leech', 'stuck', 'stale', 'unsure', 'ignored', 'known', 'mastered'];
+export type View = 'all' | 'due' | 'late' | 'new' | 'leech' | 'stuck' | 'stale' | 'ignored' | 'known' | 'mastered';
+export const VIEWS: View[] = ['all', 'due', 'late', 'new', 'leech', 'stuck', 'stale', 'ignored', 'known', 'mastered'];
 
 const DAY = 86_400_000;
 
@@ -24,7 +24,6 @@ export function viewWhere(view: View, t: number = now()): { where: string; param
     case 'leech': return { where: 'tm.in_wordbook = 1 AND tm.status BETWEEN 0 AND 4 AND c.lapses >= 3', params: [] };
     case 'stuck': return { where: 'tm.in_wordbook = 1 AND tm.status BETWEEN 0 AND 1 AND tm.encounter_count >= 5', params: [] };
     case 'stale': return { where: 'tm.in_wordbook = 1 AND tm.status BETWEEN 0 AND 4 AND tm.last_seen_at IS NOT NULL AND tm.last_seen_at < ?', params: [t - 30 * DAY] };
-    case 'unsure': return { where: 'tm.status = 99', params: [] };
     case 'ignored': return { where: 'tm.status = 98', params: [] };
     case 'known': return { where: 'tm.status = 97', params: [] };
     case 'mastered': return { where: 'tm.status = 5', params: [] };
@@ -126,7 +125,7 @@ export async function termDetail(db: Database, dict: Dict, r: TermRow): Promise<
     let unknown_others = 0;
     if (lemmas.length) {
       const rows = await db.all<{ text: string; status: number }>(`SELECT text, status FROM terms WHERE kind = 'word' AND deleted_at IS NULL AND text IN (${lemmas.map(() => '?').join(',')})`, lemmas);
-      unknown_others = rows.filter(x => x.status === 0 || x.status === 99 || x.status === 1).length;
+      unknown_others = rows.filter(x => x.status === 0 || x.status === 1).length;
     }
     contexts.push({ id: c.id, source: c.source, document_id: c.document_id ?? undefined, document_title: c.document_title ?? undefined, sentence_id: c.sentence_id ?? undefined, sentence: c.sentence_text ?? c.text ?? '', surface: c.surface ?? undefined, meaning_in_context: c.meaning_in_context ?? undefined, is_primary: !!c.is_primary, unknown_others });
   }

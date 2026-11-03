@@ -9,6 +9,7 @@
     "core:default",
     "core:window:allow-start-dragging",
     "core:window:allow-set-title",
+    "core:window:allow-set-theme",
     "core:event:default",
     "dialog:allow-open",
     "opener:allow-reveal-item-in-dir",
@@ -19,7 +20,9 @@
         { "url": "https://github.com/tumars" },
         { "url": "https://www.ferecord.com/" },
         { "url": "https://github.com/tumars/tibi/releases/latest" },
-        { "url": "https://dl.ferecord.com/latest/*" }
+        { "url": "https://dl.ferecord.com/latest/*" },
+        { "url": "https://*" },
+        { "url": "http://*" }
       ]
     },
     "deep-link:default",

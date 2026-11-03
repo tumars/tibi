@@ -1,6 +1,7 @@
 export * from './types.js';
 export * from './ids.js';
 export * from './hash.js';
+export * from './deeplink.js';
 export { Database, now, j, type Driver, type Row, type SqlParams, type SqlValue } from './db/driver.js';
 export { migrate, PRAGMAS, type Migration } from './db/migrate.js';
 export * from './platform.js';
@@ -27,4 +28,4 @@ export * as stats from './domain/stats/index.js';
 export * as profile from './domain/profile/index.js';
 export { assembleCore, type AssembleOptions } from './assemble.js';
 export { backupNow, listBackups, maybeAutoBackup, type BackupReason } from './domain/backup.js';
-export { devFakeResolver } from './kernel/devfake.js';
+export { devFakeResolver, streamProvider } from './kernel/devfake.js';

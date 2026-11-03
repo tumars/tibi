@@ -5,28 +5,30 @@
 export type Id = string;
 export type Ts = number;
 export type ConvId = string;
-export type TaskId = string;
+/** 一轮回答：值是这一轮第一句用户消息的 id */
+export type TurnId = string;
 export type SkillId = 'tibi' | 'importer' | 'scout' | 'tutor' | 'coach' | 'insight' | 'archivist';
 export type Tier = 'fast' | 'deep';
-export type Status = 0 | 1 | 2 | 3 | 4 | 5 | 97 | 98 | 99;
+/** 0 生词 … 5 掌握、97 标为已知、98 忽略。只有用户标过 / 查过的词才有状态 */
+export type Status = 0 | 1 | 2 | 3 | 4 | 5 | 97 | 98;
 export type Kind = 'article' | 'book';
 export type Genre = 'tech' | 'news' | 'lit' | 'academic' | 'general';
 export type CardType = 'recognize' | 'choice' | 'cloze';
 export type PracticeMode = 'dictation' | 'spell' | 'confusable' | 'produce';
 export type Rating = 1 | 2 | 3 | 4;
-export type TaskState = 'run' | 'appr' | 'paused' | 'done' | 'err' | 'cancel';
 export type Page<T> = { items: T[]; total: number; cursor?: string };
 export type Undo = { undo_id: Id; expires_at: Ts };
 export type Ok = { ok: true };
 export type AiStatus = 'none' | 'deferred' | 'running' | 'done' | 'failed';
 export type AiTask = 'summary' | 'phrases' | 'hard_sentences' | 'advice' | 'glossary' | 'characters' | 'recap' | 'background' | 'translate' | 'explain' | 'grade_sentence' | 'context_meanings';
-export type LearningEventType = 'document_imported' | 'section_finished' | 'term_marked' | 'review_session' | 'vocab_test' | 'quiz_done';
+export type LearningEventType = 'document_imported' | 'section_finished' | 'term_marked' | 'review_session' | 'quiz_done';
 export type BlockType = 'prose' | 'heading' | 'list_item' | 'quote';
 
 // 文档
 export interface DocumentSummary {
-  id: Id; kind: Kind; genre: Genre; title: string; author?: string; source: string; tags: string[];
-  minutes: number; unknown_ratio: number; difficulty: 'ok' | 'mid' | 'hard'; progress: number;
+  id: Id; kind: Kind; genre: Genre; title: string; author?: string;
+  /** 网址的域名、原文件名或来源类型 */ source: string; source_type: string; /** 来自网址时的原文地址 */ source_url?: string; tags: string[];
+  minutes: number; /** 按词频估的文本级别 A2–C2（与用户无关）；没有词频表时没有 */ level?: string; progress: number;
   book?: { chapter: number; chapters: number; chapter_progress: number };
   status: 'processing' | 'ready' | 'failed'; ai_status: AiStatus;
   excerpt: string; cover_path?: string; added_at: Ts; opened_at?: Ts; finished_at?: Ts;
@@ -41,7 +43,7 @@ export type SectionBlock = { type: 'code'; lang?: string; code: string } | { typ
 export interface SectionContent {
   id: Id; document_id: Id; title: string; blocks: SectionBlock[];
   sentences: Sentence[]; phrases: { id: Id; text: string; sentence_ids: Id[] }[];
-  counts: { new: number; learning: number; unsure: number }; ai?: Record<string, AiResult>;
+  counts: { new: number; learning: number }; ai?: Record<string, AiResult>;
 }
 /** documents.samples 的一项：内置示例，导入过的带 document_id */
 export interface SampleInfo { id: string; title: string; author?: string; genre: Genre; source: string; minutes: number; is_default: boolean; document_id?: Id }
@@ -119,50 +121,58 @@ export type WidgetSpec =
   | { kind: 'compare'; summary: string; data: { words: { word: string; phonetic?: string; translation: string; example?: string }[] } }
   | { kind: 'quiz'; summary: string; data: { items: { term: string; type: 'choice' | 'cloze'; prompt: string; options?: string[]; answer: string[] }[] } }
   | { kind: 'ask'; summary: string; data: AskData }
-  | { kind: 'settings_link'; summary: string; data: { section: string; label: string; reason: string } };
-/** 反问（ask_user）：存在消息里，等多久都行；action 由用户点选后内核直接执行，模型不经手 */
-export interface AskOption { id: string; label: string; description?: string; action?: { tool: string; params: unknown; preview: string } }
-export interface AskData { question: string; multi: boolean; options: AskOption[]; /** 任务读过不可信内容：卡片提示，后续任务继承这个标记 */ untrusted: boolean }
-export interface AskResult { option_id: string; ok: boolean; message: string; task_id?: TaskId }
-export interface AskState { answered?: { option_ids: string[]; text?: string; at: Ts }; expired?: boolean; results?: AskResult[] }
+  | { kind: 'settings_link'; summary: string; data: { section: string; label: string; reason: string } }
+  /** 跳到应用里某处：按钮是 tibi:// 深链（deeplink.ts），界面按平台换成路由 */
+  | { kind: 'link'; summary: string; data: { text: string; links: { label: string; href: string }[] } }
+  /** 对话里起的导入：卡片跟着 import.progress / import.done 更新，结束后的样子存在 state（ImportCardState） */
+  | { kind: 'import'; summary: string; data: { import_id: string; source: string } };
+export type ImportCardState =
+  | { status: 'running' }
+  | { status: 'done'; document_id: string; title: string; duplicate?: boolean; minutes?: number; level?: string }
+  | { status: 'failed'; error: string };
+/**
+ * 反问（ask_user）：工具原地等用户回答，回答就是工具结果，模型接着做。
+ * url 是这一项对应的文章链接：用户选了它，这次导入不再审批。action 是旧版本的选项动作，只读显示
+ */
+export interface AskOption { id: string; label: string; description?: string; url?: string; action?: { tool: string; params: unknown; preview: string } }
+export interface AskData { question: string; multi: boolean; options: AskOption[]; /** 任务读过不可信内容：卡片提示 */ untrusted: boolean }
+export interface AskState { answered?: { option_ids: string[]; text?: string; at: Ts }; expired?: boolean }
 /** summary 写进后续对话历史，界面渲染出错时也显示它；result 是用户在卡片上的操作结果，下一轮带给模型 */
 export type WidgetBlock = WidgetSpec & { type: 'widget'; id: string; v: 1; state?: unknown; result?: string };
 export type MessageBlock = { type: 'text'; text: string } | WidgetBlock;
 /** 回答没说完就结束了：用户停止（cancel）或模型出错（error，message 可直接显示） */
 export interface MessageInterrupted { reason: 'cancel' | 'error'; message?: string }
-export interface Message { id: string; role: 'user' | 'assistant' | 'tool'; text?: string; blocks?: MessageBlock[]; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; task_id?: TaskId; interrupted?: MessageInterrupted; /** 这次回答做过的步骤（收起的过程卡） */ steps?: MessageStep[]; /** 用到的技能名（主对话不写） */ skill?: string; /** Tibi 写了什么：回答下面显示一行，能撤销 */ receipts?: MessageReceipt[]; created_at: Ts }
+export interface Message { id: string; role: 'user' | 'assistant' | 'tool'; text?: string; /** 用户提问时界面附上的（正在读的文章、选中的句子、当前卡片）：界面显示成小标签 */ attachment?: string; blocks?: MessageBlock[]; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; /** 属于哪一轮回答 */ turn_id?: TurnId; interrupted?: MessageInterrupted; /** 这次回答做过的步骤（收起的过程卡） */ steps?: MessageStep[]; /** 模型的思考过程（开了思考的模型才有），过程卡里折叠显示 */ thinking?: string; /** 思考用了多久 */ think_ms?: number; /** 用到的技能名（主对话不写） */ skill?: string; /** Tibi 写了什么：回答下面显示一行，能撤销 */ receipts?: MessageReceipt[]; created_at: Ts }
 export interface MessageReceipt { summary: string; undo?: Undo; undone?: boolean }
-export interface MessageStep { tool: string; summary: string; status: 'ok' | 'error' | 'denied' }
-export interface TaskSummary {
-  id: TaskId; state: TaskState; skill_id: SkillId; title: string; document_title?: string; trigger: string; model: string;
-  step: { index: number; total: number; label: string }; started_at: Ts; duration_ms: number; cost: number; error?: string;
-}
-export interface TaskStep { id: string; label: string; state: 'wait' | 'run' | 'ok' | 'err' | 'appr'; duration_ms?: number; skill_id?: SkillId; children?: TaskStep[] }
-export interface Task extends TaskSummary { conversation_id: ConvId; steps: TaskStep[]; transcript: Message[]; usage: { tokens_in: number; tokens_out: number; cost: number }; approval?: Approval }
+/**
+ * 回答里的一步工具调用（过程卡的一行）：summary 是"做了什么 + 对象"；展开后看 detail（关键参数）、result（结果摘要）、
+ * error（出错原因）、duration_ms。tool 是能力名，只在"技术详情"里给人看
+ */
+export interface MessageStep { tool: string; summary: string; status: 'ok' | 'error' | 'denied'; call_id?: string; detail?: string; result?: string; error?: string; duration_ms?: number }
+/** 等用户确认的一次写入。只在内存里：应用重启后那一轮回答算中断 */
 export interface Approval {
-  task_id: TaskId; /** 审批属于哪段对话（子任务算父任务的对话） */ conversation_id?: ConvId; skill_id?: SkillId; tool: string; title: string; body: string; impact: string; undoable: boolean; untrusted: boolean;
-  editable?: { field: string; value: string }; /** 每次都问：不显示"以后都允许" */ always_ask?: boolean; /** 批的是哪份参数：重开后模型换了参数就要重新问 */ params_hash?: string; requested_at: Ts;
+  id: Id; /** 哪段对话的哪一轮；外部工具（MCP）来的没有 */ conversation_id?: ConvId; turn_id?: TurnId; /** 外部工具的名字（MCP） */ client?: string; skill_id?: SkillId; tool: string; title: string; body: string; impact: string; undoable: boolean; untrusted: boolean;
+  editable?: { field: string; value: string }; /** 每次都问：不显示"以后都允许" */ always_ask?: boolean; requested_at: Ts;
 }
 
 // 技能、记忆、配置
-export interface Skill { id: SkillId; title: string; description: string; tools: string[]; model_tier: Tier; extra_instructions?: string; write_permission: 'inherit' | 'ask'; enabled: boolean; month_cost: number }
+export interface Skill { id: SkillId; title: string; description: string; tools: string[]; model_tier: Tier; extra_instructions?: string; write_permission: 'inherit' | 'ask'; enabled: boolean }
 export interface Memory { id: Id; type: 'profile' | 'semantic' | 'episodic' | 'procedural'; content: string; subject?: string; confidence: number; source: { type: 'user' | 'agent' | 'consolidation'; ref?: string; label: string }; status: 'active' | 'superseded'; created_at: Ts; updated_at: Ts }
-export interface Provider { id: Id; kind: 'llm' | 'vision' | 'image' | 'tts'; name: string; protocol: string; base_url?: string; auth: 'api_key'; tier?: Tier; model: string; has_secret: boolean; is_default: boolean; month_cost?: number }
+export interface Provider { id: Id; kind: 'llm' | 'vision' | 'image' | 'tts'; name: string; protocol: string; base_url?: string; auth: 'api_key'; tier?: Tier; model: string; has_secret: boolean; is_default: boolean }
 export interface Profile {
-  display_name: string; goal: string; level_self: string; interests: string[]; vocab_estimate: number; vocab_source: 'self' | 'test' | 'manual'; vocab_tested_at?: Ts;
+  display_name: string; interests: string[];
   daily_goal_minutes: number; daily_new_cards: number; desired_retention: number;
-  assistant_prefs: { nickname: string; language: 'mixed' | 'zh' | 'en'; permission: 'ask' | 'default' | 'auto' };
+  assistant_prefs: { nickname: string; permission: 'ask' | 'default' | 'auto' };
 }
 export interface UsageSummary {
-  schema: 1; app_version: string; days_since_first_use: number; vocab_tested: boolean; reviews: number;
+  schema: 1; app_version: string; days_since_first_use: number; reviews: number;
   documents: { samples: number; self_imported: number; finished: number };
-  h1: { first_doc_finished: boolean; prelabeled_total: number; prelabeled_changed: number; ratio?: number };
   h2: { window_closed: boolean; self_imports_7d: number; passed?: boolean };
   h3: { has_card: boolean; reviewed_next_day?: boolean };
 }
 export interface SyncStatus { enabled: boolean; backend?: 'icloud' | 'webdav'; state: 'off' | 'idle' | 'syncing' | 'error'; last_synced_at?: Ts; pending: number; sync_files: boolean; device: { id: string; name: string }; peers: { id: string; name: string; platform: 'macos' | 'windows' | 'linux' | 'ios' | 'android'; last_seen_at: Ts }[]; error?: SyncError }
 export type SyncError = 'offline' | 'auth' | 'icloud_signed_out' | 'quota' | 'newer_format' | 'unknown';
-export type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavailable' | 'budget_exceeded' | 'offline' | 'invalid_source' | 'busy' | 'invalid_params';
+export type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavailable' | 'offline' | 'invalid_source' | 'busy' | 'invalid_params';
 
 /** 业务错误：JSON-RPC 里 error.data.code = code，error.message 可直接显示 */
 export class TibiError extends Error {

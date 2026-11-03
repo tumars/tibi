@@ -18,6 +18,8 @@ export default defineConfig({
     watch: { ignored: ['**/src-tauri/**'] },
   },
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
+  // 朗读的 Worker（lib/kokoro.worker.ts）要动态加载 kokoro-js、用 import.meta.url，只能打成 ES 模块
+  worker: { format: 'es' },
   build: {
     target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari15',
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,

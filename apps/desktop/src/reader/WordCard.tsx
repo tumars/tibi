@@ -1,9 +1,9 @@
 import type { Status } from '@tibi/core';
-import { Volume2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useCore } from '../store/core';
-import { speak, STATUS_NAMES } from '../lib/util';
+import { SpeakButtons } from '../components/Speak';
+import { STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
@@ -46,8 +46,10 @@ export function WordCard({ word, sentenceId, anchor, onClose, onStatus, onAsk }:
   }, [onClose, data]);
 
   const setS = async (s: Status) => {
-    const id = data?.term?.id; if (!id) { toast(tl('这个词还没有记录')); return; }
-    try { await rpc.call('terms.setStatus', { ids: [id], status: s, source: 'user' }); setStatus(s); onStatus?.(data!.term!.text, s); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    // 生词只按用户标的来：没有记录的词，第一次标就建一条
+    const text = data?.term?.text ?? word;
+    // 用返回的原形更新阅读器（running 存成 run，阅读器按原形着色）
+    try { const r = await rpc.call('terms.mark', { text, status: s, sentence_id: sentenceId }); setStatus(r.term.status); setData(d => d && { ...d, term: r.term }); onStatus?.(r.term.text, r.term.status); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
   // 位置：优先放在词的下方，放不下就放上方；横向贴边
@@ -59,7 +61,7 @@ export function WordCard({ word, sentenceId, anchor, onClose, onStatus, onAsk }:
 
   return (
     <div className="wc" ref={ref} style={{ left, top }} role="dialog" aria-label={head}>
-      <div className="h"><b>{head}</b>{data?.dict?.phonetic && <span className="ipa">/{data.dict.phonetic}/</span>}<button className="ibtn say" title={tl('发音')} onClick={() => speak(head)}><Volume2 /></button></div>
+      <div className="h"><b>{head}</b>{data?.dict?.phonetic && <span className="ipa">/{data.dict.phonetic}/</span>}<SpeakButtons text={head} className="say" /></div>
       {data?.card_created && <div className="added">{tl('已加入复习')} <button className="linkbtn" style={{ fontSize: 12 }} onClick={() => setS(97)}>{tl('其实认识')}</button></div>}
       {err && <div className="dict" style={{ color: 'var(--hard)' }}>{err}</div>}
       {!data && !err && <div className="dict">{tl('查询中…')}</div>}

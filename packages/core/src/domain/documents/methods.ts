@@ -3,8 +3,9 @@ import { now } from '../../db/driver.js';
 import { method, S, type Ctx, type MethodMap } from '../../rpc/define.js';
 import { TibiError, type DocumentSummary, type Genre } from '../../types.js';
 import { recordUndo, registerUndo } from '../shared/undo.js';
-import { difficultyOfRatio } from '../text/prelabel.js';
-import { ensureAnnotated, type ImportInput } from './pipeline.js';
+import { ensureAnnotated, runReanalyze, type ImportInput } from './pipeline.js';
+import { analyzeDocument, translateSection } from './analyze.js';
+import { background, isRunning, startImport, type ImportOutcome } from './imports.js';
 import { DOC_COLS, getDocument, listSections, listSentences, setDocumentTags, toDocument, toSummary, type DocumentRow } from './repo.js';
 import { finishSection, sectionContent, setProgress, softDeleteDocument } from './sections.js';
 import { getSample, listSamples } from './samples.js';
@@ -31,7 +32,7 @@ const sourceSchema = Type.Union([
 ]);
 const hintsSchema = Type.Optional(Type.Object({ kind: Type.Optional(S.kind), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())) }));
 
-export async function submitImport(ctx: Ctx, input: ImportInput): Promise<{ task_id: string }> {
+export async function submitImport(ctx: Ctx, input: ImportInput): Promise<{ import_id: string; done: Promise<ImportOutcome> }> {
   if (input.source.type === 'url') {
     const c = checkUrlShape(input.source.url);
     if (!c.ok) throw new TibiError('invalid_source', '网址不对，或者是本机 / 局域网地址');
@@ -39,7 +40,7 @@ export async function submitImport(ctx: Ctx, input: ImportInput): Promise<{ task
   }
   if (input.source.type === 'file' && !ctx.platform.isPathAllowed(input.source.path)) throw new TibiError('permission_denied', '这个文件没有经过选择或拖入');
   const title = input.source.type === 'url' ? checkUrlShape(input.source.url).host ?? '网页' : input.source.type === 'text' ? (input.source.title || '粘贴的文字') : input.source.type === 'file' ? input.source.path.split(/[\\/]/).pop()! : input.source.type === 'sample' ? (getSample(input.source.id)?.title ?? '示例') : '图片';
-  return ctx.jobs.submit('import', { kind: 'import', title: `导入 ${title}`, trigger: input.origin === 'mcp' ? 'mcp' : input.origin === 'share' || input.origin === 'deeplink' ? 'share' : 'user', input });
+  return startImport(ctx, input, title);
 }
 
 async function requireDoc(ctx: Ctx, id: string): Promise<DocumentRow> {
@@ -62,15 +63,14 @@ export async function listDocuments(ctx: Ctx, opts: ListOpts): Promise<{ items: 
   const where = conds.join(' AND ');
   const rows = await ctx.db.all<DocumentRow>(`SELECT ${DOC_COLS.split(', ').map(c => 'd.' + c).join(', ')} FROM documents d WHERE ${where}`, params);
   const sort = opts.sort ?? 'fit';
-  const fit = (d: DocumentRow) => Math.abs(Number(d.unknown_ratio ?? 0.04) - 0.04);
   rows.sort((a, b) => {
     if (sort === 'opened') return Number(b.last_read_at ?? 0) - Number(a.last_read_at ?? 0) || Number(b.created_at) - Number(a.created_at);
     if (sort === 'added') return Number(b.created_at) - Number(a.created_at);
     if (sort === 'progress') return Number(b.progress) - Number(a.progress);
     if (sort === 'minutes') return Number(a.word_count) - Number(b.word_count);
-    // fit：读到一半的靠前，读完的放最后，其余按生词率接近 4%
+    // fit：读到一半的靠前（最近读的在前），读完的放最后，其余新加的在前
     const ga = a.finished_at ? 2 : Number(a.progress) > 0 ? 0 : 1, gb = b.finished_at ? 2 : Number(b.progress) > 0 ? 0 : 1;
-    return ga - gb || (ga === 0 ? Number(b.last_read_at ?? 0) - Number(a.last_read_at ?? 0) : fit(a) - fit(b));
+    return ga - gb || (ga === 0 ? Number(b.last_read_at ?? 0) - Number(a.last_read_at ?? 0) : Number(b.created_at) - Number(a.created_at));
   });
   const limit = opts.limit ?? 50; const offset = opts.cursor ? Number(opts.cursor) || 0 : 0;
   const page = rows.slice(offset, offset + limit);
@@ -78,7 +78,7 @@ export async function listDocuments(ctx: Ctx, opts: ListOpts): Promise<{ items: 
 }
 
 export const documentsMethods: MethodMap = {
-  'documents.import': method(Type.Object({ source: sourceSchema, hints: hintsSchema, origin: Type.Optional(Type.Union([Type.Literal('user'), Type.Literal('deeplink')])) }), async (p, ctx) => submitImport(ctx, p as ImportInput), '长任务；进度走 task.update'),
+  'documents.import': method(Type.Object({ source: sourceSchema, hints: hintsSchema, origin: Type.Optional(Type.Union([Type.Literal('user'), Type.Literal('deeplink')])) }), async (p, ctx) => ({ import_id: (await submitImport(ctx, p as ImportInput)).import_id }), '在后台导入，立即返回 import_id；进度走 import.progress，结束走 import.done'),
   'documents.samples': method(Type.Object({}), async (_p, ctx) => listSamples(ctx.db), '内置示例（随应用打包，带预生成的总结与语境释义）；导入过的带 document_id'),
   'documents.checkUrl': method(Type.Object({ url: Type.String() }), async p => checkUrlShape(p.url), '按 §1 校验网址，不抓内容'),
   'documents.list': method(Type.Object({ kind: Type.Optional(S.kind), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())), q: Type.Optional(Type.String()), sort: Type.Optional(Type.Union(['fit', 'opened', 'added', 'progress', 'minutes'].map(s => Type.Literal(s)))), archived: Type.Optional(Type.Boolean()), status: Type.Optional(Type.Union(['unread', 'reading', 'done'].map(s => Type.Literal(s)))), ...S.page }), async (p, ctx) => listDocuments(ctx, p as ListOpts), '书架'),
@@ -105,8 +105,9 @@ export const documentsMethods: MethodMap = {
   'documents.delete': method(Type.Object({ id: S.id }), async (p, ctx) => softDeleteDocument(ctx, p.id), '软删，可撤销'),
   'documents.reanalyze': method(Type.Object({ id: S.id, ai: Type.Optional(Type.Boolean()) }), async (p, ctx) => {
     const d = await requireDoc(ctx, p.id);
-    return ctx.jobs.submit('reanalyze', { kind: 'import', title: `重新分析 ${d.title}`, input: { document_id: p.id, ai: p.ai } });
-  }, '按当前词库重新标注'),
+    background(`reanalyze:${d.id}`, async () => { await runReanalyze(ctx, { document_id: p.id, ai: p.ai }); });
+    return { ok: true as const };
+  }, '按当前词库重新标注（后台做，完成后 data.changed(documents)）'),
   'documents.export': method(Type.Object({ id: S.id, format: Type.Literal('markdown') }), async (p, ctx) => {
     const d = await requireDoc(ctx, p.id);
     const secs = await listSections(ctx.db, p.id);
@@ -120,29 +121,36 @@ export const documentsMethods: MethodMap = {
 
   'sections.get': method(Type.Object({ id: S.id, with: Type.Optional(Type.Array(Type.Union([Type.Literal('translations'), Type.Literal('ai')]))) }), async (p, ctx) => { await ensureAnnotated(ctx, p.id); return sectionContent(ctx.db, p.id, { translations: p.with?.includes('translations'), ai: p.with?.includes('ai') }); }, '阅读器一次取齐；书的后面几章第一次打开时现标注（按章懒处理）'),
   'sections.progress': method(Type.Object({ id: S.id, sentence_id: S.id, progress: Type.Number({ minimum: 0, maximum: 1 }) }), async (p, ctx) => { await setProgress(ctx.db, p.id, p.sentence_id, p.progress); return { ok: true as const }; }, '阅读位置'),
-  'sections.finish': method(Type.Object({ id: S.id, mark_rest_known: Type.Boolean() }), async (p, ctx) => finishSection(ctx, p.id, p.mark_rest_known), '读完：只把 status = 0 的词设为 97'),
+  'sections.finish': method(Type.Object({ id: S.id }), async (p, ctx) => finishSection(ctx, p.id), '读完：只记进度，不改词的状态'),
   'sections.translate': method(Type.Object({ id: S.id, sentence_ids: Type.Optional(Type.Array(S.id)) }), async (p, ctx) => {
     const sec = await ctx.db.get<{ document_id: string; title: string }>('SELECT document_id, title FROM sections WHERE id = ? AND deleted_at IS NULL', [p.id]); if (!sec) throw new TibiError('not_found', '找不到这一章');
     if (!ctx.ai) throw new TibiError('model_unavailable', '还没有连接模型');
-    return ctx.jobs.submit('translate', { kind: 'import', title: '翻译', input: { section_id: p.id, sentence_ids: p.sentence_ids } });
-  }, '整章（或指定句子）译成中文，后台任务；写 sentences.translation，完成后 data.changed(sentences)'),
+    background(`translate:${p.id}:${p.sentence_ids?.join(',') ?? ''}`, () => translateSection(ctx, p.id, p.sentence_ids));
+    return { ok: true as const };
+  }, '整章（或指定句子）译成中文，在后台做；写 sentences.translation，完成后 data.changed(sentences)'),
   'documents.analyze': method(Type.Object({ id: S.id }), async (p, ctx) => {
     const d = await requireDoc(ctx, p.id);
     if (d.source_type === 'sample') throw new TibiError('conflict', '内置示例已经带了总结');
-    return ctx.jobs.submit('analyze', { kind: 'import', title: `总结 ${d.title}`, input: { document_id: d.id } });
-  }, '（重新）生成总结、短语、长难句；"稍后补做"和"重新生成"都走这里'),
-  'documents.analyze_deferred': method(Type.Object({ limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })) }), async (p, ctx) => analyzeDeferred(ctx, p.limit ?? 10), '内部：连上模型后把"稍后补做"的文章排进任务（最近打开的优先）'),
+    await queueAnalysis(ctx, d.id);
+    return { ok: true as const };
+  }, '（重新）生成总结、短语、长难句，在后台做；"稍后补做"和"重新生成"都走这里，完成后 data.changed(documents)'),
+  'documents.analyze_deferred': method(Type.Object({ limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })) }), async (p, ctx) => analyzeDeferred(ctx, p.limit ?? 10), '内部：连上模型后把"稍后补做"的文章放到后台补做（最近打开的优先）'),
 };
 
-/** 把 ai_status = deferred 的文章排进分析任务；没连模型时什么都不做 */
+async function queueAnalysis(ctx: Ctx, document_id: string): Promise<boolean> {
+  if (isRunning(`analyze:${document_id}`)) return false;
+  await ctx.db.run("UPDATE documents SET ai_status = 'running', updated_at = ? WHERE id = ?", [now(), document_id]);
+  ctx.events.emit('data.changed', { table: 'documents', ids: [document_id] });
+  return background(`analyze:${document_id}`, () => analyzeDocument(ctx, document_id));
+}
+
+/** 把 ai_status = deferred 的文章放到后台补做；没连模型时什么都不做 */
 export async function analyzeDeferred(ctx: Ctx, limit = 10): Promise<{ queued: number }> {
   const ok = await ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM providers WHERE kind = 'llm' AND deleted_at IS NULL");
   if (!Number(ok?.n ?? 0) || !ctx.platform.isOnline()) return { queued: 0 };
-  const running = await ctx.db.all<{ input: string }>("SELECT input FROM jobs WHERE pipeline = 'analyze' AND status IN ('queued', 'running')");
-  const busy = new Set(running.map(r => (JSON.parse(r.input || '{}') as { document_id?: string }).document_id));
   const rows = await ctx.db.all<{ id: string; title: string }>("SELECT id, title FROM documents WHERE ai_status = 'deferred' AND status = 'ready' AND deleted_at IS NULL AND source_type != 'sample' ORDER BY COALESCE(last_read_at, created_at) DESC LIMIT ?", [limit]);
   let queued = 0;
-  for (const d of rows) { if (busy.has(d.id)) continue; await ctx.jobs.submit('analyze', { kind: 'import', title: `补做总结 ${d.title}`, trigger: 'auto', input: { document_id: d.id } }).catch(() => undefined); queued++; }
+  for (const d of rows) if (await queueAnalysis(ctx, d.id)) queued++;
   return { queued };
 }
 
@@ -153,4 +161,4 @@ registerUndo<{ id: string; prev: { title: string; genre: string; is_favorite: nu
   ctx.events.emit('data.changed', { table: 'documents', ids: [p.id] });
 });
 
-export { listSentences, difficultyOfRatio };
+export { listSentences };

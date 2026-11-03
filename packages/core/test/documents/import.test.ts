@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Dict, SectionContent, DocumentSummary, Core, Ctx } from '../../src/index.js';
-import { documentsMethods, registerImportPipeline } from '../../src/domain/documents/index.js';
+import { documentsMethods } from '../../src/domain/documents/index.js';
 import { termsMethods } from '../../src/domain/terms/index.js';
 import { undoMethods } from '../../src/domain/shared/undo.js';
-import { makeCore, InlineJobRunner } from '../helpers.js';
+import { imported, makeCore } from '../helpers.js';
 
 const FREQ: Record<string, number> = { the: 1, is: 2, a: 3, of: 4, and: 5, to: 6, that: 7, it: 8, rust: 3000, feature: 400, make: 50, among: 900, system: 300, language: 200, instead: 700, rely: 2500, on: 9, garbage: 4000, collector: 6500, compiler: 2000, enforce: 7000, small: 100, set: 80, rule: 500, at: 10, compile: 5000, time: 30, program: 600, violate: 6800, them: 20, simply: 1500, won: 300, not: 15, upshot: 15000, memory: 800, safety: 1200, without: 150, runtime: 9500, overhead: 7500, usually: 400, come: 60, with: 12, each: 90, value: 250, have: 14, exactly: 1300, one: 16, owner: 2200, when: 25, go: 100, out: 40, scope: 6200, be: 2, drop: 1100, its: 50, reclaim: 11000, deterministically: 20000, this: 13, distinctive: 8800 };
 const dict: Dict = { async lookup(w) { return FREQ[w] ? { word: w, translation: `n. ${w}的意思；另一义`, exam: [], forms: [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`, `${w}${w.slice(-1)}ed`, `${w}${w.slice(-1)}ing`, `${w.slice(0, -1)}ing`] } : undefined; }, async lemmas() { return []; }, async frequencyRank(l) { return FREQ[l]; } };
@@ -18,27 +18,24 @@ fn main() { let s = String::from("hi"); }
 
 Each value has exactly one owner. When the owner goes out of scope, the value is dropped and its memory is reclaimed deterministically.`;
 
-let core: Core; let jobs: InlineJobRunner; let ctx: Ctx;
+let core: Core; let settle: () => Promise<void>; let ctx: Ctx;
 beforeEach(async () => {
   const m = await makeCore({ dict });
-  core = m.core; jobs = m.jobs; ctx = m.ctx;
+  core = m.core; settle = m.settle; ctx = m.ctx;
   core.use(documentsMethods).use(termsMethods).use(undoMethods);
-  registerImportPipeline(jobs, core);
-  await m.db.run("UPDATE user_profile SET vocab_estimate = 6000 WHERE id = '1'");
 });
 
 async function importText(text = TEXT) {
-  const { task_id } = await core.call<{ task_id: string }>('documents.import', { source: { type: 'text', text } });
-  const r = await jobs.wait(task_id);
-  if (r.status !== 'done') throw new Error('导入失败：' + r.error);
-  return r.output as { document_id: string; duplicate: boolean; unknown_ratio: number };
+  const r = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text } }));
+  if (!r.ok) throw new Error('导入失败：' + r.error);
+  return r as unknown as { document_id: string; duplicate: boolean; level?: string };
 }
 
 describe('导入文本', () => {
   it('入库、切分、标注、计数', async () => {
     const out = await importText();
     expect(out.duplicate).toBe(false);
-    const doc = await core.call<DocumentSummary & { sections: unknown[] }>('documents.get', { id: out.document_id });
+    const doc = await core.call<DocumentSummary & { sections: unknown[] }>('documents.get', { id: out.document_id });   // level 见下
     expect(doc.title).toBe('Understanding Ownership in Rust');
     expect(doc.genre).toBe('tech');
     expect(doc.status).toBe('ready');
@@ -50,44 +47,42 @@ describe('导入文本', () => {
     expect(sec.sentences).toHaveLength(5);
     const first = sec.sentences[0]!;
     expect(first.text).toBe('Ownership is the feature that makes Rust distinctive among systems languages.');
-    const status = Object.fromEntries(first.tokens.map(t => [t.l, t.status]));
-    expect(status['distinctive']).toBe(99);     // 6000 < 8800 ≤ 9000：待确认
-    expect(status['rust']).toBeUndefined();     // 专有名词（句中大写）
-    expect(status['feature']).toBeUndefined();  // 已知：不建行
-    const last = sec.sentences[4]!;
-    const st2 = Object.fromEntries(last.tokens.map(t => [t.l, t.status]));
-    expect(st2['reclaim']).toBe(0);
-    expect(st2['deterministically']).toBe(0);
-    expect(sec.counts).toEqual({ new: 5, learning: 0, unsure: 5 });   // 生词：ownership upshot runtime reclaim deterministically；待确认：distinctive collector enforce overhead scope
-    expect(out.unknown_ratio).toBeGreaterThan(0);
-    // 词表：新词有行，已知词没有
-    const terms = await ctx.db.all<{ text: string; status: number; encounter_count: number }>('SELECT text, status, encounter_count FROM terms ORDER BY text');
-    expect(terms.find(t => t.text === 'feature')).toBeUndefined();
-    expect(terms.find(t => t.text === 'upshot')).toMatchObject({ status: 0, encounter_count: 1 });
-    expect(terms.find(t => t.text === 'owner')).toBeUndefined();     // 2200 ≤ 6000 已知
-    const ctxs = await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM term_contexts');
-    expect(Number(ctxs?.n)).toBeGreaterThan(0);
+    // 没有用户标过的词：生僻词（upshot 15000、distinctive 8800）也不着色
+    expect(sec.sentences.flatMap(s => s.tokens).every(t => t.status === undefined)).toBe(true);
+    expect(sec.counts).toEqual({ new: 0, learning: 0 });
+    // 文本级别只看词频，与用户无关
+    expect(['A2', 'B1', 'B2', 'C1', 'C2']).toContain(doc.level);
+    expect(out.level).toBe(doc.level);
+    // 标注不建词条行
+    expect(Number((await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM terms'))?.n)).toBe(0);
+    expect(Number((await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM term_status_log'))?.n)).toBe(0);
     const ev = await ctx.db.get<{ payload: string }>("SELECT payload FROM learning_events WHERE type = 'document_imported'");
     expect(JSON.parse(ev!.payload)).toMatchObject({ document_id: out.document_id, source_type: 'text' });
-    expect(JSON.parse(ev!.payload).prelabel_total).toBeGreaterThan(10);
   });
 
-  it('重新标注：规则标的词按当前词汇量重判，用户动过的不变', async () => {
-    const status = async (w: string) => (await ctx.db.get<{ status: number; status_source: string }>('SELECT status, status_source FROM terms WHERE text = ?', [w]));
-    await ctx.db.run("UPDATE user_profile SET vocab_estimate = 500 WHERE id = '1'");
+  it('只有用户标过的词带状态；旧数据里规则标的 99 / auto_rule 行不着色，重新标注也不改它们', async () => {
     const { document_id } = await importText();
-    expect((await status('enforce'))?.status).toBe(0);
-    expect((await status('collector'))?.status).toBe(0);
-    await ctx.db.run("UPDATE terms SET status = 1, status_source = 'user' WHERE text = 'collector'");
-    await ctx.db.run("UPDATE user_profile SET vocab_estimate = 8000 WHERE id = '1'");
-    const { task_id } = await core.call<{ task_id: string }>('documents.reanalyze', { id: document_id });
-    expect((await jobs.wait(task_id)).status).toBe('done');
-    expect((await status('enforce'))?.status).toBe(97);
-    expect(await status('collector')).toMatchObject({ status: 1, status_source: 'user' });
-    await ctx.db.run("UPDATE user_profile SET vocab_estimate = 500 WHERE id = '1'");
-    const again = await core.call<{ task_id: string }>('documents.reanalyze', { id: document_id });
-    await jobs.wait(again.task_id);
-    expect((await status('enforce'))?.status).toBe(0);
+    const doc = await core.call<{ sections: { id: string }[] }>('documents.get', { id: document_id });
+    // 用户把 upshot 加进生词本（0），把 collector 标成学习中（2）
+    await core.call('terms.add', { entries: [{ text: 'upshot' }] });
+    await core.call('terms.add', { entries: [{ text: 'collector' }] });
+    const col = await ctx.db.get<{ id: string }>("SELECT id FROM terms WHERE text = 'collector'");
+    await core.call('terms.setStatus', { ids: [col!.id], status: 2 });
+    // 旧数据：规则标的待确认（99）——当作没有行，不着色
+    const t = Date.now();
+    await ctx.db.run("INSERT INTO terms(id, kind, text, text_display, status, status_source, created_at, updated_at) VALUES ('legacy', 'word', 'distinctive', 'distinctive', 99, 'auto_rule', ?, ?)", [t, t]);
+    await core.call('documents.reanalyze', { id: document_id });
+    await settle();
+    const sec = await core.call<SectionContent>('sections.get', { id: doc.sections[0]!.id });
+    const st = Object.fromEntries(sec.sentences.flatMap(s => s.tokens).filter(x => x.status !== undefined).map(x => [x.l, x.status]));
+    expect(st).toEqual({ upshot: 0, collector: 2 });
+    expect(sec.counts).toEqual({ new: 1, learning: 1 });
+    // 重新标注不建新行、不改旧行
+    const rows = await ctx.db.all<{ text: string; status: number }>('SELECT text, status FROM terms ORDER BY text');
+    expect(rows).toEqual([{ text: 'collector', status: 2 }, { text: 'distinctive', status: 99 }, { text: 'upshot', status: 0 }]);
+    // 用户标过的词在文中登记了语境
+    const ctxs = await ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM term_contexts tc JOIN terms t ON t.id = tc.term_id WHERE t.text = 'upshot' AND tc.source = 'article'");
+    expect(Number(ctxs?.n)).toBe(1);
   });
 
   it('重复导入返回同一篇', async () => {
@@ -118,13 +113,14 @@ describe('导入文本', () => {
       async fetchUrl(url) { return { status: 200, final_url: url, content_type: 'text/html', body: '<html><body><article><h1>Web Title</h1><p>Ownership is the feature that makes the compiler happy. The upshot is memory safety without overhead, which is nice for everyone who writes programs at compile time. Every value has one owner and the rules are simple to follow once you know them well.</p></article></body></html>' }; },
       async extractReadable(html) { const m2 = html.match(/<p>(.*?)<\/p>/)!; return { title: 'Web Title', markdown: m2[1]!, images: [] }; },
     } });
-    m.core.use(documentsMethods).use(termsMethods); registerImportPipeline(m.jobs, m.core);
-    const { task_id } = await m.core.call<{ task_id: string }>('documents.import', { source: { type: 'url', url: 'https://example.com/post?x=1#frag' } });
-    const r = await m.jobs.wait(task_id);
-    expect(r.status, r.error).toBe('done');
-    const doc = await m.core.call<DocumentSummary>('documents.get', { id: (r.output as { document_id: string }).document_id });
+    m.core.use(documentsMethods).use(termsMethods);
+    const r = await imported(await m.core.call<{ import_id: string }>('documents.import', { source: { type: 'url', url: 'https://example.com/post?x=1#frag' } }));
+    expect(r.ok, r.ok ? '' : r.error).toBe(true);
+    const doc = await m.core.call<DocumentSummary>('documents.get', { id: (r as unknown as { document_id: string }).document_id });
     expect(doc.title).toBe('Web Title');
     expect(doc.source).toBe('example.com');
+    expect(doc.source_type).toBe('url');
+    expect(doc.source_url).toMatch(/^https:\/\/example\.com\/post/);
     await expect(m.core.call('documents.import', { source: { type: 'url', url: 'http://127.0.0.1/x' } })).rejects.toThrow();
     expect(await m.core.call('documents.checkUrl', { url: 'ftp://a' })).toMatchObject({ ok: false });
   });
@@ -135,10 +131,9 @@ describe('内置示例', () => {
     const list = await core.call<{ id: string; is_default: boolean; document_id?: string; minutes: number }[]>('documents.samples', {});
     expect(list.map(s => s.id)).toEqual(['how-a-compiler-sees-your-code', 'gift-of-the-magi', 'why-cities-are-getting-hotter']);
     expect(list.filter(s => s.is_default)).toHaveLength(1);
-    const { task_id } = await core.call<{ task_id: string }>('documents.import', { source: { type: 'sample', id: 'how-a-compiler-sees-your-code' } });
-    const r = await jobs.wait(task_id);
-    expect(r.status, r.error).toBe('done');
-    const id = (r.output as { document_id: string }).document_id;
+    const r = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'sample', id: 'how-a-compiler-sees-your-code' } }));
+    expect(r.ok, r.ok ? '' : r.error).toBe(true);
+    const id = (r as unknown as { document_id: string }).document_id;
     const doc = await core.call<DocumentSummary & { ai?: Record<string, { output: unknown }>; sections: { id: string }[] }>('documents.get', { id });
     expect(doc.genre).toBe('tech');
     expect(doc.source).toBe('内置示例');
@@ -154,7 +149,7 @@ describe('内置示例', () => {
     // 代码块不拆句
     expect(sec.sentences.some(x => x.text.includes('fn area'))).toBe(false);
     expect((await core.call<{ document_id?: string }[]>('documents.samples', {}))[0]!.document_id).toBe(id);
-    await expect(core.call('documents.import', { source: { type: 'sample', id: 'nope' } }).then(x => jobs.wait((x as { task_id: string }).task_id))).resolves.toMatchObject({ status: 'failed' });
+    await expect(core.call<{ import_id: string }>('documents.import', { source: { type: 'sample', id: 'nope' } }).then(imported)).resolves.toMatchObject({ ok: false });
   });
 });
 

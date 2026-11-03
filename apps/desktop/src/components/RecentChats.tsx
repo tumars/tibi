@@ -3,6 +3,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import { tl } from '../lib/i18n';
+import { isMacDesktop, popupNativeMenu } from '../lib/macNative';
 import { fmtDate, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
@@ -55,7 +56,11 @@ function RecentRow({ chat, onDelete }: { chat: Conversation; onDelete: () => voi
 
   if (editing) return <RenameInput chat={chat} onDone={() => setEditing(false)} />;
   return (
-    <div className={`rrow${menu ? ' open' : ''}`} onContextMenu={e => { e.preventDefault(); setMenu(true); }}>
+    <div className={`rrow${menu ? ' open' : ''}`} onContextMenu={e => {
+      e.preventDefault();
+      if (isMacDesktop) void popupNativeMenu([{ label: tl('重命名'), run: () => setEditing(true) }, { label: tl('删除'), run: onDelete }]);
+      else setMenu(true);
+    }}>
       <NavLink to={`/chat/${chat.id}`} title={label} className={({ isActive }) => (isActive ? 'cur' : '')}><span>{label}</span></NavLink>
       <Menu open={menu} onOpenChange={setMenu} modal={false} compact keepFocus
         trigger={<button className="ibtn more" aria-label={tl('更多操作')} title={tl('更多操作')}><MoreHorizontal /></button>}

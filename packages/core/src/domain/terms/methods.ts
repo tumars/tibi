@@ -3,8 +3,8 @@ import { method, S, type MethodMap } from '../../rpc/define.js';
 import { TibiError, type Status } from '../../types.js';
 import { lemmatize } from '../text/lemma.js';
 import { normalizeCase } from '../text/tokenize.js';
-import { getTerm, getTermByText, readProfile, type TermRow } from './repo.js';
-import { addPhrase, addWords, applyStatus, contextMeaning, pauseTerms, removeTerms, setContextMeaning, touchOnLookup } from './service.js';
+import { getTerm, getTermByText, type TermRow } from './repo.js';
+import { addPhrase, addWords, applyStatus, cacheSentenceMeaning, contextMeaning, markTerm, pauseTerms, removeTerms, setContextMeaning, touchOnLookup } from './service.js';
 import { listTerms, termDetail, toTerm, VIEWS } from './views.js';
 import { exportTerms, importTerms } from './io.js';
 
@@ -55,13 +55,14 @@ export const termsMethods: MethodMap = {
     if (!sent) throw new TibiError('not_found', '句子不在了');
     if (!ctx.ai) throw new TibiError('model_unavailable', '还没有连接模型');
     const r = await ctx.ai.complete({
-      tier: 'fast', skill_id: 'tutor', max_tokens: 60,
+      tier: 'fast', max_tokens: 60,
       system: CONTEXT_MEANING_SYSTEM,
       prompt: `句子：<<<${sent.text.slice(0, 600)}>>>\n词：${raw}`,
     });
     const meaning = cleanMeaning(r.text);
     if (!meaning) throw new TibiError('model_unavailable', '模型没有给出释义');
     if (term) await setContextMeaning(ctx.db, term.id, p.sentence_id, meaning);
+    else await cacheSentenceMeaning(ctx.db, p.sentence_id, lemma, meaning);
     return { meaning, cached: false };
   }, 'M1：词卡的语境释义。先查缓存（预生成结果、term_contexts）；没有就用快速档模型现写一条并缓存。没连模型返回 model_unavailable'),
 
@@ -81,6 +82,11 @@ export const termsMethods: MethodMap = {
     const r = await applyStatus(ctx, p.ids, p.status as Status, p.source ?? 'user', p.document_id ?? null);
     return { changed: r.changed, undo: r.undo };
   }, '0–5、97 标为已知、98 忽略'),
+
+  'terms.mark': method(Type.Object({ text: Type.String({ minLength: 1, maxLength: 80 }), status: S.status, sentence_id: Type.Optional(S.id) }), async (p, ctx) => {
+    const r = await markTerm(ctx, p.text, p.status as Status, p.sentence_id);
+    return { term: await toTerm(ctx.db, ctx.dict, r.term), previous: r.previous, undo: r.undo };
+  }, '按文字标一个词（词卡上点熟练度）：没有词条时现建——0–4 加入生词本并建卡，5 / 97 / 98 只记状态。生词只来自这类明确的标记'),
 
   'terms.addPhrase': method(Type.Object({ text: Type.String({ minLength: 3 }), sentence_id: S.id, surface: Type.String() }), async (p, ctx) => {
     const { term } = await addPhrase(ctx, p.text, p.sentence_id, p.surface);
@@ -108,6 +114,4 @@ export const termsMethods: MethodMap = {
     '从文件导入：known = 已知词表（直接标为已知 97，学习中的不动）；txt / csv / anki = 加进生词本（第二列当释义）。path 必须经壳登记'),
   'terms.export': method(Type.Object({ format: Type.Union(['csv', 'anki', 'txt'].map(s => Type.Literal(s))), ids: Type.Optional(Type.Array(S.id)), with_contexts: Type.Optional(Type.Boolean()) }), async (p, ctx) => exportTerms(ctx, p as never),
     '生成导出文本（壳用 save_text_file 存盘）：csv 带 BOM；anki 是 Anki 能直接导入的制表符文本；txt 每行一个词。不给 ids 时导出整个生词本'),
-
-  'profile.vocab': method(Type.Object({}), async (_p, ctx) => readProfile(ctx.db), '内部：标注用的画像'),
 };

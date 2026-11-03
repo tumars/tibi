@@ -2,7 +2,7 @@
  * 哪些表同步、怎么同步（08 §3、§4、§7）。
  * - put：普通表，按字段比较时钟；exclude 里的字段不同步（本机路径、派生数据、FSRS 排期——合并后按复习记录重算）
  * - add：只追加的表，整行，按 id 去重
- * - 不在这里的表不同步：providers（各设备自己填 Key）、jobs / job_steps / skill_audit / usage_records（只对本机有意义）、
+ * - 不在这里的表不同步：providers（各设备自己填 Key）、skill_audit（只对本机有意义）、
  *   review_sessions（做到一半的一轮不同步）、daily_stats / audio_cache（本地重算 / 缓存）
  * pk 是复合主键时同步用的 id 是各列用 "|" 连起来。
  */

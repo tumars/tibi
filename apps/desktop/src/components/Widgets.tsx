@@ -1,16 +1,18 @@
-import type { AskState, MessageBlock, WidgetBlock } from '@tibi/core';
-import { Component, useState, type ReactNode } from 'react';
-import { Volume2 } from 'lucide-react';
+import type { AskState, ImportCardState, MessageBlock, WidgetBlock } from '@tibi/core';
+import { deepLink } from '@tibi/core/deeplink';
+import { Component, useEffect, useState, type ReactNode } from 'react';
+import { openDeepLink } from '../lib/deeplink';
 import { tl } from '../lib/i18n';
 import { Markdown } from '../lib/md';
-import { say } from '../lib/tts';
+import { SpeakButtons } from './Speak';
 import type { WidgetStates } from '../lib/useChat';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import './widgets.css';
 
 /**
- * 对话卡片：查词、辨析、练习、反问、设置入口。数据来自能力结果，桌面和手机共用。
+ * 对话卡片：查词、辨析、练习、反问、导入、跳转入口。数据来自能力结果，桌面和手机共用。
+ * 跳到应用里别处的按钮都是 tibi:// 深链（lib/deeplink.ts），和系统打开的链接走同一套。
  * 按钮直接调能力，不经过模型；操作结果经 useChat 保存，重开对话能恢复，下一轮带给模型。
  */
 type Update = (id: string, state: unknown, result?: string) => void;
@@ -42,7 +44,7 @@ function WordCard({ b, state, update }: { b: Of<'word'>; state?: { undo_id?: str
       {d.in_wordbook ? <span className="wg-k">{tl('已在生词本')}</span>
         : added ? <>{<span className="wg-ok">{tl('已加入生词本')}</span>}{state?.undo_id && <button className="btn sm" disabled={busy} onClick={() => void undo()}>{tl('撤销')}</button>}</>
         : <button className="btn sm pri" disabled={busy} onClick={() => void add()}>{tl('加入生词本')}</button>}
-      <button className="btn sm" onClick={() => void say(d.word)} aria-label={tl('朗读 {word}', { word: d.word })}><Volume2 size={14} /> {tl('朗读')}</button>
+      <SpeakButtons text={d.word} id={`wg:${b.id}`} />
     </div>
   </div>;
 }
@@ -114,17 +116,16 @@ function AskCard({ b, state, answer }: { b: Of<'ask'>; state?: AskState; answer?
   const [busy, setBusy] = useState(false);
   const submit = async (ids: string[], t?: string) => { setBusy(true); const ok = await answer!(b.id, ids, t); setBusy(false); if (ok) setText(''); };
   const chosen = state?.answered?.option_ids ?? picks;
-  const resultOf = (id: string) => state?.results?.find(r => r.option_id === id);
   return <div className="wg wg-ask">
     <div className="wg-hd"><b>{d.question}</b>{d.multi && !closed && <span className="wg-k">{tl('可以多选')}</span>}</div>
     <div className="wg-opts">{d.options.map(o => {
-      const on = chosen.includes(o.id); const r = resultOf(o.id);
+      const on = chosen.includes(o.id);
       return <button key={o.id} className={`wg-opt wg-askopt${on ? ' on' : ''}`} disabled={closed || busy} aria-pressed={d.multi ? on : undefined}
         onClick={() => { if (d.multi) setPicks(p => on ? p.filter(x => x !== o.id) : [...p, o.id]); else void submit([o.id]); }}>
         <span className="wg-asklabel">{o.label}</span>
         {o.description && <span className="wg-k">{o.description}</span>}
-        {o.action && <span className="wg-k wg-askact">{tl('将')}{o.action.preview}</span>}
-        {r && <span className={r.ok ? 'wg-ok' : 'wg-bad'}>{r.ok ? tl('已开始') : r.message}</span>}
+        {o.url && <span className="wg-k wg-askact">{hostOf(o.url)}</span>}
+        {o.action && <span className="wg-k wg-askact">{o.action.preview}</span>}
       </button>;
     })}</div>
     {d.untrusted && !closed && <div className="wg-k">{tl('这些内容来自网页，选之前留意来源')}</div>}
@@ -140,6 +141,8 @@ function AskCard({ b, state, answer }: { b: Of<'ask'>; state?: AskState; answer?
   </div>;
 }
 
+const hostOf = (url: string) => { try { return new URL(url).host.replace(/^www\./, ''); } catch { return url; } };
+
 /** Tibi 不能改的设置：只把人带过去 */
 function SettingsLinkCard({ b }: { b: Of<'settings_link'> }) {
   // 手机没有设置页，设置都在"我的"里
@@ -147,6 +150,48 @@ function SettingsLinkCard({ b }: { b: Of<'settings_link'> }) {
   return <div className="wg">
     <div>{b.data.reason}</div>
     <div className="wg-acts"><button className="btn sm pri" onClick={() => { location.hash = mobile ? '/me' : `/settings?sec=${encodeURIComponent(b.data.section)}`; }}>{tl('打开设置 · {name}', { name: tl(b.data.label) })}</button></div>
+  </div>;
+}
+
+/** 跳到应用里某处（Tibi 用 show_link / open_settings 给的） */
+function LinkCard({ b }: { b: Of<'link'> }) {
+  return <div className="wg">
+    <div>{b.data.text}</div>
+    <div className="wg-acts">{b.data.links.map((l, i) => <button key={l.href} className={`btn sm${i === 0 ? ' pri' : ''}`} onClick={() => { if (!openDeepLink(l.href)) toast(tl('这个入口打不开'), { kind: 'err' }); }}>{l.label}</button>)}</div>
+  </div>;
+}
+
+/** 导入的最新进度和结果：卡片是导入开始后才显示的，开头几步的事件比卡片早，先记在这里 */
+const importSeen = new Map<string, { label?: string; done?: ImportCardState }>();
+const doneOf = (d: { ok: boolean; document_id?: string; title: string; duplicate?: boolean; minutes?: number; level?: string; error?: string }): ImportCardState =>
+  d.ok && d.document_id ? { status: 'done', document_id: d.document_id, title: d.title, ...(d.duplicate ? { duplicate: true } : {}), ...(d.minutes ? { minutes: d.minutes } : {}), ...(d.level ? { level: d.level } : {}) } : { status: 'failed', error: d.error || tl('导入失败') };
+rpc.on('import.progress', d => { if (d.origin === 'chat') importSeen.set(d.import_id, { ...importSeen.get(d.import_id), label: d.label }); });
+rpc.on('import.done', d => { if (d.origin === 'chat') importSeen.set(d.import_id, { done: doneOf(d) }); if (importSeen.size > 50) importSeen.delete(importSeen.keys().next().value!); });
+
+/** Tibi 在对话里起的导入：跟着导入事件走进度，结束后给「开始阅读」 */
+function ImportCard({ b }: { b: Of<'import'> }) {
+  const id = b.data.import_id;
+  const [st, setSt] = useState<ImportCardState>((b.state as ImportCardState | undefined)?.status !== 'running' && b.state ? b.state as ImportCardState : importSeen.get(id)?.done ?? { status: 'running' });
+  const [label, setLabel] = useState(importSeen.get(id)?.label);
+  useEffect(() => { const s = b.state as ImportCardState | undefined; if (s && s.status !== 'running') setSt(s); }, [b.state]);
+  useEffect(() => {
+    const off1 = rpc.on('import.progress', d => { if (d.import_id === id) setLabel(d.label); });
+    const off2 = rpc.on('import.done', d => { if (d.import_id === id) setSt(doneOf(d)); });
+    return () => { off1(); off2(); };
+  }, [id]);
+  if (st.status === 'running') return <div className="wg wg-import">
+    <div className="wg-hd"><span className="spin" /><span>{tl('正在导入 {source}', { source: b.data.source })}</span>{label && <span className="wg-k">{label}</span>}</div>
+    <div className="wg-acts"><button className="btn sm" onClick={() => openDeepLink(deepLink({ to: 'library' }))}>{tl('去书架看看')}</button></div>
+  </div>;
+  if (st.status === 'failed') return <div className="wg wg-import">
+    <div className="wg-hd"><span className="wg-bad">{tl('没导入成功')}</span><span className="wg-k">{b.data.source}</span></div>
+    <div className="wg-k">{st.error}</div>
+  </div>;
+  const meta = [st.duplicate ? tl('书架里已经有这篇') : tl('已放进书架'), st.minutes ? tl('约 {n} 分钟', { n: st.minutes }) : '', st.level ?? ''].filter(Boolean).join(' · ');
+  return <div className="wg wg-import">
+    <div className="wg-w1">{st.title}</div>
+    <div className="wg-k">{meta}</div>
+    <div className="wg-acts"><button className="btn sm pri" onClick={() => openDeepLink(deepLink({ to: 'read', document_id: st.document_id }))}>{tl('开始阅读')}</button></div>
   </div>;
 }
 
@@ -163,6 +208,8 @@ function Widget({ b, state, update, fill, answer }: { b: WidgetBlock; state: unk
     : b.kind === 'quiz' ? <QuizCard b={b} state={state as never} update={update} fill={fill} />
     : b.kind === 'ask' ? <AskCard b={b} state={state as never} answer={answer} />
     : b.kind === 'settings_link' ? <SettingsLinkCard b={b} />
+    : b.kind === 'link' ? <LinkCard b={b} />
+    : b.kind === 'import' ? <ImportCard b={b} />
     : <p>{(b as WidgetBlock).summary}</p>;
   return <Guard summary={b.summary}>{card}</Guard>;
 }

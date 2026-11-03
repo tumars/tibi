@@ -1,22 +1,28 @@
 import { Type, type TSchema } from '@sinclair/typebox';
-import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { j, now, type Database } from '../db/driver.js';
-import { sha256Hex } from '../hash.js';
 import { capability, validateParams, type CapabilityDef, type CapabilityMap, type Ctx } from '../rpc/define.js';
-import { TibiError, type Approval, type SkillId, type WidgetSpec } from '../types.js';
-import type { JobRunnerImpl } from './jobs.js';
-import type { JobContext } from './types.js';
+import { TibiError, type Approval, type SkillId } from '../types.js';
+import type { ApprovalRequest } from './turns.js';
+import type { EngineTool, EngineToolResult } from './engine.js';
+import type { RunContext, Turns } from './turns.js';
 import { resolveSkill, skillDef } from './skills.js';
+import { isChosen } from './ask.js';
+import { parseDeepLink } from '../deeplink.js';
 
 /**
- * 能力注册表（05 §4、06 §5）：一份定义，三种出口。
+ * 能力注册表（05 §4、06 §5、10 §3.2）：一份定义，三种出口。
  * - call()：界面 / 内部直接调用（用户自己点的，直接执行、只记审计）；技能调用时按权限模式审批。
- * - toAgentTools()：转成 pi-agent-core 的工具，技能运行时用；每次调用是一条 job_steps(kind=tool)。
- * - listForMcp()：M5 给 MCP Server 用（不含 run_skill / tool_search）。
+ * - toEngineTools()：交给 agent 引擎的工具，技能运行时用；审批也在这里。
+ * - listForMcp()：给 MCP Server 用（不含 run_skill / ask_user）。
  */
 
-/** 读过不可信内容后必须审批的外联能力（05 §8） */
-const EXTERNAL = new Set(['fetch_url', 'web_search']);
+/** 工具结果给模型和存库都截到这么长（10 §5.2） */
+export const TOOL_RESULT_MAX = 16_000;
+
+/** 读过不可信内容后必须审批的外联能力（05 §8）；web_search 不用审批 */
+const EXTERNAL = new Set(['fetch_url']);
+/** 结果带外部文本（网页、订阅、导入的正文和原句）的能力：调用后这一轮记为读过不可信内容 */
+const UNTRUSTED_RESULT = new Set(['fetch_url', 'web_search', 'search_feeds', 'get_document', 'search_documents', 'get_term', 'get_term_contexts']);
 /** 这些能力是技能内部调度用的，不暴露给 MCP */
 const INTERNAL = new Set(['run_skill', 'tool_search', 'ask_user']);
 
@@ -24,12 +30,8 @@ export type Authorization = { ok: true; approval: 'auto' | 'approved' | 'edited'
 
 export class CapabilityRegistry {
   private caps = new Map<string, CapabilityDef<any, any>>();
-  /** 正在运行的 Agent（tool_search 命中后把工具加进对话） */
-  readonly liveTools = new Map<string, { add(tools: AgentTool[]): void }>();
-  /** 每次运行（一个 JobContext）已经用掉的工具步骤 */
-  private readonly usedSteps = new WeakMap<JobContext, Set<string>>();
 
-  constructor(private readonly db: Database, private readonly runner: JobRunnerImpl) {}
+  constructor(private readonly db: Database, private readonly turns: Turns) {}
 
   register(map: CapabilityMap) {
     for (const [name, def] of Object.entries(map)) {
@@ -47,14 +49,27 @@ export class CapabilityRegistry {
 
   /** 权限判定（02 §6、05 §8）；需要确认时在这里挂起等审批 */
   async authorize(def: CapabilityDef<any, any>, params: unknown, ctx: Ctx): Promise<Authorization> {
-    const job = ctx.caller.job_id ? this.runner.getContext(ctx.caller.job_id) : undefined;
-    const tainted = !!(job?.tainted || ctx.caller.tainted);
+    const run = this.turns.get(ctx.caller.turn_id);
+    const tainted = !!(run?.tainted || ctx.caller.tainted);
     const external = EXTERNAL.has(def.name);
     // 界面直接调用：用户自己点的，直接执行
     if (ctx.caller.origin === 'ui') return { ok: true, approval: 'auto', params };
-    const perm = def.permFor?.(params) ?? def.perm;
+    // 记忆这类 Tibi 自己的笔记：直接写，对话里给回执，用户随时撤销。
+    // 读过网页、文章正文的一轮：只能新记"观察"（不进系统提示），不能记成身份或指令，也不能自动改、删已有的（走下面的审批）——防注入的内容变成长期指令
+    if (def.autoApprove && def.undoable && ctx.caller.origin === 'skill') {
+      if (!tainted) return { ok: true, approval: 'auto', params };
+      if (def.name === 'remember') {
+        const p = params as { type?: string };
+        return { ok: true, approval: 'auto', params: p.type === 'profile' || p.type === 'procedural' ? { ...p, type: 'semantic' } : params };
+      }
+    }
+    // 用户刚在反问卡上选中的网址：用户自己看着选的，这次不再问（模型换了网址照常走下面的审批）
+    const url = def.chosenUrl?.(params);
+    if (url && ctx.caller.origin === 'skill' && isChosen(ctx.caller.turn_id, url)) return { ok: true, approval: 'approved', params };
+    // 外部工具（MCP）写记忆：每次都问，"全部自动"也不放行
+    const perm = def.autoApprove ? (ctx.caller.origin === 'skill' ? 'confirm' : 'always') : def.permFor?.(params) ?? def.perm;
     if (perm === 'read' && !(external && tainted)) return { ok: true, approval: 'auto', params };
-    if (perm === 'always' && tainted) return { ok: false, reason: '这个任务读过网页内容，不能做这项改动。请用户自己到设置里改' };
+    if (perm === 'always' && tainted) return { ok: false, reason: '这一轮读过网页内容，不能做这项改动。请用户自己到设置里改' };
     const mode = await ctx.permission();
     const skill = ctx.caller.skill_id ? await resolveSkill(this.db, ctx.caller.skill_id).catch(() => undefined) : undefined;
     const skillAsk = skill?.write_permission === 'ask';
@@ -64,13 +79,13 @@ export class CapabilityRegistry {
     else if (perm === 'write') needAsk = mode === 'ask' || skillAsk;
     else needAsk = false;
     if (!needAsk) return { ok: true, approval: 'auto', params };
-    if (!job) return { ok: false, reason: '这个操作需要确认，但不在任务里，无法审批' };
-    const req: Omit<Approval, 'task_id' | 'requested_at'> = {
+    if (!run) return { ok: false, reason: '这个操作需要确认，但这里没法问用户' };
+    const req: ApprovalRequest = {
       skill_id: ctx.caller.skill_id as SkillId | undefined, tool: def.name,
       title: `Tibi 想${def.description.replace(/^管理[^：]*：/, '').split(/[（，]/)[0]!.replace(/[。.]$/, '')}`, body: def.describe ? await def.describe(params, ctx) : summarize(params), impact: external ? '访问外部网络' : '写入数据',
-      undoable: !!def.undoable, untrusted: tainted, editable: def.describe ? undefined : editableField(params), always_ask: perm === 'always', params_hash: await sha256Hex(j.str(params)),
+      undoable: !!def.undoable, untrusted: tainted, editable: def.describe ? undefined : editableField(params), always_ask: perm === 'always',
     };
-    const d = await job.approve(req);
+    const d = await run.approve(req);
     if (d.decision === 'deny') return { ok: false, reason: '用户拒绝了这个操作' };
     // 改过的参数和模型给的一样要过校验
     return { ok: true, approval: d.decision === 'edit' ? 'edited' : 'approved', params: d.decision === 'edit' && d.edited ? validateParams(def.params, { ...(params as object), ...d.edited }) : params };
@@ -86,53 +101,46 @@ export class CapabilityRegistry {
     return def.run(auth.params, ctx) as Promise<T>;
   }
 
-  /** 转成 pi-agent-core 的工具：执行时记 job_steps(kind=tool)，权限在 execute 里走 authorize() */
-  toAgentTools(names: string[], ctx: Ctx, job: JobContext): AgentTool[] {
-    return names.filter(n => this.caps.has(n)).map(n => this.toAgentTool(this.caps.get(n)!, ctx, job));
+  /**
+   * 交给引擎的工具：权限在 execute 里走 authorize()。
+   * deferred 里的按需加载；details 里是原始结果 { out } 或错误 { error, code }，给 Core 生成卡片和回执。
+   */
+  toEngineTools(names: string[], ctx: Ctx, run: RunContext, deferred: string[] = []): EngineTool[] {
+    const seen = new Set<string>();
+    return [...names.map(n => [n, false] as const), ...deferred.map(n => [n, true] as const)]
+      .filter(([n]) => this.caps.has(n) && !seen.has(n) && seen.add(n))
+      .map(([n, d]) => this.toEngineTool(this.caps.get(n)!, ctx, run, d));
   }
 
-  toAgentTool(def: CapabilityDef<any, any>, ctx: Ctx, job: JobContext): AgentTool {
+  toEngineTool(def: CapabilityDef<any, any>, ctx: Ctx, run: RunContext, deferred = false): EngineTool {
     const self = this;
     return {
-      name: def.name, label: def.description, description: def.description,
-      parameters: def.params as TSchema,
-      async execute(toolCallId, params) {
+      name: def.name, description: def.description, parameters: def.params as TSchema,
+      readOnly: def.perm === 'read', deferred,
+      async execute(toolCallId, params): Promise<EngineToolResult> {
         const name = `tool.${def.name}#${toolCallId}`;
         try {
-          const done = await self.replayedStep(def, params, job, name);
-          if (done) return { content: [{ type: 'text', text: JSON.stringify(done.output ?? null) }], details: done.output };
-          const out = await job.step(name, async () => {
-            const p = validateParams(def.params, params);
-            const auth = await self.authorize(def, p, ctx);
-            if (!auth.ok) throw new TibiError('permission_denied', auth.reason);
-            if (EXTERNAL.has(def.name)) job.markTainted();
-            return def.run(auth.params, { ...ctx, caller: { ...ctx.caller, job_step_id: name } });
-          }, { kind: 'tool', input: params });
-          const terminate = typeof def.terminal === 'function' ? def.terminal(out) : def.terminal;
-          return { content: [{ type: 'text', text: JSON.stringify(out ?? null) }], details: out, ...(terminate ? { terminate: true } : {}) };
+          if (run.signal.aborted) throw new TibiError('busy', '已取消');
+          const p = validateParams(def.params, params);
+          const auth = await self.authorize(def, p, ctx);
+          if (!auth.ok) throw new TibiError('permission_denied', auth.reason);
+          if (UNTRUSTED_RESULT.has(def.name)) run.markTainted();
+          const out = await def.run(auth.params, { ...ctx, caller: { ...ctx.caller, call_id: name } });
+          const text = clip(JSON.stringify(out ?? null));
+          run.seen.push(text);
+          return { text, details: { out } };
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          return { content: [{ type: 'text', text: `错误：${msg}` }], details: { error: msg, code: e instanceof TibiError ? e.code : 'internal' }, isError: true };
+          return { text: `错误：${msg}`, details: { error: msg, code: e instanceof TibiError ? e.code : 'internal' }, isError: true };
         }
       },
-    } as AgentTool;
+    };
   }
 
-  /**
-   * 崩溃恢复或重试时模型会重新回答，工具调用 id 是新的，按名字匹配不到检查点。
-   * 不能安全重放的写操作，按能力和参数找上一次运行里已完成的步骤，一步只抵一次（同一次运行里重复调用仍会执行）。
-   */
-  private async replayedStep(def: CapabilityDef<any, any>, params: unknown, job: JobContext, name: string): Promise<{ output: unknown } | undefined> {
-    let used = this.usedSteps.get(job);
-    if (!used) this.usedSteps.set(job, used = new Set());
-    used.add(name);
-    if (def.perm === 'read' || def.replay === 'safe') return undefined;
-    const rows = await this.db.all<{ name: string; output: string | null }>("SELECT name, output FROM job_steps WHERE job_id = ? AND kind = 'tool' AND status = 'done' AND input = ? ORDER BY idx", [job.job_id, j.str(params)]);
-    const hit = rows.find(r => r.name.startsWith(`tool.${def.name}#`) && !used.has(r.name));
-    if (!hit) return undefined;
-    used.add(hit.name);
-    return { output: j.parse(hit.output, null) };
-  }
+}
+
+function clip(s: string): string {
+  return s.length > TOOL_RESULT_MAX ? `${s.slice(0, TOOL_RESULT_MAX)}…（结果太长，后面截掉了）` : s;
 }
 
 /** 审批卡正文：把参数里给人看的值列出来（id 这类不列）；没有就退回 JSON */
@@ -162,19 +170,19 @@ export interface UiContext { page: string; document_id?: string; section_id?: st
 export interface BuiltinDeps {
   db: Database;
   registry: CapabilityRegistry;
-  runner: JobRunnerImpl;
   uiContext: () => UiContext | undefined;
-  runSkill: (args: { skill_id: SkillId; input: string; context?: unknown; wait?: boolean; parent: Ctx }) => Promise<{ task_id: string; result?: string; ask?: WidgetSpec }>;
+  /** 在调用方这一轮里跑一项子技能，等它说完 */
+  runSkill: (args: { skill_id: SkillId; input: string; context?: unknown; parent: Ctx }) => Promise<{ result: string }>;
 }
 
-/** 内核自带的能力：get_context / run_skill / tool_search（ask_user 在 ask.ts） */
+/** 内核自带的能力：get_context / run_skill（ask_user 在 ask.ts；tool_search 由引擎提供） */
 export function builtinCapabilities(deps: BuiltinDeps): CapabilityMap {
   return {
     get_context: capability({
-      name: 'get_context', description: '取当前界面上下文与学习快照', perm: 'read', params: Type.Object({}),
+      name: 'get_context', description: '取用户现在在看什么（页面、文章和位置、选中的句子、复习中的卡片）和今天的学习数据', perm: 'read', params: Type.Object({}),
       async run(_p, ctx) {
         const db = ctx.db;
-        const prof = await db.get<{ level_self: string | null; vocab_estimate: number; goal: string | null; interests: string; assistant_prefs: string }>("SELECT level_self, vocab_estimate, goal, interests, assistant_prefs FROM user_profile WHERE id = '1'");
+        const prof = await db.get<{ interests: string }>("SELECT interests FROM user_profile WHERE id = '1'");
         const ui = deps.uiContext();
         const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
         const minutes = await db.get<{ ms: number | null }>('SELECT sum(COALESCE(ended_at, started_at) - started_at) AS ms FROM reading_sessions WHERE started_at >= ?', [dayStart.getTime()]);
@@ -195,38 +203,39 @@ export function builtinCapabilities(deps: BuiltinDeps): CapabilityMap {
         }
         return {
           page: ui?.page ?? 'home', document, selection: ui?.selection && ui.sentence_id ? { text: ui.selection, sentence_id: ui.sentence_id } : undefined, card,
-          profile: { level_self: prof?.level_self ?? '', vocab_estimate: prof?.vocab_estimate ?? 0, goal: prof?.goal ?? '', interests: j.parse<string[]>(prof?.interests, []) },
+          profile: { interests: j.parse<string[]>(prof?.interests, []) },
           today: { minutes: Math.round(Number(minutes?.ms ?? 0) / 60000), due: Number(due?.n ?? 0), reviewed: Number(reviewed?.n ?? 0), new_words: Number(newWords?.n ?? 0), streak: Number(streak?.n ?? 0) },
           recent_documents: recent, permission: await ctx.permission(),
         };
       },
     }),
+    show_link: capability({
+      name: 'show_link', description: '在对话里放一张卡片，按钮跳到应用里的某处（读某篇文章、书架、生词本、复习、词典、统计、设置）', perm: 'read', mcp: false,
+      params: Type.Object({
+        text: Type.String({ minLength: 1, maxLength: 200, description: '卡片上的一句话：为什么去那里' }),
+        links: Type.Array(Type.Object({
+          label: Type.String({ minLength: 1, maxLength: 20 }),
+          href: Type.String({ description: 'tibi://read/<文章 id>、tibi://library、tibi://words、tibi://review、tibi://dict?q=<词>、tibi://stats、tibi://settings?sec=<general|model|learning|memory|advanced|data|about>' }),
+        }), { minItems: 1, maxItems: 3 }),
+      }),
+      async run(p, ctx) {
+        for (const l of p.links) {
+          const d = parseDeepLink(l.href);
+          if (!d) throw new TibiError('invalid_params', `不认识这个链接：${l.href}`);
+          if (d.to === 'read' && !await ctx.db.get('SELECT 1 AS hit FROM documents WHERE id = ? AND deleted_at IS NULL', [d.document_id])) throw new TibiError('not_found', `书架里没有这篇：${d.document_id}`);
+        }
+        return { shown: true };
+      },
+      widget: (_r, p) => ({ kind: 'link', summary: `给了入口：${p.text}（${p.links.map(l => l.label).join('、')}）`, data: { text: p.text, links: p.links } }),
+    }),
     run_skill: capability({
       name: 'run_skill', description: '运行一项技能（主对话专用）', perm: 'write',
-      params: Type.Object({ skill_id: Type.String(), input: Type.String(), context: Type.Optional(Type.Unknown()), wait: Type.Optional(Type.Boolean()) }),
+      params: Type.Object({ skill_id: Type.String(), input: Type.String(), context: Type.Optional(Type.Unknown()) }),
       async run(p, ctx) {
         if (!skillDef(p.skill_id) || p.skill_id === 'tibi') throw new TibiError('not_found', `没有这项技能：${p.skill_id}`);
-        if (ctx.caller.job_id) {
-          const parent = await ctx.db.get<{ parent_job_id: string | null }>('SELECT parent_job_id FROM jobs WHERE id = ?', [ctx.caller.job_id]);
-          if (parent?.parent_job_id) throw new TibiError('permission_denied', '子对话不能再运行技能（嵌套深度上限 1）');
-        }
-        // 在任务里运行就要等结果：不等的话，结果和子技能的反问都到不了对话里
-        return deps.runSkill({ skill_id: p.skill_id as SkillId, input: p.input, context: p.context, wait: p.wait || !!ctx.caller.job_id, parent: ctx });
-      },
-      widget: r => r.ask,
-      terminal: r => !!r.ask,
-    }),
-    tool_search: capability({
-      name: 'tool_search', description: '按名称或说明搜索能力，命中的加载进当前对话', perm: 'read', params: Type.Object({ q: Type.String() }),
-      async run(p, ctx) {
-        const q = p.q.toLowerCase();
-        const hits = deps.registry.list().filter(c => !INTERNAL.has(c.name) && (c.name.includes(q) || c.description.toLowerCase().includes(q))).slice(0, 10);
-        const live = ctx.caller.job_id ? deps.registry.liveTools.get(ctx.caller.job_id) : undefined;
-        if (live && ctx.caller.job_id) {
-          const job = deps.runner.getContext(ctx.caller.job_id);
-          if (job) live.add(deps.registry.toAgentTools(hits.map(h => h.name), ctx, job));
-        }
-        return hits.map(h => ({ name: h.name, description: h.description }));
+        if (ctx.caller.depth) throw new TibiError('permission_denied', '子技能不能再运行技能（嵌套深度上限 1）');
+        // 在同一轮里跑完再返回：结果交给主对话的模型（子技能的反问直接显示在主对话里）
+        return deps.runSkill({ skill_id: p.skill_id as SkillId, input: p.input, context: p.context, parent: ctx });
       },
     }),
   };

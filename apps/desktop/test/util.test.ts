@@ -11,10 +11,10 @@ describe('isImeKey', () => {
 });
 
 describe('wordClass', () => {
-  it('按状态着色：生词 / 学习中 / 待确认；已知不标', () => {
+  it('只给用户标的生词 / 学习中着色；已知、掌握、忽略和旧数据里的待确认（99）不标', () => {
     expect(wordClass(0)).toBe('w s0');
     expect(wordClass(3)).toBe('w s3');
-    expect(wordClass(99)).toBe('w s99');
+    expect(wordClass(99)).toBe('w');
     expect(wordClass(5)).toBe('w');
     expect(wordClass(97)).toBe('w');
     expect(wordClass(98)).toBe('w');

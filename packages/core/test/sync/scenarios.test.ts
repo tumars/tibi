@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openAppDb } from '@tibi/core-node';
+import { imported } from '../helpers.js';
 import { assembleCore, fakePlatform, sync, uuidv7, type Database, type Dict } from '../../src/index.js';
 
 /** 08 §11：两到三个模拟设备 + 一个内存文件夹后端 */
@@ -10,10 +11,17 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 async function device(name: string, files: Map<string, Uint8Array>, backend = sync.memoryBackend(files)) {
   const db = await openAppDb(':memory:');
   const t = Date.now();
-  await db.run("INSERT INTO user_profile(id, vocab_estimate, created_at, updated_at) VALUES ('1', 3000, ?, ?)", [t, t]);
+  await db.run("INSERT INTO user_profile(id, created_at, updated_at) VALUES ('1', ?, ?)", [t, t]);
   const { core, kernel } = await assembleCore({ db, dict, platform: fakePlatform({ isOnline: () => false }), resume: false });
   const eng = new sync.SyncEngine(db, backend, { platform: 'test', app_version: 't' });
-  const importText = async (text = TEXT) => { const { task_id } = await core.call<{ task_id: string }>('documents.import', { source: { type: 'text', text } }); return ((await kernel.jobs.wait(task_id)).output as { document_id: string }).document_id; };
+  // 导入不建词条：读的时候用户把这几个词标成生词（直接写行，不建卡，免得和下面手建的卡冲突）
+  const MARKED = ['compiler', 'enforce', 'rule', 'parser', 'syntax', 'tree', 'token'];
+  const importText = async (text = TEXT) => {
+    const id = (await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text } })) as { document_id: string }).document_id;
+    const ts = Date.now();
+    for (const w of MARKED) await db.run("INSERT OR IGNORE INTO terms(id, kind, text, text_display, status, status_source, created_at, updated_at) VALUES (?, 'word', ?, ?, 0, 'user', ?, ?)", [uuidv7(), w, w, ts, ts]);
+    return id;
+  };
   return { name, db, core, eng, importText };
 }
 const term = (db: Database, text: string) => db.get<{ id: string; status: number; status_source: string; meaning: string | null; note: string | null }>('SELECT id, status, status_source, meaning, note FROM terms WHERE text = ?', [text]);
@@ -62,7 +70,9 @@ describe('同步场景（08 §11）', () => {
   it('系统自动推断的熟练度不覆盖用户亲手标的', async () => {
     const files = new Map<string, Uint8Array>();
     const A = await device('A', files), B = await device('B', files);
-    await A.importText(); await A.eng.enable({ device_name: 'A' }); await B.eng.enable({ device_name: 'B' });
+    await A.importText();
+    await A.db.run("UPDATE terms SET status_source = 'auto_rule'");   // 旧数据：系统推断的行
+    await A.eng.enable({ device_name: 'A' }); await B.eng.enable({ device_name: 'B' });
     await A.db.run("UPDATE terms SET status = 5, status_source = 'user' WHERE text = 'tokens' OR text = 'token'");
     await sleep(5);
     await B.db.run("UPDATE terms SET status = 97, status_source = 'auto_rule' WHERE text = 'tokens' OR text = 'token'");

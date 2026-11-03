@@ -48,14 +48,15 @@ impl CoreProcess {
     }
 
     fn dict_path(&self) -> Option<PathBuf> {
-        // 随包资源 dict.db；开发时也接受仓库 data/ecdict/dict.db
+        // 随包资源 dict.db；开发时也接受仓库 data/ecdict/dict.db。空文件是让 tauri-build 编过的占位，不算
+        let usable = |p: &PathBuf| std::fs::metadata(p).map(|m| m.len() > 0).unwrap_or(false);
         if let Ok(p) = self.app.path().resolve("dict.db", tauri::path::BaseDirectory::Resource) {
-            if p.exists() {
+            if usable(&p) {
                 return Some(p);
             }
         }
         let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../data/ecdict/dict.db");
-        if dev.exists() {
+        if usable(&dev) {
             return Some(dev);
         }
         None

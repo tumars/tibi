@@ -1,9 +1,12 @@
 import type { SectionContent } from '@tibi/core';
-import { Pause, Play, Repeat, SkipBack, SkipForward, X } from 'lucide-react';
+import { AudioLines, LoaderCircle, Pause, Play, Repeat, SkipBack, SkipForward, Volume2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import * as tts from '../lib/tts';
 import { tl } from '../lib/i18n';
+import { errorInfo } from '../rpc';
+import { toast } from '../store/ui';
 import { useAloud } from './useAloud';
+import { useTtsStatus } from '../components/Speak';
 
 /**
  * 全文朗读（00 §3.4，M4）：从当前看到的那句开始，一句一句读，当前句高亮并滚到视野里。
@@ -17,8 +20,20 @@ export function ReadAloud({ content, scroller, onClose }: { content: SectionCont
   const [speed, setSpeed] = useState(tts.current().rate || 1);
   const [loop, setLoop] = useState(false);
   const [gap, setGap] = useState(0);
+  const [engine, setEngine] = useState<tts.Engine>(tts.current().engine);
+  const [pct, setPct] = useState<number>();
   const sents = content.sentences;
-  const { idx, playing, paused, toggle, jump, halt } = useAloud(sents, { start, speed, gap, loop });
+  const status = useTtsStatus();
+  const { idx, playing, paused, toggle, jump, halt } = useAloud(sents, { start, speed, gap, loop, engine, onError: e => toast(tl('AI 朗读用不了：{v0}。可以先用系统朗读', { v0: errorInfo(e).message || tl('模型没下载好') }), { kind: 'err' }) });
+  // 换成 AI 朗读：没下载过先下载（约 92 MB），按钮上显示进度
+  const pick = async (e: tts.Engine) => {
+    if (e === 'kokoro' && !tts.kokoroDownloaded()) {
+      setPct(0);
+      try { await tts.loadKokoro(setPct); } catch (err) { setPct(undefined); toast(tl('AI 朗读用不了：{v0}。可以先用系统朗读', { v0: errorInfo(err).message || tl('模型没下载好') }), { kind: 'err' }); return; }
+      setPct(undefined);
+    }
+    setEngine(e);
+  };
 
   // 高亮当前句
   useEffect(() => {
@@ -31,9 +46,12 @@ export function ReadAloud({ content, scroller, onClose }: { content: SectionCont
   return (
     <div className="aloud" role="toolbar" aria-label={tl('朗读')}>
       <button className="ibtn" title={tl('上一句')} onClick={() => jump(-1)}><SkipBack size={16} /></button>
-      <button className="play" title={playing ? tl('暂停') : paused ? tl('继续') : tl('播放')} onClick={toggle}>{playing ? <Pause size={16} /> : <Play size={16} />}</button>
+      <button className="play" title={playing && status === 'loading' ? tl('正在生成语音…') : playing ? tl('暂停') : paused ? tl('继续') : tl('播放')} onClick={toggle}>{playing && status === 'loading' ? <LoaderCircle size={16} className="ttsspin" /> : playing ? <Pause size={16} /> : <Play size={16} />}</button>
       <button className="ibtn" title={tl('下一句')} onClick={() => jump(1)}><SkipForward size={16} /></button>
       <span className="lbl">{idx + 1} / {sents.length}</span>
+      <span className="vsep" />
+      <button className={`ibtn${engine === 'system' ? ' on' : ''}`} title={tl('系统朗读')} aria-pressed={engine === 'system'} onClick={() => void pick('system')}><Volume2 size={15} /></button>
+      <button className={`ibtn${engine === 'kokoro' ? ' on' : ''}`} title={tts.kokoroDownloaded() ? tl('AI 朗读') : tl('AI 朗读（第一次要下载约 92 MB）')} aria-pressed={engine === 'kokoro'} onClick={() => void pick('kokoro')}>{pct !== undefined ? <span className="spk-pct">{pct}%</span> : <AudioLines size={15} />}</button>
       <span className="vsep" />
       <select className="input" value={speed} onChange={e => setSpeed(Number(e.target.value))} aria-label={tl('倍速')}>{SPEEDS.map(s => <option key={s} value={s}>{s}×</option>)}</select>
       <button className={`ibtn${loop ? ' on' : ''}`} title={tl('单句循环')} onClick={() => setLoop(!loop)}><Repeat size={15} /></button>

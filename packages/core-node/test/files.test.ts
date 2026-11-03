@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { strToU8, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { extractFile } from '../src/extract.js';
+import { documents } from '@tibi/core';
 import { createCore } from '../src/create.js';
 
 const dir = mkdtempSync(join(tmpdir(), 'tibi-files-'));
@@ -84,10 +85,9 @@ describe('文件导入：EPUB / DOCX / PDF（M4）', () => {
     const core = await createCore({ dbPath: ':memory:', version: 't' });
     const path = makeEpub();
     await core.call('system.registerPaths', { paths: [path] });
-    const { task_id } = await core.call<{ task_id: string }>('documents.import', { source: { type: 'file', path } });
-    const r = await core.jobs.wait(task_id);
-    expect(r.status, r.error).toBe('done');
-    const doc = await core.call<{ kind: string; title: string; sections: { title: string }[] }>('documents.get', { id: (r.output as { document_id: string }).document_id });
+    const r = await documents.importDone((await core.call<{ import_id: string }>('documents.import', { source: { type: 'file', path } })).import_id)!;
+    expect(r.ok, r.ok ? '' : r.error).toBe(true);
+    const doc = await core.call<{ kind: string; title: string; sections: { title: string }[] }>('documents.get', { id: (r as { document_id: string }).document_id });
     expect(doc.kind).toBe('book'); expect(doc.title).toBe('A Tiny Book');
     expect(doc.sections.map(s => s.title)).toEqual(['One: The River', 'Two: The Hill']);
   });
@@ -97,13 +97,12 @@ describe('书按章懒处理（M4）', () => {
   it('导入只标前两章，第三章打开时再标', async () => {
     const core = await createCore({ dbPath: ':memory:', version: 't' });
     const ch = (n: number) => `# Chapter ${n}\n\n${'The keeper walked along the narrow quay and watched the harbour lights fade one by one. '.repeat(5)}`;
-    const { task_id } = await core.call<{ task_id: string }>('documents.import', { source: { type: 'text', text: [1, 2, 3].map(ch).join('\n\n'), title: 'Quay' }, hints: { kind: 'book' } });
-    const r = await core.jobs.wait(task_id);
-    const doc = await core.call<{ sections: { id: string; status: string }[] }>('documents.get', { id: (r.output as { document_id: string }).document_id });
+    const r = await documents.importDone((await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: [1, 2, 3].map(ch).join('\n\n'), title: 'Quay' }, hints: { kind: 'book' } })).import_id)!;
+    const doc = await core.call<{ sections: { id: string; status: string }[] }>('documents.get', { id: (r as { document_id: string }).document_id });
     expect(doc.sections.map(s => s.status)).toEqual(['ready', 'ready', 'pending']);
     const sec = await core.call<{ sentences: { tokens: unknown[] }[] }>('sections.get', { id: doc.sections[2]!.id });
     expect(sec.sentences[0]!.tokens.length).toBeGreaterThan(0);
-    const again = await core.call<{ sections: { status: string }[] }>('documents.get', { id: (r.output as { document_id: string }).document_id });
+    const again = await core.call<{ sections: { status: string }[] }>('documents.get', { id: (r as { document_id: string }).document_id });
     expect(again.sections[2]!.status).toBe('ready');
   });
 });

@@ -5,7 +5,7 @@ import { validateParams, type Ctx, type MethodMap } from './define.js';
 export interface RpcRequest { jsonrpc?: '2.0'; id?: string | number | null; method: string; params?: unknown }
 export interface RpcResponse { jsonrpc: '2.0'; id: string | number | null; result?: unknown; error?: { code: number; message: string; data?: unknown } }
 
-const CODES: Record<string, number> = { not_found: -32001, conflict: -32002, permission_denied: -32003, model_unavailable: -32004, budget_exceeded: -32005, offline: -32006, invalid_source: -32007, busy: -32008, invalid_params: -32602 };
+const CODES: Record<string, number> = { not_found: -32001, conflict: -32002, permission_denied: -32003, model_unavailable: -32004, offline: -32006, invalid_source: -32007, busy: -32008, invalid_params: -32602 };
 
 export class Dispatcher {
   private methods: MethodMap = {};

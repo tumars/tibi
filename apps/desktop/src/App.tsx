@@ -11,7 +11,6 @@ import { Reader } from './pages/Reader';
 import { Review } from './pages/Review';
 import { Settings } from './pages/Settings';
 import { Stats } from './pages/Stats';
-import { Tasks } from './pages/Tasks';
 import { Words } from './pages/Words';
 import { isTauri, rpc } from './rpc';
 import { bindCoreEvents, useCore } from './store/core';
@@ -19,10 +18,15 @@ import { toast } from './store/ui';
 import { tl } from './lib/i18n';
 import { startDesktopReminder, type ReminderTime } from './lib/reminder';
 import { startAutoUpdateCheck } from './lib/update';
+import { installMacNative } from './lib/macNative';
+import { openDeepLink } from './lib/deeplink';
 
 export function App() {
   const nav = useNavigate();
   const modelAsked = useRef(false);
+  // 菜单栏只装一次，导航函数随路由变，所以经 ref 取最新的
+  const navRef = useRef(nav); navRef.current = nav;
+  useEffect(() => installMacNative(to => navRef.current(to)), []);
   // 每日提醒（J8）：应用开着（含托盘里）时到点提醒
   useEffect(() => {
     let time: ReminderTime = 'off';
@@ -36,7 +40,7 @@ export function App() {
   useEffect(() => {
     bindCoreEvents();
     // 朗读设置（tts.*）
-    const loadTts = () => void rpc.call('settings.get', { keys: ['tts.engine', 'tts.voice', 'tts.rate'] }).then(s => void import('./lib/tts').then(t => t.configure({ engine: (s['tts.engine'] as 'system' | 'kokoro') ?? 'system', voice: (s['tts.voice'] as string) ?? '', rate: Number(s['tts.rate'] ?? 1) || 1 })), () => undefined);
+    const loadTts = () => void rpc.call('settings.get', { keys: ['tts.engine', 'tts.voice', 'tts.ai_voice', 'tts.rate'] }).then(s => void import('./lib/tts').then(t => t.configure({ engine: (s['tts.engine'] as 'system' | 'kokoro') ?? 'system', voice: (s['tts.voice'] as string) ?? '', aiVoice: (s['tts.ai_voice'] as string) || undefined, rate: Number(s['tts.rate'] ?? 1) || 1 })), () => undefined);
     loadTts();
     // Tibi 或别的设备改了语速，马上生效
     const offTts = rpc.on('data.changed', d => { if (d.table === 'settings') loadTts(); });
@@ -51,19 +55,20 @@ export function App() {
       if (st.docCount > 0) { void rpc.call('settings.set', { patch: { [ONBOARDING_KEY]: true } }); askModel(); return; }
       if (!location.hash.startsWith('#/welcome')) nav('/welcome', { replace: true });
     });
-    const offDone = rpc.on('task.done', d => {
-      const r = d.result;
-      if (d.task.trigger === 'auto') return;   // 后台自动的任务（补做总结等）不打扰
-      if (d.task.skill_id !== 'importer') return;   // 对话里的回答在对话页 / 面板里看，不再弹通知
+    const offDone = rpc.on('import.done', r => {
+      // 对话里起的导入：进度和结果在对话的导入卡上，这里不提示
+      if (r.origin === 'chat') return;
+      // 导入失败：错误在发起的地方显示（首页进度条）；这里只提示成功
+      if (!r.ok) { if (r.origin !== 'mcp' && !location.hash.startsWith('#/welcome')) toast(r.error || tl('导入失败'), { kind: 'err' }); return; }
       // 已经打开了这篇（如点示例后自动跳进阅读器）就不再提示"开始阅读"
-      if (r?.document_id) setTimeout(() => { if (!location.hash.includes(`/read/${r.document_id}`) && !location.hash.startsWith('#/welcome')) toast(r.summary || tl('导入完成'), { action: { label: tl('开始阅读'), run: () => nav(`/read/${r.document_id}`) } }); }, 80);
-      else if (r?.summary) toast(r.summary);
+      if (r.document_id) setTimeout(() => { if (!location.hash.includes(`/read/${r.document_id}`) && !location.hash.startsWith('#/welcome')) toast(r.summary || tl('导入完成'), { action: { label: tl('开始阅读'), run: () => nav(`/read/${r.document_id}`) } }); }, 80);
     });
-    // 深链：tibi://import?url=…（Rust 发 deep_link 事件）→ 确认后导入
+    // 深链（Rust 发 deep_link 事件）：tibi://import?url=… 确认后导入；其余 tibi:// 和对话卡片上的按钮一样跳转
     let offDeep: (() => void) | undefined;
     if (isTauri()) {
       void import('@tauri-apps/api/event').then(({ listen }) => listen<{ action: string; url: string }>('deep_link', e => {
         if (e.payload.action === 'import') nav(`/?import=${encodeURIComponent(e.payload.url)}`);
+        else if (e.payload.action === 'open') openDeepLink(e.payload.url);
       })).then(off => { offDeep = off; });
     }
     return () => { offTts(); offDone(); offDeep?.(); };
@@ -83,7 +88,6 @@ export function App() {
           <Route path="dict" element={<Dict />} />
           <Route path="review" element={<Review />} />
           <Route path="stats" element={<Stats />} />
-          <Route path="tasks" element={<Tasks />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

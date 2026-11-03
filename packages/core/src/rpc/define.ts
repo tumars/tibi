@@ -2,7 +2,7 @@ import { Type, type Static, type TSchema } from '@sinclair/typebox';
 import { Value } from '@sinclair/typebox/value';
 import type { Database } from '../db/driver.js';
 import type { Dict } from '../dict/types.js';
-import type { EventSink, JobRunner } from '../kernel/types.js';
+import type { EventSink } from '../kernel/types.js';
 import type { CompleteOptions, CompleteResult } from '../kernel/complete.js';
 import type { Platform } from '../platform.js';
 import { TibiError, type WidgetSpec } from '../types.js';
@@ -18,9 +18,11 @@ export interface Ctx {
   dict: Dict;
   platform: Platform;
   events: EventSink;
-  jobs: JobRunner;
-  /** 调用方：界面 / 技能运行中的任务 / MCP */
-  caller: { origin: 'ui' | 'skill' | 'mcp'; job_id?: string; job_step_id?: string; skill_id?: string; tainted?: boolean };
+  /**
+   * 调用方：界面 / 技能 / MCP。turn_id 是进行中的那一轮回答（MCP 是那次调用）；call_id 是哪次工具调用；
+   * depth = 1 是 run_skill 里的子技能
+   */
+  caller: { origin: 'ui' | 'skill' | 'mcp'; turn_id?: string; call_id?: string; skill_id?: string; depth?: number; tainted?: boolean };
   /** 当前权限模式（user_profile.assistant_prefs.permission） */
   permission(): Promise<'ask' | 'default' | 'auto'>;
   /** 一次性模型调用（语境释义、测试连接）；组装时由内核提供，单测里可以不给 */
@@ -50,8 +52,8 @@ export interface CapabilityDef<P extends TSchema = TSchema, R = unknown> {
   perm: Perm;
   /** 写能力是否可撤销（返回里带 undo） */
   undoable?: boolean;
-  /** 崩溃重跑时能否安全重放（有幂等键的写能力 = safe） */
-  replay?: 'never' | 'safe';
+  /** 不问用户直接写（记忆）：权限模式和读过网页都不拦，靠回执里的撤销兜底；必须 undoable */
+  autoApprove?: true;
   run: (params: Static<P>, ctx: Ctx) => Promise<R>;
   /** 结果怎么显示成对话卡片；不适合显示时返回 undefined */
   widget?(result: R, params: Static<P>): WidgetSpec | undefined;
@@ -59,12 +61,10 @@ export interface CapabilityDef<P extends TSchema = TSchema, R = unknown> {
   permFor?(params: Static<P>): Perm;
   /** 审批卡正文：给人看的说明（如文章标题），不给就从参数里摘 */
   describe?(params: Static<P>, ctx: Ctx): Promise<string>;
-  /** 调用后结束这一轮，等用户下一步。true 时同一批的写操作不会执行；函数按结果决定 */
-  terminal?: boolean | ((result: R) => boolean);
   /** false：不对 MCP 开放（配置、反问这类只在应用里用的能力） */
   mcp?: false;
-  /** 能绑到反问选项上（用户点了直接执行）：不允许绑定时抛错；preview 由这里生成，不用模型写的文案；urls 要能在本任务的工具结果里找到 */
-  askable?(params: Static<P>): { preview: string; urls?: string[] };
+  /** 这次调用针对的网址：用户刚在反问卡上选中它时不再审批（模型换了网址就照常审批） */
+  chosenUrl?(params: Static<P>): string | undefined;
 }
 
 export function capability<P extends TSchema, R>(def: CapabilityDef<P, R>): CapabilityDef<P, R> { return def; }
@@ -87,7 +87,7 @@ export function validateParams<P extends TSchema>(schema: P, raw: unknown): Stat
 export const S = {
   id: Type.String({ minLength: 1 }),
   ts: Type.Integer({ minimum: 0 }),
-  status: Type.Union([0, 1, 2, 3, 4, 5, 97, 98, 99].map(n => Type.Literal(n))),
+  status: Type.Union([0, 1, 2, 3, 4, 5, 97, 98].map(n => Type.Literal(n))),
   kind: Type.Union([Type.Literal('article'), Type.Literal('book')]),
   genre: Type.Union(['tech', 'news', 'lit', 'academic', 'general'].map(s => Type.Literal(s))),
   cardType: Type.Union(['recognize', 'choice', 'cloze'].map(s => Type.Literal(s))),

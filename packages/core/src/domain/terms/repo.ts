@@ -41,19 +41,16 @@ export async function insertTerm(db: Database, t: NewTerm): Promise<TermRow> {
   return (await getTerm(db, id))!;
 }
 
-export async function logStatus(db: Database, term_id: string, status: number, source: string, extra: { prelabel?: string | null; document_id?: string | null } = {}) {
-  await db.run('INSERT INTO term_status_log(id, term_id, status, source, prelabel, document_id, created_at) VALUES (?,?,?,?,?,?,?)', [uuidv7(), term_id, status, source, extra.prelabel ?? null, extra.document_id ?? null, now()]);
+export async function logStatus(db: Database, term_id: string, status: number, source: string, extra: { document_id?: string | null } = {}) {
+  await db.run('INSERT INTO term_status_log(id, term_id, status, source, document_id, created_at) VALUES (?,?,?,?,?,?)', [uuidv7(), term_id, status, source, extra.document_id ?? null, now()]);
 }
 
 /** 改状态：写 terms 与时间线。返回旧状态 */
 export async function setTermStatus(db: Database, term: TermRow, status: Status, source: string, extra: { document_id?: string | null; in_wordbook?: boolean } = {}): Promise<Status> {
   const prev = term.status as Status;
   const ts = now();
-  // 预标注标记（H1）：这个词还没被用户碰过时，记它此前是哪一类
-  const touched = await db.get<{ n: number }>("SELECT count(*) AS n FROM term_status_log WHERE term_id = ? AND source NOT IN ('auto_rule', 'auto_vocab_test')", [term.id]);
-  const prelabel = Number(touched?.n ?? 0) === 0 && (term.status_source === 'auto_rule' || term.status_source === 'auto_vocab_test') ? (prev === 99 ? 'unsure' : prev === 0 ? 'new' : 'known') : null;
   await db.run('UPDATE terms SET status = ?, status_source = ?, status_changed_at = ?, updated_at = ?, in_wordbook = COALESCE(?, in_wordbook) WHERE id = ?', [status, source, ts, ts, extra.in_wordbook === undefined ? null : extra.in_wordbook ? 1 : 0, term.id]);
-  await logStatus(db, term.id, status, source, { prelabel, document_id: extra.document_id ?? null });
+  await logStatus(db, term.id, status, source, { document_id: extra.document_id ?? null });
   return prev;
 }
 
@@ -89,10 +86,10 @@ export async function contextExists(db: Database, term_id: string, sentence_id: 
   return Number(r?.n ?? 0) > 0;
 }
 
-/** 用户画像里标注要用的几项 */
-export async function readProfile(db: Database): Promise<{ vocab_estimate: number; daily_new_cards: number; vocab_source: string; interests: string[] }> {
-  const r = await db.get<{ vocab_estimate: number; daily_new_cards: number; vocab_source: string; interests: string }>("SELECT vocab_estimate, daily_new_cards, vocab_source, interests FROM user_profile WHERE id = '1'");
-  return { vocab_estimate: Number(r?.vocab_estimate ?? 3500), daily_new_cards: Number(r?.daily_new_cards ?? 20), vocab_source: r?.vocab_source ?? 'self', interests: j.parse<string[]>(r?.interests, []) };
+/** 用户画像里词汇写操作要用的几项 */
+export async function readProfile(db: Database): Promise<{ daily_new_cards: number; interests: string[] }> {
+  const r = await db.get<{ daily_new_cards: number; interests: string }>("SELECT daily_new_cards, interests FROM user_profile WHERE id = '1'");
+  return { daily_new_cards: Number(r?.daily_new_cards ?? 20), interests: j.parse<string[]>(r?.interests, []) };
 }
 
 /** 本地日期 YYYY-MM-DD（daily_stats 的键） */

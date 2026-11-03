@@ -9,7 +9,7 @@ import { isImeKey } from '../lib/util';
 
 /**
  * 设置 → 记忆（00 §3.7）：Tibi 记住的内容，注明来源与日期；可逐条改、删（可撤销），暂停写入新记忆，清空全部（可撤销）。
- * Tibi 写入新记忆前按权限模式先问你（对话里的审批卡）。
+ * Tibi 自动写入新记忆，不问；对话里给可撤销的回执。
  */
 const TYPE: Record<Memory['type'], string> = { profile: tl('关于你'), procedural: tl('你的要求'), semantic: tl('它知道的'), episodic: tl('经历') };
 const undoToast = (msg: string, undo_id: string, after: () => void) => toast(msg, { action: { label: tl('撤销'), run: () => { void rpc.call('system.undo', { undo_id }).then(() => { toast(tl('已撤销')); after(); }, e => toast(errorInfo(e).message, { kind: 'err' })); } } });
@@ -41,7 +41,7 @@ export function MemoryItems() {
 
   return <>
     <div className="item">
-      <div><div className="t">{tl('暂停记住新的事')}</div><div className="d">{tl('打开后 Tibi 不再写入新记忆，已有的照常使用。Tibi 想记住什么时会先问你（按权限模式）。')}</div></div>
+      <div><div className="t">{tl('暂停记住新的事')}</div><div className="d">{tl('Tibi 平时会自动记下你的习惯和偏好，对话里有回执可以撤销，这里也能查看、修改、删除。打开后不再记新的，已有的照常使用。')}</div></div>
       <div className="ctl"><Switch label={tl('暂停记住新的事')} checked={paused} onChange={async v => { setPaused(v); await rpc.call('memory.pause', { paused: v }).catch(e => toast(errorInfo(e).message, { kind: 'err' })); }} /></div>
     </div>
     {items && !groups.length && <div className="item"><div className="d">{tl('Tibi 还没有记住什么。对话里说"记住……"，或者在 设置 → 高级 → Tibi 能做的事 里让它整理记忆。')}</div></div>}

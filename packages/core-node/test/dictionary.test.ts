@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { assembleCore, fakePlatform, type DictEntryResult, type DictSuggestResult } from '@tibi/core';
+import { assembleCore, documents, fakePlatform, type DictEntryResult, type DictSuggestResult } from '@tibi/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildDict } from '../src/ecdict/ingest.js';
 import { openAppDb, openDictDb, SqliteDict } from '../src/index.js';
@@ -101,8 +101,7 @@ describe('词典页 dict.*（00 §3.14）', () => {
     expect(r.similar[0]!.word).toBe('receive');
   });
   it('只读：查词不建词条；加入生词本后带上 term；能搜到读过的文章', async () => {
-    const { task_id } = await m.core.call<{ task_id: string }>('documents.import', { source: { type: 'text', text: 'A short walk\n\nShe went to the city. Later the cities grew and everyone went home.' } });
-    const doc = (await m.kernel.jobs.wait(task_id)).output as { document_id: string };
+    const doc = await documents.importDone((await m.core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: 'A short walk\n\nShe went to the city. Later the cities grew and everyone went home.' } })).import_id)! as { document_id: string };
     const before = await m.db.get<{ n: number }>("SELECT count(*) AS n FROM terms WHERE in_wordbook = 1");
     const cards = await m.db.get<{ n: number }>('SELECT count(*) AS n FROM cards');
     const r = await entry('go');

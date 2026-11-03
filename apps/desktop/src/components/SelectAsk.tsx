@@ -1,7 +1,7 @@
 import type { DictEntry } from '@tibi/core';
 import { useEffect, useRef, useState } from 'react';
 import { tl } from '../lib/i18n';
-import { say } from '../lib/tts';
+import { speakWith } from './Speak';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 
@@ -62,7 +62,8 @@ export function SelectAsk({ root, ask }: { root: React.RefObject<HTMLElement | n
       {isWord && !entry && <button onClick={() => void look()}>{tl('查词')}</button>}
       {isWord && !entry?.in_wordbook && <button onClick={() => void add(word)}>{tl('加入生词本')}</button>}
       {entry?.in_wordbook && <span className="lbl">{tl('已在生词本')}</span>}
-      <button onClick={() => void say(sel.text)}>{tl('朗读')}</button>
+      <button onClick={() => void speakWith(sel.text, 'system')}>{tl('系统朗读')}</button>
+      <button onClick={() => void speakWith(sel.text, 'kokoro')}>{tl('AI 朗读')}</button>
       <button onClick={() => question(isWord ? tl('「{w}」在这里是什么意思？', { w: sel.text }) : tl('「{w}」这句怎么理解？', { w: sel.text }))}>{tl('问这句')}</button>
     </div>
   </div>;

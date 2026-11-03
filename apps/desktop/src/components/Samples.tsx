@@ -9,16 +9,16 @@ import { tl } from '../lib/i18n';
 /** 导入一篇内置示例并在完成后打开；已经导入过的直接打开 */
 export async function openSample(s: SampleInfo, nav: (to: string) => void) {
   if (s.document_id) { nav(`/read/${s.document_id}`); return; }
-  // 先挂监听再提交：示例很短，task.done 可能比 import 的返回先到
-  let taskId: string | undefined; const early = new Map<string, string | undefined>();
-  const off = rpc.on('task.done', d => {
-    if (!taskId) { early.set(d.task.id, d.result?.document_id); return; }
-    if (d.task.id === taskId) { off(); if (d.result?.document_id) nav(`/read/${d.result.document_id}`); }
+  // 先挂监听再提交：示例很短，import.done 可能比 import 的返回先到
+  let importId: string | undefined; const early = new Map<string, string | undefined>();
+  const off = rpc.on('import.done', d => {
+    if (!importId) { early.set(d.import_id, d.document_id); return; }
+    if (d.import_id === importId) { off(); if (d.document_id) nav(`/read/${d.document_id}`); }
   });
   setTimeout(off, 60_000);
   try {
-    taskId = (await rpc.call('documents.import', { source: { type: 'sample', id: s.id } })).task_id;
-    if (early.has(taskId)) { off(); const id = early.get(taskId); if (id) nav(`/read/${id}`); }
+    const id0 = importId = (await rpc.call('documents.import', { source: { type: 'sample', id: s.id } })).import_id;
+    if (early.has(id0)) { off(); const id = early.get(id0); if (id) nav(`/read/${id}`); }
   } catch (e) { off(); toast(errorInfo(e).message, { kind: 'err' }); }
 }
 

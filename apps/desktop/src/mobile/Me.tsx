@@ -1,5 +1,5 @@
-import type { Approval, Conversation, Memory, Term } from '@tibi/core';
-import { Bell, BookA, Bookmark, Brain, ChevronRight, Cloud, KeyRound, ListChecks, MessageSquare, Moon, Languages } from 'lucide-react';
+import type { Conversation, Memory, Term } from '@tibi/core';
+import { Bell, BookA, Bookmark, Brain, ChevronRight, Cloud, KeyRound, MessageSquare, Moon, Languages } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { Dictionary } from '../components/Dictionary';
@@ -12,17 +12,15 @@ import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
 import { Empty, Ring, Sheet } from './ui';
 
-type SheetKind = 'dict' | 'words' | 'chats' | 'memory' | 'tasks' | 'sync' | 'model' | 'look' | 'remind';
+type SheetKind = 'dict' | 'words' | 'chats' | 'memory' | 'sync' | 'model' | 'look' | 'remind';
 
-/** 我（00 §3.13）：连续天数圆环、已知词、生词本、对话记录、记忆、运行记录、同步、模型、外观与语言 */
+/** 我（00 §3.13）：连续天数圆环、生词本、对话记录、记忆、同步、模型、外观与语言 */
 export function Me() {
-  const { streak, todayMinutes, goal, vocab, wordCount, status } = useCore();
+  const { streak, todayMinutes, goal, wordCount, status } = useCore();
   const [sheet, setSheet] = useState<SheetKind>();
-  const [pending, setPending] = useState(0);
   const [sync, setSync] = useState<SyncStatus>();
   const nav = useNavigate();
   useEffect(() => {
-    rpc.call('tasks.list', { limit: 1 }).then(r => setPending(r.pending.length), () => undefined);
     const load = () => rpc.call('sync.status', {}).then(setSync, () => undefined);
     void load(); return rpc.on('sync.update', () => void load());
   }, []);
@@ -31,14 +29,13 @@ export function Me() {
   return (
     <div className="screen me" id="s-me">
       <div className="topgap" />
-      <div className="head"><Ring value={goal ? todayMinutes / goal : 0} size={64} stroke={6} /><div><b>{tl('连续 {n} 天', { n: streak })}</b><span>{tl('今日 {m} / {g} 分钟 · 约 {v} 词', { m: todayMinutes, g: goal, v: vocab.toLocaleString() })}</span></div></div>
+      <div className="head"><Ring value={goal ? todayMinutes / goal : 0} size={64} stroke={6} /><div><b>{tl('连续 {n} 天', { n: streak })}</b><span>{tl('今日 {m} / {g} 分钟', { m: todayMinutes, g: goal })}</span></div></div>
       <div className="pad sec">
         <div className="card menu">
           <Item k="words" icon={<Bookmark />} color="#f5a043" label={tl('生词本')} right={wordCount || undefined} />
           <Item k="dict" icon={<BookA />} color="#0f8b8d" label={tl('词典')} />
           <Item k="chats" icon={<MessageSquare />} color="#3d52e0" label={tl('对话记录')} />
           <Item k="memory" icon={<Brain />} color="#8e5cd9" label={tl('Tibi 记忆')} />
-          <Item k="tasks" icon={<ListChecks />} color="#2f9e5f" label={tl('运行记录')} right={pending ? tl('{n} 个等你确认', { n: pending }) : undefined} />
         </div>
       </div>
       <div className="pad sec">
@@ -53,7 +50,6 @@ export function Me() {
       <Sheet open={sheet === 'dict'} onClose={() => setSheet(undefined)} tall full>{sheet === 'dict' && <><h2>{tl('词典')}</h2><Dictionary compact onOpenDoc={id => nav(`/read/${id}`)} /></>}</Sheet>
       <Sheet open={sheet === 'chats'} onClose={() => setSheet(undefined)} tall><Chats onOpen={() => setSheet(undefined)} /></Sheet>
       <Sheet open={sheet === 'memory'} onClose={() => setSheet(undefined)} tall><Memories /></Sheet>
-      <Sheet open={sheet === 'tasks'} onClose={() => setSheet(undefined)} tall><Tasks /></Sheet>
       <Sheet open={sheet === 'sync'} onClose={() => setSheet(undefined)} tall><SyncPanel st={sync} onChange={setSync} /></Sheet>
       <Sheet open={sheet === 'model'} onClose={() => setSheet(undefined)} tall><ModelPanel onDone={() => setSheet(undefined)} /></Sheet>
       <Sheet open={sheet === 'look'} onClose={() => setSheet(undefined)}><Look /></Sheet>
@@ -86,17 +82,6 @@ function Memories() {
     <div className="card">{items?.map(m => <div key={m.id} className="doc"><span className="b" style={{ whiteSpace: 'normal' }}><span className="m" style={{ color: 'var(--ink)', fontSize: 15 }}>{m.content}</span></span><button className="btn sm" onClick={() => void del(m.id)}>{tl('删除')}</button></div>)}</div>}</>;
 }
 
-function Tasks() {
-  const [list, setList] = useState<{ pending: Approval[]; running: { id: string; title: string }[] }>();
-  const load = () => rpc.call('tasks.list', { limit: 20 }).then(r => setList({ pending: r.pending, running: r.running }), () => undefined);
-  useEffect(() => { void load(); }, []);
-  const decide = async (a: Approval, d: 'allow' | 'deny') => { try { await rpc.call('tasks.approve', { id: a.task_id, decision: d }); void load(); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
-  return <><h2>{tl('运行记录')}</h2>
-    {list && !list.pending.length && !list.running.length && <Empty image="empty-tasks" title={tl('没有进行中的任务')} text={tl('任务详情在电脑上看。')} />}
-    {list?.pending.map(a => <div key={a.task_id} className="approve" style={{ marginBottom: 8 }}><div className="h">{a.title}</div><div className="b">{a.body}</div><div className="acts"><button className="btn sm tint" onClick={() => void decide(a, 'allow')}>{tl('允许')}</button><button className="btn sm" onClick={() => void decide(a, 'deny')}>{tl('拒绝')}</button></div></div>)}
-    {list?.running.map(t => <div key={t.id} className="lbl">{tl('进行中')} · {t.title}</div>)}
-  </>;
-}
 
 /** 同步（08 §10 手机：我 › 同步）：iPhone 上默认 iCloud Drive，也可以 WebDAV */
 function SyncPanel({ st, onChange }: { st?: SyncStatus; onChange: (s: SyncStatus) => void }) {
@@ -158,11 +143,9 @@ export function ModelPanel({ onDone }: { onDone: () => void }) {
 
 function Look() {
   const theme = useUi(s => s.theme); const setTheme = useUi(s => s.setTheme);
-  const less = useUi(s => s.lessMascot); const setLess = useUi(s => s.setLessMascot);
   return <><h2>{tl('外观与语言')}</h2>
     <div className="seg">{(['auto', 'light', 'dark'] as const).map(t => <button key={t} className={theme === t ? 'on' : ''} onClick={() => setTheme(t)}>{{ auto: tl('跟随系统'), light: tl('浅色'), dark: tl('深色') }[t]}</button>)}</div>
     <div className="seg" style={{ marginTop: 12 }}><button className={lang === 'zh' ? 'on' : ''} onClick={() => lang !== 'zh' && setLang('zh')}><Languages size={14} /> 中文</button><button className={lang === 'en' ? 'on' : ''} onClick={() => lang !== 'en' && setLang('en')}>English</button></div>
-    <div className="seg" style={{ marginTop: 12 }}><button className={less ? '' : 'on'} onClick={() => setLess(false)}>{tl('显示吉祥物')}</button><button className={less ? 'on' : ''} onClick={() => setLess(true)}>{tl('减少吉祥物')}</button></div>
   </>;
 }
 

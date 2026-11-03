@@ -8,7 +8,7 @@ import { dateKey, rollupToday } from './rollup.js';
 
 /** 统计（00 §3.6、06）：读 daily_stats（先懒汇总今天）、review_logs、documents */
 
-async function ensureToday(db: Database, dict?: Dict) { await rollupToday(db, undefined, dict); }
+async function ensureToday(db: Database, _dict?: Dict) { await rollupToday(db); }
 
 async function dailyRows(db: Database, days: number): Promise<Map<string, Record<string, number>>> {
   const from = dateKey(now() - (days - 1) * 86_400_000);
@@ -44,37 +44,35 @@ export async function summary(db: Database, range: number, dict?: Dict) {
   const days = dayList(range); const rows = await dailyRows(db, range * 2);
   const sum = (keys: { key: string }[], f: string) => keys.reduce((s, d) => s + (rows.get(d.key)?.[f] ?? 0), 0);
   const prevDays = dayList(range * 2).slice(0, range);
-  const known = rows.get(dateKey())?.known_terms_total ?? 0;
+  // 已掌握：用户标为掌握（5）或已知（97）的词数，只数用户自己的标记
+  const mastered = rows.get(dateKey())?.mastered_total ?? 0;
   const firstKey = days[0]!.key;
-  const inRange = [...rows.entries()].filter(([k]) => k >= firstKey).map(([, v]) => v.known_terms_total ?? 0);
-  const before = [...rows.entries()].filter(([k]) => k < firstKey).map(([, v]) => v.known_terms_total ?? 0).pop() ?? inRange[0] ?? known;
+  const inRange = [...rows.entries()].filter(([k]) => k >= firstKey).map(([, v]) => v.mastered_total ?? 0);
+  const before = [...rows.entries()].filter(([k]) => k < firstKey).map(([, v]) => v.mastered_total ?? 0).pop() ?? inRange[0] ?? mastered;
   // 上一周期的起点：没有更早的数据时用上一周期里的第一天（再没有就等于本期起点，增长记 0）
-  const prevIn = [...rows.entries()].filter(([k]) => k >= prevDays[0]!.key && k < firstKey).map(([, v]) => v.known_terms_total ?? 0);
-  const prevBefore = [...rows.entries()].filter(([k]) => k < prevDays[0]!.key).map(([, v]) => v.known_terms_total ?? 0).pop() ?? prevIn[0] ?? before;
+  const prevIn = [...rows.entries()].filter(([k]) => k >= prevDays[0]!.key && k < firstKey).map(([, v]) => v.mastered_total ?? 0);
+  const prevBefore = [...rows.entries()].filter(([k]) => k < prevDays[0]!.key).map(([, v]) => v.mastered_total ?? 0).pop() ?? prevIn[0] ?? before;
   const reviews = sum(days, 'reviews'), correct = sum(days, 'review_correct');
   const st = await streaks(db);
-  return { known, known_delta: known - before, prev_delta: before - prevBefore, minutes: Math.round(sum(days, 'reading_ms') / 60_000), words: sum(days, 'words_read'), study_days: st.study_days, streak: st.streak, longest_streak: st.longest, reviews, retention: reviews ? correct / reviews : 0 };
+  return { mastered, mastered_delta: mastered - before, prev_delta: before - prevBefore, minutes: Math.round(sum(days, 'reading_ms') / 60_000), words: sum(days, 'words_read'), study_days: st.study_days, streak: st.streak, longest_streak: st.longest, reviews, retention: reviews ? correct / reviews : 0 };
 }
 
 export async function series(db: Database, metrics: string[], days: number, dict?: Dict) {
   await ensureToday(db, dict);
   const list = dayList(days); const rows = await dailyRows(db, days);
   const map: Record<string, (r: Record<string, number> | undefined) => number> = {
-    known: r => r?.known_terms_total ?? 0, known_confirmed: r => r?.known_confirmed ?? 0, known_estimated: r => r?.known_estimated ?? 0,
+    mastered: r => r?.mastered_total ?? 0,
     minutes: r => Math.round((r?.reading_ms ?? 0) / 60_000), words: r => r?.words_read ?? 0, reviews: r => r?.reviews ?? 0,
   };
   const out: Record<string, number[]> = {};
-  let lastKnown = 0;
   for (const m of metrics) {
-    // 已知词：没有记录的天沿用前一天；最早一条之前的天用最早那天的值（曲线不从 0 起跳）
-    if (m.startsWith('known')) { const firstRow = list.map(d => rows.get(d.key)).find(Boolean); lastKnown = firstRow ? (map[m] ?? (() => 0))(firstRow) : 0; }
-    out[m] = list.map(d => { const r = rows.get(d.key); const v = (map[m] ?? (() => 0))(r); if (m.startsWith('known')) { if (r) lastKnown = v; return r ? v : lastKnown; } return v; });
-    if (m === 'known') { // 实测 / 估算两条线一并给（R8）
-      for (const k of ['known_confirmed', 'known_estimated'] as const) {
-        const first = list.map(d => rows.get(d.key)?.[k]).find(v => v !== undefined) ?? 0; let last = first;
-        out[k] = list.map(d => { const v = rows.get(d.key)?.[k]; if (v !== undefined) last = v; return last; });
-      }
+    // 已掌握是累计数：没有记录的天沿用前一天；最早一条之前的天用最早那天的值（曲线不从 0 起跳）
+    if (m === 'mastered') {
+      const firstRow = list.map(d => rows.get(d.key)).find(Boolean); let last = firstRow ? map.mastered!(firstRow) : 0;
+      out[m] = list.map(d => { const r = rows.get(d.key); if (r) last = map.mastered!(r); return last; });
+      continue;
     }
+    out[m] = list.map(d => (map[m] ?? (() => 0))(rows.get(d.key)));
   }
   return { dates: list.map(d => d.ts), series: out };
 }
@@ -99,8 +97,8 @@ export const statsMethods: MethodMap = {
   }, '"复习表现"面板'),
   'stats.genres': method(Type.Object({ range: Type.Integer({ minimum: 1, maximum: 730, default: 30 }) }), async (p, ctx) => {
     const from = now() - (p.range ?? 30) * 86_400_000;
-    const rows = await ctx.db.all<{ genre: string; words: number; ur: number }>('SELECT genre, COALESCE(sum(word_count * progress), 0) AS words, COALESCE(avg(unknown_ratio), 0) AS ur FROM documents WHERE deleted_at IS NULL AND last_read_at >= ? GROUP BY genre ORDER BY words DESC', [from]);
-    return rows.map(r => ({ genre: r.genre as Genre, words: Math.round(Number(r.words)), unknown_ratio: Number(r.ur) }));
+    const rows = await ctx.db.all<{ genre: string; words: number }>('SELECT genre, COALESCE(sum(word_count * progress), 0) AS words FROM documents WHERE deleted_at IS NULL AND last_read_at >= ? GROUP BY genre ORDER BY words DESC', [from]);
+    return rows.map(r => ({ genre: r.genre as Genre, words: Math.round(Number(r.words)) }));
   }, ''),
   'stats.insight': method(Type.Object({ regenerate: Type.Optional(Type.Boolean()) }), async (p, ctx) => insight(ctx, !!p.regenerate),
     '学习洞察（M3）：当天有缓存就直接返回；否则用快速档按固定提示写一段话 + 1–3 个动作（只能从固定的几个里挑）。没连模型 → model_unavailable'),
@@ -121,7 +119,7 @@ export const statsMethods: MethodMap = {
 /** M1 成功标准（00 §6、01 §6）：只有计数 */
 export async function exportSummary(db: Database, app_version: string): Promise<UsageSummary> {
   const t = now();
-  const prof = await db.get<{ created_at: number; vocab_tested_at: number | null }>("SELECT created_at, vocab_tested_at FROM user_profile WHERE id = '1'");
+  const prof = await db.get<{ created_at: number }>("SELECT created_at FROM user_profile WHERE id = '1'");
   const first = Number(prof?.created_at ?? t);
   const days_since_first_use = Math.floor((t - first) / 86_400_000);
   const reviews = Number((await db.get<{ n: number }>('SELECT count(*) AS n FROM review_logs_valid'))?.n ?? 0);
@@ -129,17 +127,6 @@ export async function exportSummary(db: Database, app_version: string): Promise<
   const samples = docs.filter(d => d.source_type === 'sample').reduce((s, d) => s + Number(d.n), 0);
   const self_imported = docs.filter(d => d.source_type !== 'sample' && d.source_type !== 'tibi_generated').reduce((s, d) => s + Number(d.n), 0);
   const finished = docs.reduce((s, d) => s + Number(d.finished), 0);
-  // H1：最早读完的文章（section_finished 事件）；导入事件里的 prelabel_total；读完前 source=user 且方向相反的改动
-  const finishedEv = await db.get<{ payload: string; created_at: number }>("SELECT payload, created_at FROM learning_events WHERE type = 'section_finished' ORDER BY created_at LIMIT 1");
-  let h1: UsageSummary['h1'] = { first_doc_finished: false, prelabeled_total: 0, prelabeled_changed: 0 };
-  if (finishedEv) {
-    const doc_id = j.parse<{ document_id?: string }>(finishedEv.payload, {}).document_id;
-    const imp = await db.all<{ payload: string }>("SELECT payload FROM learning_events WHERE type = 'document_imported'");
-    const prelabel_total = imp.map(r => j.parse<{ document_id?: string; prelabel_total?: number }>(r.payload, {})).find(x => x.document_id === doc_id)?.prelabel_total ?? 0;
-    const changed = Number((await db.get<{ n: number }>(`SELECT count(DISTINCT term_id) AS n FROM term_status_log WHERE source = 'user' AND document_id = ? AND created_at <= ? AND prelabel IS NOT NULL
-      AND ((prelabel = 'known' AND status <= 4) OR (prelabel = 'new' AND status IN (5, 97)))`, [doc_id ?? '', finishedEv.created_at]))?.n ?? 0);
-    h1 = { first_doc_finished: true, prelabeled_total: prelabel_total, prelabeled_changed: changed, ...(prelabel_total ? { ratio: changed / prelabel_total } : {}) };
-  }
   const window_closed = t - first >= 7 * 86_400_000;
   const imp7 = await db.all<{ payload: string }>("SELECT payload FROM learning_events WHERE type = 'document_imported' AND created_at < ?", [first + 7 * 86_400_000]);
   const self_imports_7d = imp7.map(r => j.parse<{ source_type?: string }>(r.payload, {})).filter(x => x.source_type && x.source_type !== 'sample' && x.source_type !== 'tibi_generated').length;
@@ -153,20 +140,20 @@ export async function exportSummary(db: Database, app_version: string): Promise<
       h3 = { has_card: true, reviewed_next_day: n > 0 };
     } else h3 = { has_card: true };
   }
-  return { schema: 1, app_version, days_since_first_use, vocab_tested: !!prof?.vocab_tested_at, reviews, documents: { samples, self_imported, finished }, h1, h2, h3 };
+  return { schema: 1, app_version, days_since_first_use, reviews, documents: { samples, self_imported, finished }, h2, h3 };
 }
 
 export const statsCapabilities: CapabilityMap = {
   get_learning_stats: capability({ name: 'get_learning_stats', description: '学习概况（stats.summary 的返回）', perm: 'read', params: Type.Object({ range: Type.Union([Type.Literal(30), Type.Literal(90), Type.Literal(180)], { default: 30 }) }), run: (p, ctx) => summary(ctx.db, p.range ?? 30, ctx.dict) }),
-  get_stats_series: capability({ name: 'get_stats_series', description: '按天的序列（已知词、分钟、词数、复习）', perm: 'read', params: Type.Object({ metrics: Type.Array(Type.String()), days: Type.Integer({ minimum: 1, maximum: 730, default: 30 }) }), run: (p, ctx) => series(ctx.db, p.metrics, p.days ?? 30, ctx.dict) }),
+  get_stats_series: capability({ name: 'get_stats_series', description: '按天的序列（mastered 已掌握、minutes 分钟、words 词数、reviews 复习）', perm: 'read', params: Type.Object({ metrics: Type.Array(Type.String()), days: Type.Integer({ minimum: 1, maximum: 730, default: 30 }) }), run: (p, ctx) => series(ctx.db, p.metrics, p.days ?? 30, ctx.dict) }),
 };
 
 /* ---------- 学习洞察（M3） ---------- */
 const INSIGHT_ACTIONS: Record<string, { label: string; route: string }> = {
   review: { label: '复习到期的词', route: '/review' }, leech: { label: '看看难词', route: '/words?view=leech' },
-  library: { label: '挑一篇来读', route: '/library' }, calibrate: { label: '校准词汇量', route: '/welcome?step=2&from=settings' }, words: { label: '整理生词本', route: '/words' },
+  library: { label: '挑一篇来读', route: '/library' }, words: { label: '整理生词本', route: '/words' },
 };
-interface Insight { text: string; actions: { label: string; route: string }[]; generated_at: number; cost: number; day: string }
+interface Insight { text: string; actions: { label: string; route: string }[]; generated_at: number; day: string }
 
 async function insight(ctx: Ctx, regenerate: boolean) {
   const today = dateKey();
@@ -176,18 +163,18 @@ async function insight(ctx: Ctx, regenerate: boolean) {
   if (!ctx.ai) throw new TibiError('model_unavailable', '还没有连接模型');
   const s30 = await summary(ctx.db, 30, ctx.dict);
   const ser = await series(ctx.db, ['minutes', 'reviews'], 14, ctx.dict);
-  const genres = await ctx.call<{ genre: string; words: number; unknown_ratio: number }[]>('stats.genres', { range: 30 });
+  const genres = await ctx.call<{ genre: string; words: number }[]>('stats.genres', { range: 30 });
   const { forecast } = await import('../review/queue.js');
   const due = (await forecast(ctx.db, 1))[0] ?? 0;
   const leeches = Number((await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND lapses >= 3'))?.n ?? 0);
   const data = { last_30_days: s30, last_14_days_minutes: ser.series.minutes, last_14_days_reviews: ser.series.reviews, genres, due_today: due, leeches };
-  const r = await ctx.ai.complete({ tier: 'fast', skill_id: 'insight',
+  const r = await ctx.ai.complete({ tier: 'fast',
     system: `你是英语学习教练 Tibi。根据用户最近的学习数据（JSON，只有计数），用中文写 2–3 句观察：说清一个变化或现象，再给一个具体建议。不要客套、不要打气、不要编造数据里没有的东西。再从这些动作里挑 1–3 个最相关的：${Object.keys(INSIGHT_ACTIONS).join(', ')}。只输出 JSON：{"text": "...", "actions": ["review"]}`,
     prompt: JSON.stringify(data) });
   const { parseJsonLoose } = await import('../documents/analyze.js');
   const out = parseJsonLoose<{ text?: string; actions?: string[] }>(r.text);
   if (!out?.text) throw new TibiError('model_unavailable', '模型没有给出洞察');
-  const ins: Insight = { text: out.text.trim().slice(0, 400), actions: (out.actions ?? []).filter(a => a in INSIGHT_ACTIONS).slice(0, 3).map(a => INSIGHT_ACTIONS[a]!), generated_at: now(), cost: r.cost, day: today };
+  const ins: Insight = { text: out.text.trim().slice(0, 400), actions: (out.actions ?? []).filter(a => a in INSIGHT_ACTIONS).slice(0, 3).map(a => INSIGHT_ACTIONS[a]!), generated_at: now(), day: today };
   await ctx.db.run("INSERT INTO settings(key, value, updated_at) VALUES ('stats.insight', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", [j.str(ins), now()]);
   return { insight: ins };
 }

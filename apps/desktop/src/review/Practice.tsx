@@ -1,4 +1,4 @@
-import { Volume2 } from 'lucide-react';
+import { SpeakButtons } from '../components/Speak';
 import { Mascot } from '../components/Mascot';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -110,7 +110,7 @@ export function Practice({ initialMode = 'dictation', initialSource = 'recent' }
 
   return <div className="rvcard practice">
     <div className="k"><span>{tl('{mode} · 第 {i} / {n} 题', { mode: MODES.find(m => m.key === mode)!.label, i: run.idx + 1, n: run.items.length })}</span><span className="sp" />
-      {(mode === 'dictation' || mode === 'spell') && <button className="linkbtn" onClick={() => speak(mode === 'dictation' ? item.sentence : item.answer ?? '')}><Volume2 size={14} /> {tl('再听一遍')}</button>}</div>
+      {(mode === 'dictation' || mode === 'spell') && <><span className="lbl">{tl('再听一遍')}</span><SpeakButtons text={mode === 'dictation' ? item.sentence : item.answer ?? ''} /></>}</div>
     {mode === 'dictation' && <p className="q">{tl('听句子，把整句写下来')}</p>}
     {mode === 'spell' && <><p className="q">{item.sentence || tl('（没有释义）')}</p><p className="lbl">{item.explain}</p></>}
     {mode === 'confusable' && <><p className="q">{tl('选一个填进去')}</p><p className="sent">{item.sentence}</p></>}

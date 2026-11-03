@@ -9,8 +9,8 @@
 | **Tibi** | 用户面对的唯一角色：产品、吉祥物藏狐、AI 助手同名 |
 | **技能** | 内部的词：Tibi 会做的事里由模型驱动的那几项，每项一份 `SKILL.md`，运行时一个子对话。界面上统一叫"Tibi 能做的事"（R14），不叫"智能体" |
 | **能力** | 确定性的代码单元，同一份定义供技能、MCP、界面调用。**能力 = 工具**：对模型和 MCP 说"工具"时指的就是它 |
-| **任务** | 一次运行及其步骤，在运行记录可见 |
-| **pi** | 开源 harness，`pi-ai` 接模型，`pi-agent-core` 跑 agent 循环；对话与任务由我们自己的 `TibiKernel` 存（R9）。内部依赖，界面不出现 |
+| **一轮回答** | 一句用户消息加上 Tibi 为它说的话和调的工具，就是对话里的一段消息（`turn_id`）。没有单独的"任务"（T35） |
+| **pi** | 开源 harness，`pi-ai` 接模型，`pi-agent-core` 跑 agent 循环；对话由我们自己的 `TibiKernel` 存（R9，T35 调整）。内部依赖，界面不出现 |
 
 ## 产品与范围
 
@@ -108,7 +108,7 @@
 | R6 | 计分复习只有识别、选义、语境填空三种；听写、拼写、造句移到不计分的练习（练习四种：听写原句、拼写、易混词辨析、造句），M3 起 | [00 §3.3](design/00-concept-design.md#33-生词本与每日练习vocabulary--review) |
 | R7 | 阅读中再次遇见只作弱信号，不更新 FSRS | [00 §3.3](design/00-concept-design.md#33-生词本与每日练习vocabulary--review)、[01 §3](design/01-database.md#3-词条已知词库核心) |
 | R8 | 词汇测试 7 组，4k–10k 拆成三组加密，每组 2 个伪词，读完首篇修正一次；已知词曲线拆成实测 / 估算 | [00 §3.9](design/00-concept-design.md#39-首次启动引导onboarding)、[01 daily_stats](design/01-database.md#daily_stats每日汇总便于统计页快速查询) |
-| R9 | 不用 `pi-durable`：`pi-ai` + `pi-agent-core`，对话、消息、任务、步骤检查点、用量自建表（`TibiKernel`）；M0 验证改为一到两周 | [05 §1、§6、§11](design/05-agent-architecture.md#6-运行机制tibikernelr9-后自建)、[01 §7](design/01-database.md#7-技能tibi-的能力扩展) |
+| R9 | 不用 `pi-durable`：`pi-ai` + `pi-agent-core`，对话、消息自建表（`TibiKernel`）。~~任务、步骤检查点、用量~~ 2026-11-04 去掉，见 T35；M0 验证改为一到两周 | [05 §1、§6、§11](design/05-agent-architecture.md#6-运行机制tibikernelr9-后自建)、[01 §7](design/01-database.md#7-技能tibi-的能力扩展) |
 | R10 | 导入是固定流水线，不是模型驱动的技能；AI 只做其中的生成步骤，离线先完成本地部分；用户触发免审批。技能剩 5 项 | [05 §4.3](design/05-agent-architecture.md#43-技能清单) |
 | R11 | 主键 UUIDv7，可同步的表带 `updated_at` 与墓碑，`review_logs` / `learning_events` 只追加；Core 写成不依赖 Node 的 TS 包 | [01 约定、§9](design/01-database.md#9-约束与迁移) |
 | — | 手机可以单独用：手机自带 Core、自己的库和 API Key，电脑不开机也能导入、问 Tibi、复习；两端靠同步合并 | [00 §3.13](design/00-concept-design.md#313-手机端d8) |
@@ -117,14 +117,14 @@
 | R12 | 纯开源 + 自带 Key，不做托管、不收费、不经手用户数据 | [00 §1](design/00-concept-design.md#1-产品定位) |
 | R13 | 电脑首页去掉模式切换，按内容判断（网址或长段英文 → 导入，含"推荐 / 找"→ 找文章，其余问 Tibi，`/` 可手动指定）；继续读升为最上面的主卡 | [00 §3.5](design/00-concept-design.md#35-首页与书架home--library) |
 | R14 | 界面统一叫"Tibi 能做的事"，"技能"只在查看过程与设置 → 高级里出现；实现词不上界面 | [00 §3.10](design/00-concept-design.md#310-tibi-与技能) |
-| R15 | 设置里的能做的事、花费上限、MCP 收进"高级"（默认折叠）；模型 2026-11-01 提为单独一级；生词本左栏 4 个视图：全部 / 今天到期 / 难词 / 不在复习里 | [00 §3.7、§3.3](design/00-concept-design.md#37-设置settings) |
+| R15 | 设置里的能做的事、花费上限、MCP 收进"高级"（2026-11-03 起不折叠，直接展开）；模型 2026-11-01 提为单独一级；生词本左栏 4 个视图：全部 / 今天到期 / 难词 / 不在复习里 | [00 §3.7、§3.3](design/00-concept-design.md#37-设置settings) |
 | R16 | 打开文章直接回到上次位置，给"回到开头"；不再弹 8 秒提示 | [00 §3.2](design/00-concept-design.md#32-沉浸式阅读面板reader核心界面) |
 | R17 | 统计空状态改用专属插画 `empty-stats`（已加进 07 清单，待出图，出图前仍用 SVG）；首页 `#empty` 保留 | [03 §7.2](design/03-visual-language.md#72-插画与封面) |
 | E1–E8 | E1、E2、E5、E7、E8 采用；E4 不采用（继续用品牌靛蓝）；E3、E6 采用做法但数值不改（13.5px、6 / 8 / 12、控件 30px） | [research/04 §3](research/04-mac-native-and-mascot.md#3-建议的决策e-组界面)、[03 §10](design/03-visual-language.md#10-待讨论) |
 | — | 账号登录不做：ChatGPT 条款未核实，从 M5 拿掉；只用 API Key | [05 §10](design/05-agent-architecture.md#10-外部-ai-工具对-a2a6-的影响) |
 | — | 正式版不打包普惠体，各平台用系统中文字体 | [03 §2](design/03-visual-language.md#2-字体) |
 | — | 排期跟随 ts-fsrs 6 默认的 FSRS-7（多一个短期稳定度、按小数天） | [01 §4](design/01-database.md#4-复习fsrs) |
-| — | 预算默认每月 ¥20、单个任务 ¥1 | [05 §8](design/05-agent-architecture.md#8-权限审批与安全) |
+| — | ~~预算默认每月 ¥20、单个任务 ¥1~~（2026-11-04 去掉，见 T36） | [05 §8](design/05-agent-architecture.md#8-权限审批与安全) |
 | — | Anki 导出放进 M3，和完整生词本一起做 | [00 §6](design/00-concept-design.md#里程碑) |
 
 ## M0 技术决定（T 组）
@@ -148,10 +148,10 @@
 | T14 | 桌面界面用 HashRouter（Tauri 下没有服务端路由）；开发时 `?mock=1` 用内存假数据，不依赖 Core | — |
 | T15 | 复习：`review.answer` 不推进游标，看完评分行后调 `review.next`；每日新卡上限按"今天首次作答的新卡数"计；`review.start` 在一个事务里查找或新建会话（界面重复调用时续上同一轮） | 实现中定下 |
 | T16 | 内置示例的正文与预生成结果放在 `packages/core/samples/<id>/`（`article.md` + `ai.json`），构建成 `samples.gen.ts` 内嵌进 Core（R11：Core 不读文件系统）。导入走同一条流水线，最后一步把总结、建议、短语、长难句写成文档级 `ai_results`，语境释义按句写（`task = context_meanings`，键是 lemma），`model = 'bundled'`、`provider_id` 为空；示例不标 deferred | M1 内置示例 |
-| T17 | 任务取消立即生效：步骤函数不看 abort signal 时，`job.step` 也不再等它跑完，直接以取消结束（这一步的结果丢弃、不写检查点） | 原来取消要等当前步骤自然结束，测试里会卡 5 秒 |
-| T18 | M1 的模型调用只有一种：`completeOnce`（内核里的一次性调用，不建任务、不走技能，照样查预算、记 usage_records），经 `Ctx.ai.complete` 给领域方法用。语境释义（`terms.context_meaning`）和测试连接（`providers.test`）都走它；语境释义按固定提示写、句子当不可信材料放在分隔符里，输出清洗成一行 ≤40 字再缓存 | M1 语境释义；M2 起换成讲解技能 |
+| T17 | （T35 后作废：没有步骤检查点）任务取消立即生效：步骤函数不看 abort signal 时，`job.step` 也不再等它跑完，直接以取消结束（这一步的结果丢弃、不写检查点） | 原来取消要等当前步骤自然结束，测试里会卡 5 秒 |
+| T18 | M1 的模型调用只有一种：`completeOnce`（内核里的一次性调用，不在对话里、不走技能；2026-11-04 起不查预算、不记用量），经 `Ctx.ai.complete` 给领域方法用。语境释义（`terms.context_meaning`）和测试连接（`providers.test`）都走它；语境释义按固定提示写、句子当不可信材料放在分隔符里，输出清洗成一行 ≤40 字再缓存 | M1 语境释义；M2 起换成讲解技能 |
 | T19 | 剪藏插件点按钮时用 `tabs.update(当前标签页, tibi://import?url=…)` 打开深链（浏览器弹"要打开 Tibi 吗"，页面不离开），不弹自己的面板。桌面端在 Windows / Linux 加 `tauri-plugin-single-instance`（deep-link 特性），第二个进程带来的深链转给已开的窗口；macOS 由系统直接交给运行中的应用 | R4 剪藏插件 |
-| T20 | 导入后的 AI 分析不走模型驱动的技能，而是三次固定提示的快速档调用（completeOnce，JSON 输出，宽松解析，正文放在分隔符里当不可信材料）；作为独立的 `analyze` 任务排在导入之后，导入任务不等它。后台自动任务（trigger = auto）完成时界面不弹通知 | R10：导入是固定流水线；先读后分析 |
+| T20 | 导入后的 AI 分析不走模型驱动的技能，而是三次固定提示的快速档调用（completeOnce，JSON 输出，宽松解析，正文放在分隔符里当不可信材料）；导入之后在后台另做，导入不等它，状态记在 `documents.ai_status`（2026-11-04 起不再是任务，见 T35）。补做总结完成时界面不弹通知 | R10：导入是固定流水线；先读后分析 |
 | T21 | 文件抽取放在 core-node（Platform.extractFile）：EPUB 用 fflate 解压 + linkedom 读 OPF / 目录，PDF 用 pdfjs-dist 4（legacy 构建，先把 worker 模块挂到 `globalThis.pdfjsWorker`，单文件 sidecar 里才找得到），DOCX 用 mammoth；都转成 Markdown 交给 Core 切分。sidecar 打包的 banner 里 `createRequire` 改名，避免和 pdfjs 冲突。书导入只标前两章（LAZY_EAGER = 2），其余在 sections.get 时补标 | M4 多格式 |
 | T22 | OCR 用 tesseract.js 5（Platform.ocr，在 Core 进程的 worker_threads 里跑）：语言包按需下载到 `tessdata/`；扫描版 PDF 用 pdfjs 的 operator list 取每页最大的图，自己编成 PNG；分段按"比这页最小行间空白大 1.7 倍"。打包时 worker 单独打成 `tesseract-worker.cjs`，和 tesseract.js-core 的 wasm 一起放进安装包 `resources/ocr/`，壳用 `TIBI_RESOURCE_DIR` 告诉 Core | D4 |
 | T23 | 朗读在 WebView 里做（lib/tts）：系统语音用 speechSynthesis；Kokoro 用 kokoro-js（transformers.js + onnxruntime-web 的 wasm，q8 量化模型优先从魔搭下载，失败退回 Hugging Face），动态 import 单独成块，不选就不加载。onnxruntime 的脚本和 wasm（约 21.6 MB）随安装包走，不从 jsdelivr 加载，`script-src` 不放行远程脚本。CSP 因此加了 `'wasm-unsafe-eval'`、huggingface、modelscope 的 connect-src（jsdelivr 留给手机端 OCR 语言包）、connect-src `'self'`、`worker-src blob:` | M4 朗读 |
@@ -165,8 +165,11 @@
 | T30 | 词形还原：词典收了这个词头、又没说它是变形（`lemma_map` 里没有）时，规则不再改写；人工的 `IRREGULAR` 表不受影响。已导入文章里存的旧原形不回填，重新导入才更新 | 2 万个常用词里 419 个被规则改错（interest → inter、matter → mat、summer → sum），修后只剩 `IRREGULAR` 里的 7 个 |
 | T31 | 桌面端软件更新：官方 updater 插件 + GitHub Releases 的 `latest.json`，更新包用独立的 Ed25519 密钥签名（公钥在 `tauri.conf.json`，私钥只在仓库密钥 `TAURI_SIGNING_PRIVATE_KEY`）。只经壳的 `update_check` / `update_install` 命令，不把插件开放给 WebView。Release 不再标预发布。自动检查默认关，只提醒不自动装；安装前备份，再停 Core；备份失败要用户确认才继续 | 没有服务器，也守住"只有用到的功能才联网"。`/releases/latest/` 会跳过预发布；Windows 上 Core 占着可执行文件，安装器换不掉。国内源（对象存储，发布后同步，先于 GitHub）只存文件，签名校验不变；GitHub 在中国大陆不稳定，公共代理又不可控 |
 | T32 | 词典补充数据写进同一个 `dict.db`：词光 Word Atlas（固定提交）给例句、搭配、词族、辨析、CEFR，Open English WordNet 2025 给英文义项和同义词；词条末尾写明来源，词光标"AI 生成，未逐条审校"。只进词典页，不进词卡和复习 | ECDICT 没有例句和近义词。两者都是 CC BY 4.0，分发只需署名（设置"致谢"、README、词条末尾）。词光只收 7,298 个雅思词且未审校，所以和 WordNet 并列显示、不混在一起。`dict.db` 从 91 MB 涨到 119 MB |
-| T33 | 反问（`ask_user`）问完就结束这一轮，问题存成对话卡片，不挂起任务。选项可绑定动作（目前只有网址导入），用户点了由内核按界面操作直接执行，不再审批。网址必须来自本任务的工具结果或输入 | 挂起任务的做法重启要重跑模型和搜索（重复计费，问题也可能变），子技能会超时，对话一直占用。绑定动作才不会问完再审批一次，模型也换不了网址。详见 [05 §8](design/05-agent-architecture.md#8-权限审批与安全) |
+| T33 | 反问（`ask_user`）是普通工具，原地等用户回答，回答作为工具结果交回模型，同一轮里接着做；内核不替模型执行选项上的动作。选项可带文章链接（必须来自本任务的工具结果或输入），用户选中的网址这一轮导入不再审批。对话里起的后台任务（导入）结束时，Core 在那段对话里开一轮 `<task-notification>`，由 Tibi 告诉用户结果。等待只在进程里，重启后这一轮记成中断（2026-11-03 改，原做法是问完结束这一轮、点选项由内核直接导入） | 原做法下动作在模型之外执行，导入失败（网页 403）对话里没有任何反应，卡片还写着"已导入"。照 Claude Code 的分工：Tibi 只提供工具，问、做、汇报都在 agent 循环里。代价是重启会丢掉还没答的问题，后台任务结束要多调一次模型。详见 [05 §8](design/05-agent-architecture.md#8-权限审批与安全) |
 | T34 | Tibi 改配置只走白名单（`set_config`）和领域能力，不开放 SQL 和通用 `settings.set`。新增权限级别 `always`：每次都问，读过不可信内容的任务直接拒绝。API Key、服务商、权限模式、`mcp.*`、`perm.auto.*` 不开放，只给去设置页的卡片；这组能力不对 MCP 开放 | `settings` 里存着权限规则，通用写入等于能给自己提权；改服务商地址会把 API Key 发到别处；业务规则在方法里，写库会绕过。详见 [05 §8](design/05-agent-architecture.md#8-权限审批与安全) |
+| T35 | 去掉"任务"，只留会话（2026-11-04）：一轮回答就是对话里的一段消息，`messages.turn_id` = 这一轮第一句用户消息的 id；技能、结果（done / error / cancel）、是否读过不可信内容记在那句的 `ui.turn`。进行中的回答、审批、反问只在内存里（`kernel/turns.ts`），重启后没答完的那一轮记成中断、由用户点重试，不续跑、不存检查点。子技能（`run_skill`）在同一轮里跑，共用停止信号、审批和不可信标记。导入、总结、翻译、重新分析是后台函数：导入有 `import_id`，事件 `import.progress` / `import.done`，其余状态写在文章上。外部工具（MCP）的写调用直接执行，要确认时等用户在 Tibi 里点（最多 5 分钟）。删 `jobs`、`job_steps` 表和 `tasks.*`、运行记录页；审批改为 `approvals.list` / `approvals.decide` | 一轮回答本来就是对话的一部分，另一张任务表把同一件事记了两遍；检查点续跑对阅读应用不值得它的复杂度。代价：崩溃时跑到一半的回答要用户重试；对话里起的导入超过 3 分钟没完成就不再回头告诉 Tibi。详见 [dev/plan-no-tasks-no-cost](dev/plan-no-tasks-no-cost.md) |
+| T36 | Tibi 不算钱（2026-11-04）：删 `usage_records`、预算（`budget.*`）、自定义单价（`provider.price.*`）、`budget_exceeded`、`usage.updated`，界面上的花费都去掉。花了多少去服务商后台看；兜底只剩 `agent.max_turns` | 换算汇率和单价不准，预算拦截还要给每次模型调用记账；用户的 Key 在服务商那里本来就有账单和限额 |
+| T37 | 对话里起的导入，进度和结果显示在对话的导入卡上（`import_document` 先放卡片，跟着导入事件更新），不弹全局提示；跳到应用里别处统一用 `tibi://` 深链（导入卡的「开始阅读」、`show_link` 跳转卡、`open_settings`、系统打开的链接走同一份白名单），界面按平台换成路由。用户自己在消息里发来的网址导入不再审批 | 导入是对话里发生的事，结果该留在对话里、重开还在，toast 一闪就没了。按钮由能力生成、白名单解析，模型只能指向已有页面和书架里有的文章。详见 [05 §8](design/05-agent-architecture.md#8-权限审批与安全) |
 
 ## 待决定
 

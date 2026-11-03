@@ -13,3 +13,9 @@ export function friendlyModelError(raw: string): string {
   if (code && code.startsWith('5')) return `模型服务暂时出错（${code}）。稍后再试。`;
   return `模型调用失败：${s.length > 160 ? s.slice(0, 160) + '…' : s}`;
 }
+
+/** 自动重试时过程卡上的原因：取人话的第一句；认不出来的（overloaded 之类）才说"模型忙" */
+export function retryReason(raw?: string): string {
+  const head = raw ? friendlyModelError(raw).split('。')[0]! : '';
+  return !head || head.startsWith('模型调用失败') ? '模型忙' : head;
+}

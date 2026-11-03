@@ -1,9 +1,10 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import type { SearchResult, Term } from '@tibi/core';
-import { BarChart3, BookA, BookOpen, Bookmark, CornerDownLeft, FileText, Home as HomeIcon, ListChecks, MessageSquare, Moon, Plus, RotateCcw, Search, Settings as SettingsIcon, Sparkles } from 'lucide-react';
+import { BarChart3, BookA, BookOpen, Bookmark, CornerDownLeft, FileText, Home as HomeIcon, MessageSquare, Moon, Plus, RotateCcw, Search, Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { tl } from '../lib/i18n';
+import { isMacDesktop } from '../lib/macNative';
 import { GENRE_NAMES, STATUS_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { SETTINGS } from '../settings/search';
@@ -47,10 +48,12 @@ export function SearchPalette() {
 
   // ⌘K / Ctrl+K 全局打开；左栏按钮发 tibi:search 事件
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setOpen(o => !o); } };
+    // mac 上 ⌘K 归菜单栏（lib/macNative），发 tibi:search-toggle，这里不再监听按键，免得开了又关
+    const onKey = (e: KeyboardEvent) => { if (!isMacDesktop && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setOpen(o => !o); } };
+    const onToggle = () => setOpen(o => !o);
     const onOpen = () => setOpen(true);
-    window.addEventListener('keydown', onKey); window.addEventListener('tibi:search', onOpen);
-    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('tibi:search', onOpen); };
+    window.addEventListener('keydown', onKey); window.addEventListener('tibi:search', onOpen); window.addEventListener('tibi:search-toggle', onToggle);
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('tibi:search', onOpen); window.removeEventListener('tibi:search-toggle', onToggle); };
   }, []);
   useEffect(() => { if (!open) { setQ(''); setScope('all'); setRes(undefined); } }, [open]);
   useEffect(() => {
@@ -76,7 +79,6 @@ export function SearchPalette() {
     { label: tl('开始复习'), kw: 'review 复习', icon: <RotateCcw size={15} />, run: () => go('/review?run=1') },
     { label: tl('练习'), kw: 'practice 听写 拼写', icon: <RotateCcw size={15} />, run: () => go('/review?tab=practice') },
     { label: tl('统计'), kw: 'stats', icon: <BarChart3 size={15} />, run: () => go('/stats') },
-    { label: tl('运行记录'), kw: 'tasks 任务', icon: <ListChecks size={15} />, run: () => go('/tasks') },
     { label: tl('设置'), kw: 'settings', icon: <SettingsIcon size={15} />, run: () => go('/settings') },
     { label: tl('导入文章'), kw: 'import url 网址 导入', icon: <Plus size={15} />, run: () => { go('/'); setTimeout(() => (document.querySelector('.composer textarea, textarea') as HTMLTextAreaElement | null)?.focus(), 150); } },
     { label: tl('切换深浅色'), kw: 'dark light theme 深色 浅色', icon: <Moon size={15} />, run: () => { setOpen(false); setTheme(document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches) ? 'light' : 'dark'); } },

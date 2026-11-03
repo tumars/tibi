@@ -1,4 +1,4 @@
-import type { DocumentSummary, TaskSummary } from '@tibi/core';
+import type { DocumentSummary } from '@tibi/core';
 import { ArrowUp, Play, Plus, Search, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -12,7 +12,7 @@ import { parseSlash, type SlashAction } from '../lib/slash';
 import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, isTauri, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
-import { toast, useUi } from '../store/ui';
+import { toast } from '../store/ui';
 import { DocCard } from './Library';
 import { tl } from '../lib/i18n';
 
@@ -29,14 +29,14 @@ export function Home() {
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
   const [stats, setStats] = useState<Result<'stats.summary'>>();
   const [week, setWeek] = useState<number[]>([]);
-  const [task, setTask] = useState<TaskSummary>();
+  const [task, setTask] = useState<{ id: string; title: string; label: string }>();   // 正在导入的那篇
   const [confirmUrl, setConfirmUrl] = useState<string>();
   const [over, setOver] = useState(false);
   const [focus, setFocus] = useState(false);
   const [kind, setKind] = useState<Kind>('all');
   const [model, setModel] = useState<string>();
   const due = useCore(s => s.due); const connected = useCore(s => s.connected); const status = useCore(s => s.status); const coreDown = useCore(s => !s.connected && !s.status && !!s.error);
-  const goal = useCore(s => s.goal); const nickname = useCore(s => s.nickname); const lessMascot = useUi(s => s.lessMascot);
+  const goal = useCore(s => s.goal); const wordCount = useCore(s => s.wordCount); const nickname = useCore(s => s.nickname);
   const ta = useRef<HTMLTextAreaElement>(null);
   const [action, setAction] = useState<SlashAction>();   // / 选中的动作，显示在输入框上方
   const slash = useSlashMenu(text, focus, a => { setAction(a); setText(''); ta.current?.focus(); });
@@ -49,8 +49,8 @@ export function Home() {
   }, []);
   useEffect(() => { void load(); return rpc.on('data.changed', d => { if (d.table === 'documents' || d.table === 'cards') void load(); }); }, [load]);
   useEffect(() => {
-    const off1 = rpc.on('task.update', d => { if (d.task.skill_id === 'importer') setTask(d.task); });
-    const off2 = rpc.on('task.done', d => { if (d.task.skill_id === 'importer' || d.result?.document_id) { setTask(undefined); void load(); } });
+    const off1 = rpc.on('import.progress', d => { if (d.origin !== 'mcp' && d.origin !== 'chat') setTask({ id: d.import_id, title: d.title, label: d.label }); });
+    const off2 = rpc.on('import.done', d => { setTask(t => (t?.id === d.import_id ? undefined : t)); if (d.ok) void load(); });
     return () => { off1(); off2(); };
   }, [load]);
   // 深链：先确认再导入
@@ -58,8 +58,8 @@ export function Home() {
 
   const importSource = async (source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] }, origin: 'user' | 'deeplink' = 'user') => {
     try {
-      const { task_id } = await rpc.call('documents.import', { source, origin });
-      setTask({ id: task_id, state: 'run', skill_id: 'importer', title: source.type === 'url' ? source.url : source.type === 'file' ? source.path.split(/[\\/]/).pop()! : source.type === 'images' ? tl('{length} 张图片', { length: source.paths.length }) : tl('正在导入'), trigger: origin, model: '', step: { index: 0, total: 0, label: tl('开始') }, started_at: Date.now(), duration_ms: 0, cost: 0 });
+      const { import_id } = await rpc.call('documents.import', { source, origin });
+      setTask(t => t?.id === import_id ? t : { id: import_id, title: source.type === 'url' ? source.url : source.type === 'file' ? source.path.split(/[\\/]/).pop()! : source.type === 'images' ? tl('{length} 张图片', { length: source.paths.length }) : tl('正在导入'), label: tl('开始') });
       setText(''); setAction(undefined);
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
@@ -133,7 +133,7 @@ export function Home() {
   const foxState = task ? 'reading' : focus ? 'listening' : late ? 'sleeping' : 'idle';
   const greeting = hour < 5 ? tl('夜深了') : hour < 11 ? tl('早上好') : hour < 13 ? tl('中午好') : hour < 18 ? tl('下午好') : tl('晚上好');
   // 欢迎语第二行只是一句邀请，不报状态：在读的文章、待复习、没读的文章下面的卡片都有，这里再说就重复了（00 §3.5）
-  const welcomeLine = docs.length === 0 ? tl('读过的文章里的生词会自动进入复习') : late && !lessMascot ? tl('Tibi 睡了，你随意。') : hour < 5 ? tl('睡前读一小段？') : tl('今天想读点什么？');
+  const welcomeLine = docs.length === 0 ? tl('读过的文章里的生词会自动进入复习') : late ? tl('Tibi 睡了，你随意。') : hour < 5 ? tl('睡前读一小段？') : tl('今天想读点什么？');
 
   return (
     <>
@@ -166,12 +166,11 @@ export function Home() {
                 <button className="send" disabled={!canSend} onClick={submit} aria-label={tl('发送')}><ArrowUp size={17} /></button>
               </div>
           </div>
-          {/* 书架是空的：建议换成"读示例 / 测词汇量"（原型 home.html#empty） */}
+          {/* 书架是空的：建议换成"读示例"（原型 home.html#empty） */}
           {docs.length === 0 && (connected || status) ? <div className="chips">
             <button className="chip" onClick={async () => { const list = await rpc.call('documents.samples', {}).catch(() => []); const s = list.find(x => x.is_default) ?? list[0]; if (s) void openSample(s, nav); }}><Play />{tl('读一篇示例文章')}</button>
-            <button className="chip" onClick={() => nav('/welcome?step=2&from=home')}><Sparkles />{tl('先测一下我的词汇量')}</button>
           </div> : <div className="chips">
-            <button className="chip" onClick={() => void ask(tl('推荐一篇 10 分钟左右、适合我水平的科技文章'), 'scout')}><Search />{tl('推荐一篇 10 分钟的科技新闻')}</button>
+            <button className="chip" onClick={() => void ask(tl('推荐一篇 10 分钟左右的科技文章'), 'scout')}><Search />{tl('推荐一篇 10 分钟的科技新闻')}</button>
             <button className="chip" onClick={() => void ask(tl('用这周的生词写个小故事'))}><Sparkles />{tl('用这周的生词写个小故事')}</button>
           </div>}
         </section>
@@ -191,7 +190,7 @@ export function Home() {
           </section>
         )}
 
-        {task && <div className="importing"><span className="lbl">{tl('正在导入')}</span><b style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{task.title}</b><span className="lbl" style={{ marginLeft: 'auto' }}>{task.step.label}</span></div>}
+        {task && <div className="importing"><span className="lbl">{tl('正在导入')}</span><b style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{task.title}</b><span className="lbl" style={{ marginLeft: 'auto' }}>{task.label}</span></div>}
 
         <section>
           <div className="sech"><h2>{tl('今天')}</h2></div>
@@ -208,9 +207,9 @@ export function Home() {
               <div className="bar2"><i style={{ width: `${Math.min(100, (todayMin / goal) * 100)}%` }} /></div>
             </div>
             <div className="tile">
-              <span className="k">{tl('已知词')}</span>
-              <span className="v">{(stats?.known ?? 0).toLocaleString()}<small>{tl('词')}</small></span>
-              <span className="d">{tl('本周 +{v0} · 连续 {v1} 天', { v0: stats?.known_delta ?? 0, v1: stats?.streak ?? 0 })}</span>
+              <span className="k">{tl('生词本')}</span>
+              <span className="v">{wordCount.toLocaleString()}<small>{tl('词')}</small></span>
+              <span className="d">{tl('已掌握 {v0} · 连续 {v1} 天', { v0: (stats?.mastered ?? 0).toLocaleString(), v1: stats?.streak ?? 0 })}</span>
               <div className="week">{Array.from({ length: 7 }, (_, i) => { const m = week[i] ?? 0; return <i key={i} className={i === 6 ? 'now' : m >= goal ? 'on' : ''} />; })}</div>
             </div>
           </div>

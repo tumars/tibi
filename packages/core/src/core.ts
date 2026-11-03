@@ -1,7 +1,7 @@
 import type { Database } from './db/driver.js';
 import type { CompleteOptions, CompleteResult } from './kernel/complete.js';
 import { NullDict, type Dict } from './dict/types.js';
-import { EventBus, type JobRunner } from './kernel/types.js';
+import { EventBus } from './kernel/types.js';
 import type { Platform } from './platform.js';
 import { Dispatcher, type RpcRequest } from './rpc/dispatcher.js';
 import type { Ctx, MethodMap } from './rpc/define.js';
@@ -11,7 +11,7 @@ import { systemMethods } from './rpc/system.js';
  * 组装一个 Core 实例：数据库 + 词典 + 平台 + 内核 + 方法表。
  * 各模块把自己的方法表（documents.*、terms.*、review.* …）通过 `use()` 挂进来。
  */
-export interface CoreOptions { db: Database; dict?: Dict; platform: Platform; jobs: JobRunner }
+export interface CoreOptions { db: Database; dict?: Dict; platform: Platform }
 type AiComplete = (ctx: Ctx, o: CompleteOptions) => Promise<CompleteResult>;
 
 export class Core {
@@ -20,12 +20,11 @@ export class Core {
   readonly db: Database;
   readonly dict: Dict;
   readonly platform: Platform;
-  readonly jobs: JobRunner;
   /** 内核装上后才有（assembleCore） */
   ai?: AiComplete;
 
   constructor(opts: CoreOptions) {
-    this.db = opts.db; this.dict = opts.dict ?? new NullDict(); this.platform = opts.platform; this.jobs = opts.jobs;
+    this.db = opts.db; this.dict = opts.dict ?? new NullDict(); this.platform = opts.platform;
     this.dispatcher = new Dispatcher(() => this.ctx({ origin: 'ui' }));
     this.dispatcher.add(systemMethods);
   }
@@ -35,7 +34,7 @@ export class Core {
   ctx(caller: Ctx['caller']): Ctx {
     const self = this;
     const ctx: Ctx = {
-      db: this.db, dict: this.dict, platform: this.platform, events: this.events, jobs: this.jobs, caller,
+      db: this.db, dict: this.dict, platform: this.platform, events: this.events, caller,
       async permission() {
         const row = await self.db.get<{ assistant_prefs: string }>("SELECT assistant_prefs FROM user_profile WHERE id = '1'");
         try { return (JSON.parse(row?.assistant_prefs ?? '{}').permission as 'ask' | 'default' | 'auto') ?? 'default'; } catch { return 'default'; }

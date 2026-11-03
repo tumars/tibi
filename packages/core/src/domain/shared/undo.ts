@@ -22,7 +22,7 @@ export async function recordUndo(db: Database, ctx: Pick<Ctx, 'caller'>, input: 
   const id = uuidv7(); const t = now();
   await db.run(
     'INSERT INTO skill_audit(id, job_step_id, skill_id, idempotency_key, tool, args, approval, undo_payload, created_at) VALUES (?,?,?,?,?,?,?,?,?)',
-    [id, ctx.caller.job_step_id ?? null, ctx.caller.skill_id ?? null, input.idempotency_key ?? null, input.tool, j.str(input.args), input.approval ?? 'auto', j.str(input.undo_payload), t],
+    [id, ctx.caller.call_id ?? null, ctx.caller.skill_id ?? null, input.idempotency_key ?? null, input.tool, j.str(input.args), input.approval ?? 'auto', j.str(input.undo_payload), t],
   );
   return { undo_id: id, expires_at: t + UNDO_TTL_MS };
 }

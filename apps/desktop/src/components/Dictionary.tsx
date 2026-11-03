@@ -1,9 +1,10 @@
 import type { DictEntryResult, DictSuggestResult } from '@tibi/core';
-import { BookA, Search, Sparkles, Volume2, X } from 'lucide-react';
+import { BookA, Search, Sparkles, X } from 'lucide-react';
+import { SpeakButtons } from './Speak';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clearRecentLookups, EXAM_NAMES, INFLECTION_NAMES, loadRecentLookups, parseGloss, posShares, rememberLookup } from '../lib/dict';
 import { tl } from '../lib/i18n';
-import { speak, STATUS_NAMES, isImeKey } from '../lib/util';
+import { STATUS_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import './dict.css';
@@ -148,7 +149,7 @@ function Entry({ data, word, similarInList, onLook, onOpenDoc, onOpenTerm, onAsk
     <div className="dx-head">
       <h1 className="dx-word">{head}</h1>
       {(entry?.phonetic ?? term?.ipa) && <span className="dx-ipa">/{entry?.phonetic ?? term?.ipa}/</span>}
-      <button className="ibtn" onClick={() => speak(head)} title={tl('发音')} aria-label={tl('发音')}><Volume2 /></button>
+      <SpeakButtons text={head} size={16} />
     </div>
     {data.via && <div className="dx-via">{tl('“{v}”是变形，下面是原形', { v: data.via })}</div>}
     {entry?.base && <div className="dx-via">{tl('也是这个词的变形：')}<button className="linkbtn" onClick={() => onLook(entry.base!)}>{entry.base}</button></div>}

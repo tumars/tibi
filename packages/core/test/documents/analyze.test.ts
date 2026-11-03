@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { openAppDb } from '@tibi/core-node';
+import { imported } from '../helpers.js';
+import { idle } from '../../src/domain/documents/imports.js';
 import { assembleCore, fakePlatform, type Dict, type SectionContent } from '../../src/index.js';
 import type { ResolvedModel } from '../../src/kernel/index.js';
 import { parseJsonLoose } from '../../src/domain/documents/analyze.js';
@@ -21,19 +23,18 @@ async function setup(turns: Turn[] | null) {
   if (turns) await db.run("INSERT INTO providers(id, kind, name, protocol, auth, tier, model, is_default, created_at, updated_at) VALUES ('p1','llm','Fake','openai_compatible','api_key','fast','fake-flash',1,?,?)", [t, t]);
   const stream = turns ? scriptedStream(turns) : undefined;
   const resolveModel = stream ? async (): Promise<ResolvedModel> => ({ model: FAKE_MODEL, apiKey: 'k', streamFn: stream }) : undefined;
-  const { core, kernel } = await assembleCore({ db, dict, platform: fakePlatform({ isOnline: () => true, getSecret: async () => 'sk' }), resolveModel, resume: false });
+  const { core } = await assembleCore({ db, dict, platform: fakePlatform({ isOnline: () => true, getSecret: async () => 'sk' }), resolveModel, resume: false });
   const imp = async (text = TEXT) => {
-    const { task_id } = await core.call<{ task_id: string }>('documents.import', { source: { type: 'text', text } }); const r = await kernel.jobs.wait(task_id);
-    const a = await db.get<{ id: string }>("SELECT id FROM jobs WHERE pipeline = 'analyze' ORDER BY created_at DESC LIMIT 1");   // 导入完成后另起的分析任务
-    if (a) await kernel.jobs.wait(a.id);
-    return (r.output as { document_id: string }).document_id;
+    const r = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text } }));
+    await idle();   // 导入完成后在后台做的总结
+    return (r as unknown as { document_id: string }).document_id;
   };
-  return { core, kernel, db, stream, imp };
+  return { core, db, stream, imp };
 }
 
 describe('导入后的 AI 分析（M2）', () => {
   it('连了模型：写入总结、建议、短语（只留原文里有的）、长难句，ai_status = done', async () => {
-    const { core, db, imp } = await setup([{ text: '```json\n' + ALL + '\n```' }]);
+    const { core, stream, imp } = await setup([{ text: '```json\n' + ALL + '\n```' }]);
     const id = await imp();
     const doc = await core.call<{ ai_status: string; ai?: Record<string, { output: unknown; model: string }> }>('documents.get', { id });
     expect(doc.ai_status).toBe('done');
@@ -42,8 +43,7 @@ describe('导入后的 AI 分析（M2）', () => {
     expect(doc.ai?.phrases?.output).toEqual([{ text: 'instead of', zh: '而不是' }]);
     expect((doc.ai?.hard_sentences?.output as unknown[]).length).toBe(1);
     expect(doc.ai?.summary?.model).toBe('fake-flash');
-    const usage = await db.get<{ n: number }>("SELECT count(*) AS n FROM usage_records WHERE skill_id = 'importer'");
-    expect(usage?.n).toBe(3);
+    expect(stream!.calls).toBe(3);
   });
 
   it('没连模型：deferred；连上后 analyze_deferred 补做', async () => {
@@ -55,17 +55,16 @@ describe('导入后的 AI 分析（M2）', () => {
     expect(await later.core.call('documents.analyze_deferred', {})).toEqual({ queued: 0 });   // 还没有 provider
     await later.core.call('providers.upsert', { provider: { kind: 'llm', name: 'DeepSeek', protocol: 'openai_compatible', auth: 'api_key', tier: 'fast', model: 'deepseek-flash', is_default: true }, secret_ref: 'x' });
     await new Promise(r => setTimeout(r, 50));
-    const job = await none.db.get<{ id: string }>("SELECT id FROM jobs WHERE pipeline = 'analyze' ORDER BY created_at DESC LIMIT 1");
-    await later.kernel.jobs.wait(job!.id);
+    await idle();
     expect((await later.core.call<{ ai_status: string }>('documents.get', { id })).ai_status).toBe('done');
   });
 
   it('译文：按批翻译并写回句子', async () => {
-    const { core, kernel, imp } = await setup([{ text: ALL }, { text: ALL }, { text: ALL }, { text: '["大多数团队低估了重试策略增加的延迟。", "天真的指数退避会放大故障。"]' }]);
+    const { core, imp } = await setup([{ text: ALL }, { text: ALL }, { text: ALL }, { text: '["大多数团队低估了重试策略增加的延迟。", "天真的指数退避会放大故障。"]' }]);
     const id = await imp();
     const doc = await core.call<{ sections: { id: string }[] }>('documents.get', { id });
-    const { task_id } = await core.call<{ task_id: string }>('sections.translate', { id: doc.sections[0]!.id });
-    expect((await kernel.jobs.wait(task_id)).status).toBe('done');
+    await core.call('sections.translate', { id: doc.sections[0]!.id });
+    await idle();
     const sec = await core.call<SectionContent>('sections.get', { id: doc.sections[0]!.id, with: ['translations'] });
     expect(sec.sentences.map(s => s.translation)).toEqual(['大多数团队低估了重试策略增加的延迟。', '天真的指数退避会放大故障。']);
   });
@@ -93,13 +92,13 @@ describe('练习批改与短文（M3）', () => {
   });
   it('review.story 写短文并作为 Tibi 写的文章导入', async () => {
     const story = 'The Quiet Retry\n\n' + 'Every engineer knows that a retry can amplify a small outage into a large one. '.repeat(6);
-    const { core, kernel, db, imp } = await setup([{ text: ALL }, { text: ALL }, { text: ALL }, { text: story }, { text: ALL }]);
+    const { core, db, imp } = await setup([{ text: ALL }, { text: ALL }, { text: ALL }, { text: story }, { text: ALL }]);
     await imp();
+    await core.call('terms.add', { entries: [{ text: 'amplify' }] });   // 导入不建词条：用户自己加的生词
     const t = await db.get<{ id: string }>("SELECT id FROM terms LIMIT 1");
-    const { task_id } = await core.call<{ task_id: string }>('review.story', { term_ids: [t!.id] });
-    const r = await kernel.jobs.wait(task_id);
-    expect(r.status, r.error).toBe('done');
-    const doc = await db.get<{ title: string; source_type: string }>('SELECT title, source_type FROM documents WHERE id = ?', [(r.output as { document_id: string }).document_id]);
+    const r = await imported(await core.call<{ import_id: string }>('review.story', { term_ids: [t!.id] }));
+    expect(r.ok, r.ok ? '' : r.error).toBe(true);
+    const doc = await db.get<{ title: string; source_type: string }>('SELECT title, source_type FROM documents WHERE id = ?', [(r as unknown as { document_id: string }).document_id]);
     expect(doc).toEqual({ title: 'The Quiet Retry', source_type: 'tibi_generated' });
   });
 });

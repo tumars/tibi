@@ -1,16 +1,21 @@
 import { Type } from '@sinclair/typebox';
 import { j, now } from '../../db/driver.js';
 import { capability, S, type CapabilityMap } from '../../rpc/define.js';
-import { TibiError, type AiResult, type Token } from '../../types.js';
+import { TibiError, type AiResult, type ImportCardState, type Token } from '../../types.js';
+import { deepLink } from '../../deeplink.js';
+import { presenters } from '../../kernel/conversations.js';
+import { importTitle } from './imports.js';
 import { recordUndo, registerUndo } from '../shared/undo.js';
 import { annotateSentences } from '../text/annotate.js';
-import { cefrOfDocument, difficultyOfRatio } from '../text/prelabel.js';
 import { countWords, segmentMarkdown } from '../text/segment.js';
-import { getTermsByTexts, readProfile } from '../terms/repo.js';
+import { getTermsByTexts } from '../terms/repo.js';
 import { checkUrlShape, listDocuments, submitImport } from './methods.js';
 import { runImport, type ImportInput } from './pipeline.js';
 import { softDeleteDocument } from './sections.js';
 import { getDocument, getSection, listSections, listSentences, setDocumentTags, toSummary, WPM } from './repo.js';
+
+/** 对话里导入最多等这么久：取网页超时、PDF 大时还没完就先告诉用户在后台继续 */
+const IMPORT_WAIT_MS = 3 * 60_000;
 
 /** 能力层·文章与导入流水线（06 §5） */
 export const documentsCapabilities: CapabilityMap = {
@@ -58,7 +63,7 @@ export const documentsCapabilities: CapabilityMap = {
     },
   }),
   tag_document: capability({
-    name: 'tag_document', description: '给文章加标签或改类型', perm: 'write', undoable: true, replay: 'safe',
+    name: 'tag_document', description: '给文章加标签或改类型', perm: 'write', undoable: true,
     params: Type.Object({ id: S.id, tags: Type.Optional(Type.Array(Type.String())), genre: Type.Optional(S.genre), replace: Type.Optional(Type.Boolean()) }),
     async run(p, ctx) {
       const d = await getDocument(ctx.db, p.id); if (!d || d.deleted_at) throw new TibiError('not_found', '文章不在了');
@@ -105,64 +110,73 @@ export const documentsCapabilities: CapabilityMap = {
     async run(p) { const seg = segmentMarkdown(p.text, { kind: p.kind }); return { kind: seg.kind, lang: seg.lang, word_count: seg.word_count, sections: seg.sections.map(s => ({ idx: s.idx, title: s.title, paragraphs: s.paragraphs })) }; },
   }),
   annotate_terms: capability({
-    name: 'annotate_terms', description: '分词、词形还原、按已知词库标状态、识别已有短语', perm: 'read',
+    name: 'annotate_terms', description: '分词、词形还原、按词库标状态（只有用户标过的词带状态）、识别已有短语', perm: 'read',
     params: Type.Object({ sentences: Type.Array(Type.String(), { maxItems: 2000 }) }),
     async run(p, ctx) {
-      const profile = await readProfile(ctx.db);
       const phrases = (await ctx.db.all<{ text: string }>("SELECT text FROM terms WHERE kind = 'phrase' AND deleted_at IS NULL")).map(r => r.text);
-      const pre = await annotateSentences({ sentences: p.sentences, dict: ctx.dict, vocab_estimate: profile.vocab_estimate, statusOf: () => undefined, phrases });
+      const pre = await annotateSentences({ sentences: p.sentences, dict: ctx.dict, statusOf: () => undefined, phrases });
       const known = await getTermsByTexts(ctx.db, [...new Set(pre.sentences.flatMap(s => s.tokens.map(t => t.l)))]);
-      const r = await annotateSentences({ sentences: p.sentences, dict: ctx.dict, vocab_estimate: profile.vocab_estimate, statusOf: l => { const k = known.get(l); return k && !k.deleted_at ? (k.status as never) : undefined; }, phrases });
-      return { sentences: r.sentences.map(s => ({ text: s.text, tokens: s.tokens.map(t => ({ t: t.t, l: t.l, s: t.s, e: t.e, status: t.status })) })), phrases: r.phrases, counts: { total: r.counts.total, new: r.counts.new, learning: r.counts.learning, unsure: r.counts.unsure }, unknown_ratio: r.unknown_ratio };
+      const r = await annotateSentences({ sentences: p.sentences, dict: ctx.dict, statusOf: l => { const k = known.get(l); return k && !k.deleted_at ? (k.status as never) : undefined; }, phrases });
+      return { sentences: r.sentences.map(s => ({ text: s.text, tokens: s.tokens.map(t => ({ t: t.t, l: t.l, s: t.s, e: t.e, status: t.status })) })), phrases: r.phrases, counts: r.counts, level: r.level };
     },
   }),
   estimate_difficulty: capability({
-    name: 'estimate_difficulty', description: '对这个用户的生词率、难度、预估 CEFR 与阅读时长', perm: 'read',
+    name: 'estimate_difficulty', description: '按词频估文本级别（CEFR，与用户无关）、阅读时长、文中出现的用户生词本里的词', perm: 'read',
     params: Type.Object({ text: Type.Optional(Type.String()), document_id: Type.Optional(S.id) }),
     async run(p, ctx) {
-      const profile = await readProfile(ctx.db);
-      let ratio = 0; let words = 0; let top: string[] = []; let hard = 0;
+      let level: string | undefined; let rare_ratio: number | undefined; let words = 0; let learning: string[] = [];
       if (p.document_id) {
         const d = await getDocument(ctx.db, p.document_id); if (!d) throw new TibiError('not_found', '文章不在了');
-        ratio = Number(d.unknown_ratio ?? 0); words = Number(d.word_count);
-        top = (await ctx.db.all<{ text: string }>('SELECT t.text FROM terms t JOIN term_contexts tc ON tc.term_id = t.id AND tc.deleted_at IS NULL WHERE tc.document_id = ? AND t.status = 0 GROUP BY t.id ORDER BY count(*) DESC LIMIT 10', [p.document_id])).map(r => r.text);
+        level = d.difficulty_cefr ?? undefined; rare_ratio = d.rare_ratio ?? undefined; words = Number(d.word_count);
+        learning = (await ctx.db.all<{ text: string }>('SELECT t.text FROM terms t JOIN term_contexts tc ON tc.term_id = t.id AND tc.deleted_at IS NULL WHERE tc.document_id = ? AND t.status BETWEEN 0 AND 4 AND t.deleted_at IS NULL GROUP BY t.id ORDER BY count(*) DESC LIMIT 10', [p.document_id])).map(r => r.text);
       } else if (p.text) {
         const seg = segmentMarkdown(p.text); words = seg.word_count;
         const sentences = seg.sections.flatMap(s => s.paragraphs.filter(x => x.block_type !== 'code').map(x => x.text));
-        const r = await annotateSentences({ sentences, dict: ctx.dict, vocab_estimate: profile.vocab_estimate, statusOf: () => undefined });
-        ratio = r.unknown_ratio;
-        const freq = new Map<string, number>(); for (const s of r.sentences) for (const t of s.tokens) if (t.status === 0) freq.set(t.l, (freq.get(t.l) ?? 0) + 1);
-        top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(x => x[0]);
-        hard = r.sentences.filter(s => s.tokens.filter(t => t.status === 0).length >= 3).length / Math.max(1, r.sentences.length);
+        const pre = await annotateSentences({ sentences, dict: ctx.dict, statusOf: () => undefined });
+        const known = await getTermsByTexts(ctx.db, [...new Set(pre.sentences.flatMap(s => s.tokens.map(t => t.l)))]);
+        const r = await annotateSentences({ sentences, dict: ctx.dict, statusOf: l => { const k = known.get(l); return k && !k.deleted_at ? (k.status as never) : undefined; } });
+        level = r.level; rare_ratio = r.rare_ratio;
+        const freq = new Map<string, number>(); for (const s of r.sentences) for (const t of s.tokens) if (t.status !== undefined && t.status <= 4) freq.set(t.l, (freq.get(t.l) ?? 0) + 1);
+        learning = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(x => x[0]);
       } else throw new TibiError('invalid_params', '要给 text 或 document_id');
-      return { unknown_ratio: ratio, difficulty: difficultyOfRatio(ratio), cefr: cefrOfDocument(ratio, profile.vocab_estimate), minutes: Math.max(1, Math.round(words / WPM)), hard_sentence_ratio: hard, top_unknown: top };
+      return { level, rare_ratio, minutes: Math.max(1, Math.round(words / WPM)), learning_terms: learning };
     },
   }),
   save_document: capability({
-    name: 'save_document', description: '把一篇文章存进书架（需确认）', perm: 'confirm', undoable: true, replay: 'safe',
+    name: 'save_document', description: '把一篇文章存进书架（需确认）', perm: 'confirm', undoable: true,
     params: Type.Object({ kind: S.kind, genre: S.genre, title: Type.String(), author: Type.Optional(Type.String()), source: Type.String(), lang: Type.String(), sections: Type.Array(Type.Object({ title: Type.String(), paragraphs: Type.Array(Type.Object({ text: Type.String(), block_type: Type.String() })) })), tags: Type.Optional(Type.Array(Type.String())), cover_path: Type.Optional(Type.String()), original_path: Type.Optional(Type.String()) }),
     async run(p, ctx) {
       // 复用导入流水线：把结构化内容拼回 Markdown 走一遍（去重、标注、事件都一致）
       const md = p.sections.map(s => (p.sections.length > 1 ? `# ${s.title}\n\n` : '') + s.paragraphs.map(x => x.block_type === 'code' ? '```\n' + x.text + '\n```' : x.block_type === 'heading' ? `## ${x.text}` : x.text).join('\n\n')).join('\n\n');
-      const fakeJob = inlineJob();
-      const r = await runImport(fakeJob, ctx, { source: { type: 'text', text: md, title: p.title }, hints: { kind: p.kind as never, genre: p.genre as never, tags: p.tags } });
+      const r = await runImport({ id: crypto.randomUUID(), progress() {} }, ctx, { source: { type: 'text', text: md, title: p.title }, hints: { kind: p.kind as never, genre: p.genre as never, tags: p.tags } });
       const undo = await recordUndo(ctx.db, ctx, { tool: 'documents.delete', args: { id: r.document_id }, undo_payload: { id: r.document_id } });
       return { document_id: r.document_id, section_ids: (await listSections(ctx.db, r.document_id)).map(s => s.id), undo };
     },
   }),
   import_document: capability({
-    name: 'import_document', description: '导入一篇文章（网址、文字或文件），作为后台任务', perm: 'confirm', replay: 'never',
+    name: 'import_document', description: '导入一篇文章（网址、文字或文件）到书架；在对话里调用时等导入完成，返回文章或没导入成功的原因', perm: 'confirm',
     params: Type.Object({ source: Type.Union([Type.Object({ type: Type.Literal('text'), text: Type.String() }), Type.Object({ type: Type.Literal('url'), url: Type.String() }), Type.Object({ type: Type.Literal('file'), path: Type.String() })]), hints: Type.Optional(Type.Object({ kind: Type.Optional(S.kind), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())) })) }),
     async run(p, ctx) {
       if (p.source.type === 'file' && ctx.caller.origin === 'mcp') throw new TibiError('permission_denied', '外部工具不能传本地路径');
-      return submitImport(ctx, { source: p.source, hints: p.hints, origin: ctx.caller.origin === 'mcp' ? 'mcp' : 'user' } as ImportInput);
+      // 对话里调用：进度和结果显示成对话里的导入卡（不弹全局提示），按钮是 tibi:// 深链
+      const show = ctx.caller.origin === 'skill' && ctx.caller.turn_id ? presenters.get(ctx.caller.turn_id) : undefined;
+      const r = await submitImport(ctx, { source: p.source, hints: p.hints, origin: ctx.caller.origin === 'mcp' ? 'mcp' : show ? 'chat' : 'user' } as ImportInput);
+      if (ctx.caller.origin !== 'skill') return { import_id: r.import_id };
+      const source = importTitle(r.import_id) ?? '文章';
+      const card = show?.({ kind: 'import', summary: `导入 ${source}`, data: { import_id: r.import_id, source } }, ctx.caller.depth ? undefined : ctx.caller.call_id);
+      void card?.update({ status: 'running' } satisfies ImportCardState);
+      void r.done.then(o => card?.update(
+        o.ok ? { status: 'done', document_id: o.document_id, title: o.title, ...(o.duplicate ? { duplicate: true } : {}), minutes: o.minutes, ...(o.level ? { level: o.level } : {}) } satisfies ImportCardState : { status: 'failed', error: o.error } satisfies ImportCardState,
+        o.ok ? `已放进书架：${o.title}` : `没导入成功：${o.error}`,
+      ));
+      // 等导入跑完（取正文、切分、入库；总结在后台另做），结果在这一轮里交给模型
+      let timer: ReturnType<typeof setTimeout> | number | undefined;
+      const done = await Promise.race([r.done, new Promise<undefined>(res => { timer = setTimeout(res, IMPORT_WAIT_MS); })]).finally(() => clearTimeout(timer));
+      if (!done) return { import_id: r.import_id, status: 'still_running' as const, note: card ? '还在导入，对话里的导入卡会显示进度和结果' : '还在导入，好了书架上会提示' };
+      if (!done.ok) throw new TibiError('invalid_source', done.error);
+      return { document_id: done.document_id, title: done.title, status: 'imported' as const, ...(card ? { card: '对话里的导入卡已经显示了结果和「开始阅读」按钮' } : { link: deepLink({ to: 'read', document_id: done.document_id }) }) };
     },
-    askable(p) {
-      if (p.source.type !== 'url') throw new TibiError('permission_denied', '只有网址导入能绑到选项上');
-      const c = checkUrlShape(p.source.url);
-      if (!c.ok) throw new TibiError('invalid_source', '网址不对，或者是本机 / 局域网地址');
-      return { preview: `导入 ${c.host} 上的这篇`, urls: [p.source.url] };
-    },
+    chosenUrl: p => (p.source.type === 'url' ? p.source.url : undefined),
   }),
 };
 
@@ -177,18 +191,5 @@ registerUndo<{ id: string; tags: string[]; genre: string }>('tag_document', asyn
   await setDocumentTags(ctx.db, p.id, p.tags, { replace: true });
   ctx.events.emit('data.changed', { table: 'documents', ids: [p.id] });
 });
-
-/** 没有任务运行器时直接执行的 JobContext（save_document 在技能里同步跑） */
-function inlineJob(): import('../../kernel/types.js').JobContext {
-  const job: import('../../kernel/types.js').JobContext = {
-    job_id: crypto.randomUUID(), signal: new AbortController().signal, tainted: false,
-    markTainted() { job.tainted = true; },
-    async step(_n, fn) { return fn(job); },
-    async parallel(steps) { const out: Record<string, unknown> = {}; await Promise.all(Object.entries(steps).map(async ([k, f]) => { try { out[k] = await f(); } catch { out[k] = undefined; } })); return out as never; },
-    progress() {},
-    async approve() { return { decision: 'allow' as const }; },
-  };
-  return job;
-}
 
 export { getSection, countWords };

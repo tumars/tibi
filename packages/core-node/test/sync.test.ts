@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { sync } from '@tibi/core';
+import { documents } from '@tibi/core';
 import { createCore } from '../src/create.js';
 
 describe('同步：文件夹后端 + sync.* 方法（M7）', () => {
@@ -11,9 +12,7 @@ describe('同步：文件夹后端 + sync.* 方法（M7）', () => {
     const folder = join(root, 'shared');
     const A = await createCore({ dbPath: join(root, 'a.db'), version: 't' });
     const B = await createCore({ dbPath: join(root, 'b.db'), version: 't' });
-    const { task_id } = await A.call<{ task_id: string }>('documents.import', { source: { type: 'text', text: 'The compiler enforces a small set of rules.' } });
-    await new Promise(r => setTimeout(r, 1500));
-    void task_id;
+    await documents.importDone((await A.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: 'The compiler enforces a small set of rules.' } })).import_id);
     await A.call('terms.add', { entries: [{ text: 'compiler' }] });     // 这里没装词典，导入不会标生词
     expect((await A.call<sync.SyncStatus>('sync.status', {})).state).toBe('off');
     const probe0 = await A.call<{ ok: boolean; library?: unknown }>('sync.probe', { backend: { kind: 'folder', path: folder } });

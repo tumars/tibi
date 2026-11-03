@@ -80,5 +80,5 @@ export function nextStatus(current: Status, rating: Rating, stability: number): 
   return s as Status;
 }
 
-export const STATUS_NAME: Record<number, string> = { 0: '生词', 1: '见过', 2: '眼熟', 3: '认得', 4: '熟悉', 5: '掌握', 97: '已知', 98: '忽略', 99: '待确认' };
+export const STATUS_NAME: Record<number, string> = { 0: '生词', 1: '见过', 2: '眼熟', 3: '认得', 4: '熟悉', 5: '掌握', 97: '已知', 98: '忽略' };
 export const RATING_NAME: Record<Rating, string> = { 1: '忘了', 2: '模糊', 3: '记得', 4: '轻松' };

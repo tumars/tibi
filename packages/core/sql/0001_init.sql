@@ -6,14 +6,9 @@
 -- 1. 用户与配置 ---------------------------------------------------------
 CREATE TABLE user_profile (
   id TEXT PRIMARY KEY DEFAULT '1',
-  level_self TEXT,
   display_name TEXT,
-  goal TEXT,
   interests TEXT NOT NULL DEFAULT '[]',
   assistant_prefs TEXT NOT NULL DEFAULT '{}',
-  vocab_estimate INTEGER NOT NULL DEFAULT 3500,
-  vocab_tested_at INTEGER,
-  vocab_source TEXT NOT NULL DEFAULT 'self',
   daily_goal_minutes INTEGER NOT NULL DEFAULT 20,
   daily_new_cards INTEGER NOT NULL DEFAULT 20,
   desired_retention REAL NOT NULL DEFAULT 0.9,
@@ -65,8 +60,8 @@ CREATE TABLE documents (
   status TEXT NOT NULL DEFAULT 'processing',   -- processing / ready / failed
   process_error TEXT,
   ai_status TEXT NOT NULL DEFAULT 'none',      -- none / deferred / running / done / failed
-  difficulty_cefr TEXT,
-  unknown_ratio REAL,
+  difficulty_cefr TEXT,                        -- 按词频估的文本级别 A2–C2（与用户无关）
+  rare_ratio REAL,                             -- 词频 3000 以外的词占比
   progress REAL NOT NULL DEFAULT 0,
   last_section_id TEXT,
   is_favorite INTEGER NOT NULL DEFAULT 0,
@@ -90,7 +85,6 @@ CREATE TABLE sections (
   status TEXT NOT NULL DEFAULT 'pending',      -- pending / processing / ready / failed
   ai_status TEXT NOT NULL DEFAULT 'none',
   tokenizer_version TEXT,
-  unknown_ratio REAL,
   progress REAL NOT NULL DEFAULT 0,
   last_sentence_id TEXT,
   finished_at INTEGER,
@@ -152,8 +146,8 @@ CREATE TABLE terms (
   kind TEXT NOT NULL DEFAULT 'word',           -- word / phrase
   text TEXT NOT NULL,                          -- lemma 小写
   text_display TEXT NOT NULL,
-  status INTEGER NOT NULL DEFAULT 0,           -- 0..5, 97 标为已知, 98 忽略, 99 待确认
-  status_source TEXT NOT NULL DEFAULT 'auto_rule',
+  status INTEGER NOT NULL DEFAULT 0,           -- 0..5, 97 标为已知, 98 忽略（只有用户标过 / 查过的词才有行）
+  status_source TEXT NOT NULL DEFAULT 'user',
   category TEXT,
   meaning TEXT,
   short_gloss TEXT,
@@ -197,7 +191,6 @@ CREATE TABLE term_status_log (
   term_id TEXT NOT NULL,
   status INTEGER NOT NULL,
   source TEXT NOT NULL,
-  prelabel TEXT,                               -- known / unsure / new（H1 用）
   document_id TEXT,                            -- 不设外键
   created_at INTEGER NOT NULL
 );
@@ -342,9 +335,7 @@ CREATE TABLE daily_stats (
   words_read INTEGER NOT NULL DEFAULT 0,
   reading_ms INTEGER NOT NULL DEFAULT 0,
   new_terms INTEGER NOT NULL DEFAULT 0,
-  known_terms_total INTEGER NOT NULL DEFAULT 0,
-  known_confirmed INTEGER NOT NULL DEFAULT 0,
-  known_estimated INTEGER NOT NULL DEFAULT 0,
+  mastered_total INTEGER NOT NULL DEFAULT 0,   -- 用户标过的已掌握（5）与已知（97）
   reviews INTEGER NOT NULL DEFAULT 0,
   review_correct INTEGER NOT NULL DEFAULT 0
 );
@@ -366,7 +357,6 @@ CREATE TABLE conversations (
   day TEXT,
   device TEXT NOT NULL DEFAULT 'desktop',
   title TEXT NOT NULL DEFAULT '',
-  summary TEXT,
   last_message_at INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
@@ -375,12 +365,15 @@ CREATE TABLE conversations (
 CREATE UNIQUE INDEX conversations_day ON conversations(day) WHERE kind = 'day' AND deleted_at IS NULL;
 CREATE INDEX conversations_recent ON conversations(deleted_at, last_message_at);
 
+-- 对话记录只有这一份（10 §5）：模型和界面都读它；agent 引擎的会话是它在内存里的副本
 CREATE TABLE messages (
-  id TEXT PRIMARY KEY,
+  id TEXT PRIMARY KEY,                         -- 也用作引擎会话里的条目 ID
   conversation_id TEXT NOT NULL REFERENCES conversations(id),
-  role TEXT NOT NULL,                          -- user / assistant / tool
-  content TEXT NOT NULL,
-  job_id TEXT,
+  job_id TEXT,                                 -- 哪次运行产生的；界面按它合成回答气泡
+  role TEXT NOT NULL,                          -- user / assistant / tool_result / compaction / note
+  engine TEXT,                                 -- 哪个引擎产生的（pi）；用户消息和 note 为空
+  body TEXT NOT NULL,                          -- Tibi 消息格式 v1（和 pi-ai 的 Message 同构）；compaction 原样存引擎的压缩结果
+  ui TEXT NOT NULL DEFAULT '{}',               -- 只给界面：卡片、撤销回执、步骤说明、附件
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   deleted_at INTEGER
@@ -393,7 +386,7 @@ CREATE TABLE jobs (
   skill_id TEXT,
   parent_job_id TEXT,
   conversation_id TEXT,
-  status TEXT NOT NULL DEFAULT 'queued',       -- queued / running / waiting_approval / done / failed / cancelled / deferred
+  status TEXT NOT NULL DEFAULT 'queued',       -- queued / running / waiting_approval / paused / done / failed / cancelled / deferred / interrupted
   trigger TEXT NOT NULL DEFAULT 'user',
   title TEXT NOT NULL DEFAULT '',
   input TEXT NOT NULL DEFAULT '{}',
@@ -412,7 +405,7 @@ CREATE TABLE job_steps (
   id TEXT PRIMARY KEY,
   job_id TEXT NOT NULL REFERENCES jobs(id),
   idx INTEGER NOT NULL,
-  kind TEXT NOT NULL,                          -- model / tool / pipeline
+  kind TEXT NOT NULL,                          -- tool / pipeline（模型调用只记 usage_records）
   name TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'running',      -- running / done / failed / skipped
   input TEXT,
@@ -426,16 +419,28 @@ CREATE UNIQUE INDEX job_steps_idx ON job_steps(job_id, idx);
 CREATE TABLE usage_records (
   id TEXT PRIMARY KEY,
   job_id TEXT,
-  job_step_id TEXT,
+  message_id TEXT,                             -- 对应的助手消息或压缩记录
+  job_step_id TEXT,                            -- 只有流水线里的模型调用才有
   skill_id TEXT,
   model TEXT NOT NULL,
   input_tokens INTEGER NOT NULL DEFAULT 0,
   cached_tokens INTEGER NOT NULL DEFAULT 0,
   output_tokens INTEGER NOT NULL DEFAULT 0,
-  cost REAL NOT NULL DEFAULT 0,
+  cost_cny REAL NOT NULL DEFAULT 0,            -- 人民币；pi-ai 报美元，按 USD_CNY 换算
   created_at INTEGER NOT NULL
 );
 CREATE INDEX usage_records_time ON usage_records(created_at);
+
+-- 别的引擎的原生会话缓存（10 §3.1）：只在本机、不同步；PiEngine 不用，先建表留位置
+CREATE TABLE engine_sessions (
+  conversation_id TEXT NOT NULL REFERENCES conversations(id),
+  engine TEXT NOT NULL,
+  native_id TEXT,
+  state TEXT,
+  through_message_id TEXT NOT NULL,            -- 这份原生状态对应到哪条消息为止；对不上就重建
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (conversation_id, engine)
+);
 
 CREATE TABLE thread_links (
   conversation_id TEXT PRIMARY KEY REFERENCES conversations(id),

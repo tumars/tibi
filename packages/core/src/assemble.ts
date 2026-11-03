@@ -6,7 +6,7 @@ import { SyncEngine } from './sync/engine.js';
 import { Core } from './core.js';
 import type { Database } from './db/driver.js';
 import type { Dict } from './dict/types.js';
-import { documentsCapabilities, documentsMethods, registerImportPipeline } from './domain/documents/index.js';
+import { documentsCapabilities, documentsMethods, recoverAnalysis } from './domain/documents/index.js';
 import { configCapabilities, profileMethods } from './domain/profile/index.js';
 import { reviewCapabilities, reviewMethods } from './domain/review/index.js';
 import { undoMethods } from './domain/shared/undo.js';
@@ -18,19 +18,19 @@ import type { Platform } from './platform.js';
 
 /**
  * 组装一个完整的 Tibi Core（桌面、手机、测试共用）：
- * 数据库 + 词典 + 平台 → 内核（任务、对话、技能、记忆）→ 各领域的方法与能力 → 导入流水线 → 续跑。
+ * 数据库 + 词典 + 平台 → 内核（对话、技能、记忆）→ 各领域的方法与能力 → 收拾上次没做完的。
  */
 export interface AssembleOptions extends KernelOptions {
   db: Database;
   dict?: Dict;
   platform: Platform;
-  /** 启动时把没跑完的任务接着跑（测试里通常关掉） */
+  /** 启动时收拾上次没做完的：没答完的回答记成中断，做了一半的总结改回稍后补做（测试里通常关掉） */
   resume?: boolean;
 }
 
 export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core; kernel: Kernel }> {
-  const kernel = createKernel(opts.db, new EventBus(), { resolveModel: opts.resolveModel, device: opts.device });
-  const core = new Core({ db: opts.db, dict: opts.dict, platform: opts.platform, jobs: kernel.jobs });
+  const kernel = createKernel(opts.db, new EventBus(), { resolveModel: opts.resolveModel, device: opts.device, engine: opts.engine });
+  const core = new Core({ db: opts.db, dict: opts.dict, platform: opts.platform });
   core.ai = (ctx, o) => kernel.complete(ctx, o);
   kernel.bind(caller => core.ctx(caller), core.events);
 
@@ -47,10 +47,9 @@ export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core;
     .use(syncMethods);
 
   kernel.registerCapabilities({ ...feedsCapabilities, ...documentsCapabilities, ...termsCapabilities, ...reviewCapabilities, ...statsCapabilities, ...configCapabilities });
-  registerImportPipeline(kernel.jobs, core);
   // 同步开着时按当前表结构重建触发器（08 §5）
   await SyncEngine.resume(core.db);
 
-  if (opts.resume !== false) await kernel.jobs.resumeAll();
+  if (opts.resume !== false) { await kernel.recover(); await recoverAnalysis(core.db); }
   return { core, kernel };
 }

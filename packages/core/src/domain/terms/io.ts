@@ -14,7 +14,7 @@ import { addWords } from './service.js';
  * - txt：每行一个词。
  * 导入读用户选的文件（路径经壳登记）：known = 已知词表，直接标为已知（97）；txt / csv / anki = 加进生词本（可带释义）。
  */
-const STATUS: Record<number, string> = { 0: '生词', 1: '见过', 2: '眼熟', 3: '认得', 4: '熟悉', 5: '掌握', 97: '已知', 98: '忽略', 99: '待确认' };
+const STATUS: Record<number, string> = { 0: '生词', 1: '见过', 2: '眼熟', 3: '认得', 4: '熟悉', 5: '掌握', 97: '已知', 98: '忽略' };
 const csvCell = (v: unknown) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 const tsvCell = (v: unknown) => (v == null ? '' : String(v)).replace(/[\t\r\n]+/g, ' ');
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -96,7 +96,7 @@ export async function importTerms(ctx: Ctx, path: string, format: 'csv' | 'txt' 
         const entry = isPhrase ? undefined : await ctx.dict.lookup(lemma);
         const row = await insertTerm(tx, { kind: isPhrase ? 'phrase' : 'word', text: lemma, display: e.text, status: 97, status_source: 'user', short_gloss: shortGloss(entry?.translation), seen_at: t });
         await logStatus(tx, row.id, 97, 'import'); known++;
-      } else if (term.deleted_at || [0, 99].includes(term.status)) {
+      } else if (term.deleted_at || [0, 99].includes(term.status)) {   // 99：旧数据里的待确认，当作没有行
         await setTermStatus(tx, term, 97 as Status, 'import'); known++;
       } else skipped++;   // 学习中、已知、忽略的不动
     }

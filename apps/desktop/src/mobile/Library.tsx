@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import { pickFile } from '../lib/files';
 import { tl } from '../lib/i18n';
 import { useTagEditor } from '../lib/useTagEditor';
-import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
+import { classifyInput, docSource, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { Empty, Sheet } from './ui';
@@ -33,7 +33,7 @@ export function Library() {
         {docs && !docs.length ? <Empty image={q ? undefined : 'empty-library'} title={q ? tl('没有找到') : tl('书架是空的')} text={q ? undefined : tl('点右上角的 + 导入一篇，或者在 Safari 里分享给 Tibi。')} />
           : <div className="card">{docs?.map(d => <div key={d.id} className="doc" role="button" tabIndex={0} onClick={() => nav(`/read/${d.id}`)} onKeyDown={e => { if (e.key === 'Enter') nav(`/read/${d.id}`); }}>
             <span className="b"><span className="t">{d.title}</span>
-              <span className="m">{d.kind === 'book' ? tl('书') : GENRE_NAMES[d.genre] ?? d.genre}<span>·</span>{fmtMinutes(d.minutes)}<span>·</span><span className={`lv${d.difficulty === 'hard' ? ' hard' : ''}`}>{tl('生词率 {p}', { p: fmtPct(d.unknown_ratio) })}</span></span>
+              <span className="m">{d.kind === 'book' ? tl('书') : GENRE_NAMES[d.genre] ?? d.genre}<span>·</span>{fmtMinutes(d.minutes)}{d.level && <><span>·</span><span className="lv">{tl('难度约 {level}', { level: d.level })}</span></>}{docSource(d) && <><span>·</span><span className="src">{docSource(d)}</span></>}</span>
               {d.tags.length > 0 && <span className="tgs">{d.tags.join(' · ')}</span>}
               {d.progress > 0 && <span className="bar"><i style={{ width: fmtPct(d.progress) }} /></span>}</span>
             <button className="doctag" aria-label={tl('编辑标签')} onClick={e => { e.stopPropagation(); setEditing(d); }} onKeyDown={e => e.stopPropagation()}><Tag size={18} /></button>

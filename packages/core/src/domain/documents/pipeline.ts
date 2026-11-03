@@ -1,35 +1,35 @@
 import { j, now, type Database } from '../../db/driver.js';
 import { uuidv7 } from '../../ids.js';
 import { normalizeForHash, sha256Hex } from '../../hash.js';
-import type { JobContext, JobRunner } from '../../kernel/types.js';
-import type { Core } from '../../core.js';
 import type { Ctx } from '../../rpc/define.js';
 import { TibiError, type Genre, type Kind, type Status, type Token } from '../../types.js';
 import { alreadyDone, recordUndo } from '../shared/undo.js';
 import { annotateSentences } from '../text/annotate.js';
 import { cleanTitle, dropLeadingTitle } from '../text/title.js';
-import { cefrOfDocument, difficultyOfRatio } from '../text/prelabel.js';
+import { levelOfRatio } from '../text/level.js';
 import { countWords, segmentMarkdown, splitSentences, type Segmented } from '../text/segment.js';
-import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, insertTerm, logStatus, readProfile, setTermStatus, upsertForm, type TermRow } from '../terms/repo.js';
-import { shortGloss } from '../terms/views.js';
+import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, upsertForm } from '../terms/repo.js';
 import { getSample, sampleUri, writeSampleAi } from './samples.js';
-import { analyzeDocument, translateSection } from './analyze.js';
+import { analyzeDocument } from './analyze.js';
+import { background } from './imports.js';
 import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSentence, listSections, listSentences, setDocumentTags, TOKENIZER_VERSION, WPM } from './repo.js';
 
 /**
  * 导入流水线（00 §3.1、05 §4.3：固定流水线，不是模型驱动的技能，R10）。
- * 注册为任务 'import'：fetch → segment → save → annotate → difficulty → event → (summary | phrases | hard_sentences)。
- * 每一步经 JobContext.step() 写检查点，重开从最后完成的步骤接着跑；save 用幂等键保证不会写两份。
- * M0 没有模型：AI 子步骤一律记 deferred（稍后补做），M2 接讲解技能。
+ * fetch → segment → save → annotate → difficulty → event，然后在后台做总结（summary | phrases | hard_sentences）。
+ * 在后台跑（imports.ts），不存检查点：应用中途退出时这次导入就没了，文章还没入库，用户重新导入即可。
  */
 
 export type ImportSource = { type: 'text'; text: string; title?: string; generated?: boolean } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string };
-export interface ImportInput { source: ImportSource; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' | 'mcp' | 'share' }
+export interface ImportInput { source: ImportSource; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' | 'mcp' | 'share' | 'chat' }
+
+/** 一次导入：id 用来对应进度事件；progress 是界面上的一行说明 */
+export interface ImportRun { id: string; signal?: AbortSignal; progress(label: string): void }
 
 interface Fetched { title: string; author?: string; markdown: string; source_type: string; source_uri?: string; published_at?: number; lang?: string; kind?: Kind; genre?: Genre }
 
 /** 第一步：拿到干净的 Markdown */
-async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise<Fetched> {
+async function fetchStep(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<Fetched> {
   const s = input.source;
   if (s.type === 'text') {
     const md = s.text.replace(/\r\n?/g, '\n').trim();
@@ -41,7 +41,6 @@ async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise
     job.progress('正在抓取网页');
     const page = await ctx.platform.fetchUrl(s.url, { signal: job.signal });
     if (page.status >= 400) throw new TibiError('invalid_source', `网页打不开（${page.status}）。可以复制正文后粘贴`);
-    job.markTainted();   // 抓到的内容是不可信数据（05 §8）
     if (/text\/plain/.test(page.content_type)) return { title: new URL(page.final_url).pathname.split('/').pop() || s.url, markdown: page.body, source_type: 'url', source_uri: page.final_url };
     const art = await ctx.platform.extractReadable(page.body, page.final_url);
     if (countWords(art.markdown) < 30) throw new TibiError('invalid_source', '这个页面抓不到正文。可以复制正文后粘贴');
@@ -59,7 +58,7 @@ async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise
       if (f.needs_ocr) {
         if (!ctx.platform.ocr) throw new TibiError('invalid_source', '这是扫描版 PDF，要先识别文字（OCR）。这里还不能识别');
         job.progress('扫描版：正在识别文字');
-        const o = await ctx.platform.ocr({ pdf: s.path }, { signal: job.signal, onProgress: (d, t) => job.progress(`正在识别文字：第 ${d} / ${t} 页`, { index: d, total: t }) });
+        const o = await ctx.platform.ocr({ pdf: s.path }, { signal: job.signal, onProgress: (d, t) => job.progress(`正在识别文字：第 ${d} / ${t} 页`) });
         return { title: f.title || name, author: f.author, markdown: o.text, source_type: 'file', source_uri: name, kind: f.kind };
       }
       if (countWords(f.markdown) < 5) throw new TibiError('invalid_source', '这个文件里没有找到正文');
@@ -75,7 +74,7 @@ async function fetchStep(job: JobContext, ctx: Ctx, input: ImportInput): Promise
     for (const p of s.paths) if (!ctx.platform.isPathAllowed(p)) throw new TibiError('permission_denied', '有图片没有经过选择或拖入');
     if (!ctx.platform.ocr) throw new TibiError('invalid_source', '这里不能识别图片里的文字');
     job.progress('正在识别图片里的文字（第一次要下载约 10 MB 的英文语言包）');
-    const o = await ctx.platform.ocr({ images: s.paths }, { signal: job.signal, onProgress: (d, t) => job.progress(`正在识别第 ${d} / ${t} 张`, { index: d, total: t }) })
+    const o = await ctx.platform.ocr({ images: s.paths }, { signal: job.signal, onProgress: (d, t) => job.progress(`正在识别第 ${d} / ${t} 张`) })
       .catch(e => { throw new TibiError('invalid_source', `图片识别失败：${e instanceof Error ? e.message : String(e)}`); });
     if (countWords(o.text) < 5) throw new TibiError('invalid_source', '图片里没有识别出英文');
     const first = o.text.split('\n').find(l => l.trim())!.trim();
@@ -109,9 +108,9 @@ export function guessGenre(md: string, source_uri?: string): Genre {
 interface SaveOut { document_id: string; section_ids: string[]; duplicate: boolean }
 
 /** 第三步：入库（documents / sections / sentences），内容哈希去重 */
-async function saveStep(job: JobContext, ctx: Ctx, fetched: Fetched, seg: Segmented, input: ImportInput): Promise<SaveOut> {
+async function saveStep(job: ImportRun, ctx: Ctx, fetched: Fetched, seg: Segmented, input: ImportInput): Promise<SaveOut> {
   const hash = await sha256Hex(normalizeForHash(fetched.markdown));
-  const key = `${job.job_id}:save`;
+  const key = `${job.id}:save`;
   const existing = await getDocumentByHash(ctx.db, hash);
   if (existing) return { document_id: existing.id, section_ids: (await listSections(ctx.db, existing.id)).map(s => s.id), duplicate: !(await alreadyDone(ctx.db, key)) };
   const genre = input.hints?.genre ?? fetched.genre ?? guessGenre(fetched.markdown, fetched.source_uri);
@@ -139,34 +138,21 @@ async function saveStep(job: JobContext, ctx: Ctx, fetched: Fetched, seg: Segmen
   return out;
 }
 
-/** 第四步：分词、还原、按已知词库标状态；写 sentences.tokens、terms、term_forms、term_contexts（R7：不碰 FSRS） */
-export async function annotateSection(db: Database, ctx: Ctx, section_id: string, opts: { document_id: string; genre: Genre; vocab_estimate: number }): Promise<{ counts: { total: number; new: number; learning: number; unsure: number }; unknown_ratio: number; prelabel_total: number }> {
+/**
+ * 第四步：分词、还原、按词库标状态；写 sentences.tokens、term_forms、term_contexts（R7：不碰 FSRS）。
+ * 不建 terms 行：生词只有用户自己标的（加入生词本、点"不认识"）。已有行的词在这里登记语境和遇见次数。
+ */
+export async function annotateSection(db: Database, ctx: Ctx, section_id: string, opts: { document_id: string }): Promise<{ counts: { total: number; new: number; learning: number }; rare: number }> {
   const sentences = await listSentences(db, section_id);
   const texts = sentences.map(s => s.text);
   const phrases = (await db.all<{ text: string }>("SELECT text FROM terms WHERE kind = 'phrase' AND deleted_at IS NULL")).map(r => r.text);
   // 先用一次空的 statusOf 跑分词，拿到全部 lemma 后再查词库，这样只查一轮
-  const first = await annotateSentences({ sentences: texts, dict: ctx.dict, vocab_estimate: opts.vocab_estimate, statusOf: () => undefined, phrases, ignoreProperNouns: true });
+  const first = await annotateSentences({ sentences: texts, dict: ctx.dict, statusOf: () => undefined, phrases, ignoreProperNouns: true });
   const lemmas = [...new Set(first.sentences.flatMap(s => s.tokens.map(t => t.l)))];
   const known = await getTermsByTexts(db, lemmas);
-  // 规则标的、用户没碰过的词每次按当前词汇量重判（词汇量变了、词典后来才装上）；没有词典时判断不了，保持原样
-  const relabel = (r: TermRow) => ctx.dict.hasFrequency !== false && r.status_source === 'auto_rule' && !r.deleted_at;
-  const res = await annotateSentences({ sentences: texts, dict: ctx.dict, vocab_estimate: opts.vocab_estimate, statusOf: l => { const r = known.get(l); return r && !r.deleted_at && !relabel(r) ? (r.status as Status) : undefined; }, phrases, ignoreProperNouns: true });
+  const res = await annotateSentences({ sentences: texts, dict: ctx.dict, statusOf: l => { const r = known.get(l); return r && !r.deleted_at ? (r.status as Status) : undefined; }, phrases, ignoreProperNouns: true });
   const t = now();
   await db.transaction(async tx => {
-    // 新词建行（预标注：0 生词 / 99 待确认）
-    for (const [lemma, info] of res.newTerms) {
-      if (known.has(lemma)) continue;
-      const entry = await ctx.dict.lookup(lemma);
-      const row = await insertTerm(tx, { text: lemma, display: info.display, status: info.status, status_source: 'auto_rule', short_gloss: shortGloss(entry?.translation), seen_at: t });
-      await logStatus(tx, row.id, info.status, 'auto_rule', { prelabel: info.prelabel, document_id: opts.document_id });
-      known.set(lemma, row);
-    }
-    // 重判的词：现在算已知的记 97（行还在，词汇量调低时还能再判回来）
-    for (const lemma of lemmas) {
-      const row = known.get(lemma); if (!row || !relabel(row)) continue;
-      const next = res.newTerms.get(lemma)?.status ?? 97;
-      if (next !== row.status) await setTermStatus(tx, row, next, 'auto_rule', { document_id: opts.document_id });
-    }
     const encounters = new Map<string, number>();
     for (let i = 0; i < sentences.length; i++) {
       const s = sentences[i]!; const a = res.sentences[i]!;
@@ -189,9 +175,9 @@ export async function annotateSection(db: Database, ctx: Ctx, section_id: string
       for (const si of ph.sentence_idx) { const s = sentences[si]!; if (!(await contextExists(tx, row.id, s.id))) await insertContext(tx, { term_id: row.id, source: 'article', document_id: opts.document_id, sentence_id: s.id, is_primary: !(await hasPrimaryContext(tx, row.id)) }); }
       await bumpEncounter(tx, row.id, ph.sentence_idx.length, t);
     }
-    await tx.run('UPDATE sections SET status = ?, tokenizer_version = ?, unknown_ratio = ?, updated_at = ? WHERE id = ?', ['ready', TOKENIZER_VERSION, res.unknown_ratio, t, section_id]);
+    await tx.run('UPDATE sections SET status = ?, tokenizer_version = ?, updated_at = ? WHERE id = ?', ['ready', TOKENIZER_VERSION, t, section_id]);
   });
-  return { counts: { total: res.counts.total, new: res.counts.new, learning: res.counts.learning, unsure: res.counts.unsure }, unknown_ratio: res.unknown_ratio, prelabel_total: res.prelabel_total };
+  return { counts: res.counts, rare: res.rare_ratio === undefined ? -1 : Math.round(res.rare_ratio * res.counts.total) };
 }
 
 /** 整篇标注 + 难度；reanalyze 也走这里 */
@@ -203,28 +189,28 @@ export async function ensureAnnotated(ctx: Ctx, section_id: string): Promise<boo
   if (!sec || sec.status !== 'pending') return false;
   const doc = await getDocument(ctx.db, sec.document_id); if (!doc || doc.status !== 'ready') return false;
   const inflight = ANNOTATING.get(section_id); if (inflight) { await inflight; return true; }
-  const p = (async () => { const profile = await readProfile(ctx.db); await annotateSection(ctx.db, ctx, section_id, { document_id: doc.id, genre: doc.genre, vocab_estimate: profile.vocab_estimate }); })().finally(() => ANNOTATING.delete(section_id));
+  const p = (async () => { await annotateSection(ctx.db, ctx, section_id, { document_id: doc.id }); })().finally(() => ANNOTATING.delete(section_id));
   ANNOTATING.set(section_id, p); await p;
   ctx.events.emit('data.changed', { table: 'terms' });
   return true;
 }
 const ANNOTATING = new Map<string, Promise<void>>();
 
-async function annotateDocument(job: JobContext, ctx: Ctx, document_id: string, section_ids: string[]): Promise<{ unknown_ratio: number; prelabel_total: number; counts: { total: number; new: number; learning: number; unsure: number } }> {
+async function annotateDocument(job: ImportRun | undefined, ctx: Ctx, document_id: string, section_ids: string[]): Promise<{ level?: string }> {
   const doc = await getDocument(ctx.db, document_id); if (!doc) throw new TibiError('not_found', '文章不在了');
-  const profile = await readProfile(ctx.db);
-  const total = { total: 0, new: 0, learning: 0, unsure: 0 }; let prelabel_total = 0;
+  let total = 0, rare = 0, hasFreq = true;
   // 书按章懒处理（00 §3.1）：导入时只标前两章，其余在打开那一章时再标（sections.get → ensureAnnotated）
   const eager = doc.kind === 'book' ? section_ids.slice(0, LAZY_EAGER) : section_ids;
   for (let i = 0; i < eager.length; i++) {
-    job.progress(eager.length > 1 ? `正在分析第 ${i + 1} / ${eager.length} 章` : '正在标注生词', { index: i, total: eager.length });
-    const r = await job.step(`annotate:${section_ids[i]}`, () => annotateSection(ctx.db, ctx, section_ids[i]!, { document_id, genre: doc.genre, vocab_estimate: profile.vocab_estimate }));
-    total.total += r.counts.total; total.new += r.counts.new; total.learning += r.counts.learning; total.unsure += r.counts.unsure; prelabel_total += r.prelabel_total;
+    job?.progress(eager.length > 1 ? `正在分析第 ${i + 1} / ${eager.length} 章` : '正在分析');
+    const r = await annotateSection(ctx.db, ctx, section_ids[i]!, { document_id });
+    total += r.counts.total; if (r.rare < 0) hasFreq = false; else rare += r.rare;
   }
-  const unknown_ratio = total.total ? total.new / total.total : 0;
-  const t = now();
-  await ctx.db.run('UPDATE documents SET status = ?, unknown_ratio = ?, difficulty_cefr = ?, updated_at = ? WHERE id = ?', ['ready', unknown_ratio, cefrOfDocument(unknown_ratio, profile.vocab_estimate), t, document_id]);
-  return { unknown_ratio, prelabel_total, counts: total };
+  // 文本级别：只看词频（常用 3000 词以外的占比），与用户无关；没有词频表时不估
+  const rare_ratio = hasFreq && total ? rare / total : null;
+  const level = rare_ratio === null ? undefined : levelOfRatio(rare_ratio);
+  await ctx.db.run('UPDATE documents SET status = ?, rare_ratio = ?, difficulty_cefr = ?, updated_at = ? WHERE id = ?', ['ready', rare_ratio, level ?? null, now(), document_id]);
+  return { level };
 }
 
 async function markDeferred(db: Database, document_id: string) {
@@ -233,68 +219,54 @@ async function markDeferred(db: Database, document_id: string) {
   await db.run("UPDATE sections SET ai_status = 'deferred', updated_at = ? WHERE document_id = ? AND ai_status IN ('none', 'running')", [t, document_id]);
 }
 
-export async function runImport(job: JobContext, ctx: Ctx, input: ImportInput): Promise<{ summary: string; action: { label: string; route: string }; document_id: string; duplicate: boolean; title: string; unknown_ratio: number; minutes: number }> {
-  const fetched = await job.step('fetch', () => fetchStep(job, ctx, input), { kind: 'pipeline', label: '取正文' });
-  const seg = await job.step('segment', async () => segmentMarkdown(fetched.markdown, { kind: input.hints?.kind ?? fetched.kind ?? 'article', title: fetched.title }), { kind: 'pipeline', label: '切分' });
+export async function runImport(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<{ summary: string; action: { label: string; route: string }; document_id: string; duplicate: boolean; title: string; level?: string; minutes: number }> {
+  job.progress('取正文');
+  const fetched = await fetchStep(job, ctx, input);
+  const seg = segmentMarkdown(fetched.markdown, { kind: input.hints?.kind ?? fetched.kind ?? 'article', title: fetched.title });
   if (seg.lang !== 'en') throw new TibiError('invalid_source', '目前只支持英文文章');
   if (seg.word_count < 5) throw new TibiError('invalid_source', '内容太短了');
-  const saved = await job.step('save', () => saveStep(job, ctx, fetched, seg, input), { kind: 'pipeline', label: '入库' });
+  const saved = await saveStep(job, ctx, fetched, seg, input);
   if (saved.duplicate) {
     const d = (await getDocument(ctx.db, saved.document_id))!;
-    return { summary: '这篇已经在书架里', action: { label: '打开', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: true, title: d.title, unknown_ratio: Number(d.unknown_ratio ?? 0), minutes: Math.max(1, Math.round(Number(d.word_count) / WPM)) };
+    return { summary: '这篇已经在书架里', action: { label: '打开', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: true, title: d.title, level: d.difficulty_cefr ?? undefined, minutes: Math.max(1, Math.round(Number(d.word_count) / WPM)) };
   }
   const ann = await annotateDocument(job, ctx, saved.document_id, saved.section_ids);
-  await job.step('event', async () => {
-    await ctx.db.run('INSERT INTO learning_events(id, type, payload, created_at) VALUES (?,?,?,?)', [uuidv7(), 'document_imported', j.str({ document_id: saved.document_id, source_type: fetched.source_type, prelabel_total: ann.prelabel_total, title: fetched.title, word_count: seg.word_count }), now()]);
-    return true;
-  }, { kind: 'pipeline', label: '记录' });
+  await ctx.db.run('INSERT INTO learning_events(id, type, payload, created_at) VALUES (?,?,?,?)', [uuidv7(), 'document_imported', j.str({ document_id: saved.document_id, source_type: fetched.source_type, title: fetched.title, word_count: seg.word_count }), now()]);
   const sample = input.source.type === 'sample' ? getSample(input.source.id) : undefined;
   if (sample) {
     // 内置示例：写入预生成的总结与语境释义，不调模型
-    await job.step('ai:sample', () => writeSampleAi(ctx.db, saved.document_id, sample), { kind: 'pipeline', label: '预生成结果' });
+    await writeSampleAi(ctx.db, saved.document_id, sample);
     ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
     ctx.events.emit('data.changed', { table: 'terms' });
-    return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, unknown_ratio: ann.unknown_ratio, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
+    return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, level: ann.level, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
   }
-  // AI 分析（M2）另起一个任务：正文好了就能读，总结稍后出现（00 §3.5"可先读后分析"）。没连模型或离线直接记 deferred，之后补做
-  await job.step('ai:queue', async () => {
-    const has = await ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM providers WHERE kind = 'llm' AND deleted_at IS NULL");
-    if (!ctx.ai || !Number(has?.n ?? 0) || !ctx.platform.isOnline()) { await markDeferred(ctx.db, saved.document_id); return { queued: false }; }
+  // AI 分析在后台另做：正文好了就能读，总结稍后出现（00 §3.5"可先读后分析"）。没连模型或离线直接记 deferred，之后补做
+  const has = await ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM providers WHERE kind = 'llm' AND deleted_at IS NULL");
+  if (!ctx.ai || !Number(has?.n ?? 0) || !ctx.platform.isOnline()) await markDeferred(ctx.db, saved.document_id);
+  else {
     await ctx.db.run("UPDATE documents SET ai_status = 'running', updated_at = ? WHERE id = ?", [now(), saved.document_id]);
-    const { task_id } = await ctx.jobs.submit('analyze', { kind: 'import', title: `总结 ${fetched.title}`, trigger: 'auto', input: { document_id: saved.document_id } });
-    return { queued: true, task_id };
-  }, { kind: 'pipeline', label: '排队做总结' });
+    background(`analyze:${saved.document_id}`, () => analyzeDocument(ctx, saved.document_id));
+  }
   ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
   ctx.events.emit('data.changed', { table: 'terms' });
-  return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, unknown_ratio: ann.unknown_ratio, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
+  return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, level: ann.level, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
 }
 
-/** documents.reanalyze：按当前词库重新标注（词汇量变了、分词升级）；ai=true 时把 AI 状态重新置为 deferred 等补做 */
-export async function runReanalyze(job: JobContext, ctx: Ctx, input: { document_id: string; ai?: boolean }) {
+/** documents.reanalyze：按当前词库重新标注（分词升级、词典后来才装上）；ai=true 时把 AI 状态重新置为 deferred 等补做 */
+export async function runReanalyze(ctx: Ctx, input: { document_id: string; ai?: boolean }) {
   const doc = await getDocument(ctx.db, input.document_id); if (!doc || doc.deleted_at) throw new TibiError('not_found', '文章不在了');
   const sections = await listSections(ctx.db, doc.id);
-  await job.step('clear', async () => {
-    const t = now();
-    await ctx.db.run('UPDATE term_contexts SET deleted_at = ?, updated_at = ? WHERE document_id = ? AND deleted_at IS NULL', [t, t, doc.id]);
-    return true;
-  });
-  const ann = await annotateDocument(job, ctx, doc.id, sections.map(s => s.id));
+  const t = now();
+  await ctx.db.run('UPDATE term_contexts SET deleted_at = ?, updated_at = ? WHERE document_id = ? AND deleted_at IS NULL', [t, t, doc.id]);
+  const ann = await annotateDocument(undefined, ctx, doc.id, sections.map(s => s.id));
   if (input.ai) await markDeferred(ctx.db, doc.id);
   ctx.events.emit('data.changed', { table: 'documents', ids: [doc.id] });
-  return { document_id: doc.id, unknown_ratio: ann.unknown_ratio };
+  return { document_id: doc.id, level: ann.level };
 }
 
-export function registerImportPipeline(jobs: JobRunner, core: Core) {
-  jobs.register('import', (job: JobContext, input: ImportInput) => runImport(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input));
-  jobs.register('analyze', async (job: JobContext, input: { document_id: string }) => {
-    const r = await analyzeDocument(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input.document_id);
-    return { summary: r.ai_status === 'done' ? '总结好了' : r.ai_status === 'deferred' ? '模型暂时用不了，稍后补做' : '总结没有生成', ai_status: r.ai_status };   // 不带 document_id：后台补做不弹"开始阅读"
-  });
-  jobs.register('translate', async (job: JobContext, input: { section_id: string; sentence_ids?: string[] }) => {
-    const r = await translateSection(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input.section_id, input.sentence_ids);
-    return { summary: `翻译了 ${r.translated} 句`, ...r };
-  });
-  jobs.register('reanalyze', (job: JobContext, input: { document_id: string; ai?: boolean }) => runReanalyze(job, core.ctx({ origin: 'ui', job_id: job.job_id }), input));
+/** 应用上次退出时还在做总结的文章：改回"稍后补做"，连上模型后照常补做 */
+export async function recoverAnalysis(db: Database) {
+  const t = now();
+  await db.run("UPDATE documents SET ai_status = 'deferred', updated_at = ? WHERE ai_status = 'running'", [t]);
+  await db.run("UPDATE sections SET ai_status = 'deferred', updated_at = ? WHERE ai_status = 'running'", [t]);
 }
-
-export { difficultyOfRatio };

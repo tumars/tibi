@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openAppDb } from '@tibi/core-node';
+import { imported } from '../helpers.js';
 import { assembleCore, fakePlatform, type Dict, type SectionContent } from '../../src/index.js';
 import type { ResolvedModel } from '../../src/kernel/index.js';
 import { cleanMeaning } from '../../src/domain/terms/methods.js';
@@ -12,13 +13,11 @@ async function setup(turns: Turn[] | null, online = true) {
   const db = await openAppDb(':memory:');
   const t = Date.now();
   await db.run("INSERT INTO user_profile(id, created_at, updated_at) VALUES ('1', ?, ?)", [t, t]);
-  await db.run("UPDATE user_profile SET vocab_estimate = 3000 WHERE id = '1'");
   const stream = turns ? scriptedStream(turns) : undefined;
   const resolveModel = stream ? async (): Promise<ResolvedModel> => ({ model: FAKE_MODEL, apiKey: 'k', streamFn: stream }) : undefined;
   const { core, kernel } = await assembleCore({ db, dict, platform: fakePlatform({ isOnline: () => online, getSecret: async () => 'sk-test' }), resolveModel, resume: false });
-  const { task_id } = await core.call<{ task_id: string }>('documents.import', { source: { type: 'text', text: 'The compiler enforces a small set of rules at compile time.' } });
-  const r = await kernel.jobs.wait(task_id);
-  const doc = await core.call<{ sections: { id: string }[] }>('documents.get', { id: (r.output as { document_id: string }).document_id });
+  const r = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: 'The compiler enforces a small set of rules at compile time.' } }));
+  const doc = await core.call<{ sections: { id: string }[] }>('documents.get', { id: (r as unknown as { document_id: string }).document_id });
   const sec = await core.call<SectionContent>('sections.get', { id: doc.sections[0]!.id });
   return { core, db, stream, sentence: sec.sentences[0]! };
 }
@@ -26,7 +25,8 @@ async function setup(turns: Turn[] | null, online = true) {
 describe('语境释义（M1：固定的模型调用）', () => {
   it('没有缓存时调用快速档模型，写回 term_contexts，第二次直接用缓存', async () => {
     const { core, db, stream, sentence } = await setup([{ text: '“v. 强制执行”。' }]);
-    await core.call('terms.lookup', { text: 'enforces', sentence_id: sentence.id });   // 点词：建词条与语境
+    await core.call('terms.lookup', { text: 'enforces', sentence_id: sentence.id });   // 点词：没标过的词不建词条，释义缓存在这句上
+    expect(await db.get("SELECT id FROM terms WHERE text = 'enforce'")).toBeUndefined();
     const before = stream!.calls;   // 导入时的 AI 分析也会调用假模型
     const a = await core.call<{ meaning: string; cached: boolean }>('terms.context_meaning', { text: 'enforces', sentence_id: sentence.id });
     expect(a).toEqual({ meaning: 'v. 强制执行', cached: false });
@@ -35,8 +35,6 @@ describe('语境释义（M1：固定的模型调用）', () => {
     expect(stream!.calls - before).toBe(1);
     const look = await core.call<{ context_meaning?: string }>('terms.lookup', { text: 'enforces', sentence_id: sentence.id });
     expect(look.context_meaning).toBe('v. 强制执行');
-    const usage = await db.get<{ n: number }>("SELECT count(*) AS n FROM usage_records WHERE skill_id = 'tutor'");
-    expect(usage?.n).toBe(1);
   });
 
   it('没连模型 → model_unavailable；离线 → offline', async () => {

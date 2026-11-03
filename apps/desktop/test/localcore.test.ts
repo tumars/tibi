@@ -1,6 +1,6 @@
 import BetterSqlite3 from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
-import { assembleCore, fakePlatform, type SearchResult } from '@tibi/core';
+import { assembleCore, documents, fakePlatform, type SearchResult } from '@tibi/core';
 import { mkdtempSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -30,11 +30,10 @@ describe('手机上的 Core：InvokeDriver（M7）', () => {
   it('迁移、导入、搜索、事务、同步触发器都能走通', async () => {
     const { db, dict } = await openLocalDbs(fakeShell());
     expect(dict).toBeUndefined();
-    expect((await db.get<{ user_version: number }>('PRAGMA user_version'))?.user_version).toBe(4);
-    const { core, kernel } = await assembleCore({ db, platform: fakePlatform(), device: 'mobile', resume: false });
-    const { task_id } = await core.call<{ task_id: string }>('documents.import', { source: { type: 'text', text: 'The compiler enforces a small set of rules.\n\nA parser builds a syntax tree.' } });
-    const r = await kernel.jobs.wait(task_id);
-    expect(r.status).toBe('done');
+    expect((await db.get<{ user_version: number }>('PRAGMA user_version'))?.user_version).toBe(5);
+    const { core } = await assembleCore({ db, platform: fakePlatform(), device: 'mobile', resume: false });
+    const { import_id } = await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: 'The compiler enforces a small set of rules.\n\nA parser builds a syntax tree.' } });
+    expect((await documents.importDone(import_id))?.ok).toBe(true);
     const found = await core.call<SearchResult>('search.query', { q: 'parser' });
     expect(found.documents).toHaveLength(1);
     await core.call('terms.add', { entries: [{ text: 'compiler' }] });   // 这里没装词典，导入不会标生词
@@ -68,8 +67,8 @@ describe('手机上的 Core：InvokeDriver（M7）', () => {
       return { db, core, kernel, eng };
     };
     const A = await phone(), B = await phone();
-    const { task_id } = await A.core.call<{ task_id: string }>('documents.import', { source: { type: 'text', text: 'The compiler enforces a small set of rules.' } });
-    await A.kernel.jobs.wait(task_id);
+    const { import_id } = await A.core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: 'The compiler enforces a small set of rules.' } });
+    await documents.importDone(import_id);
     await A.eng.enable({ device_name: 'iPhone' });
     // B 先看到一个还没下载的占位：读不到就停在那，不报错
     const dev = readdirSync(join(root, 'changes'))[0]!;

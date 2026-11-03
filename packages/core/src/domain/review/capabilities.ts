@@ -65,7 +65,7 @@ export const reviewCapabilities: CapabilityMap = {
   }),
 
   record_review: capability({
-    name: 'record_review', description: '记一次复习结果并排期（只记首次作答，G3）', perm: 'write', undoable: true, replay: 'never',
+    name: 'record_review', description: '记一次复习结果并排期（只记首次作答，G3）', perm: 'write', undoable: true,
     params: Type.Object({ card_id: S.id, card_type: S.cardType, rating: S.rating, suggested_rating: Type.Optional(S.rating), auto: Type.Boolean(), hints: Type.Optional(Type.Integer({ minimum: 0, default: 0 })), context_id: Type.Optional(S.id), typed: Type.Optional(Type.String()), duration_ms: Type.Optional(Type.Integer({ minimum: 0, default: 0 })), session_id: Type.Optional(S.id) }),
     async run(p, ctx): Promise<AnswerResult> {
       const card = await getCard(ctx.db, p.card_id);

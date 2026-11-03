@@ -1,22 +1,75 @@
 import type { Approval, MessageReceipt, MessageStep } from '@tibi/core';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { tl } from '../lib/i18n';
 
 const MARK = { ok: '✓', error: '✕', denied: '–' };
 const NOTE = { ok: '', error: () => tl('（没成功）'), denied: () => tl('（已拒绝）') };
 const noteOf = (s: MessageStep['status']) => (s === 'ok' ? '' : NOTE[s]());
+const secs = (ms: number) => (ms < 1000 ? tl('{v0} 秒', { v0: (ms / 1000).toFixed(1) }) : tl('{v0} 秒', { v0: Math.round(ms / 1000) }));
+/** 过程卡里的一步：做完的来自库（MessageStep），进行中的来自事件（done=false） */
+export type ProcessStep = MessageStep & { done?: boolean; started_at?: number };
+
+/** 进行中时每秒刷新一次，显示已经用了多久 */
+function useTick(on: boolean) {
+  const [, set] = useState(0);
+  useEffect(() => { if (!on) return; const t = setInterval(() => set(x => x + 1), 1000); return () => clearInterval(t); }, [on]);
+}
 
 /**
- * 收起的过程卡（00 §3.10、05 §10）：标题说正在做或做过什么，点开看步骤。
- * 只收过程；审批卡和答案不收。完整记录在"查看过程"。
+ * 过程卡（00 §3.10、05 §10）：参考 Claude / Codex 的会话页，思考和工具调用都看得见，但默认收起，不挤占答案。
+ * - 标题一行说现在在干什么（思考中、正在查词、等你确认），做完了说"思考了 N 秒 · 用了几个工具"
+ * - 展开：思考过程（模型原话，可再折叠）+ 每一步：做了什么、用了什么参数、得到什么、用时；出错的写原因
+ * - 能力名这类技术词只放在悬停提示里
+ * 只收过程；审批卡、写入回执和答案不收。
  */
-export function ProcessCard({ steps, current }: { steps: MessageStep[]; /** 正在做的那一步；没有就是做完了 */ current?: string }) {
-  if (!steps.length && !current) return null;
-  const failed = steps.filter(s => s.status !== 'ok').length;
-  const title = current ?? `${tl('Tibi 做了 {n} 步', { n: steps.length })} · ${steps[steps.length - 1]!.summary}${failed ? ` · ${tl('{n} 步没成功', { n: failed })}` : ''}`;
+export function ProcessCard({ steps, thinking, thinkMs, thinkStart, live, waiting }: {
+  steps: ProcessStep[]; thinking?: string;
+  /** 思考用时；进行中没有，用 thinkStart 现算 */ thinkMs?: number; thinkStart?: number;
+  /** 这次回答还在进行 */ live?: boolean; /** 停在审批上，等用户决定 */ waiting?: boolean;
+}) {
+  const running = steps.find(s => s.done === false);
+  const thinkingNow = !!live && !!thinking && thinkMs === undefined && !running;
+  useTick(!!live && (thinkingNow || !!running));
+  if (!steps.length && !thinking) return null;
+  const done = steps.filter(s => s.done !== false);
+  // 用户拒绝的不算出错：不标红，单独说"已拒绝"
+  const failed = done.filter(s => s.status === 'error').length;
+  const denied = done.filter(s => s.status === 'denied').length;
+  const thinkTime = thinkMs ?? (thinkStart ? Date.now() - thinkStart : undefined);
+  const names = [...new Set(done.map(s => s.summary.replace(/^Tibi 正在/, '').split('：')[0]!))];
+  let title: string;
+  if (waiting) title = tl('需要你确认');
+  else if (running) title = `${running.summary}${running.started_at ? ` · ${secs(Date.now() - running.started_at)}` : ''}`;
+  else if (thinkingNow) title = `${tl('正在思考')}${thinkTime !== undefined ? ` · ${secs(thinkTime)}` : ''}`;
+  else {
+    const parts: string[] = [];
+    if (thinking) parts.push(thinkTime !== undefined ? tl('思考了 {v0}', { v0: secs(thinkTime) }) : tl('思考过程'));
+    if (done.length) parts.push(`${tl('用了 {n} 个工具', { n: done.length })}：${names.slice(0, 3).join('、')}${names.length > 3 ? tl(' 等') : ''}`);
+    if (failed) parts.push(tl('{n} 步没成功', { n: failed }));
+    if (denied) parts.push(tl('{n} 步已拒绝', { n: denied }));
+    title = parts.join(' · ');
+  }
   return <details className={`process${failed ? ' off' : ''}`}>
-    <summary>{current && <span className="spin" />}<span className="pt">{title}</span></summary>
-    {steps.map((s, i) => <div key={i} className={`toolline${s.status !== 'ok' ? ' off' : ''}`}>{MARK[s.status]} {s.summary}{noteOf(s.status)}</div>)}
+    <summary>{live && !waiting && (running || thinkingNow) && <span className="spin" />}<span className="pt">{title}</span></summary>
+    {thinking && <details className="think" open={thinkingNow || undefined}>
+      <summary>{tl('思考过程')}{thinkTime !== undefined && <span className="lbl"> · {secs(thinkTime)}</span>}</summary>
+      <div className="thinktext">{thinking}</div>
+    </details>}
+    {steps.map((s, i) => {
+      const going = s.done === false;
+      return <div key={s.call_id ?? i} className={`step${s.status === 'error' ? ' off' : ''}`} title={s.tool}>
+        <div className="toolline">
+          <span className="mk">{going ? <span className="spin" /> : MARK[s.status]}</span>
+          <span className="sm">{s.summary.replace(/^Tibi 正在/, '')}{going ? '' : noteOf(s.status)}</span>
+          {(s.duration_ms !== undefined || (going && s.started_at)) && <span className="lbl dur">{secs(s.duration_ms ?? Date.now() - s.started_at!)}</span>}
+        </div>
+        {(s.detail || s.result || s.error) && <div className="stepmore">
+          {s.detail && <div><span className="k">{tl('参数')}</span>{s.detail}</div>}
+          {s.result && <div><span className="k">{tl('结果')}</span>{s.result}</div>}
+          {s.error && <div className="err"><span className="k">{tl('原因')}</span>{s.error}</div>}
+        </div>}
+      </div>;
+    })}
   </details>;
 }
 
@@ -33,10 +86,10 @@ export function ApprovalCard({ a, decide }: { a: Approval; decide: (a: Approval,
   const [draft, setDraft] = useState<string>();
   const editing = draft !== undefined && a.editable;
   return <div className="approve">
-    <div className="h"><span>{a.title}</span><span className="k">{tl('等你确认')}</span></div>
+    <div className="h"><span>{a.title}</span><span className="k">{a.client ? tl('{client} 请求，等你确认', { client: a.client }) : tl('等你确认')}</span></div>
     <div className="b">
       {editing ? <textarea className="input" rows={3} value={draft} aria-label={tl('修改内容')} onChange={e => setDraft(e.target.value)} /> : a.body}
-      <br /><span className="lbl">{tl('将执行')} <code>{a.tool}</code> · {a.impact}{a.undoable ? tl(' · 可撤销') : ''}</span>
+      <br /><span className="lbl" title={a.tool}>{a.impact}{a.undoable ? tl(' · 可撤销') : ''}</span>
     </div>
     <div className="acts">
       {editing

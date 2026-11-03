@@ -1,9 +1,12 @@
 import type { Document, SectionContent, Sentence, Status } from '@tibi/core';
-import { ChevronLeft, Eye, Info, Languages, Pause, Sparkles, Type, Volume2 } from 'lucide-react';
+import { AudioLines, ChevronLeft, Eye, Info, Languages, LoaderCircle, Pause, Sparkles, Type, Volume2 } from 'lucide-react';
+import { current as currentTts, kokoroDownloaded, type Engine } from '../lib/tts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { tl } from '../lib/i18n';
-import { fmtMinutes, fmtPct, GENRE_NAMES, speak, STATUS_NAMES, throttle, isImeKey } from '../lib/util';
+import { fmtMinutes, GENRE_NAMES, STATUS_NAMES, throttle, isImeKey } from '../lib/util';
+import { DocSource } from '../components/DocSource';
+import { SpeakButtons, useTtsStatus } from '../components/Speak';
 import { SectionView } from '../reader/Section';
 import { useAloud } from '../reader/useAloud';
 import { errorInfo, rpc, type Result } from '../rpc';
@@ -28,7 +31,18 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
   const [tibi, setTibi] = useState<{ key: string; text: string } | 'open'>();
   const [legend, setLegend] = useState(false);
   const [overrides, setOverrides] = useState(new Map<string, Status>());
-  const aloud = useAloud(content?.sentences ?? NO_SENTENCES);
+  // 全文朗读：系统朗读和 AI 朗读两个按钮，共用暂停、继续和读到哪一句；换引擎时没在读就直接开始读
+  const [aloudEngine, setAloudEngine] = useState<Engine>(() => currentTts().engine);
+  const aloud = useAloud(content?.sentences ?? NO_SENTENCES, { engine: aloudEngine, onError: e => toast(tl('AI 朗读用不了：{v0}。可以先用系统朗读', { v0: errorInfo(e).message || tl('模型没下载好') }), { kind: 'err' }) });
+  const ttsStatus = useTtsStatus();
+  const startAfterSwitch = useRef(false);
+  useEffect(() => { if (startAfterSwitch.current) { startAfterSwitch.current = false; aloud.toggle(); } /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [aloudEngine]);
+  const aloudWith = (e: Engine) => {
+    if (e === aloudEngine) { aloud.toggle(); return; }
+    if (e === 'kokoro' && !kokoroDownloaded()) toast(tl('第一次用 AI 朗读要下载约 92 MB，稍等'));
+    if (!aloud.playing) { if (aloud.paused) aloud.halt(); startAfterSwitch.current = true; }
+    setAloudEngine(e);
+  };
   const [conv, setConv] = useState<string>();
   const sepia = useSepiaPaper(); const setSepia = useUi(s => s.setSepia);
   const scroll = useRef<HTMLDivElement>(null); const lastY = useRef(0); const restored = useRef(false);
@@ -71,21 +85,20 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
     }
     setTr(t => !t);
   };
-  useEffect(() => rpc.on('task.done', () => { if (tr && secId) void rpc.call('sections.get', { id: secId, with: ['translations'] }).then(setContent); }), [tr, secId]);
+  useEffect(() => rpc.on('data.changed', d => { if (d.table === 'sentences' && tr && secId) void rpc.call('sections.get', { id: secId, with: ['translations'] }).then(setContent); }), [tr, secId]);
   // 换一章从头读（翻译好了重取同一章不算）
   useEffect(() => { aloud.halt(); aloud.setIdx(0); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [content?.id]);
-  const finish = async (markRest: boolean) => {
+  const finish = async () => {
     if (!content) return;
     try {
-      const r = await rpc.call('sections.finish', { id: content.id, mark_rest_known: markRest });
-      if (r.marked > 0 && r.undo) toast(tl('已把 {marked} 个生词标为已知', { marked: r.marked }), { action: { label: tl('撤销'), run: () => void rpc.call('system.undo', { undo_id: r.undo!.undo_id }) } }); else toast(tl('读完了'));
+      await rpc.call('sections.finish', { id: content.id });
+      toast(tl('读完了'));
       const idx = doc?.sections.findIndex(s => s.id === content.id) ?? -1; const next = doc?.sections[idx + 1];
       if (next) { setSecId(next.id); scroll.current?.scrollTo({ top: 0 }); } else nav('/library');
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
   if (err) return <div className="screen"><div className="topgap" /><Empty image="error-generic" title={tl('打不开这篇文章')} text={err} action={<button className="btn sm" onClick={() => nav('/library')}>{tl('回到书架')}</button>} /></div>;
-  const counts = content?.counts; const left = counts ? counts.new + counts.unsure : 0;
   const sec = doc?.sections.find(s => s.id === secId);
   return <>
     <div className="top rdtop"><button className="ib" aria-label={tl('返回')} onClick={() => nav(-1)}><ChevronLeft size={22} /></button><span className="sp" />
@@ -94,15 +107,15 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
     <div className={`screen${gloss ? ' gl' : ''}`} id="s-read" ref={scroll} onScroll={onScroll}>
       {doc && content && <>
         <div className="rd" style={{ paddingBottom: 0 }}>
-          <div className="meta"><span>{GENRE_NAMES[doc.genre] ?? doc.genre} · {fmtMinutes(doc.minutes)} · {tl('生词率 {p}', { p: fmtPct(doc.unknown_ratio) })}</span>
+          <div className="meta"><span>{GENRE_NAMES[doc.genre] ?? doc.genre} · {fmtMinutes(doc.minutes)}{doc.level ? ` · ${tl('难度约 {level}', { level: doc.level })}` : ''}</span>
+            <DocSource d={doc} />
             {doc.sections.length > 1 && <span>{tl('第 {i} / {n} 章', { i: (sec?.idx ?? 0) + 1, n: doc.sections.length })}</span>}</div>
           {(sec?.idx ?? 0) === 0 && <h1>{doc.title}</h1>}
         </div>
         <SectionView content={content} mode="all" gloss={gloss} overrides={overrides} selected={card ? { sentence: card.sentence.id, s: card.s } : undefined} translations={tr} onWord={onWord} />
         <div className="rd" style={{ paddingTop: 0 }}><div className="endc">
           <h3>{tl('读完了？')}</h3>
-          <p>{left > 0 ? tl('还有 {n} 个生词没处理。标为已知后不进复习，可随时改回。', { n: left }) : tl('这一篇的生词都处理过了。')}</p>
-          <div className="col">{left > 0 && <button className="btn pri" onClick={() => void finish(true)}>{tl('标为已知并读完')}</button>}<button className="btn" onClick={() => void finish(false)}>{tl('读完了')}</button></div>
+          <div className="col"><button className="btn pri" onClick={() => void finish()}>{tl('读完了')}</button></div>
         </div></div>
         <div style={{ height: 'calc(90px + var(--sab))' }} />
       </>}
@@ -110,7 +123,12 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
     <div className="rdbar">
       <button aria-pressed={tr} onClick={() => void toggleTr()}><Languages />{tl('译文')}</button>
       <button aria-pressed={gloss} onClick={() => setGloss(g => !g)}><Type />{tl('释义')}</button>
-      <button aria-pressed={aloud.playing || aloud.paused} onClick={aloud.toggle}>{aloud.playing ? <Pause /> : <Volume2 />}{aloud.playing ? tl('暂停') : aloud.paused ? tl('继续') : tl('朗读')}</button>
+      {(['system', 'kokoro'] as const).map(e => {
+        const mine = aloudEngine === e && (aloud.playing || aloud.paused);
+        const busy = mine && aloud.playing && e === 'kokoro' && ttsStatus === 'loading';
+        if (busy) return <button key={e} aria-pressed onClick={() => aloudWith(e)}><LoaderCircle className="ttsspin" />{tl('生成中')}</button>;
+        return <button key={e} aria-pressed={mine} onClick={() => aloudWith(e)}>{mine && aloud.playing ? <Pause /> : e === 'system' ? <Volume2 /> : <AudioLines />}{mine && aloud.playing ? tl('暂停') : mine && aloud.paused ? tl('继续') : e === 'system' ? tl('朗读') : tl('AI 朗读')}</button>;
+      })}
       <button aria-pressed={sepia} onClick={() => setSepia(!sepia)}><Eye />{tl('护眼')}</button>
       <button className="tibi" onClick={() => setTibi('open')}><Sparkles />Tibi</button>
     </div>
@@ -123,9 +141,9 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
     <Sheet open={legend} onClose={() => setLegend(false)}>
       <h2>{tl('标注说明')}</h2>
       <div className="lgs">
-        <div className="row"><span className="ex"><span className="w s0">word</span></span><span>{tl('生词：点开会加入复习')}</span></div>
+        <div className="row"><span className="ex"><span className="w s0">word</span></span><span>{tl('生词：你标过的，点开会加入复习')}</span></div>
         <div className="row"><span className="ex"><span className="w s1">word</span></span><span>{tl('学习中：越熟颜色越浅')}</span></div>
-        <div className="row"><span className="ex"><span className="w s99">word</span></span><span>{tl('待确认：按你的词汇量估计可能认识')}</span></div>
+        <div className="row"><span className="ex"><span className="w">word</span></span><span>{tl('没标过的词不着色，点开可查词、加入生词本')}</span></div>
       </div>
     </Sheet>
   </>;
@@ -160,14 +178,18 @@ function WordSheet({ card, onClose, onStatus, onAsk }: { card?: { word: string; 
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card, modelOk]);
+  // 没有词条的词（没标过）也能直接标：terms.mark 现建
   const setS = async (s: Status) => {
-    const tid = data?.term?.id; if (!tid) return;
-    try { await rpc.call('terms.setStatus', { ids: [tid], status: s, source: 'user' }); setStatus(s); onStatus(data!.term!.text, s); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    if (!card) return;
+    try {
+      const r = await rpc.call('terms.mark', { text: data?.term?.text ?? card.word, status: s, sentence_id: card.sentence.id });
+      setStatus(s); setData(d => d && { ...d, term: r.term }); onStatus(r.term.text, s);
+    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
   const head = data?.term?.display ?? data?.dict?.word ?? card?.word ?? '';
   return (
     <Sheet open={!!card} onClose={onClose} className="wc">
-      <div className="h"><b>{head}</b>{data?.dict?.phonetic && <span className="ipa">/{data.dict.phonetic}/</span>}<button className="say" aria-label={tl('发音')} onClick={() => speak(head)}><Volume2 /></button></div>
+      <div className="h"><b>{head}</b>{data?.dict?.phonetic && <span className="ipa">/{data.dict.phonetic}/</span>}<SpeakButtons text={head} size={18} className="say" /></div>
       {data?.card_created && <div className="added">{tl('已加入复习')}<button onClick={() => void setS(97 as Status)}>{tl('其实认识')}</button></div>}
       {(ctxm || modelOk) && <div className="ai"><span className="tag">✦ {tl('在这句里')}</span>{ctxm ?? '…'}</div>}
       <div className="dict">{data?.term?.meaning || data?.dict?.translation || (data && !data.dict ? tl('词典里没有这个词') : '')}</div>

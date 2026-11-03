@@ -2,10 +2,11 @@ import type { Document, SectionContent, Sentence, Status } from '@tibi/core';
 import { ArrowUp, BookOpenCheck, Eye, FileText, Info, Languages, Sparkles, Type, Volume2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { DocSource } from '../components/DocSource';
 import { Empty } from '../components/Empty';
 import { Modal } from '../components/Modal';
 import { Top } from '../components/Shell';
-import { fmtMinutes, fmtPct, GENRE_NAMES, throttle } from '../lib/util';
+import { fmtMinutes, GENRE_NAMES, throttle } from '../lib/util';
 import { SectionView } from '../reader/Section';
 import { SummaryPanel } from '../reader/SummaryPanel';
 import { TibiPanel } from '../reader/TibiPanel';
@@ -27,7 +28,6 @@ export function Reader() {
   const [gloss, setGloss] = useState(false);
   const [translations, setTranslations] = useState(false);
   const [legend, setLegend] = useState(false);
-  const [finish, setFinish] = useState(false);
   const [card, setCard] = useState<{ word: string; lemma: string; sentence: Sentence; s: number; anchor: DOMRect }>();
   const [overrides, setOverrides] = useState<Map<string, Status>>(new Map());
   const [showTop, setShowTop] = useState(false);
@@ -123,12 +123,11 @@ export function Reader() {
   }, []);
 
   const counts = content?.counts;
-  const onFinish = async (markRest: boolean) => {
-    setFinish(false); if (!content) return;
+  const onFinish = async () => {
+    if (!content) return;
     try {
-      const r = await rpc.call('sections.finish', { id: content.id, mark_rest_known: markRest });
-      if (r.marked > 0 && r.undo) toast(tl('已把 {marked} 个生词标为已知', { marked: r.marked }), { action: { label: tl('撤销'), run: () => { void rpc.call('system.undo', { undo_id: r.undo!.undo_id }).then(() => toast(tl('已撤销')), e => toast(errorInfo(e).message, { kind: 'err' })); } } });
-      else toast(tl('读完了'));
+      await rpc.call('sections.finish', { id: content.id });
+      toast(tl('读完了'));
       const idx = doc?.sections.findIndex(s => s.id === content.id) ?? -1;
       const next = doc?.sections[idx + 1];
       if (next) nav(`/read/${id}/${next.id}`); else nav('/library');
@@ -139,7 +138,6 @@ export function Reader() {
   if (!doc || !content) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: doc?.title ?? '…' }]} /><div className="scroll" /></>;
 
   const sec = doc.sections.find(s => s.id === content.id);
-  const left = counts ? counts.new + counts.unsure : 0;
 
   return (
     <>
@@ -154,8 +152,9 @@ export function Reader() {
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '18px 32px 0' }}>
           <div className="rd" style={{ padding: 0 }}>
             <div className="meta">
-              <span>{tl('{v0} · {v1} · 生词率 {unknown_ratio}', { v0: GENRE_NAMES[doc.genre] ?? doc.genre, v1: fmtMinutes(sec?.word_count ? sec.word_count / 180 : doc.minutes), unknown_ratio: fmtPct(doc.unknown_ratio) })}</span>
-              {counts && <span className="tagc">{tl('生词 {new} · 学习中 {learning} · 待确认 {unsure}', { new: counts.new, learning: counts.learning, unsure: counts.unsure })}</span>}
+              <span>{GENRE_NAMES[doc.genre] ?? doc.genre} · {fmtMinutes(sec?.word_count ? sec.word_count / 180 : doc.minutes)}{doc.level ? ` · ${tl('难度约 {level}', { level: doc.level })}` : ''}</span>
+              <DocSource d={doc} />
+              {counts && counts.new + counts.learning > 0 && <span className="tagc">{tl('生词 {new} · 学习中 {learning}', { new: counts.new, learning: counts.learning })}</span>}
             </div>
             <h1>{doc.sections.length > 1 && sec?.title ? sec.title : doc.title}</h1>
           </div>
@@ -164,10 +163,8 @@ export function Reader() {
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px 40px' }}>
           <div className="endc">
             <h3>{tl('读完了')}</h3>
-            <p>{left ? tl('还有 {left} 个生词没处理。标为已知后不进复习，可随时改回。', { left }) : tl('生词都处理过了。')}</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              {left > 0 && <button className="btn pri" onClick={() => setFinish(true)}>{tl('标为已知并读完')}</button>}
-              <button className={`btn${left ? '' : ' pri'}`} onClick={() => onFinish(false)}>{tl('读完了')}</button>
+              <button className="btn pri" onClick={() => void onFinish()}>{tl('读完了')}</button>
             </div>
           </div>
         </div>
@@ -184,7 +181,7 @@ export function Reader() {
           <span className="vsep" />
           <button onClick={() => setMode(mode === 'all' ? 'new' : mode === 'new' ? 'clean' : 'all')}>{{ all: tl('全部标注'), new: tl('仅生词'), clean: tl('纯净阅读') }[mode]}</button>
           <span className="vsep" />
-          <button onClick={() => (left ? setFinish(true) : onFinish(false))}><BookOpenCheck />{tl('读完了')}</button>
+          <button onClick={() => void onFinish()}><BookOpenCheck />{tl('读完了')}</button>
         </div>
       </div>
       {panel === 'tibi' && <TibiPanel doc={doc} sectionId={content.id} pending={pending} onClose={() => setPanel(undefined)} />}
@@ -196,14 +193,10 @@ export function Reader() {
       {card && <WordCard onAsk={(w, sid) => ask(tl('「{w}」在这句话里是什么意思？用法上要注意什么？', { w }), { sentence_id: sid, selection: w })} word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} onClose={() => setCard(undefined)} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}
       <Modal open={legend} onOpenChange={setLegend} title={tl('标注说明')} actions={<button className="btn pri" onClick={() => setLegend(false)}>{tl('知道了')}</button>}>
         <div className="legend">
-          <div className="row"><span className="ex"><span className="w s0">upshot</span></span><span>{tl('生词：可能不认识，点开看释义')}</span></div>
+          <div className="row"><span className="ex"><span className="w s0">upshot</span></span><span>{tl('生词：你标过的，点开看释义')}</span></div>
           <div className="row"><span className="ex"><span className="w s1">overhead</span></span><span>{tl('学习中：越浅越熟（见过 → 熟悉）')}</span></div>
-          <div className="row"><span className="ex"><span className="w s99">binding</span></span><span>{tl('待确认：点一下确认认不认识')}</span></div>
-          <div className="row"><span className="ex"><span className="w">feature</span></span><span>{tl('已知：不标')}</span></div>
+          <div className="row"><span className="ex"><span className="w">feature</span></span><span>{tl('没标过的词不着色，点开可查词、标熟练度')}</span></div>
         </div>
-      </Modal>
-      <Modal open={finish} onOpenChange={setFinish} title={tl('把剩下的 {left} 个生词标为已知？', { left })} actions={<><button className="btn" onClick={() => onFinish(false)}>{tl('只标读完')}</button><button className="btn pri" onClick={() => onFinish(true)}>{tl('标为已知')}</button></>}>
-        <p>{tl('标为已知的词不进复习，可以撤销。待确认的词不动。')}</p>
       </Modal>
     </>
   );

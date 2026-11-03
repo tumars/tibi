@@ -409,8 +409,8 @@ function runImport(src, retry) {
 function runFind(q) {
   if (AI_STATE) return blockAI(q);
   foxWork('thinking'); newChat('找文章', q); const body = dbody; addMsg('u', esc(q)); agentLine('scout');
-  const box = steps(['读取你的词汇画像和兴趣', '扫描书架与订阅源', '按"对你的生词率"和"复现学习中的词"排序']); const log = logBox();
-  play(box, log, [['词汇量约 6,214 · 目标雅思 7 分', '兴趣：Rust 技术文档、科技新闻、英国古典小说'], ['书架 8 篇 · 订阅源 3 个 · 候选 42 篇'], ['筛掉生词率 > 6% 的 31 篇', '优先复现 overhead、deterministic 等 6 个学习中的词']], () => {
+  const box = steps(['读取你的词汇画像和兴趣', '扫描书架与文章来源', '按"对你的生词率"和"复现学习中的词"排序']); const log = logBox();
+  play(box, log, [['词汇量约 6,214 · 目标雅思 7 分', '兴趣：Rust 技术文档、科技新闻、英国古典小说'], ['书架 8 篇 · 文章来源 3 个 · 候选 42 篇'], ['筛掉生词率 > 6% 的 31 篇', '优先复现 overhead、deterministic 等 6 个学习中的词']], () => {
     const picks = [DOCS.find(d => d.id === 'async'), DOCS.find(d => d.id === 'trains')];
     const why = { async: '生词率 3.1% · 约 9 分钟 · 含 6 个在学的词', trains: '生词率 1.6% · 约 5 分钟' };
     const r = document.createElement('div'); r.innerHTML = `<div class="msg a" style="margin-bottom:10px"><p>找到两篇：</p></div><div class="recs">${picks.map(d => `<a class="rec" href="#"><span class="cv" data-cover="${d.id}"></span><div><div class="t">${esc(d.t)}</div><div class="why">${why[d.id]}</div></div></a>`).join('')}</div>`;

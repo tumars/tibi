@@ -113,7 +113,7 @@ export const memoryMethods: MethodMap = {
   }),
 };
 
-const EVENT_TYPES: LearningEventType[] = ['document_imported', 'section_finished', 'term_marked', 'review_session', 'vocab_test', 'quiz_done'];
+const EVENT_TYPES: LearningEventType[] = ['document_imported', 'section_finished', 'term_marked', 'review_session', 'quiz_done'];
 
 export const memoryCapabilities: CapabilityMap = {
   search_memory: capability({
@@ -131,7 +131,7 @@ export const memoryCapabilities: CapabilityMap = {
     },
   }),
   update_memory: capability({
-    name: 'update_memory', description: '管理记忆：改一条记忆的内容，可撤销（先用 search_memory 找到 id）', perm: 'confirm', undoable: true, mcp: false,
+    name: 'update_memory', description: '管理记忆：改一条记忆的内容，可撤销（先用 search_memory 找到 id）', perm: 'write', undoable: true, autoApprove: true, mcp: false,
     params: Type.Object({ id: Type.String(), content: Type.String({ minLength: 1, maxLength: 2000 }) }),
     async describe(p, ctx) { const m = await new Memories(ctx.db).get(p.id); return `「${m?.content ?? p.id}」→「${p.content}」`; },
     async run(p, ctx) {
@@ -143,17 +143,19 @@ export const memoryCapabilities: CapabilityMap = {
     },
   }),
   remember: capability({
-    name: 'remember', description: '记住关于用户的一件事', perm: 'confirm', undoable: true,
+    name: 'remember', description: '记住关于用户的一件事', perm: 'write', undoable: true, autoApprove: true,
     params: Type.Object({ type: typeSchema, content: Type.String({ minLength: 1 }), subject: Type.Optional(Type.String()), confidence: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })), source_ref: Type.Optional(Type.String()), supersedes: Type.Optional(Type.String()) }),
     async run(p, ctx) {
-      const m = await new Memories(ctx.db).add({ ...p, source_type: ctx.caller.skill_id === 'archivist' ? 'consolidation' : ctx.caller.origin === 'ui' ? 'user' : 'agent', source_ref: p.source_ref ?? (ctx.caller.job_id ? `task:${ctx.caller.job_id}` : undefined) });
+      // 在对话里记的：来源是那段对话（删对话时一起清掉）
+      const conv = !p.source_ref && ctx.caller.turn_id ? (await ctx.db.get<{ conversation_id: string }>('SELECT conversation_id FROM messages WHERE id = ?', [ctx.caller.turn_id]))?.conversation_id : undefined;
+      const m = await new Memories(ctx.db).add({ ...p, source_type: ctx.caller.skill_id === 'archivist' ? 'consolidation' : ctx.caller.origin === 'ui' ? 'user' : 'agent', source_ref: p.source_ref ?? (conv ? `conversation:${conv}` : undefined) });
       changed(ctx, [m.id]);
       const undo = await recordUndo(ctx.db, ctx, { tool: 'remember', args: p, undo_payload: { id: m.id, superseded: p.supersedes } });
       return { memory_id: m.id, superseded: p.supersedes, undo };
     },
   }),
   forget: capability({
-    name: 'forget', description: '管理记忆：忘掉一条记忆', perm: 'confirm', undoable: true, params: Type.Object({ id: Type.String() }),
+    name: 'forget', description: '管理记忆：忘掉一条记忆', perm: 'write', undoable: true, autoApprove: true, params: Type.Object({ id: Type.String() }),
     async run(p, ctx) {
       const m = await new Memories(ctx.db).remove(p.id);
       if (!m) throw new TibiError('not_found', '找不到这条记忆');
@@ -169,7 +171,6 @@ function summarizeEvent(type: string, p: Record<string, unknown>): string {
     case 'section_finished': return `读完了 ${p['title'] ?? p['section_id'] ?? ''}`;
     case 'term_marked': return `标记了 ${p['term'] ?? ''} 为 ${p['status'] ?? ''}`;
     case 'review_session': return `复习了 ${p['count'] ?? ''} 张，首次正确率 ${p['accuracy'] ?? ''}`;
-    case 'vocab_test': return `词汇量测试：${p['estimate'] ?? ''}`;
     case 'quiz_done': return `做了一组练习`;
     default: return type;
   }

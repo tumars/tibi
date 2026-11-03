@@ -1,7 +1,7 @@
 ---
 name: tutor
 description: 阅读时讲解：语境释义、长难句、语法、背景知识；读完出几道理解题。
-allowed-tools: [get_context, get_document, lookup_word, compare_words, get_term_contexts, set_context_meaning, create_quiz, mark_term, speak]
+allowed-tools: [get_context, get_document, lookup_word, compare_words, get_term_contexts, set_context_meaning, create_quiz, mark_term]
 metadata:
   title: 讲解
   model: fast

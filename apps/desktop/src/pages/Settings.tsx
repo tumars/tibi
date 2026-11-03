@@ -1,6 +1,6 @@
 import { Mascot } from '../components/Mascot';
 import type { Profile } from '@tibi/core';
-import { ChevronDown, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Top } from '../components/Shell';
@@ -23,6 +23,21 @@ import { isImeKey } from '../lib/util';
 
 const SECTIONS = [['general', tl('通用')], ['model', tl('模型')], ['learning', tl('学习与复习')], ['memory', tl('记忆')], ['advanced', tl('高级')], ['data', tl('数据')], ['about', tl('关于')]] as const;
 
+// 放在组件外：定义在 Settings 里每次渲染都是新组件，input 会被重挂，拖到一半就断了。拖动时先改本地值，停手 300ms 再保存
+function Range({ label, value, min, max, step, unit, onChange, desc }: { label: string; value: number; min: number; max: number; step: number; unit: string; onChange: (v: number) => void; desc?: string }) {
+  const [draft, setDraft] = useState(value);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => { if (!timer.current) setDraft(value); }, [value]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const change = (v: number) => {
+    setDraft(v); clearTimeout(timer.current);
+    timer.current = setTimeout(() => { timer.current = undefined; onChange(v); }, 300);
+  };
+  return (
+    <div className="item"><div><div className="t">{label}</div>{desc && <div className="d">{desc}</div>}</div><div className="ctl"><input type="range" min={min} max={max} step={step} value={draft} onChange={e => change(Number(e.target.value))} aria-label={label} /><b style={{ minWidth: 56, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{draft}{unit}</b></div></div>
+  );
+}
+
 export function Settings() {
   const nav = useNavigate();
   const [recognize, setRecognize] = useState(false);
@@ -30,13 +45,10 @@ export function Settings() {
   useEffect(() => { rpc.call('settings.get', { keys: ['reminder.time'] }).then(r => setReminder((r['reminder.time'] as string) ?? 'off'), () => undefined); }, []);
   useEffect(() => { rpc.call('settings.get', { keys: ['review.recognize'] }).then(r => setRecognize(!!r['review.recognize']), () => undefined); }, []);
   const theme = useUi(s => s.theme); const setTheme = useUi(s => s.setTheme);
-  const lessMascot = useUi(s => s.lessMascot); const setLessMascot = useUi(s => s.setLessMascot);
   const status = useCore(s => s.status);
   const [params] = useSearchParams();
   const [sec, setSec] = useState<string>(params.get('sec') ?? 'general');
   const [profile, setProfile] = useState<Profile>();
-  const [budget, setBudget] = useState<{ month: number; task: number }>({ month: 20, task: 1 });
-  const [adv, setAdv] = useState(false);
 
   // 页内搜索：q 是输入框里的字，query 是拿去过滤的字（拼音输入法选字途中不过滤）
   const [q, setQ] = useState(''); const [query, setQuery] = useState('');
@@ -53,11 +65,11 @@ export function Settings() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // 全局搜索跳到某一项：?sec=advanced&item=花费上限 → 滚过去并闪一下浅蓝底
+  // 全局搜索跳到某一项：?sec=advanced&item=每月预算 → 滚过去并闪一下浅蓝底
   const secParam = params.get('sec'), itemParam = params.get('item');
   useEffect(() => {
     if (!secParam) return;
-    clearSearch(); setSec(secParam); if (secParam === 'advanced') setAdv(true);
+    clearSearch(); setSec(secParam);
     const t = setTimeout(() => {
       const want = itemParam ? tl(itemParam) : '';
       const el = want ? [...document.querySelectorAll<HTMLElement>(`#s-${secParam} .t, #s-${secParam} h3`)].find(x => x.textContent?.trim() === want) : undefined;
@@ -69,15 +81,9 @@ export function Settings() {
   }, [secParam, itemParam]);
   useEffect(() => {
     rpc.call('profile.get', {}).then(setProfile, () => undefined);
-    rpc.call('settings.get', { keys: ['budget.month', 'budget.task'] }).then(s => setBudget({ month: (s['budget.month'] as number) ?? 20, task: (s['budget.task'] as number) ?? 1 }), () => undefined);
   }, []);
 
   const patch = async (p: Partial<Profile>) => { try { setProfile(await rpc.call('profile.update', { patch: p })); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
-  const setBudgetKey = async (k: 'month' | 'task', v: number) => { setBudget(b => ({ ...b, [k]: v })); try { await rpc.call('settings.set', { patch: { [`budget.${k}`]: v } }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
-
-  const Range = ({ label, value, min, max, step, unit, onChange, desc }: { label: string; value: number; min: number; max: number; step: number; unit: string; onChange: (v: number) => void; desc?: string }) => (
-    <div className="item"><div><div className="t">{label}</div>{desc && <div className="d">{desc}</div>}</div><div className="ctl"><input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} aria-label={label} /><b style={{ minWidth: 56, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{value}{unit}</b></div></div>
-  );
 
   return (
     <>
@@ -85,22 +91,15 @@ export function Settings() {
       <div className="scroll"><div className="page"><div ref={swRef} className={searching ? 'sw searching' : 'sw'} style={{ marginTop: 12 }}>
         <nav className="snav">
           <label className="sfind"><Search size={14} /><input ref={findRef} value={q} placeholder={tl('搜索设置')} aria-label={tl('搜索设置')} autoComplete="off" onChange={e => { setQ(e.target.value); if (!(e.nativeEvent as InputEvent).isComposing) setQuery(e.target.value); }} onCompositionEnd={e => setQuery(e.currentTarget.value)} onKeyDown={e => { if (e.key === 'Escape' && !isImeKey(e.nativeEvent)) { clearSearch(); e.currentTarget.blur(); } }} />{!q && <span className="k">/</span>}</label>
-          {SECTIONS.map(([k, l]) => <button key={k} className={sec === k ? 'on' : ''} disabled={missed.includes(k)} onClick={() => { setSec(k); if (k === 'advanced') setAdv(true); document.getElementById(`s-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>{l}</button>)}
+          {SECTIONS.map(([k, l]) => <button key={k} className={sec === k ? 'on' : ''} disabled={missed.includes(k)} onClick={() => { setSec(k); document.getElementById(`s-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>{l}</button>)}
         </nav>
         <div>
           <section className="ssec" id="s-general"><h2>{tl('通用')}</h2><div className="group">
             <div className="item"><div><div className="t">{tl('外观')}</div></div><div className="ctl"><div className="seg">{(['auto', 'light', 'dark'] as const).map(t => <button key={t} className={theme === t ? 'on' : ''} onClick={() => setTheme(t)}>{{ auto: tl('跟随系统'), light: tl('浅色'), dark: tl('深色') }[t]}</button>)}</div></div></div>
-            <div className="item"><div><div className="t">{tl('减少吉祥物')}</div><div className="d">{tl('隐藏插画和首页的狐狸，文案也更直白')}</div></div><div className="ctl"><Switch label={tl('减少吉祥物')} checked={lessMascot} onChange={setLessMascot} /></div></div>
-            <div className="item"><div><div className="t">{tl('界面语言')}</div><div className="d">{tl('只换界面上的字；Tibi 讲解用的语言在「学习与复习」里。切换后界面会重新载入')}</div></div><div className="ctl"><div className="seg">{([['zh', '中文'], ['en', 'English']] as const).map(([v, l]) => <button key={v} className={lang === v ? 'on' : ''} onClick={() => { if (v !== lang) setLang(v); }}>{l}</button>)}</div></div></div>
-            <div className="item"><div><div className="t">{tl('Tibi 怎么称呼你')}</div></div><div className="ctl"><input className="input" style={{ width: 120 }} maxLength={20} placeholder={tl('比如：小孟')} value={(profile?.assistant_prefs?.nickname ?? profile?.display_name ?? '') === '你' ? '' : profile?.assistant_prefs?.nickname ?? profile?.display_name ?? ''} onChange={e => { const v = e.target.value; setProfile(p => p && { ...p, display_name: v, assistant_prefs: { ...p.assistant_prefs, nickname: v } }); }} onBlur={e => { const v = e.target.value.trim(); void patch({ display_name: v, assistant_prefs: { ...(profile?.assistant_prefs ?? { language: 'mixed', permission: 'default' }), nickname: v || '你' } }).then(() => useCore.getState().refresh()); }} /></div></div>
-            <div className="item"><div><div className="t">{tl('权限模式')}</div><div className="d">{tl('Tibi 要写入数据（记住一件事、改熟练度等）之前要不要先问你。读过网页内容的任务写入时一律先问')}</div></div><div className="ctl"><div className="seg">{([['ask', tl('每次都问')], ['default', tl('标词自动，其余问')], ['auto', tl('全部自动')]] as const).map(([v, l]) => <button key={v} className={(profile?.assistant_prefs?.permission ?? 'default') === v ? 'on' : ''} onClick={() => patch({ assistant_prefs: { ...(profile?.assistant_prefs ?? { nickname: '你', language: 'mixed' }), permission: v } })}>{l}</button>)}</div></div></div>
-            <div className="item"><div><div className="t">{tl('英语水平与目标')}</div><div className="d">{tl('影响生词标注和难度判断')}</div></div><div className="ctl">
-              <select className="input" value={profile?.level_self ?? 'intermediate'} onChange={e => patch({ level_self: e.target.value })} aria-label={tl('水平')}><option value="beginner">{tl('入门')}</option><option value="intermediate">{tl('中级')}</option><option value="upper">{tl('中高级')}</option><option value="advanced">{tl('高级')}</option></select>
-              <select className="input" value={profile?.goal ?? 'work'} onChange={e => patch({ goal: e.target.value })} aria-label={tl('目标')}><option value="work">{tl('工作阅读')}</option><option value="novel">{tl('读原版书')}</option><option value="ielts">{tl('雅思 / 托福')}</option><option value="cet">{tl('考研 / CET')}</option><option value="interest">{tl('兴趣')}</option></select>
-              <span className="lbl">{tl('估算 {v0} 词{v1}', { v0: profile?.vocab_estimate?.toLocaleString() ?? '—', v1: profile?.vocab_source === 'self' ? tl('（按自评）') : profile?.vocab_source === 'test' ? tl('（测试）') : '' })}</span>
-            </div></div>
-            <div className="item"><div><div className="t">{tl('校准词汇量')}</div><div className="d">{tl('7 组词，点亮认识的，约 3–4 分钟。测完按新结果标注生词')}</div></div><div className="ctl"><button className="btn sm" onClick={() => nav('/welcome?step=2&from=settings')}>{tl('开始')}</button></div></div>
-                      <VoiceItems />
+            <div className="item"><div><div className="t">{tl('界面语言')}</div><div className="d">{tl('只换界面上的字，切换后界面会重新载入')}</div></div><div className="ctl"><div className="seg">{([['zh', '中文'], ['en', 'English']] as const).map(([v, l]) => <button key={v} className={lang === v ? 'on' : ''} onClick={() => { if (v !== lang) setLang(v); }}>{l}</button>)}</div></div></div>
+            <div className="item"><div><div className="t">{tl('Tibi 怎么称呼你')}</div></div><div className="ctl"><input className="input" style={{ width: 120 }} maxLength={20} placeholder={tl('比如：小孟')} value={(profile?.assistant_prefs?.nickname ?? profile?.display_name ?? '') === '你' ? '' : profile?.assistant_prefs?.nickname ?? profile?.display_name ?? ''} onChange={e => { const v = e.target.value; setProfile(p => p && { ...p, display_name: v, assistant_prefs: { ...p.assistant_prefs, nickname: v } }); }} onBlur={e => { const v = e.target.value.trim(); void patch({ display_name: v, assistant_prefs: { ...(profile?.assistant_prefs ?? { permission: 'default' }), nickname: v || '你' } }).then(() => useCore.getState().refresh()); }} /></div></div>
+            <div className="item"><div><div className="t">{tl('权限模式')}</div><div className="d">{tl('Tibi 要写入数据（改熟练度、删文章等）之前要不要先问你。读过网页内容的任务写入时一律先问。记忆不问，直接记下，对话里可以撤销')}</div></div><div className="ctl"><div className="seg">{([['ask', tl('每次都问')], ['default', tl('标词自动，其余问')], ['auto', tl('全部自动')]] as const).map(([v, l]) => <button key={v} className={(profile?.assistant_prefs?.permission ?? 'default') === v ? 'on' : ''} onClick={() => patch({ assistant_prefs: { ...(profile?.assistant_prefs ?? { nickname: '你' }), permission: v } })}>{l}</button>)}</div></div></div>
+            <VoiceItems />
           </div></section>
 
           <section className="ssec" id="s-model"><h2>{tl('模型')}</h2><div className="group">
@@ -109,7 +108,6 @@ export function Settings() {
 
           <section className="ssec" id="s-learning"><h2>{tl('学习与复习')}</h2><div className="group">
             <div className="item"><div><div className="t">{tl('每日提醒')}</div><div className="d">{tl('到点提醒今天要复习的词；电脑上要 Tibi 开着（托盘里也行）')}</div></div><div className="ctl"><div className="seg">{([['off', tl('关闭')], ['morning', tl('早上 8 点')], ['noon', tl('中午 12 点')], ['evening', tl('晚上 8 点')]] as const).map(([v, l]) => <button key={v} className={reminder === v ? 'on' : ''} onClick={() => { setReminder(v); void rpc.call('settings.set', { patch: { 'reminder.time': v } }); }}>{l}</button>)}</div></div></div>
-            <div className="item"><div><div className="t">{tl('Tibi 讲解用的语言')}</div><div className="d">{tl('总结、释义、对话回答用什么语言')}</div></div><div className="ctl"><div className="seg">{([['mixed', tl('中文夹英文')], ['zh', tl('只用中文')], ['en', 'English']] as const).map(([v, l]) => <button key={v} className={(profile?.assistant_prefs?.language ?? 'mixed') === v ? 'on' : ''} onClick={() => patch({ assistant_prefs: { ...(profile?.assistant_prefs ?? { nickname: '你', permission: 'default' }), language: v } })}>{l}</button>)}</div></div></div>
             <Range label={tl('每日阅读目标')} value={profile?.daily_goal_minutes ?? 20} min={5} max={60} step={5} unit={tl(' 分钟')} onChange={v => patch({ daily_goal_minutes: v })} />
             <Range label={tl('每天最多新学的词')} value={profile?.daily_new_cards ?? 20} min={5} max={50} step={5} unit={tl(' 个')} desc={tl('超过的排到第二天')} onChange={v => patch({ daily_new_cards: v })} />
             <Range label={tl('目标记得率')} value={Math.round((profile?.desired_retention ?? 0.9) * 100)} min={80} max={97} step={1} unit="%" desc={tl('越高复习越频繁')} onChange={v => patch({ desired_retention: v / 100 })} />
@@ -121,19 +119,11 @@ export function Settings() {
           </div></section>
 
           <section className="ssec" id="s-advanced">
-            <h2>{tl('高级')}</h2>
-            <button className="advtog" hidden={searching} onClick={() => setAdv(!adv)} aria-expanded={adv}><span style={{ flex: 1 }}>{tl('能做的事、花费上限、其他 AI 工具')}</span><ChevronDown size={14} style={{ transform: adv ? 'rotate(180deg)' : undefined }} /></button>
-            {(adv || searching) && <>
-              <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('Tibi 能做的事')}</h3>
-              <div className="group"><SkillItems /></div>
-              <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('花费上限')}</h3>
-              <div className="group">
-                <div className="item"><div><div className="t">{tl('每月预算')}</div><div className="d">{tl('本月已用 ¥{v0}；超出后 AI 功能改为稍后补做', { v0: status?.budget.month_spent.toFixed(2) ?? '0.00' })}</div></div><div className="ctl"><input className="input" type="number" value={budget.month} min={0} style={{ width: 80, textAlign: 'right' }} onChange={e => setBudgetKey('month', Number(e.target.value))} /> {tl('元')}</div></div>
-                <div className="item"><div><div className="t">{tl('单个任务上限')}</div><div className="d">{tl('超过时先问你')}</div></div><div className="ctl"><input className="input" type="number" value={budget.task} min={0} step={0.5} style={{ width: 80, textAlign: 'right' }} onChange={e => setBudgetKey('task', Number(e.target.value))} /> {tl('元')}</div></div>
-              </div>
-              <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('其他 AI 工具')}</h3>
+          <h2>{tl('高级')}</h2>
+            <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('Tibi 能做的事')}</h3>
+            <div className="group"><SkillItems /></div>
+            <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('其他 AI 工具')}</h3>
               <div className="group"><McpItems /></div>
-            </>}
           </section>
 
 

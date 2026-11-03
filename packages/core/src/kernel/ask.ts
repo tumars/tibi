@@ -1,87 +1,86 @@
 import { Type } from '@sinclair/typebox';
-import { j } from '../db/driver.js';
-import { capability, validateParams, type CapabilityMap, type Ctx } from '../rpc/define.js';
-import { TibiError, type AskOption, type AskResult, type AskState, type SkillId, type WidgetSpec } from '../types.js';
-import type { CapabilityRegistry } from './capabilities.js';
-import { Conversations } from './conversations.js';
-import { submitTurn, type KernelMethodDeps } from './methods.js';
+import { capability, type CapabilityMap } from '../rpc/define.js';
+import { TibiError, type AskData, type AskOption, type AskState, type WidgetBlock } from '../types.js';
+import { askResultText, presenters } from './conversations.js';
+import type { Turns } from './turns.js';
 
 /**
- * 反问（ask_user）：问完就结束这一轮，问题存成对话里的卡片，等多久都行、重启也还在。
- * 用户点选后，选项绑定的动作由内核直接执行（模型换不了网址），其余情况当成用户的下一句话接着开一轮。
+ * 反问（ask_user）：和其他工具一样在这一轮里执行。卡片先显示出来，工具原地等用户回答，回答就是工具结果，模型接着做。
+ * - 选项带 url（文章链接）时，用户选中的网址这一轮导入不再审批；模型换了网址照常审批。
+ * - 用户不点卡片、直接在输入框说话，也算回答这个问题。
+ * - 等待只在进程里：应用重启后这一轮记成中断，卡片作废。
  */
 const optionSchema = Type.Object({
   label: Type.String({ minLength: 1, maxLength: 200 }),
   description: Type.Optional(Type.String({ maxLength: 400 })),
-  action: Type.Optional(Type.Object({ tool: Type.String(), params: Type.Unknown() }, { description: '用户选了就直接执行的操作，只能绑定允许的能力（目前是 import_document 的网址导入）' })),
+  url: Type.Optional(Type.String({ maxLength: 2000, description: '这一项对应的文章链接（工具返回的原始链接）；用户选了它，导入时不用再确认' })),
 });
 
-export function askCapabilities(deps: { registry: CapabilityRegistry }): CapabilityMap {
+interface Waiting { conversation_id: string; turn_id: string; block: WidgetBlock & { kind: 'ask' }; resolve(text: string): void }
+/** 等用户回答的卡片：卡片 ID → 那次工具调用 */
+const waiting = new Map<string, Waiting>();
+/** 用户在卡片上选过的网址：turn_id → 网址（子技能和主对话在同一轮里，共用一份） */
+const chosen = new Map<string, Set<string>>();
+
+/** 这个网址是用户在这一轮的卡片上选的 */
+export function isChosen(turn_id: string | undefined, url: string): boolean { return !!turn_id && !!chosen.get(turn_id)?.has(url); }
+export function forgetChoices(turn_id: string) { chosen.delete(turn_id); }
+/** 用户自己选的网址（卡片上点的、自己发来的）：这一轮导入不再审批 */
+export function choose(turn_id: string, url: string) { let s = chosen.get(turn_id); if (!s) chosen.set(turn_id, s = new Set()); s.add(url); }
+/** 这段对话里正在等回答的卡片 */
+export function askingIn(conversation_id: string): string | undefined { return [...waiting.entries()].find(([, w]) => w.conversation_id === conversation_id)?.[0]; }
+
+export function askCapabilities(deps: { turns: Turns }): CapabilityMap {
   return {
     ask_user: capability({
-      name: 'ask_user', description: '向用户提问或请用户确认，显示成带选项的卡片；调用后这一轮结束，用户的回答会作为下一轮到来', perm: 'read', mcp: false, terminal: true,
+      name: 'ask_user', description: '向用户提问或请用户确认，显示成带选项的卡片，等用户回答；返回用户选了什么、说了什么', perm: 'read', mcp: false,
       params: Type.Object({ question: Type.String({ minLength: 1, maxLength: 300 }), options: Type.Array(optionSchema, { minItems: 1, maxItems: 6 }), multi: Type.Optional(Type.Boolean({ description: '能不能多选' })) }),
-      async run(p, ctx): Promise<{ status: string; ask: WidgetSpec }> {
-        const row = ctx.caller.job_id ? await ctx.db.get<{ id: string; conversation_id: string | null; parent_job_id: string | null; tainted: number; input: string }>('SELECT id, conversation_id, parent_job_id, tainted, input FROM jobs WHERE id = ?', [ctx.caller.job_id]) : undefined;
-        if (!row || (!row.conversation_id && !row.parent_job_id)) throw new TibiError('conflict', '这里没有对话，问不了用户。按最合理的方式继续，并在结果里说明');
-        let seen: string | undefined;
+      async run(p, ctx): Promise<{ answer: string }> {
+        const run = deps.turns.get(ctx.caller.turn_id);
+        const show = ctx.caller.turn_id ? presenters.get(ctx.caller.turn_id) : undefined;
+        if (!run || !show) throw new TibiError('conflict', '这里没有对话，问不了用户。按最合理的方式继续，并在结果里说明');
         const options: AskOption[] = [];
         for (const [i, o] of p.options.entries()) {
-          const opt: AskOption = { id: `o${i + 1}`, label: o.label, ...(o.description ? { description: o.description } : {}) };
-          if (o.action) {
-            const def = deps.registry.get(o.action.tool);
-            if (!def?.askable) throw new TibiError('permission_denied', `${o.action.tool} 不能绑到选项上`);
-            const { preview, urls } = def.askable(validateParams(def.params, o.action.params));
-            if (urls?.length) {
-              // 只能是这次真的查到的或用户自己给的网址，模型编的、网页里塞的改写都过不去
-              seen ??= row.input + (await ctx.db.all<{ output: string | null }>("SELECT output FROM job_steps WHERE job_id = ? AND kind = 'tool' AND status = 'done'", [row.id])).map(s => s.output ?? '').join('\n');
-              const unknown = urls.find(u => !seen!.includes(u));
-              if (unknown) throw new TibiError('invalid_params', `这个网址不在这次的查询结果里：${unknown}。只用工具返回的原始链接`);
-            }
-            opt.action = { tool: o.action.tool, params: o.action.params, preview };
-          }
-          options.push(opt);
+          // 只能是这一轮真的查到的或用户自己给的网址，模型编的、网页里塞的改写都过不去
+          if (o.url && !run.seen.some(t => t.includes(o.url!))) throw new TibiError('invalid_params', `这个网址不在这次的查询结果里：${o.url}。只用工具返回的原始链接`);
+          options.push({ id: `o${i + 1}`, label: o.label, ...(o.description ? { description: o.description } : {}), ...(o.url ? { url: o.url } : {}) });
         }
-        // summary 进后续对话历史（工具结果不进）：要写全，用户说"第二篇"时模型才接得上
-        const brief = options.map((o, i) => `${i + 1}. ${o.label}${o.action ? `（${o.action.preview}）` : ''}`).join(' ');
-        return { status: '已经显示给用户了，等用户回答', ask: { kind: 'ask', summary: `Tibi 问：${p.question} ${brief}`, data: { question: p.question, multi: !!p.multi, options, untrusted: !!row.tainted } } };
+        const data: AskData = { question: p.question, multi: !!p.multi, options, untrusted: run.tainted };
+        // summary 进后续对话历史：要写全，用户说"第二篇"时模型才接得上
+        const brief = options.map((o, i) => `${i + 1}. ${o.label}`).join(' ');
+        const shown = show({ kind: 'ask', summary: `Tibi 问：${p.question} ${brief}`, data }, ctx.caller.depth ? undefined : ctx.caller.call_id);
+        if (!shown) throw new TibiError('conflict', '卡片没能显示出来，按最合理的方式继续');
+        const block = shown.block as Waiting['block'];
+        const answer = await new Promise<string>((resolve, reject) => {
+          waiting.set(block.id, { conversation_id: shown.conversation_id, turn_id: run.id, block, resolve });
+          run.signal.addEventListener('abort', () => { waiting.delete(block.id); block.state = { expired: true } satisfies AskState; reject(new TibiError('busy', '已取消')); }, { once: true });
+        });
+        return { answer };
       },
-      widget: r => r.ask,
     }),
   };
 }
 
-export async function answerAsk(deps: KernelMethodDeps, p: { message_id: string; widget_id: string; option_ids: string[]; text?: string }, ctx: Ctx): Promise<{ state: AskState; submission_id?: string }> {
-  const convs = new Conversations(deps.db);
+/** 用户回答反问卡（点选项、写补充，或直接在输入框说话） */
+export function answerAsk(p: { widget_id: string; option_ids: string[]; text?: string }): { state: AskState } {
+  const w = waiting.get(p.widget_id);
+  if (!w) throw new TibiError('conflict', '这个问题已经过期了');
   const text = p.text?.trim() || undefined;
-  const conv = await deps.db.get<{ conversation_id: string }>('SELECT conversation_id FROM messages WHERE id = ? AND deleted_at IS NULL', [p.message_id]);
-  if (!conv) throw new TibiError('not_found', '找不到这条消息');
-  const { active } = await convs.activity(conv.conversation_id);
-  if (active.length) throw new TibiError('busy', 'Tibi 还在回答，说完再选');
-  const { conversation_id, job_id, data, picked, state: claimed } = await convs.claimAsk(p.message_id, p.widget_id, p.option_ids, text);
-
-  const results: AskResult[] = [];
-  for (const o of picked) {
-    if (!o.action) continue;
-    try {
-      // 再过一遍校验（消息可能来自同步或旧版本）；这是用户自己点的，按界面操作执行
-      const def = deps.registry.get(o.action.tool);
-      if (!def?.askable) throw new TibiError('permission_denied', `${o.action.tool} 不能绑到选项上`);
-      def.askable(validateParams(def.params, o.action.params));
-      const out = await deps.registry.call<{ task_id?: string }>(o.action.tool, o.action.params, { ...ctx, caller: { origin: 'ui' } });
-      results.push({ option_id: o.id, ok: true, message: o.action.preview, ...(out?.task_id ? { task_id: out.task_id } : {}) });
-    } catch (e) {
-      results.push({ option_id: o.id, ok: false, message: `${o.action.preview}（${e instanceof Error ? e.message : String(e)}）` });
-    }
-  }
-  const state = results.length ? await convs.finishAsk(p.message_id, p.widget_id, results) : claimed;
-
-  // 全是绑定好的动作、没有补充：不用再调模型
-  if (!text && picked.every(o => o.action)) return { state };
-  const job = job_id ? await deps.db.get<{ skill_id: string | null; input: string }>('SELECT skill_id, input FROM jobs WHERE id = ?', [job_id]) : undefined;
-  const prev = j.parse<{ tier?: 'fast' | 'deep'; provider_id?: string }>(job?.input, {});
-  const said = [picked.length ? `我选：${picked.map(o => o.label).join('、')}` : '', text ?? ''].filter(Boolean).join('\n');
-  const submission_id = await submitTurn(deps, conversation_id, said, { skill_id: (job?.skill_id ?? 'tibi') as SkillId, tier: prev.tier, provider_id: prev.provider_id, tainted: data.untrusted });
-  return { state, submission_id };
+  const data = w.block.data;
+  const picked = data.options.filter(o => p.option_ids.includes(o.id));
+  if (picked.length !== new Set(p.option_ids).size) throw new TibiError('invalid_params', '没有这个选项');
+  if (!picked.length && !text) throw new TibiError('invalid_params', '选一项或者写一句');
+  if (picked.length > 1 && !data.multi) throw new TibiError('invalid_params', '这个问题只能选一项');
+  waiting.delete(p.widget_id);
+  const state: AskState = { answered: { option_ids: p.option_ids, ...(text ? { text } : {}), at: Date.now() } };
+  w.block.state = state;
+  w.block.result = askResultText(picked, text);
+  for (const o of picked) if (o.url) { let s = chosen.get(w.turn_id); if (!s) chosen.set(w.turn_id, s = new Set()); s.add(o.url); }
+  // 给模型的回答：带上链接，模型拿它去导入
+  const said = [
+    picked.length ? `用户选了：${picked.map(o => (o.url ? `${o.label}（${o.url}）` : o.label)).join('、')}` : '用户没有选任何一项',
+    text ? `用户说：${text}` : '',
+  ].filter(Boolean).join('\n');
+  w.resolve(said);
+  return { state };
 }
-

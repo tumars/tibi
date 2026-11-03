@@ -1,21 +1,28 @@
 import { tl } from './i18n';
+import type { In, Out } from './kokoro.worker';
+export { withKokoroMirror } from './kokoroMirror';
 /**
  * 朗读（00 §3.4，M4）：系统语音（默认，离线可用）/ Kokoro 本地模型（可下载，约 92 MB，第一次用时从魔搭下载，失败退回 Hugging Face，浏览器缓存）。
  * - say(text)：单词发音、句子朗读；返回播放结束的 Promise：读完是 true，被 stop() 或下一次 say() 打断是 false。
  * - pause() / resume()：停在句子中间，再接着读。
  * - Kokoro 合成的音频按 文字 + 音色 + 语速 缓存在内存（本次运行内重复播放不再合成）。
- * 设置键：tts.engine（system | kokoro）、tts.voice、tts.rate。
+ * 设置键：tts.engine（默认引擎：system | kokoro）、tts.voice（系统音色）、tts.ai_voice（Kokoro 音色）、tts.rate。
+ * 界面上能读的地方都同时给系统朗读和 AI 朗读两个按钮（components/Speak），按钮指定引擎，不看默认。
  */
 export type Engine = 'system' | 'kokoro';
 export interface Voice { id: string; label: string; accent: 'us' | 'gb' }
 
 let engine: Engine = 'system';
 let voiceId = '';
+let aiVoice = 'af_heart';
 let rate = 1;
-export function configure(o: { engine?: Engine; voice?: string; rate?: number }) {
-  if (o.engine) engine = o.engine; if (o.voice !== undefined) voiceId = o.voice; if (o.rate) rate = o.rate;
+/** engine 是默认引擎（自动播放、快捷键、全文朗读起始）；voice 是系统音色，aiVoice 是 Kokoro 音色 */
+export function configure(o: { engine?: Engine; voice?: string; aiVoice?: string; rate?: number }) {
+  if (o.engine) engine = o.engine; if (o.voice !== undefined) voiceId = o.voice; if (o.aiVoice) aiVoice = o.aiVoice; if (o.rate) rate = o.rate;
+  // 默认用 AI 朗读：启动后先在 Worker 里把模型加载好（几秒），第一次点朗读不用干等
+  if (engine === 'kokoro' && kokoroDownloaded()) setTimeout(() => { loadKokoro().catch(() => undefined); }, 3000);
 }
-export const current = () => ({ engine, voice: voiceId, rate });
+export const current = () => ({ engine, voice: voiceId, aiVoice, rate });
 
 /* ---------- 系统语音 ---------- */
 export function systemVoices(): Voice[] {
@@ -40,82 +47,118 @@ export const KOKORO_VOICES: Voice[] = [
   { id: 'af_heart', label: tl('美音 · 女（Heart）'), accent: 'us' }, { id: 'am_michael', label: tl('美音 · 男（Michael）'), accent: 'us' },
   { id: 'bf_emma', label: tl('英音 · 女（Emma）'), accent: 'gb' }, { id: 'bm_george', label: tl('英音 · 男（George）'), accent: 'gb' },
 ];
-type KokoroModel = { generate(text: string, o: { voice: string; speed: number }): Promise<{ audio: Float32Array; sampling_rate: number }> };
-let kokoro: Promise<KokoroModel> | undefined;
-
-const HF_REPO = 'https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/';
-const MS_REPO = 'https://modelscope.cn/models/onnx-community/Kokoro-82M-v1.0-ONNX/';
-/**
- * Hugging Face 在中国大陆连不上，这个仓库的文件先走魔搭（同名仓库，模型 SHA-256 已比对一致），失败再走原地址。
- * 换 fetch 而不是 transformers 的 env.remoteHost：kokoro-js 的音色地址写死了 huggingface.co。缓存键仍是原 URL。
- */
-export function withKokoroMirror(base: typeof fetch): typeof fetch {
-  return async (input, init) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    if (!url.startsWith(HF_REPO)) return base(input, init);
-    try {
-      const res = await base(MS_REPO + url.slice(HF_REPO.length), init);
-      if (res.ok) return res;
-    } catch (e) { if (init?.signal?.aborted) throw e; }
-    return base(input, init);
-  };
-}
-let mirrored = false;
-
-export function loadKokoro(onProgress?: (pct: number) => void): Promise<KokoroModel> {
-  if (!kokoro) {
-    kokoro = (async () => {
-      const [{ KokoroTTS, env }, { default: mjs }, { default: wasm }] = await Promise.all([
-        import('kokoro-js'),
-        // 引擎随安装包走，默认从 jsdelivr 加载的脚本会被 CSP 拦。版本要和 @huggingface/transformers 依赖的一致
-        import('../../node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.mjs?url'),
-        import('../../node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm?url'),
-      ]);
-      env.wasmPaths = { mjs, wasm } as unknown as string;
-      if (!mirrored) { mirrored = true; globalThis.fetch = withKokoroMirror(globalThis.fetch.bind(globalThis)); }
-      const files = new Map<string, [number, number]>();
-      return KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-        dtype: 'q8', device: 'wasm',
-        progress_callback: (p: { status: string; file?: string; loaded?: number; total?: number }) => {
-          if (p.status === 'progress' && p.file && p.total) { files.set(p.file, [p.loaded ?? 0, p.total]); let l = 0, t = 0; for (const [a, b] of files.values()) { l += a; t += b; } onProgress?.(Math.round((l / t) * 100)); }
-        },
-      }) as unknown as KokoroModel;
-    })();
-    kokoro.catch(() => { kokoro = undefined; });
+/* Kokoro 在 Worker 里跑（kokoro.worker.ts），主线程只管放音。不然合成那几秒整个界面都卡住 */
+let worker: Worker | undefined;
+let loaded: Promise<void> | undefined;
+const progressSubs = new Set<(pct: number) => void>();
+let loadFail: ((e: Error) => void) | undefined;
+let jobSeq = 0;
+function getWorker(): Worker {
+  if (!worker) {
+    worker = new Worker(new URL('./kokoro.worker.ts', import.meta.url), { type: 'module' });
+    worker.onmessage = (e: MessageEvent<Out>) => {
+      const m = e.data;
+      if (m.type === 'progress') progressSubs.forEach(f => f(m.pct));
+      else if (m.type === 'error' && m.id === undefined) loadFail?.(new Error(m.message));
+      else if (m.type !== 'loaded' && m.id !== undefined) jobsById.get(m.id)?.on(m);
+    };
+    worker.onerror = e => { const err = new Error(e.message || 'Kokoro worker failed'); loadFail?.(err); for (const j of jobsById.values()) j.fail(err); };
   }
-  return kokoro;
+  return worker;
+}
+
+export function loadKokoro(onProgress?: (pct: number) => void): Promise<void> {
+  if (onProgress) progressSubs.add(onProgress);
+  if (!loaded) {
+    loaded = new Promise<void>((resolve, reject) => {
+      const w = getWorker();
+      loadFail = reject;
+      const onLoaded = (e: MessageEvent<Out>) => { if (e.data.type === 'loaded') { w.removeEventListener('message', onLoaded); resolve(); } };
+      w.addEventListener('message', onLoaded);
+      w.postMessage({ type: 'load' } satisfies In);
+    });
+    loaded.then(() => { try { localStorage.setItem('tibi.kokoro.ready', '1'); } catch { /* 无存储 */ } }, () => { loaded = undefined; });
+  }
+  const p = loaded;
+  if (onProgress) void p.finally(() => progressSubs.delete(onProgress)).catch(() => undefined);
+  return p;
 }
 export function kokoroDownloaded(): boolean { try { return localStorage.getItem('tibi.kokoro.ready') === '1'; } catch { return false; } }
 
-const audioCache = new Map<string, AudioBuffer>();
-let ctx: AudioContext | undefined; let playing: AudioBufferSourceNode | undefined; let stopResolve: (() => void) | undefined;
-async function kokoroSay(text: string, r: number, my: number): Promise<void> {
-  const model = await loadKokoro();
-  if (my !== seq) return;
-  try { localStorage.setItem('tibi.kokoro.ready', '1'); } catch { /* 无存储 */ }
-  ctx ??= new AudioContext();
-  const voice = KOKORO_VOICES.some(v => v.id === voiceId) ? voiceId : 'af_heart';
-  const key = `${voice}|${r}|${text}`;
-  let buf = audioCache.get(key);
-  if (!buf) {
-    const out = await model.generate(text, { voice, speed: r });
-    buf = ctx.createBuffer(1, out.audio.length, out.sampling_rate); buf.copyToChannel(new Float32Array(out.audio), 0);
-    if (audioCache.size > 300) audioCache.delete(audioCache.keys().next().value!);
-    audioCache.set(key, buf);
-    if (my !== seq) return;   // 合成期间被停了：结果留在缓存里，不出声
+/** 一次合成：Worker 一句一句回音频，边收边放。合成好的留着当缓存（文字 + 音色 + 语速） */
+class Job {
+  readonly id = ++jobSeq;
+  chunks: AudioBuffer[] = []; done = false; error?: Error;
+  private wake = new Set<() => void>();
+  on(m: Out) {
+    if (m.type === 'chunk') { const b = new AudioBuffer({ length: m.audio.length, sampleRate: m.rate, numberOfChannels: 1 }); b.copyToChannel(m.audio as Float32Array<ArrayBuffer>, 0); this.chunks.push(b); }
+    else if (m.type === 'done') this.done = true;
+    else if (m.type === 'error') this.error = new Error(m.message);
+    if (this.done || this.error) jobsById.delete(this.id);
+    this.wake.forEach(f => f()); this.wake.clear();
   }
-  return new Promise(resolve => {
-    const src = ctx!.createBufferSource(); src.buffer = buf!; src.connect(ctx!.destination);
-    src.onended = () => { if (playing === src) playing = undefined; resolve(); };
-    playing = src; stopResolve = resolve; src.start();
-  });
+  fail(e: Error) { this.on({ type: 'error', id: this.id, message: e.message }); }
+  async *[Symbol.asyncIterator](): AsyncGenerator<AudioBuffer> {
+    for (let i = 0; ; ) {
+      if (i < this.chunks.length) yield this.chunks[i++]!;
+      else if (this.error) throw this.error;
+      else if (this.done) return;
+      else await new Promise<void>(r => this.wake.add(r));
+    }
+  }
 }
+const jobs = new Map<string, Job>();       // 缓存键 → 合成（做完的和正在做的）
+const jobsById = new Map<number, Job>();   // 还在合成的
+function synth(text: string, r: number): Job {
+  const voice = KOKORO_VOICES.some(v => v.id === aiVoice) ? aiVoice : 'af_heart';
+  const key = `${voice}|${r}|${text}`;
+  let j = jobs.get(key);
+  if (j && !j.error) { jobs.delete(key); jobs.set(key, j); return j; }
+  j = new Job(); jobs.set(key, j); jobsById.set(j.id, j);
+  if (jobs.size > 300) { const [k, old] = jobs.entries().next().value!; if (old.done) jobs.delete(k); }
+  getWorker().postMessage({ type: 'gen', id: j.id, text, voice, speed: r } satisfies In);
+  loadKokoro().catch(() => undefined);
+  return j;
+}
+/** 停下时扔掉还没合成完的（留着会堵住后面的），want 是马上要读的那条 */
+function cancelPending(want?: Job) {
+  for (const [k, j] of jobs) if (j !== want && !j.done && !j.error) { worker?.postMessage({ type: 'cancel', id: j.id } satisfies In); jobs.delete(k); jobsById.delete(j.id); }
+}
+/** 提前合成下一句（全文朗读用），轮到它时不用再等 */
+export function prefetch(text: string, o: { rate?: number } = {}) { if (kokoroDownloaded()) synth(text, o.rate ?? rate); }
+
+let ctx: AudioContext | undefined; let playing: AudioBufferSourceNode | undefined; let stopResolve: (() => void) | undefined;
+async function kokoroSay(job: Job, my: number): Promise<void> {
+  ctx ??= new AudioContext();
+  setStatus(job.chunks.length ? 'speaking' : 'loading');
+  for await (const buf of job) {
+    if (my !== seq) return;
+    setStatus('speaking');
+    await new Promise<void>(resolve => {
+      const src = ctx!.createBufferSource(); src.buffer = buf; src.connect(ctx!.destination);
+      src.onended = () => { if (playing === src) playing = undefined; resolve(); };
+      playing = src; stopResolve = resolve; src.start();
+    });
+    if (my !== seq) return;
+    if (!job.done && job.chunks.at(-1) === buf) setStatus('loading');   // 下一句还没合成好
+  }
+}
+
+/* ---------- 状态 ---------- */
+/** loading：AI 朗读在加载模型或合成，还没出声；speaking：在出声 */
+export type Status = 'idle' | 'loading' | 'speaking';
+let status: Status = 'idle';
+const statusSubs = new Set<(s: Status) => void>();
+function setStatus(s: Status) { if (s !== status) { status = s; statusSubs.forEach(f => f(s)); } }
+export const getStatus = () => status;
+export function onStatus(f: (s: Status) => void): () => void { statusSubs.add(f); return () => { statusSubs.delete(f); }; }
 
 /* ---------- 对外 ---------- */
 let seq = 0;
 let paused = false;
-export function stop() {
-  seq++; paused = false;
+export function stop() { halt(); }
+function halt(want?: Job) {
+  seq++; paused = false; cancelPending(want); setStatus('idle');
   // 暂停着直接 cancel，Chrome 之后再 speak 不出声；要先 resume
   try { speechSynthesis.resume(); speechSynthesis.cancel(); } catch { /* 无语音 */ }
   try { playing?.stop(); } catch { /* 已停 */ }
@@ -140,12 +183,23 @@ export function resume(): boolean {
   try { speechSynthesis.resume(); } catch { /* 无语音 */ }
   return true;
 }
-/** 读一段文字；Kokoro 失败（没下载、离线）时退回系统语音 */
-export async function say(text: string, o: { rate?: number } = {}): Promise<boolean> {
-  stop(); const my = ++seq; const r = o.rate ?? rate;
-  if (engine === 'kokoro') {
-    try { await kokoroSay(text, r, my); return my === seq; } catch { if (my !== seq) return false; }
-  }
+/**
+ * 读一段文字。engine 不传用设置里的默认（自动播放、全文朗读）：Kokoro 失败（没下载、离线）时退回系统语音；
+ * 传了就是用户点的那个按钮：只用这个引擎，AI 朗读失败时抛错，由界面提示
+ */
+export async function say(text: string, o: { rate?: number; engine?: Engine } = {}): Promise<boolean> {
+  const r = o.rate ?? rate;
+  const use = o.engine ?? engine;
+  if (use === 'kokoro') {
+    const job = synth(text, r);
+    halt(job); const my = ++seq;
+    try { await kokoroSay(job, my); return my === seq; }
+    catch (e) { if (my !== seq) return false; if (o.engine) { setStatus('idle'); throw e; } }
+    finally { if (my === seq) setStatus('idle'); }
+  } else halt();
+  const my = ++seq;
+  setStatus('speaking');
   await systemSay(text, r);
+  if (my === seq) setStatus('idle');
   return my === seq;
 }

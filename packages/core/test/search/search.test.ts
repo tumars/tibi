@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openAppDb } from '@tibi/core-node';
+import { imported } from '../helpers.js';
 import { assembleCore, fakePlatform, type Dict, type SearchResult } from '../../src/index.js';
 
 const WORDS: Record<string, string> = { compiler: 'n. 编译器', enforce: 'v. 强制执行', rule: 'n. 规则', parser: 'n. 解析器' };
@@ -14,9 +15,8 @@ describe('全局搜索 search.query（00 §3.8）', () => {
     const t = Date.now();
     await db.run("INSERT INTO user_profile(id, created_at, updated_at) VALUES ('1', ?, ?)", [t, t]);
     const { core, kernel } = await assembleCore({ db, dict, platform: fakePlatform({ isOnline: () => false }), resume: false });
-    const { task_id } = await core.call<{ task_id: string }>('documents.import', { source: { type: 'text', text: 'Compilers at work\n\nThe compiler enforces a small set of rules at compile time.' } });
-    const doc = (await kernel.jobs.wait(task_id)).output as { document_id: string };
-    await db.run("UPDATE terms SET in_wordbook = 1, status = 1, meaning = '编译器' WHERE text = 'compiler'");
+    const doc = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: 'Compilers at work\n\nThe compiler enforces a small set of rules at compile time.' } })) as { document_id: string };
+    await core.call('terms.add', { entries: [{ text: 'compiler', meaning: '编译器' }] });   // 导入不建词条：用户自己加进生词本
     await db.run("INSERT INTO conversations(id, kind, title, created_at, updated_at) VALUES ('c1', 'chat', 'compiler 和 interpreter 有什么区别', ?, ?)", [t, t]);
 
     const a = await core.call<SearchResult>('search.query', { q: 'compil' });

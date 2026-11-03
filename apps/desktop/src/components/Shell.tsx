@@ -1,10 +1,11 @@
-import { BarChart3, BookA, BookOpen, Bookmark, Home as HomeIcon, ListChecks, Moon, PanelLeft, RotateCw, Search, Settings as SettingsIcon, Sun } from 'lucide-react';
-import { useEffect } from 'react';
+import { BarChart3, BookA, BookOpen, Bookmark, Home as HomeIcon, Moon, PanelLeft, RotateCw, Search, Settings as SettingsIcon, Sun } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { isTauri } from '../rpc';
+import { OutsideApprovals } from './OutsideApprovals';
 import { useCore } from '../store/core';
-import { useUi } from '../store/ui';
+import { SIDE_W, useUi } from '../store/ui';
 import { tl } from '../lib/i18n';
+import { isMacDesktop } from '../lib/macNative';
 import { RecentChats } from './RecentChats';
 import { SearchPalette } from './SearchPalette';
 
@@ -15,29 +16,42 @@ const NAV = [
   { to: '/dict', label: tl('词典'), icon: BookA },
   { to: '/review', label: tl('复习'), icon: RotateCw, badge: true },
   { to: '/stats', label: tl('统计'), icon: BarChart3 },
-  { to: '/tasks', label: tl('运行记录'), icon: ListChecks },
 ];
-
-const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
 
 export function Shell() {
   const collapsed = useUi(s => s.collapsed); const toggleSide = useUi(s => s.toggleSide);
+  const sideWidth = useUi(s => s.sideWidth); const setSideWidth = useUi(s => s.setSideWidth);
+  const [resizing, setResizing] = useState(false);
   const due = useCore(s => s.due); const connected = useCore(s => s.connected);
   const counts = { docCount: useCore(s => s.docCount), wordCount: useCore(s => s.wordCount) };
-  const goal = useCore(s => s.goal); const minutes = useCore(s => s.todayMinutes); const streak = useCore(s => s.streak); const vocab = useCore(s => s.vocab);
-  const taskBadge = useCore(s => (s.status?.running_tasks ?? 0) + (s.status?.pending_approvals ?? 0));
+  const goal = useCore(s => s.goal); const minutes = useCore(s => s.todayMinutes); const streak = useCore(s => s.streak);
   const loc = useLocation();
   const reading = loc.pathname.startsWith('/read/');
 
   useEffect(() => {
+    if (isMacDesktop) return;   // mac 上这个快捷键归菜单栏（lib/macNative）
     const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key === '\\') { e.preventDefault(); toggleSide(); } };
     addEventListener('keydown', onKey); return () => removeEventListener('keydown', onKey);
   }, [toggleSide]);
 
+  /** 拖侧栏右边缘改宽度：拖动中只改内存，松手才落盘 */
+  const startResize = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const x0 = e.clientX, w0 = sideWidth;
+    setResizing(true);
+    const move = (ev: PointerEvent) => setSideWidth(w0 + ev.clientX - x0, false);
+    const up = (ev: PointerEvent) => {
+      setSideWidth(w0 + ev.clientX - x0); setResizing(false);
+      removeEventListener('pointermove', move); removeEventListener('pointerup', up);
+    };
+    addEventListener('pointermove', move); addEventListener('pointerup', up);
+  };
+
   const ring = 87.96 * (1 - Math.min(1, minutes / goal));
 
   return (
-    <div className={`app${collapsed ? ' collapsed' : ''}${isMac && isTauri() ? ' mac' : ''}`} data-tauri-drag-region>
+    <div className={`app${collapsed ? ' collapsed' : ''}${isMacDesktop ? ' mac' : ''}${resizing ? ' resizing' : ''}`} style={collapsed ? undefined : { '--side': `${sideWidth}px` } as React.CSSProperties} data-tauri-drag-region>
       <aside className="side" data-tauri-drag-region>
         <div className="brand" data-tauri-drag-region="deep">
           <span className="logo"><img src="/logo.svg" alt="" /><span className="hide-c">Tibi</span></span>
@@ -51,7 +65,6 @@ export function Shell() {
             <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive || (n.to === '/library' && reading) ? 'cur' : '')} title={n.label}>
               <n.icon /><span className="hide-c">{n.label}</span>
               {n.badge && due > 0 && <span className="n badge hide-c">{due}</span>}
-              {n.to === '/tasks' && taskBadge > 0 && <span className="n badge hide-c" title={tl('运行中 + 等你确认')}>{taskBadge}</span>}
               {'count' in n && n.count && counts[n.count] > 0 && <span className="n hide-c">{counts[n.count]}</span>}
             </NavLink>
           ))}
@@ -65,14 +78,16 @@ export function Shell() {
           </div>
           <div className="user">
             <span className="av">{tl('你')}</span>
-            <span className="hide-c" style={{ flex: 1, fontSize: 13 }}>{vocab ? tl('约 {v0} 词', { v0: vocab.toLocaleString() }) : ''}</span>
+            <span className="hide-c" style={{ flex: 1 }} />
             <NavLink to="/settings" className="ibtn" title={tl('设置')}><SettingsIcon /></NavLink>
           </div>
         </div>
+        {!collapsed && <div className="side-resize" onPointerDown={startResize} onDoubleClick={() => setSideWidth(SIDE_W)} title={tl('拖动调整宽度，双击恢复')} />}
       </aside>
       <SearchPalette />
       <section className="main">
         <Outlet />
+        <OutsideApprovals />
       </section>
     </div>
   );

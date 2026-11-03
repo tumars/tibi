@@ -1,4 +1,5 @@
 import { Type, type TSchema } from '@sinclair/typebox';
+import { deepLink } from '../../deeplink.js';
 import { j, now, type Database } from '../../db/driver.js';
 import { capability, validateParams, type CapabilityMap, type Ctx, type Perm } from '../../rpc/define.js';
 import { TibiError, type SkillId } from '../../types.js';
@@ -28,12 +29,12 @@ const setting = (key: string, label: string, tier: ConfigItem['tier'], schema: T
 });
 // 走 profile.update 的处理函数：撤销在事务里跑，不能再经 ctx.call 开新事务
 const updateProfile = (ctx: Ctx, patch: unknown) => profileMethods['profile.update']!.handler({ patch }, ctx);
-const profileField = (field: 'goal' | 'interests' | 'daily_goal_minutes' | 'daily_new_cards' | 'desired_retention', label: string, tier: ConfigItem['tier'], schema: TSchema): ConfigItem => ({
+const profileField = (field: 'interests' | 'daily_goal_minutes' | 'daily_new_cards' | 'desired_retention', label: string, tier: ConfigItem['tier'], schema: TSchema): ConfigItem => ({
   label, tier, schema,
   read: async db => (await getProfile(db))[field],
   write: (ctx, value) => updateProfile(ctx, { [field]: value }) as Promise<void>,
 });
-const prefField = (field: 'nickname' | 'language', label: string, schema: TSchema): ConfigItem => ({
+const prefField = (field: 'nickname', label: string, schema: TSchema): ConfigItem => ({
   label, tier: 'normal', schema,
   read: async db => (await getProfile(db)).assistant_prefs[field],
   write: (ctx, value) => updateProfile(ctx, { assistant_prefs: { [field]: value } }) as Promise<void>,
@@ -42,21 +43,17 @@ const oneOf = (...v: string[]) => Type.Union(v.map(s => Type.Literal(s)));
 
 export const CONFIG: Record<string, ConfigItem> = {
   nickname: prefField('nickname', 'Tibi 怎么称呼你', Type.String({ minLength: 1, maxLength: 40 })),
-  language: prefField('language', 'Tibi 讲解用的语言（mixed 中英混合 / zh 中文 / en 英文）', oneOf('mixed', 'zh', 'en')),
-  goal: profileField('goal', '学习目标', 'normal', Type.String({ minLength: 1, maxLength: 200 })),
   interests: profileField('interests', '兴趣（找文章时用）', 'normal', Type.Array(Type.String({ maxLength: 40 }), { maxItems: 30 })),
   daily_goal_minutes: profileField('daily_goal_minutes', '每日阅读目标（分钟）', 'normal', Type.Integer({ minimum: 1, maximum: 600 })),
   daily_new_cards: profileField('daily_new_cards', '每天最多新学的词', 'normal', Type.Integer({ minimum: 0, maximum: 500 })),
   'tts.rate': setting('tts.rate', '朗读语速', 'normal', Type.Number({ minimum: 0.5, maximum: 2 })),
   'reminder.time': setting('reminder.time', '每日提醒（off / morning / noon / evening）', 'normal', oneOf('off', 'morning', 'noon', 'evening')),
   desired_retention: profileField('desired_retention', '复习目标记得率（影响排期）', 'always', Type.Number({ minimum: 0.7, maximum: 0.99 })),
-  'budget.month': setting('budget.month', '每月 AI 花费上限（元）', 'always', Type.Number({ minimum: 0, maximum: 100000 })),
-  'budget.task': setting('budget.task', '单个任务 AI 花费上限（元）', 'always', Type.Number({ minimum: 0, maximum: 100000 })),
   web_search: setting('web_search', '网页搜索服务（值形如 { "provider": "deepseek" | "tavily" | "off" }）', 'always', Type.Object({ provider: oneOf('deepseek', 'tavily', 'off') })),
   'memory.paused': setting('memory.paused', '暂停记新的记忆', 'always', Type.Boolean()),
 };
 
-const NOT_HERE = 'API Key、服务商和地址、权限模式、MCP、登录同步、恢复备份、清空记忆、英语水平和词汇量校准：Tibi 不能改，用 open_settings 带用户去设置页。';
+const NOT_HERE = 'API Key、服务商和地址、权限模式、MCP、登录同步、恢复备份、清空记忆：Tibi 不能改，用 open_settings 带用户去设置页。';
 const SECTIONS: Record<string, string> = { general: '通用', model: '模型', learning: '学习与复习', memory: '记忆', advanced: '高级', data: '数据', about: '关于' };
 const keySchema = Type.Union(Object.keys(CONFIG).map(k => Type.Literal(k)));
 const parseValue = (key: string, value: unknown) => validateParams(CONFIG[key]!.schema, value);
@@ -77,7 +74,7 @@ export const configCapabilities: CapabilityMap = {
     },
   }),
   set_config: capability({
-    name: 'set_config', description: '改一项设置（key 和取值见 get_config），可撤销', perm: 'write', undoable: true, replay: 'safe', mcp: false,
+    name: 'set_config', description: '改一项设置（key 和取值见 get_config），可撤销', perm: 'write', undoable: true, mcp: false,
     params: Type.Object({ key: keySchema, value: Type.Unknown() }),
     permFor: (p): Perm => (CONFIG[p.key]!.tier === 'always' ? 'always' : 'write'),
     async describe(p) { return `把「${CONFIG[p.key]!.label}」改成 ${show(parseValue(p.key, p.value))}`; },
@@ -103,14 +100,14 @@ export const configCapabilities: CapabilityMap = {
     },
   }),
   create_backup: capability({
-    name: 'create_backup', description: '管理数据：立即备份一次（批量删除前先备份）', perm: 'confirm', replay: 'safe', mcp: false, params: Type.Object({}),
+    name: 'create_backup', description: '管理数据：立即备份一次（批量删除前先备份）', perm: 'confirm', mcp: false, params: Type.Object({}),
     async run(_p, ctx) { return ctx.call('system.backup', { reason: 'manual' }); },
   }),
   open_settings: capability({
     name: 'open_settings', description: '给用户一张卡片，点了打开设置页的某一部分（Tibi 不能改的设置用它）', perm: 'read', mcp: false,
     params: Type.Object({ section: oneOf(...Object.keys(SECTIONS)), reason: Type.String({ minLength: 1, maxLength: 200, description: '用户要去改什么' }) }),
     async run(p) { return { shown: true, ...p }; },
-    widget: (_r, p) => ({ kind: 'settings_link', summary: `给了去设置页「${SECTIONS[p.section]}」的入口：${p.reason}`, data: { section: p.section, label: SECTIONS[p.section]!, reason: p.reason } }),
+    widget: (_r, p) => ({ kind: 'link', summary: `给了去设置页「${SECTIONS[p.section]}」的入口：${p.reason}`, data: { text: p.reason, links: [{ label: `打开设置 · ${SECTIONS[p.section]}`, href: deepLink({ to: 'settings', section: p.section }) }] } }),
   }),
 };
 

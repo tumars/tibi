@@ -24,10 +24,10 @@ documents ──< sections ──< sentences ─ ─< term_contexts >── term
     ├──< document_tags >── tags
     └──< reading_sessions
 
-skills（技能配置）    conversations ──< messages        jobs ──< job_steps
-                      └── thread_links（对话与文章）    usage_records（用量）
+skills（技能配置）    conversations ──< messages（按 turn_id 分成一轮一轮的回答）
+                      └── thread_links（对话与文章）
 skill_audit（写操作审计与撤销）
-memories（来源可指向 thread / document / learning_event / task）
+memories（来源可指向 conversation / document / learning_event）
 learning_events        audio_cache        daily_stats
 ```
 
@@ -37,19 +37,16 @@ learning_events        audio_cache        daily_stats
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | id | TEXT PK | 固定为 1 |
-| level_self | TEXT | 自评水平：cet4 / cet6 / ielts6 / ... |
 | display_name | TEXT | 称呼（助手使用） |
-| goal | TEXT | 学习目标：exam / work / interest |
-| interests | TEXT(JSON) | 常读材料类型与兴趣领域，如 `["tech_doc","news","novel","rust"]` |
-| assistant_prefs | TEXT(JSON) | Tibi 对用户的称呼、对话语言、讲解详细度、权限模式等（Tibi 自己的名字固定） |
-| vocab_estimate | INTEGER | 估算词汇量（测试 + 持续修正） |
-| vocab_tested_at | INTEGER | 最近一次测试时间 |
-| vocab_source | TEXT | 估算来源：`self` 自评 / `test` 校准测试 / `manual` 手填；`self` 时界面注明准确性较低（00 §3.9） |
+| interests | TEXT(JSON) | 常读材料类型与兴趣领域，如 `["tech_doc","news","novel","rust"]`（找文章用） |
+| assistant_prefs | TEXT(JSON) | `nickname`（Tibi 对用户的称呼）、`permission`（权限模式）。没有讲解语言设置：模型自己决定用什么语言回答 |
 | daily_goal_minutes | INTEGER | 每日阅读目标（分钟） |
 | daily_new_cards | INTEGER | 每日新卡上限，默认 20 |
 | desired_retention | REAL | FSRS 期望保持率，默认 0.9 |
 | fsrs_params | TEXT(JSON) | FSRS 个性化参数（优化后写入）；必须带算法版本：`{ algorithm: "FSRS-6", weights: [...], optimized_at }`，权重不跨版本复用 |
 | created_at / updated_at | INTEGER | `created_at` 即首次使用时间，H2 的 7 天窗口从这里算 |
+
+> 2026-11-03：去掉 `level_self`、`goal`、`vocab_estimate`、`vocab_tested_at`、`vocab_source` 和 `assistant_prefs.language`。Tibi 不估用户的英语水平和词汇量，生词只来自用户自己的标记（见 §3 terms）。
 
 ### settings（键值表，存杂项偏好）
 | 字段 | 类型 | 说明 |
@@ -97,9 +94,9 @@ learning_events        audio_cache        daily_stats
 | section_count | INTEGER | |
 | status | TEXT | `processing` / `ready` / `failed` |
 | process_error | TEXT | |
-| ai_status | TEXT | `none` / `deferred`（稍后补做：离线、没配模型或超预算）/ `running` / `done` / `failed` |
-| difficulty_cefr | TEXT | 预估 CEFR：A2…C2 |
-| unknown_ratio | REAL | 导入时对该用户的生词率（快照；实时值可计算） |
+| ai_status | TEXT | `none` / `deferred`（稍后补做：离线或没配模型）/ `running` / `done` / `failed` |
+| difficulty_cefr | TEXT | 文本级别 A2…C2，只按词频估、与用户无关：`rare_ratio` < 4% A2、< 7% B1、< 10% B2、< 14% C1，其余 C2；没有词频表时为空 |
+| rare_ratio | REAL | 词频排在常用 3000 词以外（或词频表里没有）的词次占比 |
 | progress | REAL | 全书阅读进度 0–1 |
 | last_section_id | TEXT | 上次阅读的章节 |
 | is_favorite / is_archived | INTEGER | |
@@ -118,7 +115,6 @@ learning_events        audio_cache        daily_stats
 | status | TEXT | `pending`（未分析）/ `processing` / `ready` / `failed` |
 | ai_status | TEXT | 同 `documents.ai_status`；书按章懒处理，所以按章记 |
 | tokenizer_version | TEXT | 分词结果的版本；分词库升级后据此重新分词 |
-| unknown_ratio | REAL | |
 | progress | REAL | 本章进度 0–1 |
 | last_sentence_id | TEXT | |
 | finished_at | INTEGER | |
@@ -158,7 +154,7 @@ learning_events        audio_cache        daily_stats
 ## 3. 词条（已知词库核心）
 
 ### terms
-用户接触过的每个单词/短语一行。**不在表中的词 = 从未遇到**，其状态由「自动预标注规则」推断。
+用户标过或加进生词本的每个单词/短语一行。**不在表中的词 = 用户没标过**：阅读器不着色，导入和标注也不会替它建行（没有按词汇量的自动预标注）。只查词不写入；标熟练度、加入生词本、标为已知 / 忽略时才建行。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -167,8 +163,8 @@ learning_events        audio_cache        daily_stats
 | text | TEXT | 规范形式（单词为 lemma 小写；短语为小写、空格规范化）；词族（D11）只有原形一条，词形存 `term_forms` |
 | paused_until | INTEGER NULL | 难词"暂停复习 2 周"：到期前不进复习队列 |
 | text_display | TEXT | 显示形式 |
-| status | INTEGER | 0=生词 1=见过 2=眼熟 3=认得 4=熟悉 5=掌握（界面只显示名称） 97=标为已知（不建卡、不进复习，计入已知词总数，不等于掌握；R5） 98=忽略 99=推断已知（待确认）（D1/D2 已确认） |
-| status_source | TEXT | `user` / `auto_vocab_test` / `auto_rule` / `page_done`（批量标为已知）/ `lookup`（点词自动 0 → 1，R5）/ `srs` / `agent` |
+| status | INTEGER | 0=生词 1=见过 2=眼熟 3=认得 4=熟悉 5=掌握（界面只显示名称） 97=标为已知（不建卡、不进复习，计入"已掌握"，不等于掌握；R5） 98=忽略。阅读器只给 0–4 着色。旧数据里的 99（待确认）当作没有行 |
+| status_source | TEXT | `user`（默认）/ `lookup`（点用户标的生词自动 0 → 1，R5）/ `srs` / `agent` / `import`。旧数据里的 `auto_rule` / `auto_vocab_test` 不算用户的标记 |
 | category | TEXT | 可选：`general` / `domain_term`（技术术语等领域词）/ `proper_noun` |
 | meaning | TEXT | 用户采用/编辑的释义 |
 | short_gloss | TEXT | 简短释义（2–6 个字），用于"行间释义"；默认取词典首义或 AI 语境释义的缩写 |
@@ -197,8 +193,7 @@ learning_events        audio_cache        daily_stats
 | term_id | TEXT FK | |
 | status | INTEGER | 变化后的值 |
 | source | TEXT | 同 `terms.status_source` |
-| prelabel | TEXT NULL | 这次改动前，这个词还是预标注判断时记 `known` / `unsure` / `new`；用户碰过之后为空（H1 用） |
-| document_id | TEXT NULL | 改动时正在读的文章；不设外键，文章硬删后仍可统计（H1 用） |
+| document_id | TEXT NULL | 改动时正在读的文章；不设外键，文章硬删后仍可统计 |
 | created_at | INTEGER | |
 
 ### term_contexts
@@ -337,9 +332,7 @@ learning_events        audio_cache        daily_stats
 | words_read | INTEGER | |
 | reading_ms | INTEGER | |
 | new_terms | INTEGER | |
-| known_terms_total | INTEGER | 当天结束时已知词总数；含标为已知（97） |
-| known_confirmed | INTEGER | 其中**实测**的部分（R8）：用户亲手标过、测试里点亮、或在复习里答对过的词 |
-| known_estimated | INTEGER | 其中**估算**的部分（R8）：按词汇量与词频规则推断、用户没碰过的词。算法（2026-10-31 实现时定）：词频排在词汇量估算 N 以内的常见词默认已知、不入库，所以估算 = N − 其中被标成 0–2 的 − 其中已算进实测的 + N 以外的待确认（99）与 auto_rule 已知行；没有词典时把库里的行都当作在 N 以内。统计页的已知词曲线拆成实测（实线）和估算（虚线）两条 |
+| mastered_total | INTEGER | 当天结束时"已掌握"的词数：status 为 5（复习到掌握）或 97（标为已知）、且来源不是旧数据的 `auto_rule`。只数用户自己的标记，没有按词汇量的估算部分 |
 | reviews | INTEGER | |
 | review_correct | INTEGER | |
 
@@ -349,18 +342,18 @@ learning_events        audio_cache        daily_stats
 
 | 指标 | 口径 | 来源 |
 |---|---|---|
-| H1 分母 | 第一篇读完的文章（含内置示例）里，导入时状态来自预标注规则或词汇测试、用户没碰过的不重复词数 | `learning_events`：最早读完全部章节的 `section_finished`；`document_imported.payload.prelabel_total` |
-| H1 分子 | 读完前用户手动改过且方向相反的词：预标已知 → 设为 0–4；预标生词 → 设为 5 / 97。待确认词的确认和点词自动 0 → 1 不算改动 | `term_status_log`（`source = user`，`prelabel`，`document_id`，`created_at`） |
+| H1 | 已取消（2026-11-03）：原本衡量自动预标注的准确度，预标注去掉后没有意义 | — |
 | H2 | 首次使用后 7 天内 `source_type` 不是 `sample`、`tibi_generated` 的导入数 ≥ 1 | `user_profile.created_at`；`learning_events.document_imported.payload.source_type`（文章硬删后仍在） |
 | H3 | 最早一张卡建立日（本地时区）的次日，至少答过一张卡 | `MIN(cards.created_at)`（含软删）；`review_logs.reviewed_at` |
 
-> 为此补的字段：`term_status_log.prelabel`、`term_status_log.document_id`、`document_imported` 事件的 `prelabel_total` 与 `source_type`。
+> 为此补的字段：`term_status_log.document_id`、`document_imported` 事件的 `source_type`。
 
 ## 7. 技能（Tibi 的能力扩展）
 
 > 设计说明见 [`05-agent-architecture.md`](./05-agent-architecture.md) 与 [`02-ai-assistant.md`](./02-ai-assistant.md)。
 >
-> **对话、消息、任务、步骤、用量**都是我们自己的表（R9，2026-10-31：不再用 pi-durable 的 `pi_` 表），和领域表在同一个 `app.db`，由 Tibi Core 独占，按同样的规则迁移和同步。
+> **对话、消息**都是我们自己的表（R9，2026-10-31：不再用 pi-durable 的 `pi_` 表），和领域表在同一个 `app.db`，由 Tibi Core 独占，按同样的规则迁移和同步。
+> 2026-11-04（T35、T36，迁移 0005）：去掉 `jobs`、`job_steps`、`usage_records`。一轮回答就是对话里的一段消息；进行中的回答和审批只在内存里；Tibi 不记用量和花费。
 
 ### skills（技能配置）
 技能的定义来自随应用分发的 `SKILL.md`，这里只存用户的改动。
@@ -373,8 +366,6 @@ learning_events        audio_cache        daily_stats
 | write_permission | TEXT | `inherit` / `ask` |
 | enabled | INTEGER | |
 | created_at / updated_at | INTEGER | |
-
-> 花费从 `usage_records` 按技能汇总；每月预算（默认 ¥20）、单个任务上限（默认 ¥1）存在 `settings`。
 
 ### conversations（对话）
 | 字段 | 类型 | 说明 |
@@ -394,50 +385,8 @@ learning_events        audio_cache        daily_stats
 | conversation_id | TEXT FK | |
 | role | TEXT | `user` / `assistant` / `tool` |
 | content | TEXT(JSON) | 文本、结果卡片、工具调用与结果 |
-| job_id | TEXT NULL | 这条消息触发或展示的任务 |
-| created_at | INTEGER | |
-
-### jobs（任务：一次导入、一次技能运行）
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| id | TEXT PK | |
-| kind | TEXT | `import`（固定流水线，R10）/ `skill` |
-| skill_id | TEXT NULL | `kind = skill` 时 |
-| parent_job_id | TEXT NULL | 子任务（导入里并行的总结、短语等；主对话运行的技能） |
-| conversation_id | TEXT NULL | 结果写回哪次对话 |
-| status | TEXT | `queued` / `running` / `waiting_approval` / `paused`（完成当前步后停下）/ `done` / `failed` / `cancelled` / `deferred`（稍后补做） |
-| pipeline | TEXT | 流水线名（`import` / `reanalyze` / `skill`），重开后按它续跑（迁移 0002） |
-| tainted | INTEGER | 是否读过不可信内容（05 §8）；读过之后写入与外联一律审批（0002） |
-| approval | TEXT(JSON) NULL | 挂起中的审批卡，重开后能恢复（0002） |
-| progress | TEXT(JSON) NULL | 当前步骤文案 `{label, index, total}`（0002） |
-| trigger | TEXT | `user` / `auto` / `mcp` / `share`（手机分享或剪藏） |
-| input / output | TEXT(JSON) | |
-| error | TEXT NULL | |
-| created_at / started_at / finished_at | INTEGER | |
-
-### job_steps（步骤检查点）
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| id | TEXT PK | |
-| job_id | TEXT FK | |
-| idx | INTEGER | 顺序 |
-| kind | TEXT | `model`（一轮模型调用）/ `tool`（一次能力调用）/ `pipeline`（流水线固定步骤） |
-| name | TEXT | 步骤名或能力名 |
-| status | TEXT | `running` / `done` / `failed` / `skipped` |
-| input / output | TEXT(JSON) | |
-| started_at / finished_at | INTEGER | |
-
-> 续跑：重新打开时，`running` 的任务从最后一个 `done` 的步骤之后接着做；写能力靠 `skill_audit.idempotency_key` 不重复写。
-
-### usage_records（用量与花费）
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| id | TEXT PK | |
-| job_id / job_step_id | TEXT NULL | |
-| skill_id | TEXT NULL | |
-| model | TEXT | |
-| input_tokens / cached_tokens / output_tokens | INTEGER | |
-| cost | REAL | 按 `pi-ai` 返回的价格计算，单位人民币 |
+| turn_id | TEXT NULL | 属于哪一轮回答：这一轮第一句用户消息的 id（迁移 0005 由 `job_id` 改名）。用户那句、回答中补充的话、助手消息、工具结果都带它；界面按它合成回答气泡 |
+| ui | TEXT(JSON) | 只给界面：卡片、回执、步骤；一轮的第一句用户消息上有 `turn`：`{ skill, state: running / done / error / cancel, error?, tainted? }`。重启时还是 `running` 的记成中断 |
 | created_at | INTEGER | |
 
 ### thread_links（对话线程与文章的绑定）
@@ -487,8 +436,8 @@ learning_events        audio_cache        daily_stats
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | id | TEXT PK | |
-| type | TEXT | `document_imported` / `section_finished` / `term_marked` / `review_session` / `vocab_test` / `quiz_done` … |
-| payload | TEXT(JSON) | 事件细节；`document_imported` 带 `document_id`、`source_type`、`prelabel_total`，`section_finished` 带 `document_id`、`section_id`（M1 成功标准用） |
+| type | TEXT | `document_imported` / `section_finished` / `term_marked` / `review_session` / `quiz_done` … |
+| payload | TEXT(JSON) | 事件细节；`document_imported` 带 `document_id`、`source_type`，`section_finished` 带 `document_id`、`section_id`（M1 成功标准用） |
 | consolidated | INTEGER | 是否已被整合进记忆 |
 | created_at | INTEGER | |
 
@@ -506,7 +455,7 @@ learning_events        audio_cache        daily_stats
 | collins | 柯林斯星级 |
 | oxford | 是否牛津 3000 核心词 |
 | tag | 考试标签：zk gk cet4 cet6 ky toefl ielts gre |
-| bnc / frq | BNC / 当代语料库词频排名 → **难度分级与自动预标注的依据** |
+| bnc / frq | BNC / 当代语料库词频排名 → **文本级别（documents.difficulty_cefr）的依据** |
 | exchange | 词形变化 → **词形还原的补充** |
 
 另在 `dict.db` 中预生成一张 `lemma_map(form TEXT, lemma TEXT, rank INTEGER, PRIMARY KEY (form, lemma))`，由 `exchange` 字段展开，用于快速词形还原；一个词形可能对应多个原形（left → leave / left），`rank` 小的优先。
@@ -537,7 +486,7 @@ learning_events        audio_cache        daily_stats
 | 卡片（`cards`） | 移出生词本时软删；`review_logs` 是 FSRS 优化的训练数据，不随之删除 |
 | 记忆（`memories`）、对话（`conversations` / `messages`） | 用户删除时硬删（同步时先发墓碑，两端都删掉后再清除墓碑），含审计里的内容副本；隐私优先。记忆在撤销窗口过后执行 |
 
-**迁移**：领域表版本记在 `PRAGMA user_version`，只向前迁移，不写回退脚本；迁移前先备份 `app.db`。对话与任务表和领域表一起迁移（R9 后不再有第三方管理的表）。
+**迁移**：领域表版本记在 `PRAGMA user_version`，只向前迁移，不写回退脚本；迁移前先备份 `app.db`。对话表和领域表一起迁移（R9 后不再有第三方管理的表）。
 
 **同步**（R11；方案见 [`08-sync.md`](08-sync.md)，2026-10-31 第一版，排在 M7）：共享文件夹（iCloud Drive / WebDAV）里放变更文件，每台设备只写自己的文件夹；按字段比较混合逻辑时钟（HLC），后改的赢；只追加的表按 `id` 合并；FSRS 卡片合并 `review_logs` 后按时间顺序重算；自然键相同的两条（同一个词、同一篇文章）合并到更早建的那条。M1 只需遵守 08 §9 的五条约定，下面这几张表 M7 才建。
 

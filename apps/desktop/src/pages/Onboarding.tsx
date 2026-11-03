@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Fox } from '../components/Fox';
 import { PRESETS, saveProvider } from '../lib/providers';
-import { classifyInput, fmtPct, GENRE_NAMES, isImeKey } from '../lib/util';
+import { classifyInput, GENRE_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
@@ -12,47 +12,40 @@ import { tl } from '../lib/i18n';
 
 /**
  * 首次启动引导（00 §3.9，原型 onboarding.html）。没有侧栏，一张居中的卡片。
- * 主流程三步：先认识一下 → 连接模型 → 读第一篇。另有两个单独入口：?step=2 校准词汇量、?step=3 连接模型，完成后回到 from。
+ * 主流程三步：先认识一下 → 连接模型 → 读第一篇。另有单独入口 ?step=3 连接模型，完成后回到 from。
+ * 不问英语水平、目标，也不测词汇量：生词只看用户自己标的。
  */
-const GOALS = [['work', tl('工作里读文档和邮件')], ['ielts', tl('雅思 / 托福')], ['novel', tl('读原版书')], ['cet', tl('考研 / CET')], ['interest', tl('就是感兴趣')]] as const;   // 取值与设置页一致
-const LEVELS = [['beginner', tl('入门'), tl('能看懂简单句子，长一点就吃力')], ['intermediate', tl('中级'), tl('能读新闻大意，生词不少')], ['upper', tl('中高级'), tl('能读大部分文章，偶尔查词')], ['advanced', tl('高级'), tl('读原版书和论文基本不费劲')]] as const;
 const MATS = [['tech', tl('技术文档')], ['news', tl('新闻')], ['lit', tl('小说')], ['academic', tl('论文')], ['blog', tl('社交媒体 / 博客')]] as const;
-const LANGS = [['mixed', tl('中文为主，夹英文')], ['zh', tl('只用中文')], ['en', 'English only']] as const;
 const BACK: Record<string, [string, string]> = { settings: ['/settings', tl('设置')], reader: ['/library', tl('书架')], home: ['/', tl('首页')] };
 
 export const ONBOARDING_KEY = 'onboarding.done';
 const markDone = () => rpc.call('settings.set', { patch: { [ONBOARDING_KEY]: true } }).catch(() => undefined);
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 3 | 4;
 
 export function Onboarding() {
   const nav = useNavigate();
   const [params] = useSearchParams();
-  const single = (Number(params.get('step')) === 2 ? 2 : Number(params.get('step')) === 3 ? 3 : 0) as 0 | 2 | 3;
+  const single = (Number(params.get('step')) === 3 ? 3 : 0) as 0 | 3;
   const back = params.get('back');   // 从阅读器来：回到原来那一页
-  const [backTo, backLabel] = back?.startsWith('/') ? [back, tl('阅读')] : BACK[params.get('from') ?? (single === 2 ? 'settings' : 'home')] ?? BACK.home!;
+  const [backTo, backLabel] = back?.startsWith('/') ? [back, tl('阅读')] : BACK[params.get('from') ?? 'home'] ?? BACK.home!;
   const [step, setStep] = useState<Step>(single || 1);
   const [say, setSay] = useState(tl('你好，我是 Tibi。'));
   const [fox, setFox] = useState('idle');
   // 第 1 步
   const [nick, setNick] = useState('');
-  const [goal, setGoal] = useState('work');
-  const [level, setLevel] = useState('upper');
   const [mats, setMats] = useState<string[]>(['tech', 'news']);
-  const [lang, setLang] = useState('mixed');
-  const vocab = useCore(s => s.vocab);
   const [modelOk] = useState(() => !!useCore.getState().status?.models.ok);   // 进来时就连好了（如同步过来）才跳过；不随本步连上而变，上一步还能回到这里
 
   const saveProfile = async (skip: boolean) => {
+    if (skip) return;
     try {
-      await rpc.call('profile.update', { patch: skip ? { level_self: 'upper', vocab_source: 'self' } : {
-        level_self: level, vocab_source: 'self', goal, interests: mats, assistant_prefs: { nickname: nick.trim() || '你', language: lang as 'mixed' },
-      } });
+      await rpc.call('profile.update', { patch: { interests: mats, assistant_prefs: { nickname: nick.trim() || '你' } } });
       void useCore.getState().refresh();
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
-  const go = (n: Step) => { setStep(n); setSay(({ 1: tl('你好，我是 Tibi。'), 2: tl('只点确定认识的词。'), 3: tl('连上模型后才能讲解和总结。'), 4: tl('先读一篇。') } as const)[n]); setFox(n === 2 ? 'listening' : 'idle'); };
+  const go = (n: Step) => { setStep(n); setSay(({ 1: tl('你好，我是 Tibi。'), 3: tl('连上模型后才能讲解和总结。'), 4: tl('先读一篇。') } as const)[n]); setFox('idle'); };
   const leave = (to: string) => { setFox('happy'); setTimeout(() => nav(to, { replace: true }), 500); };
 
   return (
@@ -71,16 +64,12 @@ export function Onboarding() {
         <section className="right">
           {step === 1 && <div className="pane">
             <h1>{tl('先认识一下')}</h1>
-            <p className="oblead">{tl('用来挑文章和标生词。可以跳过，之后在设置里改。')}</p>
+            <p className="oblead">{tl('用来挑文章。可以跳过，之后在设置里改。')}</p>
             <div className="f"><label className="t" htmlFor="nick">{tl('Tibi 怎么称呼你')}</label><input id="nick" className="input" value={nick} maxLength={20} placeholder={tl('比如：小孟')} onFocus={() => setFox('listening')} onBlur={() => setFox('idle')} onChange={e => { setNick(e.target.value); if (e.target.value.trim()) setSay(tl('{v0}，你好。', { v0: e.target.value.trim() })); }} /></div>
-            <div className="f"><span className="t">{tl('你学英语是为了')}</span><div className="opts">{GOALS.map(([v, l]) => <button key={v} className={`chip${goal === v ? ' on' : ''}`} onClick={() => setGoal(v)}>{l}</button>)}</div></div>
-            <div className="f"><span className="t">{tl('你觉得自己现在的水平')}</span><div className="lv4">{LEVELS.map(([v, l, d]) => <button key={v} className={level === v ? 'on' : ''} onClick={() => setLevel(v)}><b>{l}</b><span>{d}</span></button>)}</div></div>
             <div className="f"><span className="t">{tl('你平时常读的材料（可多选）')}</span><div className="opts">{MATS.map(([v, l]) => <button key={v} className={`chip${mats.includes(v) ? ' on' : ''}`} onClick={() => setMats(m => m.includes(v) ? m.filter(x => x !== v) : [...m, v])}>{l}</button>)}</div></div>
-            <div className="f"><span className="t">{tl('Tibi 和你说话时')}</span><div className="opts">{LANGS.map(([v, l]) => <button key={v} className={`chip${lang === v ? ' on' : ''}`} onClick={() => setLang(v)}>{l}</button>)}</div></div>
           </div>}
-          {step === 2 && <VocabTest onFox={setFox} onSay={setSay} onDone={() => leave(backTo)} onCancel={() => nav(backTo, { replace: true })} backLabel={backLabel} />}
           {step === 3 && <ConnectModel onFox={setFox} onSay={setSay} onDone={() => { if (single) leave(backTo); else go(4); }} onCancel={() => { toast(tl('已跳过，之后可在设置里连接')); if (single) nav(backTo, { replace: true }); else go(4); }} doneLabel={single ? tl('保存并回到{backLabel}', { backLabel }) : tl('继续')} />}
-          {step === 4 && <FirstRead vocab={vocab} onFox={setFox} onSay={setSay} onOpen={id => { void markDone(); leave(`/read/${id}`); }} onSkip={() => { void markDone(); leave('/'); }} onBack={() => go(modelOk ? 1 : 3)} />}
+          {step === 4 && <FirstRead onFox={setFox} onSay={setSay} onOpen={id => { void markDone(); leave(`/read/${id}`); }} onSkip={() => { void markDone(); leave('/'); }} onBack={() => go(modelOk ? 1 : 3)} />}
           {step === 1 && <footer className="foot">
             <span className="sp" />
             <button className="skip" onClick={async () => { await saveProfile(true); go(modelOk ? 4 : 3); }}>{tl('跳过')}</button>
@@ -93,26 +82,26 @@ export function Onboarding() {
 }
 
 /* ---------- 读第一篇 ---------- */
-function FirstRead({ vocab, onFox, onSay, onOpen, onSkip, onBack }: { vocab: number; onFox: (s: string) => void; onSay: (s: string) => void; onOpen: (id: string) => void; onSkip: () => void; onBack: () => void }) {
+function FirstRead({ onFox, onSay, onOpen, onSkip, onBack }: { onFox: (s: string) => void; onSay: (s: string) => void; onOpen: (id: string) => void; onSkip: () => void; onBack: () => void }) {
   const [samples, setSamples] = useState<SampleInfo[]>([]);
   const [pick, setPick] = useState<string>();
   const [text, setText] = useState('');
-  const [state, setState] = useState<{ title: string; sample: boolean; running: boolean; doc?: { id: string; ratio: number }; error?: string }>();
+  const [state, setState] = useState<{ title: string; sample: boolean; running: boolean; doc?: { id: string; level?: string }; error?: string }>();
   const started = useRef(false);
 
   const run = async (source: { type: 'sample'; id: string } | { type: 'url'; url: string } | { type: 'text'; text: string }, title: string) => {
     setState({ title, sample: source.type === 'sample', running: true }); onFox('reading');
-    let taskId: string | undefined; const early = new Map<string, { id?: string; error?: string }>();
+    let importId: string | undefined; const early = new Map<string, { id?: string; error?: string }>();
     const finish = (r: { id?: string; error?: string }) => {
       offDone(); offFail();
-      if (r.id) { void rpc.call('documents.get', { id: r.id }).then(d => { setState(s => s && { ...s, title: d.title, running: false, doc: { id: d.id, ratio: d.unknown_ratio } }); onFox('happy'); onSay(tl('第一篇准备好了。')); }); }
+      if (r.id) { void rpc.call('documents.get', { id: r.id }).then(d => { setState(s => s && { ...s, title: d.title, running: false, doc: { id: d.id, level: d.level } }); onFox('happy'); onSay(tl('第一篇准备好了。')); }); }
       else { setState(s => s && { ...s, running: false, error: r.error ?? tl('导入失败') }); onFox('idle'); }
     };
-    const offDone = rpc.on('task.done', d => { if (!taskId) early.set(d.task.id, { id: d.result?.document_id }); else if (d.task.id === taskId) finish({ id: d.result?.document_id }); });
-    const offFail = rpc.on('task.update', d => { if (d.task.state !== 'err') return; if (!taskId) early.set(d.task.id, { error: d.task.error }); else if (d.task.id === taskId) finish({ error: d.task.error }); });
+    const offDone = rpc.on('import.done', d => { const r = d.ok ? { id: d.document_id } : { error: d.error }; if (!importId) early.set(d.import_id, r); else if (d.import_id === importId) finish(r); });
+    const offFail = () => undefined;
     try {
-      taskId = (await rpc.call('documents.import', { source })).task_id;
-      const e = early.get(taskId); if (e) finish(e);
+      const id = importId = (await rpc.call('documents.import', { source })).import_id;
+      const e = early.get(id); if (e) finish(e);
     } catch (e) { offDone(); offFail(); setState(s => s && { ...s, running: false, error: errorInfo(e).message }); }
   };
 
@@ -120,12 +109,12 @@ function FirstRead({ vocab, onFox, onSay, onOpen, onSkip, onBack }: { vocab: num
     rpc.call('documents.samples', {}).then(list => {
       setSamples(list);
       const def = list.find(s => s.is_default) ?? list[0];
-      if (def && !started.current) { started.current = true; setPick(def.id); if (def.document_id) setState({ title: def.title, sample: true, running: false, doc: { id: def.document_id, ratio: 0 } }); else void run({ type: 'sample', id: def.id }, def.title); }
+      if (def && !started.current) { started.current = true; setPick(def.id); if (def.document_id) setState({ title: def.title, sample: true, running: false, doc: { id: def.document_id } }); else void run({ type: 'sample', id: def.id }, def.title); }
     }, () => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const choose = (s: SampleInfo) => { setPick(s.id); if (s.document_id) setState({ title: s.title, sample: true, running: false, doc: { id: s.document_id, ratio: 0 } }); else void run({ type: 'sample', id: s.id }, s.title); };
+  const choose = (s: SampleInfo) => { setPick(s.id); if (s.document_id) setState({ title: s.title, sample: true, running: false, doc: { id: s.document_id } }); else void run({ type: 'sample', id: s.id }, s.title); };
   const importText = () => {
     const t = text.trim(); if (!t) return; setPick(undefined);
     const k = classifyInput(t);
@@ -141,8 +130,8 @@ function FirstRead({ vocab, onFox, onSay, onOpen, onSkip, onBack }: { vocab: num
       <div className="or">{tl('或者')}</div>
       <div className="urlrow"><input className="input" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !isImeKey(e.nativeEvent)) importText(); }} placeholder={tl('粘贴网址，或一段英文')} /><button className="btn" onClick={importText} disabled={!text.trim()}>{tl('导入')}</button></div>
       {state && <div className={`imp${state.running ? '' : ' finished'}`}>
-        {[tl('获取内容'), tl('分句、词形还原'), tl('按你的水平（约 {v0} 词）标注生词', { v0: (vocab || 6000).toLocaleString() }), state.sample ? tl('AI 总结（示例已备好）') : tl('AI 总结（没连模型，先跳过）')].map(l => <div key={l} className={`st ${state.running ? 'run' : state.error ? '' : 'ok'}`}><i>{!state.running && !state.error && <Check size={9} strokeWidth={4} color="white" />}</i>{l}</div>)}
-        {state.doc && <div className="done">{tl('《{title}》已放进书架{v1}。', { title: state.title, v1: state.doc.ratio ? tl('，生词率 {v0}', { v0: fmtPct(state.doc.ratio) }) : '' })}</div>}
+        {[tl('获取内容'), tl('分句、词形还原'), tl('估文本级别'), state.sample ? tl('AI 总结（示例已备好）') : tl('AI 总结（没连模型，先跳过）')].map(l => <div key={l} className={`st ${state.running ? 'run' : state.error ? '' : 'ok'}`}><i>{!state.running && !state.error && <Check size={9} strokeWidth={4} color="white" />}</i>{l}</div>)}
+        {state.doc && <div className="done">{tl('《{title}》已放进书架{v1}。', { title: state.title, v1: state.doc.level ? tl('，难度约 {level}', { level: state.doc.level }) : '' })}</div>}
         {state.error && <div className="done err">{state.error}</div>}
       </div>}
     </div>
@@ -151,54 +140,6 @@ function FirstRead({ vocab, onFox, onSay, onOpen, onSkip, onBack }: { vocab: num
       <span className="sp" />
       <button className="skip" onClick={onSkip}>{tl('先不读，进入 Tibi')}</button>
       <button className="btn pri" disabled={!state?.doc} onClick={() => state?.doc && onOpen(state.doc.id)}>{tl('开始阅读')}</button>
-    </footer>
-  </>;
-}
-
-/* ---------- 校准词汇量（?step=2） ---------- */
-function VocabTest({ onFox, onSay, onDone, onCancel, backLabel }: { onFox: (s: string) => void; onSay: (s: string) => void; onDone: () => void; onCancel: () => void; backLabel: string }) {
-  const [bands, setBands] = useState<{ label: string; words: string[] }[]>([]);
-  const [band, setBand] = useState(0);
-  const [picks, setPicks] = useState<Set<string>[]>([]);
-  const [res, setRes] = useState<{ estimate: number; cefr: string; bands: number[]; pseudo_hits: number }>();
-  const [manual, setManual] = useState('');
-  useEffect(() => { rpc.call('vocab.start', {}).then(r => { setBands(r.bands); setPicks(r.bands.map(() => new Set())); }, e => toast(errorInfo(e).message, { kind: 'err' })); }, []);
-  const cur = bands[band]; const set = picks[band] ?? new Set<string>();
-  const toggle = (w: string) => setPicks(p => p.map((s, i) => { if (i !== band) return s; const n = new Set(s); if (n.has(w)) n.delete(w); else n.add(w); return n; }));
-  const next = async () => {
-    if (band < bands.length - 1) { setBand(band + 1); onFox('thinking'); setTimeout(() => onFox('listening'), 500); return; }
-    try { const r = await rpc.call('vocab.submit', { picks: picks.map(s => [...s]) }); setRes(r); onFox('happy'); onSay(tl('测完了。读得越多，估算越准。')); void useCore.getState().refresh(); }
-    catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  };
-  const save = async () => {
-    const v = Number(manual);
-    if (v >= 500) { try { await rpc.call('profile.update', { patch: { vocab_estimate: v, vocab_source: 'manual' } }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); return; } }
-    toast(tl('词汇量已更新，生词会按新结果标注')); void useCore.getState().refresh(); onDone();
-  };
-  return <>
-    <div className="pane">
-      <h1>{tl('测测词汇量')}</h1>
-      {!res ? <>
-        <p className="oblead"><b>{tl('点亮确定认识的词。')}</b>{tl('其中混了几个不存在的词。共 {v0} 组，约 3–4 分钟。', { v0: bands.length || 7 })}</p>
-        {cur && <>
-          <div className="vt-head"><span>{tl('第 {v0} / {length} 组', { v0: band + 1, length: bands.length })}</span><div className="bar2"><i style={{ width: `${band / bands.length * 100}%` }} /></div><span>{tl('词频 {label}', { label: cur.label })}</span></div>
-          <div className="vt">{cur.words.map(w => <button key={w} className={set.has(w) ? 'on' : ''} onClick={() => toggle(w)}>{w}</button>)}</div>
-          <div className="vt-foot"><span>{tl('已点亮 {size} 个', { size: set.size })}</span><span style={{ flex: 1 }} /><button className="btn sm" onClick={() => setPicks(p => p.map((s, i) => i === band ? new Set() : s))}>{tl('这组一个都不认识')}</button><button className="btn sm pri" onClick={next}>{band === bands.length - 1 ? tl('看结果') : tl('下一组')}</button></div>
-        </>}
-      </> : <>
-        <p className="oblead">{tl('测完了。读得越多，估算越准。')}</p>
-        <div className="vres">
-          <div className="big"><div className="n">{res.estimate.toLocaleString()}<small>{tl('词')}</small></div><div className="d">{tl('估算词汇量，相当于')} <b>CEFR {res.cefr}</b>{tl('。')}<br />{res.pseudo_hits ? tl('点亮了 {pseudo_hits} 个不存在的词，估算已相应下调。', { pseudo_hits: res.pseudo_hits }) : tl('没有被伪词骗到。')}</div></div>
-          <div className="box"><b>{tl('按词频看')}</b>{tl('各组认识的比例')}<div className="bands">{res.bands.map((x, i) => <i key={i} style={{ height: `${Math.max(8, x * 100)}%` }} data-l={bands[i]?.label} title={`${Math.round(x * 100)}%`} />)}</div></div>
-          <div className="box"><b>{tl('怎么用这个结果')}</b>{tl('词频前 {estimate} 视为已认识，不标注；{v1}–{v2} 标为待确认；更难的标为生词。', { estimate: res.estimate.toLocaleString(), v1: res.estimate.toLocaleString(), v2: (res.estimate + 3000).toLocaleString() })}</div>
-        </div>
-        <div className="manual">{tl('数不对？自己填：')}<input className="input" type="number" step={100} min={500} max={30000} placeholder={String(res.estimate)} value={manual} onChange={e => setManual(e.target.value)} /><span>{tl('词（以你填的为准）')}</span></div>
-      </>}
-    </div>
-    <footer className="foot">
-      <span className="sp" />
-      <button className="skip" onClick={onCancel}>{tl('取消')}</button>
-      <button className="btn pri" disabled={!res} onClick={save}>{tl('保存并回到{backLabel}', { backLabel })}</button>
     </footer>
   </>;
 }
