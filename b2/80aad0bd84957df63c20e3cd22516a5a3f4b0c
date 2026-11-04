@@ -1,0 +1,84 @@
+packages/core/src/domain/documents/repo.ts
+  s_ee88277e2f880a::t_40bdb3aacf351c 10,16,27,32-33,79
+apps/desktop/src/pages/Reader.tsx
+  s_ee88277e2f880a::t_49fda334e6ea59 2
+  s_ee88277e2f880a::t_53bf116c51fc00 142-145
+  s_ee88277e2f880a::t_46d60b3ac86674 146-155
+  s_ee88277e2f880a::t_8d2aefa4c8ed7b 165-166
+docs/DECISIONS.md
+  s_ee88277e2f880a::t_0a4fe3db8cb5dc 173
+docs/design/06-interface.md
+  s_ee88277e2f880a::t_0a4fe3db8cb5dc 129,132,134
+docs/guide/README.md
+  s_ee88277e2f880a::t_0a4fe3db8cb5dc 35-36
+docs/CHANGELOG.md
+  s_ee88277e2f880a::t_0a4fe3db8cb5dc 188
+packages/core/src/domain/documents/methods.ts
+  s_ee88277e2f880a::t_3d87af7d1a6307 52,56,82,87,100,103,106,159,161
+packages/core/src/domain/feeds/repo.ts
+  s_ee88277e2f880a::t_0a0dc1899f2319 43,47-48,50-51
+packages/core/src/db/migrations.gen.ts
+  s_ee88277e2f880a::t_40bdb3aacf351c 39-43
+apps/desktop/test/localcore.test.ts
+  s_ee88277e2f880a::t_b181cd60ae7d26 33
+apps/desktop/src/components/Shell.tsx
+  s_ee88277e2f880a::t_d78f9e0eb675ea 54
+  s_ee88277e2f880a::t_670700ab55fc1a 32
+docs/design/11-rss-reader.md
+  s_ee88277e2f880a::t_0a4fe3db8cb5dc 27,164-165
+packages/core/src/domain/feeds/refresh.ts
+  s_ee88277e2f880a::t_c7912264c24223 109
+  s_ee88277e2f880a::t_d9e1a87c279645 105
+apps/desktop/src/mock.ts
+  s_ee88277e2f880a::t_38f1149fbddde9 29-32
+packages/core/src/domain/documents/capabilities.ts
+  s_ee88277e2f880a::t_3d87af7d1a6307 23,25
+packages/core/test/sync/scenarios.test.ts
+  s_ee88277e2f880a::t_789006dfac70d8 52
+packages/core/src/domain/documents/pipeline.ts
+  s_ee88277e2f880a::t_4672c79f8d01c2 25,109,116-121,126,249,270
+apps/desktop/src/store/ui.ts
+  s_ee88277e2f880a::t_974e8ab798241b 16-17
+  s_ee88277e2f880a::t_0460c5dc498bdf 57
+packages/core/sql/0008_shelved.sql
+  s_ee88277e2f880a::t_5b6312f44f6ad5 1-3
+docs/design/01-database.md
+  s_ee88277e2f880a::t_0a4fe3db8cb5dc 103
+packages/core/test/db.test.ts
+  s_ee88277e2f880a::t_b181cd60ae7d26 22,30
+packages/core/src/types.ts
+  s_ee88277e2f880a::t_40bdb3aacf351c 34
+packages/core/test/feeds/feeds.test.ts
+  s_ee88277e2f880a::t_e19bd1fe2e9163 142-144
+  s_ee88277e2f880a::t_e2af51252e8071 154-187
+docs/dev/plan-rss-p1.md
+  s_ee88277e2f880a::t_0a4fe3db8cb5dc 154-155
+apps/desktop/src/pages/Feeds.tsx
+  s_ee88277e2f880a::t_a32cf3fb1d8eb3 54
+  s_ee88277e2f880a::t_34b31a19bfb8c1 60,62-63,67
+  s_ee88277e2f880a::t_90196f327876b5 71-79
+  s_ee88277e2f880a::t_612e3d8366853e 179-183
+apps/desktop/src/locales/en.json
+  s_ee88277e2f880a::t_312d9abe8a45f7 1075-1079
+apps/desktop/src/rpc/methods.ts
+  s_ee88277e2f880a::t_a25df7446b73db 19
+  s_ee88277e2f880a::t_a846671dd41997 24
+packages/core/src/domain/feeds/methods.ts
+  s_ee88277e2f880a::t_0fbf8fdf9e99f9 18-19,22-23,32,43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b280aad0bd84957df63c20e3cd22516a5a3f4b0c",
+  "prompts": {},
+  "sessions": {
+    "s_ee88277e2f880a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "641e614c-5172-4990-ac46-5d371f2924b1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
