@@ -1,8 +1,9 @@
 import type { Approval, MessageReceipt, MessageStep } from '@tibi/core';
-import { useEffect, useState } from 'react';
+import { Brain, Check, ChevronDown, ChevronRight, Hand, Minus, Wrench, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { tl } from '../lib/i18n';
 
-const MARK = { ok: '✓', error: '✕', denied: '–' };
+const MARK = { ok: <Check size={11} strokeWidth={3} />, error: <X size={11} strokeWidth={3} />, denied: <Minus size={11} strokeWidth={3} /> };
 const NOTE = { ok: '', error: () => tl('（没成功）'), denied: () => tl('（已拒绝）') };
 const noteOf = (s: MessageStep['status']) => (s === 'ok' ? '' : NOTE[s]());
 const secs = (ms: number) => (ms < 1000 ? tl('{v0} 秒', { v0: (ms / 1000).toFixed(1) }) : tl('{v0} 秒', { v0: Math.round(ms / 1000) }));
@@ -16,9 +17,10 @@ function useTick(on: boolean) {
 }
 
 /**
- * 过程卡（00 §3.10、05 §10）：参考 Claude / Codex 的会话页，思考和工具调用都看得见，但默认收起，不挤占答案。
- * - 标题一行说现在在干什么（思考中、正在查词、等你确认），做完了说"思考了 N 秒 · 用了几个工具"
- * - 展开：思考过程（模型原话，可再折叠）+ 每一步：做了什么、用了什么参数、得到什么、用时；出错的写原因
+ * 过程卡（00 §3.10、05 §10）：参考 assistant-ui 的 Reasoning / ToolCall，思考和工具调用都看得见，但不挤占答案。
+ * - 标题一行说现在在干什么（思考中、正在查词、等你确认），进行中文字带流光；做完了说"思考了 N 秒 · 用了几个工具"
+ * - 回答进行中自动展开，答完收起；自己点过就按自己的来
+ * - 展开是一条时间线：思考过程（模型原话，跟着滚到最新）+ 每一步：做了什么、用时；有参数和结果的再点开看
  * - 能力名这类技术词只放在悬停提示里
  * 只收过程；审批卡、写入回执和答案不收。
  */
@@ -29,7 +31,13 @@ export function ProcessCard({ steps, thinking, thinkMs, thinkStart, live, waitin
 }) {
   const running = steps.find(s => s.done === false);
   const thinkingNow = !!live && !!thinking && thinkMs === undefined && !running;
+  const busy = !!live && !waiting && (thinkingNow || !!running);
   useTick(!!live && (thinkingNow || !!running));
+  const [userOpen, setUserOpen] = useState<boolean>();
+  const open = userOpen ?? busy;
+  const thinkRef = useRef<HTMLDivElement>(null);
+  // 思考还在往外吐：跟着滚到最新一行
+  useEffect(() => { const el = thinkRef.current; if (el && thinkingNow) el.scrollTop = el.scrollHeight; }, [thinking, thinkingNow]);
   if (!steps.length && !thinking) return null;
   const done = steps.filter(s => s.done !== false);
   // 用户拒绝的不算出错：不标红，单独说"已拒绝"
@@ -49,27 +57,39 @@ export function ProcessCard({ steps, thinking, thinkMs, thinkStart, live, waitin
     if (denied) parts.push(tl('{n} 步已拒绝', { n: denied }));
     title = parts.join(' · ');
   }
-  return <details className={`process${failed ? ' off' : ''}`}>
-    <summary>{live && !waiting && (running || thinkingNow) && <span className="spin" />}<span className="pt">{title}</span></summary>
-    {thinking && <details className="think" open={thinkingNow || undefined}>
-      <summary>{tl('思考过程')}{thinkTime !== undefined && <span className="lbl"> · {secs(thinkTime)}</span>}</summary>
-      <div className="thinktext">{thinking}</div>
-    </details>}
-    {steps.map((s, i) => {
-      const going = s.done === false;
-      return <div key={s.call_id ?? i} className={`step${s.status === 'error' ? ' off' : ''}`} title={s.tool}>
-        <div className="toolline">
-          <span className="mk">{going ? <span className="spin" /> : MARK[s.status]}</span>
+  const Icon = waiting ? Hand : steps.length && !thinking ? Wrench : Brain;
+  return <details className={`process${failed ? ' off' : ''}${busy ? ' busy' : ''}`} open={open}
+    onToggle={e => { const o = e.currentTarget.open; if (o !== open) setUserOpen(o); }}>
+    <summary>
+      <span className="pi">{busy ? <span className="spin" /> : <Icon size={14} />}</span>
+      <span className={`pt${busy ? ' shimmer' : ''}`}>{title}</span>
+      <ChevronDown className="chev" size={14} />
+    </summary>
+    <div className="tl">
+      {thinking && <div className="ti think">
+        <span className="dot" />
+        <div className={`thinktext${thinkingNow ? ' live' : ''}`} ref={thinkRef}>{thinking}</div>
+      </div>}
+      {steps.map((s, i) => {
+        const going = s.done === false;
+        const more = !!(s.detail || s.result || s.error);
+        const line = <>
           <span className="sm">{s.summary.replace(/^Tibi 正在/, '')}{going ? '' : noteOf(s.status)}</span>
-          {(s.duration_ms !== undefined || (going && s.started_at)) && <span className="lbl dur">{secs(s.duration_ms ?? Date.now() - s.started_at!)}</span>}
-        </div>
-        {(s.detail || s.result || s.error) && <div className="stepmore">
-          {s.detail && <div><span className="k">{tl('参数')}</span>{s.detail}</div>}
-          {s.result && <div><span className="k">{tl('结果')}</span>{s.result}</div>}
-          {s.error && <div className="err"><span className="k">{tl('原因')}</span>{s.error}</div>}
-        </div>}
-      </div>;
-    })}
+          {(s.duration_ms !== undefined || (going && s.started_at)) && <span className="dur">{secs(s.duration_ms ?? Date.now() - s.started_at!)}</span>}
+          {more && <ChevronRight className="chev" size={12} />}
+        </>;
+        return <div key={s.call_id ?? i} className={`ti step${s.status === 'error' ? ' off' : ''}${s.status === 'denied' ? ' denied' : ''}`} title={s.tool}>
+          <span className="mk">{going ? <span className="spin" /> : MARK[s.status]}</span>
+          {more ? <details className="stepd"><summary className="toolline">{line}</summary>
+            <div className="stepmore">
+              {s.detail && <div><span className="k">{tl('参数')}</span><span className="v">{s.detail}</span></div>}
+              {s.result && <div><span className="k">{tl('结果')}</span><span className="v">{s.result}</span></div>}
+              {s.error && <div className="err"><span className="k">{tl('原因')}</span><span className="v">{s.error}</span></div>}
+            </div>
+          </details> : <div className="toolline">{line}</div>}
+        </div>;
+      })}
+    </div>
   </details>;
 }
 

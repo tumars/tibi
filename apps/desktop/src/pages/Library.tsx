@@ -1,9 +1,10 @@
 import type { DocumentSummary, Kind } from '@tibi/core';
 import { LayoutGrid, List, Tag, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Empty } from '../components/Empty';
 import { Modal } from '../components/Modal';
+import { Pager } from '../components/Pager';
 import { Samples } from '../components/Samples';
 import { Top } from '../components/Shell';
 import { useTagEditor } from '../lib/useTagEditor';
@@ -47,6 +48,8 @@ export function DocCard({ d, onOpen, onTags }: { d: DocumentSummary; onOpen: () 
   );
 }
 
+const PAGE = 48;   // 网格两三四列都能排满
+
 export function Library() {
   const nav = useNavigate();
   const [kind, setKind] = useState<Kind | 'all'>('all');
@@ -56,31 +59,45 @@ export function Library() {
   const [items, setItems] = useState<DocumentSummary[]>();
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<DocumentSummary>();
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [facets, setFacets] = useState<DocumentSummary[]>([]);   // 只按筛选词，给类型计数和标签用，不跟着翻页变
+  const scroller = useRef<HTMLDivElement>(null);
 
+  // 换筛选回到第一页
+  const filt = <T,>(set: (v: T) => void, v: T) => { set(v); setPage(0); };
   const load = useCallback(async () => {
-    try { const r = await rpc.call('documents.list', { kind: kind === 'all' ? undefined : kind, tags: tag ? [tag] : undefined, sort, q: q || undefined, limit: 200 }); setItems(r.items); } catch { setItems([]); }
-  }, [kind, tag, sort, q]);
+    try {
+      const r = await rpc.call('documents.list', { kind: kind === 'all' ? undefined : kind, tags: tag ? [tag] : undefined, sort, q: q || undefined, cursor: page ? String(page * PAGE) : undefined, limit: PAGE });
+      // 最后一页删空了就往前翻
+      if (r.items.length === 0 && page > 0) { setPage(Math.max(0, Math.ceil(r.total / PAGE) - 1)); return; }
+      setItems(r.items); setTotal(r.total);
+    } catch { setItems([]); setTotal(0); }
+  }, [kind, tag, sort, q, page]);
+  const loadFacets = useCallback(() => rpc.call('documents.list', { q: q || undefined, limit: 500 }).then(r => setFacets(r.items), () => setFacets([])), [q]);
   useEffect(() => { void load(); return rpc.on('data.changed', d => { if (d.table === 'documents') void load(); }); }, [load]);
+  useEffect(() => { void loadFacets(); return rpc.on('data.changed', d => { if (d.table === 'documents') void loadFacets(); }); }, [loadFacets]);
+  const turn = (p: number) => { setPage(p); scroller.current?.scrollTo({ top: 0 }); };
 
-  const tags = [...new Set((items ?? []).flatMap(d => d.tags))];
-  const counts = { article: (items ?? []).filter(d => d.kind === 'article').length, book: (items ?? []).filter(d => d.kind === 'book').length };
+  const tags = [...new Set(facets.filter(d => kind === 'all' || d.kind === kind).flatMap(d => d.tags))];
+  const counts = { article: facets.filter(d => d.kind === 'article').length, book: facets.filter(d => d.kind === 'book').length };
 
   return (
     <>
       <Top crumbs={[{ label: tl('书架') }]} right={<>
-        <input className="input" placeholder={tl('筛选')} value={q} onChange={e => setQ(e.target.value)} style={{ width: 180 }} />
-        <select className="input" value={sort} onChange={e => setSort(e.target.value as typeof sort)} aria-label={tl('排序')}>
+        <input className="input" placeholder={tl('筛选')} value={q} onChange={e => filt(setQ, e.target.value)} style={{ width: 180 }} />
+        <select className="input" value={sort} onChange={e => filt(setSort, e.target.value as typeof sort)} aria-label={tl('排序')}>
           <option value="fit">{tl('在读的在前')}</option><option value="opened">{tl('最近打开')}</option><option value="added">{tl('最近导入')}</option><option value="progress">{tl('按进度')}</option><option value="minutes">{tl('按时长')}</option>
         </select>
         <button className="ibtn" title={grid ? tl('列表') : tl('网格')} onClick={() => setGrid(!grid)}>{grid ? <List /> : <LayoutGrid />}</button>
       </>} />
-      <div className="scroll"><div className="page">
+      <div className="scroll" ref={scroller}><div className="page">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
           <div className="seg">
-            {([['all', tl('全部')], ['article', tl('文章 {article}', { article: counts.article })], ['book', tl('书 {book}', { book: counts.book })]] as const).map(([k, l]) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{l}</button>)}
+            {([['all', tl('全部')], ['article', tl('文章 {article}', { article: counts.article })], ['book', tl('书 {book}', { book: counts.book })]] as const).map(([k, l]) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => filt(setKind, k)}>{l}</button>)}
           </div>
-          {tags.map(t => <button key={t} className={`chip${tag === t ? ' on' : ''}`} style={tag === t ? { background: 'var(--accent-wash)', color: 'var(--accent)', boxShadow: 'none' } : undefined} onClick={() => setTag(tag === t ? undefined : t)}>{t}</button>)}
-          {tag && <button className="linkbtn" onClick={() => setTag(undefined)}>{tl('清除')}</button>}
+          {tags.map(t => <button key={t} className={`chip${tag === t ? ' on' : ''}`} style={tag === t ? { background: 'var(--accent-wash)', color: 'var(--accent)', boxShadow: 'none' } : undefined} onClick={() => filt(setTag, tag === t ? undefined : t)}>{t}</button>)}
+          {tag && <button className="linkbtn" onClick={() => filt(setTag, undefined)}>{tl('清除')}</button>}
         </div>
         {items === undefined ? null : items.length === 0 ? <Empty image="empty-library" title={tl('书架还是空的')} text={tl('在首页粘贴网址或一段英文就能导入，也可以先读一篇示例。')} action={<Samples />} />
           : grid ? <div className="docs" style={{ marginTop: 16 }}>{items.map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} onTags={() => setEditing(d)} />)}</div>
@@ -95,6 +112,7 @@ export function Library() {
               <TagButton onClick={() => setEditing(d)} />
             </div>)}
           </div>}
+        {items && <Pager page={page} size={PAGE} total={total} onPage={turn} />}
       </div></div>
       {editing && <TagModal key={editing.id} d={editing} onClose={() => setEditing(undefined)} />}
     </>

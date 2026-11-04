@@ -259,13 +259,21 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .thread .process { font-size: 12.5px; color: var(--ink-3); margin-bottom: 6px; }
 .thread .process > summary { display: flex; align-items: center; gap: 6px; list-style: none; min-height: 28px; }
 .thread .process > summary::-webkit-details-marker { display: none; }
-.thread .process > summary::after { content: '›'; transition: transform .15s; }
-.thread .process[open] > summary::after { transform: rotate(90deg); }
+.thread .process .pi { display: inline-grid; place-items: center; width: 14px; flex: none; }
+.thread .process .chev { flex: none; transition: transform .2s; } .thread .process[open] > summary .chev { transform: rotate(180deg); }
+.thread .process .tl { position: relative; margin: 4px 0 2px; padding-left: 20px; display: grid; gap: 8px; } .thread .process .tl::before { content: ''; position: absolute; left: 6px; top: 6px; bottom: 6px; width: 1px; background: var(--line-2); }
+.thread .process .ti { position: relative; min-width: 0; } .thread .process .ti > .dot, .thread .process .ti > .mk { position: absolute; left: -20px; top: 2px; width: 13px; height: 13px; border-radius: 50%; display: grid; place-items: center; background: var(--bg); color: var(--ok); }
+.thread .process .ti > .dot::after { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3); }
+.thread .process .step.off .mk { color: var(--hard); } .thread .process .step.denied .mk { color: var(--ink-3); }
+.thread .process .thinktext { white-space: pre-wrap; line-height: 1.6; max-height: 220px; overflow: auto; }
+.thread .process .stepd > summary { list-style: none; } .thread .process .stepd > summary::-webkit-details-marker { display: none; } .thread .process .stepd .chev { display: none; }
+.thread .process .toolline { display: flex; gap: 8px; } .thread .process .sm { flex: 1; min-width: 0; color: var(--ink-2); } .thread .process .dur { font-variant-numeric: tabular-nums; }
+.thread .process .stepmore { margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: var(--fill); display: grid; gap: 4px; font-size: 12px; overflow-wrap: anywhere; } .thread .process .stepmore .k { margin-right: 8px; color: var(--ink-3); }
+.thread [data-streamdown="code-block-header"] { display: none; }
 .thread .process .pt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread .process .spin { flex: none; width: 11px; height: 11px; border: 2px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%; animation: tspin .8s linear infinite; }
 @keyframes tspin { to { transform: rotate(360deg); } }
 .ttsspin { animation: tspin .8s linear infinite; }
-.thread .process .toolline { margin: 4px 0 0 2px; }
 .thread .process .toolline.off, .thread .process.off > summary { color: var(--hard); }
 .thread .receipts { margin-top: 8px; font-size: 12.5px; color: var(--ink-2); display: flex; flex-direction: column; gap: 4px; }
 .thread .receipts .undone > span:first-child { text-decoration: line-through; color: var(--ink-3); }
@@ -276,6 +284,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .approve .h { font-weight: 600; font-size: 14.5px; } .approve .b { font-size: 13.5px; color: var(--ink-2); margin: 4px 0 10px; } .approve .acts { display: flex; gap: 8px; }
 .empty { text-align: center; padding: 60px 24px; color: var(--ink-3); font-size: 14px; } .empty b { display: block; color: var(--ink); font-size: 17px; margin-bottom: 6px; } .empty img { display: block; width: 160px; height: 160px; margin: 0 auto 10px; }
 .rd h2 { font-family: var(--f-read); font-size: 21px; margin: 26px 0 12px; } .rd pre { font-size: 12.5px; background: var(--sunken); padding: 12px; border-radius: 12px; overflow-x: auto; } .rd blockquote { margin: 0 0 18px; padding-left: 14px; box-shadow: inset 3px 0 0 var(--line-2); } .rd li { font-family: var(--f-read); font-size: 18px; line-height: 1.7; margin-left: 20px; }
+.rd ul { margin: 0 0 18px; padding: 0; list-style: disc; }
 .rd code { font-size: .85em; background: var(--sunken); padding: 1px 4px; border-radius: 4px; }
 .rd .tr { margin-top: -10px; }
 .rvbody .ihw { margin-bottom: 6px; }

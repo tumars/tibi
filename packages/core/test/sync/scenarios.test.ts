@@ -59,7 +59,7 @@ describe('同步场景（08 §11）', () => {
     }
     expect((await B.db.get<{ etag: string | null }>("SELECT etag FROM feeds WHERE url = 'https://ex.com/feed.xml'"))!.etag).toBeNull();
     // 内置源两边 ID 一样，不会多出来
-    expect(Number((await B.db.get<{ n: number }>('SELECT count(*) AS n FROM feeds WHERE builtin = 1'))!.n)).toBe(5);
+    expect(Number((await B.db.get<{ n: number }>('SELECT count(*) AS n FROM feeds WHERE builtin = 1 AND deleted_at IS NULL'))!.n)).toBe(3);
   });
 
   it('离线各改同一个词：不同字段都留下，同一字段后改的赢', async () => {

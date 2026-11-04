@@ -28,20 +28,22 @@ export const SectionView = memo(function SectionView({ content, mode, gloss, ove
     if (pos < sent.text.length) parts.push(gap(sent.text.slice(pos), pos));
     return <Fragment key={sent.id}><span data-sid={sent.id}>{parts}</span>{' '}</Fragment>;
   };
-  return (
-    <div className={`rd${gloss ? ' gloss' : ''}${mode === 'new' ? ' mode-new' : mode === 'clean' ? ' mode-clean' : ''}`}>
-      {content.blocks.map((b, i) => {
-        if (b.type === 'code') return <pre key={i} data-lang={b.lang}>{b.code}</pre>;
-        const sents = b.ids.map(id => byId.get(id)).filter((s): s is Sentence => !!s);
-        const kids = sents.map(renderSentence);
-        const tr = translations ? sents.map(s => s.translation).filter(Boolean).join(' ') : '';
-        const trEl = tr ? <div className="tr">{tr}</div> : null;
-        const bt = b.block_type ?? sents[0]?.block_type ?? 'prose';
-        if (bt === 'heading') return <Fragment key={i}><h2>{kids}</h2>{trEl}</Fragment>;
-        if (bt === 'quote') return <Fragment key={i}><blockquote className="quote">{kids}</blockquote>{trEl}</Fragment>;
-        if (bt === 'list_item') return <Fragment key={i}><li>{kids}</li>{trEl}</Fragment>;
-        return <Fragment key={i}><p data-para={b.paragraph_idx}>{kids}</p>{trEl}</Fragment>;
-      })}
-    </div>
-  );
+  // 相邻的列表项收进同一个 <ul>，项目符号和缩进才对得齐
+  const out: React.ReactNode[] = []; let items: React.ReactNode[] = [];
+  const flush = (key: number) => { if (items.length) { out.push(<ul key={`ul-${key}`}>{items}</ul>); items = []; } };
+  content.blocks.forEach((b, i) => {
+    const bt = b.type === 'code' ? 'code' : b.block_type ?? byId.get(b.ids[0]!)?.block_type ?? 'prose';
+    if (bt !== 'list_item') flush(i);
+    if (b.type === 'code') { out.push(<pre key={i} data-lang={b.lang}>{b.code}</pre>); return; }
+    const sents = b.ids.map(id => byId.get(id)).filter((s): s is Sentence => !!s);
+    const kids = sents.map(renderSentence);
+    const tr = translations ? sents.map(s => s.translation).filter(Boolean).join(' ') : '';
+    const trEl = tr ? <div className="tr">{tr}</div> : null;
+    if (bt === 'list_item') items.push(<li key={i}>{kids}{trEl}</li>);
+    else if (bt === 'heading') out.push(<Fragment key={i}><h2>{kids}</h2>{trEl}</Fragment>);
+    else if (bt === 'quote') out.push(<Fragment key={i}><blockquote className="quote">{kids}</blockquote>{trEl}</Fragment>);
+    else out.push(<Fragment key={i}><p data-para={b.paragraph_idx}>{kids}</p>{trEl}</Fragment>);
+  });
+  flush(content.blocks.length);
+  return <div className={`rd${gloss ? ' gloss' : ''}${mode === 'new' ? ' mode-new' : mode === 'clean' ? ' mode-clean' : ''}`}>{out}</div>;
 });

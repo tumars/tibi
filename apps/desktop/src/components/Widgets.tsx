@@ -215,8 +215,8 @@ function Widget({ b, state, update, fill, answer }: { b: WidgetBlock; state: unk
 }
 
 /** 一条回答的内容：文字和卡片按出现的顺序排 */
-export function Blocks({ blocks, states, update, fill, answer }: { blocks: MessageBlock[]; states: WidgetStates; update: Update; /** 把下一步建议放进输入框 */ fill?: Fill; /** 回答反问卡；不给就只读 */ answer?: Answer }) {
+export function Blocks({ blocks, states, update, fill, answer, streaming }: { blocks: MessageBlock[]; states: WidgetStates; update: Update; /** 把下一步建议放进输入框 */ fill?: Fill; /** 回答反问卡；不给就只读 */ answer?: Answer; /** 最后一段文字还在流式输出 */ streaming?: boolean }) {
   return <div className="wg-blocks">{blocks.map((b, i) => b.type === 'text'
-    ? <div key={i}><Markdown text={b.text} /></div>
+    ? <div key={i}><Markdown text={b.text} streaming={streaming && i === blocks.length - 1} /></div>
     : <Widget key={b.id} b={b} state={b.id in states ? states[b.id] : b.state} update={update} fill={fill} answer={answer} />)}</div>;
 }

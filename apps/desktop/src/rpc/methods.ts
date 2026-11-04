@@ -91,7 +91,7 @@ export interface MethodTable {
   'feeds.refresh': { params: { feed_ids?: Id[]; force?: boolean }; result: RefreshResult };
   'feeds.status': { params: Record<string, never>; result: { unread: number; refreshing: boolean; auto_refresh: boolean } };
   'feeds.configure': { params: { auto_refresh: boolean }; result: { auto_refresh: boolean } };
-  'feeds.items': { params: { feed_id?: Id; folder?: string; filter?: 'unread' | 'all' | 'saved'; cursor?: string; limit?: number }; result: { items: FeedItemView[]; next_cursor?: string } };
+  'feeds.items': { params: { feed_id?: Id; folder?: string; filter?: 'unread' | 'all' | 'saved'; cursor?: string; limit?: number; as_of?: number }; result: { items: FeedItemView[]; total: number; next_cursor?: string } };
   'feeds.mark': { params: { ids?: Id[]; feed_id?: Id; all?: boolean; state: 'seen' | 'dismissed' | 'new' }; result: { count: number; undo?: Undo } };
   'mcp.config': { params: Record<string, never>; result: { enabled: boolean; write_tools: string[]; tools: { name: string; description: string; write: boolean }[] } };
   'mcp.configure': { params: { enabled?: boolean; write_tools?: string[] }; result: Ok };

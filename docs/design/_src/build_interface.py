@@ -287,7 +287,7 @@ CAPS = [
     ('import_document', "{ source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] } }", "{ import_id: Id } | { document_id: Id; title: string; status: 'imported' } | { import_id: Id; status: 'still_running'; note: string }", 'confirm', '复合能力：主对话与 MCP 用，走导入流水线。技能里调用时等导入做完（最多 3 分钟）再返回'),
   ]),
   ('找文章', [
-    ('search_feeds', "{ interests?: string[]; genres?: Genre[]; since?: Ts; limit?: number }", "{ url: string; title: string; site: string; published_at?: Ts; excerpt: string; est_minutes: number; est_level?: string }[]", 'read', '从用户配置的文章来源与内置推荐源拉取候选；文本级别用摘要按词频粗估。M5：内置 Hacker News Best、Rust Blog、Go Blog、Quanta、Ars Technica，设置里可关掉或加自己的 RSS / Atom；一小时内用缓存；书架里已有的不再推荐'),
+    ('search_feeds', "{ interests?: string[]; genres?: Genre[]; since?: Ts; limit?: number }", "{ url: string; title: string; site: string; published_at?: Ts; excerpt: string; est_minutes: number; est_level?: string }[]", 'read', '从用户配置的文章来源与内置推荐源拉取候选；文本级别用摘要按词频粗估。M5：内置 Hacker News Best、News in Levels、The Conversation，设置里可关掉或加自己的 RSS / Atom；一小时内用缓存；书架里已有的不再推荐'),
     ('web_search', '{ q: string; limit?: number }', '{ url: string; title: string; snippet: string }[]', 'read', '用设置里选的服务：DeepSeek Search（默认，和模型共用 Key）或 Tavily（自己填 Key），也可关闭；用不了时返回 conflict，技能改用文章来源'),
   ]),
   ('词汇', [

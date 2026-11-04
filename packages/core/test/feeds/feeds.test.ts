@@ -60,6 +60,23 @@ describe('订阅：加、刷新、条件请求', () => {
     expect(await core.call('feeds.status', {})).toMatchObject({ unread: 2, auto_refresh: true });
   });
 
+  it('翻页带总数；带 as_of 时第一页之后才看过的仍按未读算，后面的页不错位', async () => {
+    const list = Array.from({ length: 5 }, (_, i) => ({ guid: `g${i}`, title: `Post ${i}`, link: `https://ex.com/${i}`, ago: i }));
+    const { core } = await setup(url => url === 'https://ex.com/feed.xml' ? { status: 200, final_url: url, content_type: 'application/rss+xml', body: rss(list) } : undefined);
+    await core.call('feeds.add', { url: 'https://ex.com/feed.xml' });
+    type P = { items: { id: string; title: string }[]; total: number };
+    const asOf = Date.now();
+    const p1 = await core.call<P>('feeds.items', { limit: 2 });
+    expect(p1).toMatchObject({ total: 5 });
+    expect(p1.items.map(i => i.title)).toEqual(['Post 0', 'Post 1']);
+    await core.call('feeds.mark', { ids: p1.items.map(i => i.id), state: 'seen' });
+    const p2 = await core.call<P>('feeds.items', { limit: 2, cursor: '2', as_of: asOf });
+    expect(p2).toMatchObject({ total: 5 });
+    expect(p2.items.map(i => i.title)).toEqual(['Post 2', 'Post 3']);
+    // 不带 as_of 就是现在的未读
+    expect(await core.call<P>('feeds.items', { limit: 2 })).toMatchObject({ total: 3 });
+  });
+
   it('坏掉的源退避，管理页能看到原因；成功后清零', async () => {
     let ok = false;
     const { core, db } = await setup(url => url === 'https://ex.com/feed.xml' ? (ok ? { status: 200, final_url: url, body: rss([{ guid: 'a', title: 'A', link: 'https://ex.com/a' }]) } : { status: 503, final_url: url }) : undefined);

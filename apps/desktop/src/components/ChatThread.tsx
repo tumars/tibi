@@ -1,5 +1,5 @@
 import type { Conversation } from '@tibi/core';
-import { ArrowDown, ArrowUp, Copy, Pencil, RotateCcw, Square } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Copy, Pencil, RotateCcw, Square } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Markdown } from '../lib/md';
@@ -32,6 +32,14 @@ async function openLink(url: string) {
   await openUrl(url).catch(err => toast(String(err), { kind: 'err' }));
 }
 const queues = new Map<string, Queued[]>();
+
+/** 复制一条回答：图标变成对勾一会儿，不弹提示 */
+function CopyButton({ text }: { text: string }) {
+  const [done, setDone] = useState(false);
+  useEffect(() => { if (!done) return; const t = setTimeout(() => setDone(false), 1500); return () => clearTimeout(t); }, [done]);
+  const label = done ? tl('已复制') : tl('复制');
+  return <button aria-label={label} title={label} className={done ? 'ok' : ''} onClick={() => void navigator.clipboard.writeText(text).then(() => setDone(true), () => toast(tl('没能复制'), { kind: 'err' }))}>{done ? <Check size={13} /> : <Copy size={13} />}</button>;
+}
 
 export function ChatThread({ conversationId, skill, context, pending, placeholder = tl('继续问 Tibi…'), empty, back, onConv }: {
   conversationId: string; skill?: string; context?: ChatContext; pending?: Pending; placeholder?: string; empty?: React.ReactNode;
@@ -166,8 +174,8 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
           {cursor && <button className="linkbtn loadolder" onClick={older}>{tl('加载更早的消息')}</button>}
           {visible.map((m, i) => m.role === 'user'
             ? <div key={m.id} className={`msg u${editing === m.id ? ' editing' : ''}`}>{m.text}{m.attachment && <div className="msgatt">{m.attachment}</div>}{m.turn_id && m.turn_id !== m.id && visible.slice(0, i).some(p => p.role === 'user' && p.turn_id === m.turn_id) && <div className="msgatt">{tl('回答中补充的')}</div>}{!running && !m.id.startsWith('local-') && <button className="msgedit" aria-label={tl('改这句')} title={tl('改这句')} onClick={() => { setEditing(m.id); fill(m.text ?? ''); }}><Pencil size={12} /></button>}</div>
-            : <div key={m.id} className="msg a"><ProcessCard steps={m.steps ?? []} thinking={m.thinking} thinkMs={m.think_ms} />{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} fill={fill} answer={answer} /> : m.text && <Markdown text={m.text} />}{m.receipts && <Receipts items={m.receipts} undo={id => void undoReceipt(m.id, id)} />}{m.interrupted && <div className="chaterr">{m.interrupted.reason === 'cancel' ? tl('已停止') : m.interrupted.message || tl('出错了')}{m.interrupted.message && modelError(m.interrupted.message) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{i === visible.length - 1 && !running && m.turn_id && <> · <button className="linkbtn" onClick={() => void retry(m.turn_id!)}>{tl('重试')}</button></>}</div>}<div className="prov-line"><span>Tibi</span>{m.skill && <> · <span>{m.skill}</span></>}{m.text && <span className={`msgacts${speaking?.key === `msg:${m.id}` ? ' on' : ''}`}>
-              <button aria-label={tl('复制')} title={tl('复制')} onClick={() => void navigator.clipboard.writeText(m.text!).then(() => toast(tl('已复制')), () => toast(tl('没能复制'), { kind: 'err' }))}><Copy size={13} /></button>
+            : <div key={m.id} className="msg a"><ProcessCard steps={m.steps ?? []} thinking={m.thinking} thinkMs={m.think_ms} />{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} fill={fill} answer={answer} /> : m.text && <Markdown text={m.text} />}{m.receipts && <Receipts items={m.receipts} undo={id => void undoReceipt(m.id, id)} />}{m.interrupted && <div className="chaterr">{m.interrupted.reason === 'cancel' ? tl('已停止') : m.interrupted.message || tl('出错了')}{m.interrupted.message && modelError(m.interrupted.message) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{i === visible.length - 1 && !running && m.turn_id && <> · <button className="linkbtn" onClick={() => void retry(m.turn_id!)}>{tl('重试')}</button></>}</div>}<div className="prov-line"><span>Tibi</span>{m.skill && <> · <span>{m.skill}</span></>}{m.text && <span className={`msgacts${speaking?.key === `msg:${m.id}` || (i === visible.length - 1 && !running && !live.length) ? ' on' : ''}`}>
+              <CopyButton text={m.text} />
               <SpeakButtons text={m.text} id={`msg:${m.id}`} size={13} />
               {i === visible.length - 1 && !running && !m.interrupted && <button aria-label={tl('重新回答')} title={tl('重新回答')} onClick={() => void regenerate(i)}><RotateCcw size={13} /></button>}
             </span>}</div></div>)}
@@ -179,7 +187,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
               return <>
                 <ProcessCard live={!l.done} waiting={waiting} thinking={l.thinking} thinkMs={l.think_ms} thinkStart={l.think_start}
                   steps={l.tools.map(t => ({ ...t, summary: t.summary.replace(/^Tibi 正在/, ''), status: t.status ?? 'ok', done: t.done || l.done }))} />
-                {l.blocks.length > 0 && <Blocks blocks={l.blocks} states={widgetStates} update={updateWidget} answer={answer} />}
+                {l.blocks.length > 0 && <Blocks blocks={l.blocks} states={widgetStates} update={updateWidget} answer={answer} streaming={!l.done} />}
                 {/* 过程卡已经在转圈、或停在审批上时，不再叠一个"正在想" */}
                 {!l.resumed && !l.error && !l.done && !waiting && !busy && l.blocks[l.blocks.length - 1]?.type !== 'text' && <span className="typing" aria-label={tl('Tibi 正在想')}><i /><i /><i /></span>}
               </>;

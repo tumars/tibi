@@ -1,7 +1,7 @@
 /**
  * ?mock=1：内存假数据，页面不依赖 Core 也能渲染（截图、样式调试）。只覆盖界面用到的方法。
  */
-import type { AnswerResult, Document, DocumentSummary, QueueItem, ReviewSession, SectionContent, Sentence, Status, Term, Token } from '@tibi/core';
+import type { AnswerResult, BlockType, Document, DocumentSummary, QueueItem, ReviewSession, SectionContent, Sentence, Status, Term, Token } from '@tibi/core';
 import type { Transport } from './rpc/client';
 
 const WORDS: Record<string, [Status, string, string]> = { distinctive: [3, '独特的', 'dɪˈstɪŋktɪv'], upshot: [0, '最终结果', 'ˈʌpʃɒt'], overhead: [2, '开销', 'ˈəʊvəhed'], reclaimed: [0, '回收', 'rɪˈkleɪm'], deterministically: [0, '确定性地', 'dɪˌtɜːmɪˈnɪstɪkli'], binding: [97, '绑定', 'ˈbaɪndɪŋ'], enforces: [1, '强制执行', 'ɪnˈfɔːs'], verifies: [3, '验证', 'ˈverɪfaɪ'], outlives: [0, '比…存在更久', 'ˌaʊtˈlɪv'], notoriously: [0, '出了名地', 'nəʊˈtɔːriəsli'], borrow: [1, '借用', 'ˈbɒrəʊ'] };
@@ -14,17 +14,29 @@ const CODE = 'fn main() {\n    let s = String::from("hello");\n    takes(s);\n  
 const now = Date.now();
 let sid = 0;
 const sentences: Sentence[] = []; const blocks: SectionContent['blocks'] = [];
-PARAS.forEach((p, pi) => {
+const push = (texts: string[], bt: BlockType, pi: number) => {
   const ids: string[] = [];
-  for (const text of p) {
+  for (const text of texts) {
     const id = `s${++sid}`; ids.push(id);
-    const tokens: Token[] = []; const re = /[A-Za-z][A-Za-z'’-]*/g; let m: RegExpExecArray | null;
-    while ((m = re.exec(text))) { const l = m[0].toLowerCase(); const w = WORDS[l]; tokens.push({ t: m[0], l, s: m.index, e: m.index + m[0].length, status: w ? w[0] : (l.length > 7 ? 5 : undefined) }); }
-    sentences.push({ id, idx: sid, paragraph_idx: pi, block_type: 'prose', text, tokens, translation: pi === 0 ? '所有权是 Rust 区别于其他系统语言的特性。' : undefined });
+    const tokens: Token[] = []; const re = /`[^`]+`|[A-Za-z][A-Za-z'’-]*/g; let m: RegExpExecArray | null;
+    while ((m = re.exec(text))) { if (m[0].startsWith('`')) continue; const l = m[0].toLowerCase(); const w = WORDS[l]; tokens.push({ t: m[0], l, s: m.index, e: m.index + m[0].length, status: w ? w[0] : (l.length > 7 ? 5 : undefined) }); }
+    sentences.push({ id, idx: sid, paragraph_idx: pi, block_type: bt, text, tokens, translation: pi === 0 ? '所有权是 Rust 区别于其他系统语言的特性。' : undefined });
   }
-  blocks.push({ type: 'sentences', ids, block_type: 'prose', paragraph_idx: pi });
-  if (pi === 1) blocks.push({ type: 'code', lang: 'rust', code: CODE });
-});
+  blocks.push({ type: 'sentences', ids, block_type: bt, paragraph_idx: pi });
+};
+// 各种块都有一点：标题、列表、引用、行内代码，样式调试时能看全
+let pi = 0;
+push(PARAS[0]!, 'prose', pi++);
+push(['Moves and scope'], 'heading', pi++);
+push(PARAS[1]!, 'prose', pi++);
+blocks.push({ type: 'code', lang: 'rust', code: CODE });
+push(['The rules fit in three lines:'], 'prose', pi++);
+push(['Each value in Rust has an owner.'], 'list_item', pi++);
+push(['There can only be one owner at a time.'], 'list_item', pi++);
+push(['When the owner goes out of scope, the value will be dropped.'], 'list_item', pi++);
+push(['Borrowing'], 'heading', pi++);
+push([...PARAS[2]!, 'A reference is written as `&s`, and a mutable one as `&mut s`.'], 'prose', pi++);
+push(['At any given time, you can have either one mutable reference or any number of immutable references.'], 'quote', pi++);
 const DOCS: DocumentSummary[] = [
   { id: 'd1', kind: 'article', genre: 'tech', title: 'Understanding Ownership in Rust', source: 'blog.rust-lang.org', source_type: 'url', source_url: 'https://blog.rust-lang.org/ownership', tags: ['Rust', '内存管理'], minutes: 4, level: 'B2', progress: 0.45, status: 'ready', shelved: true, ai_status: 'done', excerpt: 'Ownership is the feature that makes Rust distinctive among systems languages.', added_at: now - 86400000 * 2, opened_at: now - 3600000 },
   { id: 'd2', kind: 'book', genre: 'lit', title: 'Pride and Prejudice', author: 'Jane Austen', source: 'pride-and-prejudice.epub', source_type: 'file', tags: ['经典小说'], minutes: 12, level: 'C1', progress: 0.08, book: { chapter: 1, chapters: 61, chapter_progress: 0.6 }, status: 'ready', shelved: true, ai_status: 'none', excerpt: 'It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.', added_at: now - 86400000 * 5, opened_at: now - 86400000 },
@@ -40,23 +52,25 @@ const QUEUE: QueueItem[] = [
   { step: 3, card_id: 'c4', term: term('notoriously', 3), card_type: 'choice', is_new: true, intro: true, retry: 0, self_rated: false, context: { id: 'x4', sentence: PARAS[2]![1]!, answer: ['adv. 出了名地'], translation: '', source: 'dictionary' } },
 ];
 const FEEDS = [
-  { id: 'builtin-quanta', url: 'https://www.quantamagazine.org/feed/', title: 'Quanta Magazine', builtin: true, enabled: true, folder: '科普', last_ok_at: now - 1800000, error_count: 0 },
-  { id: 'builtin-rust', url: 'https://blog.rust-lang.org/feed.xml', title: 'Rust Blog', builtin: true, enabled: true, folder: '科技', last_ok_at: now - 3600000, error_count: 0 },
+  { id: 'f2', url: 'https://www.quantamagazine.org/feed/', title: 'Quanta Magazine', builtin: false, enabled: true, folder: '科普', last_ok_at: now - 1800000, error_count: 0 },
+  { id: 'f3', url: 'https://blog.rust-lang.org/feed.xml', title: 'Rust Blog', builtin: false, enabled: true, folder: '科技', last_ok_at: now - 3600000, error_count: 0 },
   { id: 'f1', url: 'https://jvns.ca/atom.xml', title: 'Julia Evans', builtin: false, enabled: true, folder: '科技', error: '打不开（503）', error_count: 2 },
 ];
 const FEED_ITEMS: { id: string; feed_id: string; feed_title: string; url: string; title: string; published_at: number; excerpt: string; est_level?: string; est_minutes: number; state: 'new' | 'seen' | 'saved' | 'dismissed'; document_id?: string }[] = [
-  { id: 'fi1', feed_id: 'builtin-quanta', feed_title: 'Quanta Magazine', url: 'https://www.quantamagazine.org/sky/', title: 'Why the Sky Is Blue, Revisited', published_at: now - 2 * 3600000, excerpt: 'Physicists have long explained the color of the sky with Rayleigh scattering. A new measurement adds a twist.', est_level: 'B2', est_minutes: 9, state: 'new' },
-  { id: 'fi2', feed_id: 'builtin-rust', feed_title: 'Rust Blog', url: 'https://blog.rust-lang.org/2026/11/01/Rust-1.90.html', title: 'Announcing Rust 1.90', published_at: now - 26 * 3600000, excerpt: 'The Rust team is happy to announce a new version of Rust, 1.90. Rust is a programming language empowering everyone to build reliable and efficient software.', est_level: 'B1', est_minutes: 5, state: 'new' },
-  { id: 'fi3', feed_id: 'builtin-rust', feed_title: 'Rust Blog', url: 'https://blog.rust-lang.org/ownership', title: 'Understanding Ownership in Rust', published_at: now - 3 * 86400000, excerpt: 'Ownership is the feature that makes Rust distinctive among systems languages.', est_level: 'B2', est_minutes: 4, state: 'saved', document_id: 'd1' },
+  { id: 'fi1', feed_id: 'f2', feed_title: 'Quanta Magazine', url: 'https://www.quantamagazine.org/sky/', title: 'Why the Sky Is Blue, Revisited', published_at: now - 2 * 3600000, excerpt: 'Physicists have long explained the color of the sky with Rayleigh scattering. A new measurement adds a twist.', est_level: 'B2', est_minutes: 9, state: 'new' },
+  { id: 'fi2', feed_id: 'f3', feed_title: 'Rust Blog', url: 'https://blog.rust-lang.org/2026/11/01/Rust-1.90.html', title: 'Announcing Rust 1.90', published_at: now - 26 * 3600000, excerpt: 'The Rust team is happy to announce a new version of Rust, 1.90. Rust is a programming language empowering everyone to build reliable and efficient software.', est_level: 'B1', est_minutes: 5, state: 'new' },
+  { id: 'fi3', feed_id: 'f3', feed_title: 'Rust Blog', url: 'https://blog.rust-lang.org/ownership', title: 'Understanding Ownership in Rust', published_at: now - 3 * 86400000, excerpt: 'Ownership is the feature that makes Rust distinctive among systems languages.', est_level: 'B2', est_minutes: 4, state: 'saved', document_id: 'd1' },
 ];
 let session: ReviewSession ={ session_id: 'rs1', kind: 'review', graded: true, steps: QUEUE, cursor: 0, resumed: false, started_at: now, forecast: [] };
+
+const pageOf = <T,>(items: T[], p: { cursor?: string; limit?: number }) => { const o = Number(p.cursor ?? 0) || 0; return { items: items.slice(o, o + (p.limit ?? 50)), total: items.length }; };
 
 export function mockTransport(): Transport {
   const listeners = new Set<(e: string, d: unknown) => void>();
   const emit = (e: string, d: unknown) => { for (const l of listeners) l(e, d); };
   const handlers: Record<string, (p: any) => unknown> = {
     'system.status': () => ({ version: '0.1.0-mock', db_path: '~/Library/Application Support/Tibi/app.db', offline: false, models: { fast: 'deepseek-flash', ok: true } }),
-    'documents.list': (p) => { let items = DOCS.filter(d => !p.kind || d.kind === p.kind).filter(d => !p.tags?.length || p.tags.every((t: string) => d.tags.includes(t))).filter(d => !p.q || d.title.toLowerCase().includes(String(p.q).toLowerCase())); if (p.sort === 'opened') items = [...items].sort((a, b) => (b.opened_at ?? 0) - (a.opened_at ?? 0)); return { items, total: items.length }; },
+    'documents.list': (p) => { let items = DOCS.filter(d => !p.kind || d.kind === p.kind).filter(d => !p.tags?.length || p.tags.every((t: string) => d.tags.includes(t))).filter(d => !p.q || d.title.toLowerCase().includes(String(p.q).toLowerCase())); if (p.sort === 'opened') items = [...items].sort((a, b) => (b.opened_at ?? 0) - (a.opened_at ?? 0)); return pageOf(items, p); },
     'documents.get': (p) => { const d = DOCS.find(x => x.id === p.id); if (!d) throw Object.assign(new Error('找不到这篇文章'), { code: 'not_found' }); return { ...d, sections: [{ id: `${d.id}-1`, idx: 0, title: '', status: 'ready', progress: d.progress, word_count: 180 }] } as Document; },
     'documents.update': (p) => { const d = DOCS.find(x => x.id === p.id)!; Object.assign(d, p.patch); emit('data.changed', { table: 'documents', ids: [p.id] }); return d; },
     'documents.import': (p) => { const id = `i${Date.now()}`; const title = p.source.url ?? '粘贴的文字'; setTimeout(() => emit('import.progress', { import_id: id, title, label: '抓取网页', origin: 'user' }), 300); setTimeout(() => emit('import.done', { import_id: id, title, origin: 'user', ok: true, document_id: 'd1', summary: '已放进书架', action: { label: '开始阅读', route: '/read/d1' } }), 1500); return { import_id: id }; },
@@ -90,7 +104,7 @@ export function mockTransport(): Transport {
     'system.undo': () => ({ ok: true }), 'system.registerPaths': () => ({ ok: true }),
     'feeds.list': () => FEEDS.map(f => ({ ...f, unread: FEED_ITEMS.filter(i => i.feed_id === f.id && i.state === 'new').length })),
     'feeds.status': () => ({ unread: FEED_ITEMS.filter(i => i.state === 'new').length, refreshing: false, auto_refresh: true }),
-    'feeds.items': (p) => ({ items: FEED_ITEMS.filter(i => (!p.feed_id || i.feed_id === p.feed_id) && (p.filter === 'all' ? i.state !== 'dismissed' : p.filter === 'saved' ? i.state === 'saved' : i.state === 'new')) }),
+    'feeds.items': (p) => pageOf(FEED_ITEMS.filter(i => (!p.feed_id || i.feed_id === p.feed_id) && (p.filter === 'all' ? i.state !== 'dismissed' : p.filter === 'saved' ? i.state === 'saved' : i.state === 'new')), p),
     'feeds.mark': (p) => { for (const i of FEED_ITEMS) if (p.ids?.includes(i.id) || p.all || p.feed_id === i.feed_id) i.state = p.state; emit('data.changed', { table: 'feed_items' }); return { count: 1, ...(p.state === 'dismissed' ? { undo: { undo_id: 'u6', expires_at: now + 600000 } } : {}) }; },
     'feeds.refresh': () => ({ feeds: FEEDS.length, not_modified: 1, new_items: 0, failed: 0 }),
     'feeds.discover': (p) => [{ url: `${String(p.url).replace(/\/$/, '')}/feed.xml`, title: 'Example Blog', latest: { title: 'A post about compilers', published_at: now - 86400000 } }],

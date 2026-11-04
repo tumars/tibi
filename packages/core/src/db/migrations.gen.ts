@@ -41,5 +41,10 @@ export const MIGRATIONS: Migration[] = [
     "version": 8,
     "name": "shelved",
     "sql": "-- 0008：从订阅里点\"读\"的文章用同一个阅读器打开，但不进书架（11 §5.2）。\n-- shelved = 0 的文章照常有章节、句子、语境和总结，只是书架和书架计数里不显示；在阅读器里点「加入书架」或用别的方式再导入一次就变成 1。\nALTER TABLE documents ADD COLUMN shelved INTEGER NOT NULL DEFAULT 1;\n"
+  },
+  {
+    "version": 9,
+    "name": "builtin_feeds",
+    "sql": "-- 0009：内置源换成更通用的：留 Hacker News，加 News in Levels（同一条新闻分三档难度）和 The Conversation（学者写的科普 / 时评，带全文）。\n-- 原来的 Rust Blog、Go Blog、Quanta、Ars Technica 和用户在订阅里删源一样软删，删除会同步到别的设备；条目跟着源一起不再显示，已导入书架的文章不受影响。\nUPDATE feeds SET deleted_at = CAST(strftime('%s', 'now') AS INTEGER) * 1000, updated_at = CAST(strftime('%s', 'now') AS INTEGER) * 1000\nWHERE id IN ('builtin-rust', 'builtin-go', 'builtin-quanta', 'builtin-ars') AND deleted_at IS NULL;\n\n-- 新内置源用固定 ID，两台设备种出来的是同一条；用户已经自己订了同一个地址的就不再种\nINSERT INTO feeds(id, url, title, title_custom, builtin, enabled, folder, created_at, updated_at)\nSELECT b.id, b.url, b.title, 1, 1, 1, b.folder, CAST(strftime('%s', 'now') AS INTEGER) * 1000, CAST(strftime('%s', 'now') AS INTEGER) * 1000\nFROM (\n  SELECT 'builtin-nil' AS id, 'https://www.newsinlevels.com/feed/' AS url, 'News in Levels' AS title, '新闻' AS folder\n  UNION ALL SELECT 'builtin-conversation', 'https://theconversation.com/global/articles.atom', 'The Conversation', '科普'\n) b\nWHERE NOT EXISTS (SELECT 1 FROM feeds f WHERE f.id = b.id OR (f.url = b.url AND f.deleted_at IS NULL));\n"
   }
 ];

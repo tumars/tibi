@@ -33,17 +33,22 @@ function toItem(r: ItemRow): FeedItemView {
   };
 }
 
-async function listItems(ctx: Ctx, p: { feed_id?: string; folder?: string; filter?: 'unread' | 'all' | 'saved'; cursor?: string; limit?: number }) {
+/** as_of：翻页时按第一页那一刻的样子算——之后才进来的条目不算，之后才看过的仍算未读，免得往后翻时错位 */
+async function listItems(ctx: Ctx, p: { feed_id?: string; folder?: string; filter?: 'unread' | 'all' | 'saved'; cursor?: string; limit?: number; as_of?: number }) {
   const where = ['i.deleted_at IS NULL'];
   const args: (string | number)[] = [];
   if (p.feed_id) { where.push('i.feed_id = ?'); args.push(p.feed_id); }
   else where.push('f.enabled = 1');
   if (p.folder) { where.push('f.folder = ?'); args.push(p.folder); }
   const filter = p.filter ?? 'unread';
-  where.push(filter === 'unread' ? "i.state = 'new'" : filter === 'saved' ? 'd.shelved = 1' : "i.state != 'dismissed'");
+  if (p.as_of) { where.push('i.created_at <= ?'); args.push(p.as_of); }
+  if (filter === 'unread' && p.as_of) { where.push("(i.state = 'new' OR (i.state != 'dismissed' AND i.seen_at >= ?))"); args.push(p.as_of); }
+  else where.push(filter === 'unread' ? "i.state = 'new'" : filter === 'saved' ? 'd.shelved = 1' : "i.state != 'dismissed'");
   const limit = p.limit ?? 30; const offset = Number(p.cursor ?? 0) || 0;
   const rows = await ctx.db.all<ItemRow>(`${ITEM_SELECT} WHERE ${where.join(' AND ')} ORDER BY COALESCE(i.published_at, i.created_at) DESC, i.id DESC LIMIT ? OFFSET ?`, [...args, limit + 1, offset]);
-  return { items: rows.slice(0, limit).map(toItem), ...(rows.length > limit ? { next_cursor: String(offset + limit) } : {}) };
+  // 总数给翻页用
+  const count = await ctx.db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM (${ITEM_SELECT} WHERE ${where.join(' AND ')})`, args);
+  return { items: rows.slice(0, limit).map(toItem), total: Number(count?.n ?? 0), ...(rows.length > limit ? { next_cursor: String(offset + limit) } : {}) };
 }
 
 async function addFeed(ctx: Ctx, p: { url: string; title?: string; folder?: string }): Promise<FeedView> {
@@ -170,7 +175,7 @@ export const feedsMethods: MethodMap = {
     await ctx.db.run('INSERT INTO settings(key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at', [AUTO_KEY, j.str(p.auto_refresh), now()]);
     return { auto_refresh: p.auto_refresh };
   }, '自动刷新订阅（本机设置）'),
-  'feeds.items': method(Type.Object({ feed_id: Type.Optional(Type.String()), folder: Type.Optional(Type.String()), filter: Type.Optional(Type.Union([Type.Literal('unread'), Type.Literal('all'), Type.Literal('saved')])), cursor: Type.Optional(Type.String()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })) }), async (p, ctx) => listItems(ctx, p), '条目列表，按发布时间倒序'),
+  'feeds.items': method(Type.Object({ feed_id: Type.Optional(Type.String()), folder: Type.Optional(Type.String()), filter: Type.Optional(Type.Union([Type.Literal('unread'), Type.Literal('all'), Type.Literal('saved')])), cursor: Type.Optional(Type.String()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })), as_of: Type.Optional(Type.Integer()) }), async (p, ctx) => listItems(ctx, p), '条目列表，按发布时间倒序'),
   'feeds.mark': method(Type.Object({ ids: Type.Optional(Type.Array(Type.String())), feed_id: Type.Optional(Type.String()), all: Type.Optional(Type.Boolean()), state: Type.Union([Type.Literal('seen'), Type.Literal('dismissed'), Type.Literal('new')]) }), async (p, ctx) => markItems(ctx, p), '标已读 / 不感兴趣（可撤销）/ 改回未读'),
 };
 

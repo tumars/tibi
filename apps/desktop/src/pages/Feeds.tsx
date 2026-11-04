@@ -1,9 +1,10 @@
 import type { FeedCandidate, FeedItemView, FeedView } from '@tibi/core';
-import { ArrowLeft, Check, ExternalLink, Plus, RefreshCw, Settings2, X } from 'lucide-react';
+import { ArrowLeft, BookmarkCheck, BookmarkPlus, Check, ExternalLink, Plus, RefreshCw, Settings2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate, useSearchParams } from 'react-router';
 import { Empty } from '../components/Empty';
 import { Modal } from '../components/Modal';
+import { Pager } from '../components/Pager';
 import { Top } from '../components/Shell';
 import { Switch } from '../components/Switch';
 import { tl } from '../lib/i18n';
@@ -16,6 +17,7 @@ import { toast } from '../store/ui';
  * 滚过去的标为已读（攒一秒发一次），"不感兴趣"可撤销。列表不跟着已读自动刷新，免得滚动时跳。
  */
 type Filter = 'unread' | 'all' | 'saved';
+const PAGE = 30;
 
 export function Feeds() {
   const nav = useNavigate();
@@ -24,7 +26,13 @@ export function Feeds() {
   const [filter, setFilter] = useState<Filter>('unread');
   const [feeds, setFeeds] = useState<FeedView[]>([]);
   const [items, setItems] = useState<FeedItemView[]>();
-  const [cursor, setCursor] = useState<string>();
+  const [count, setCount] = useState(0);
+  // 换源、换筛选回到第一页
+  const key = `${feedId}|${folder}|${filter}`;
+  const [pg, setPg] = useState({ key, n: 0 });
+  const page = pg.key === key ? pg.n : 0;
+  const scroller = useRef<HTMLDivElement>(null);
+  const asOf = useRef(0);   // 第一页拿到的时刻；往后翻都按这一刻算，滚过去标了已读也不错位
   const [refreshing, setRefreshing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState<Record<string, string>>({});   // 条目 → 导入进度
@@ -32,10 +40,20 @@ export function Feeds() {
 
   const loadFeeds = useCallback(() => rpc.call('feeds.list', {}).then(setFeeds, () => setFeeds([])), []);
   const loadItems = useCallback(async () => {
-    try { const r = await rpc.call('feeds.items', { feed_id: feedId, folder, filter, limit: 30 }); setItems(r.items); setCursor(r.next_cursor); } catch { setItems([]); setCursor(undefined); }
-  }, [feedId, folder, filter]);
+    try {
+      if (!page) asOf.current = Date.now();
+      const r = await rpc.call('feeds.items', { feed_id: feedId, folder, filter, ...(page ? { cursor: String(page * PAGE), as_of: asOf.current } : {}), limit: PAGE });
+      // 这一页清空了（都标已读、都不感兴趣）就往前翻
+      if (r.items.length === 0 && page > 0) { setPg({ key, n: Math.max(0, Math.ceil(r.total / PAGE) - 1) }); return; }
+      // 旧版 core 不给 total：按有没有下一页估，至少能往后翻
+      setItems(r.items); setCount(r.total ?? page * PAGE + r.items.length + (r.next_cursor ? 1 : 0));
+    } catch { setItems([]); setCount(0); }
+  }, [feedId, folder, filter, page, key]);
   useEffect(() => { void loadFeeds(); }, [loadFeeds]);
   useEffect(() => { void loadItems(); }, [loadItems]);
+  const turn = (n: number) => { setPg({ key, n }); scroller.current?.scrollTo({ top: 0 }); };
+  /** 刷新、全部已读之后从第一页重新看 */
+  const restart = async () => { if (page) turn(0); else await loadItems(); };
   // 源的未读数跟着变；条目列表只在空着的时候自动刷新
   useEffect(() => rpc.on('data.changed', d => {
     if (d.table !== 'feeds' && d.table !== 'feed_items') return;
@@ -57,7 +75,7 @@ export function Feeds() {
     return () => { off1(); off2(); };
   }, [nav]);
 
-  // 读：同一个阅读器打开，但不进书架（11 §5.2）；稍后读：放进书架，不跳转
+  // 读：同一个阅读器打开，但不进书架（11 §5.2）；加入书架：放进书架，不跳转
   const read = async (it: FeedItemView, open: boolean) => {
     if (it.document_id && open) { nav(`/read/${it.document_id}`); return; }
     if (it.document_id) { await shelve(it); return; }
@@ -86,23 +104,18 @@ export function Feeds() {
   };
   const refresh = async () => {
     setRefreshing(true);
-    try { const r = await rpc.call('feeds.refresh', { feed_ids: feedId ? [feedId] : undefined, force: true }); await loadItems(); if (r.failed) toast(tl('{n} 个源没刷新成功，在管理里看原因', { n: r.failed })); }
+    try { const r = await rpc.call('feeds.refresh', { feed_ids: feedId ? [feedId] : undefined, force: true }); await restart(); if (r.failed) toast(tl('{n} 个源没刷新成功，在管理里看原因', { n: r.failed })); }
     catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
     setRefreshing(false);
   };
   const markAll = async () => {
-    try { await rpc.call('feeds.mark', feedId ? { feed_id: feedId, state: 'seen' } : { all: true, state: 'seen' }); await loadItems(); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  };
-  const more = async () => {
-    if (!cursor) return;
-    try { const r = await rpc.call('feeds.items', { feed_id: feedId, folder, filter, cursor, limit: 30 }); setItems(cur => [...(cur ?? []), ...r.items]); setCursor(r.next_cursor); } catch { setCursor(undefined); }
+    try { await rpc.call('feeds.mark', feedId ? { feed_id: feedId, state: 'seen' } : { all: true, state: 'seen' }); await restart(); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
   // 滚过去（整张卡片从列表上边出去）的未读条目标为已读；卡片被移走（换筛选、离开页面）不算
   const seenQueue = useRef(new Set<string>());
   const flush = useRef<ReturnType<typeof setTimeout>>(undefined);
   const observer = useRef<IntersectionObserver>(undefined);
-  const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
     observer.current = new IntersectionObserver(entries => {
       for (const e of entries) {
@@ -152,8 +165,8 @@ export function Feeds() {
             {enabled.filter(f => !f.folder).map(f => <FeedLink key={f.id} f={f} cur={feedId === f.id} onClick={() => go({ feed: f.id })} />)}
           </div>}
           <div className="feedacts">
-            <button className="btn sm" onClick={() => setAdding(true)}><Plus />{tl('加订阅')}</button>
-            <NavLink className="btn sm" to="/feeds/manage"><Settings2 />{tl('管理')}</NavLink>
+            <button onClick={() => setAdding(true)}><Plus />{tl('加订阅')}</button>
+            <NavLink to="/feeds/manage"><Settings2 />{tl('管理订阅')}</NavLink>
           </div>
         </aside>
         <div className="scroll" ref={scroller}><div className="page feedlist">
@@ -163,33 +176,28 @@ export function Feeds() {
               ? <Empty image="empty-library" title={tl('还没有订阅')} text={tl('订阅喜欢的英文博客和杂志，新文章会自动出现在这里。')} action={<button className="btn pri" onClick={() => setAdding(true)}>{tl('加订阅')}</button>} />
               : <Empty image="empty-library" title={filter === 'unread' ? tl('都看过了') : filter === 'saved' ? tl('还没有保存的文章') : tl('这里还没有文章')} text={filter === 'unread' ? tl('新文章来了会出现在这里。也可以看看「全部」。') : undefined} action={filter === 'unread' ? <button className="btn" onClick={() => setFilter('all')}>{tl('看全部')}</button> : undefined} />)
             : <>
-              {items.map(it => <article key={it.id} data-id={it.id} ref={el => watch(el, it)} className={`fitem${it.state === 'new' ? ' unread' : ''}`}>
+              {/* 整张卡片点开就读；收进书架、不感兴趣、原网页放在右下角，悬停才亮 */}
+              {items.map(it => <article key={it.id} data-id={it.id} ref={el => watch(el, it)} className={`fitem${it.state === 'new' ? ' unread' : ''}${busy[it.id] ? ' busy' : ''}`} onClick={() => void read(it, true)}>
                 <div className="m">
                   <span className="src">{it.feed_title}</span>
                   {it.published_at && <><span>·</span><span>{fmtAgo(it.published_at)}</span></>}
                   {it.author && <><span>·</span><span className="au">{it.author}</span></>}
                 </div>
-                <button className="t" onClick={() => void read(it, true)}>{it.title}</button>
+                <button className="t" onClick={e => { e.stopPropagation(); void read(it, true); }}>{it.title}</button>
                 {it.excerpt && <p className="ex">{it.excerpt}</p>}
-                <div className="f">
-                  {it.est_level && <span className="lv" title={tl('按词频估的文本级别')}>{tl('难度约 {level}', { level: it.est_level })}</span>}
-                  <span className="lbl">{fmtMinutes(it.est_minutes)}</span>
+                <div className="f" onClick={e => e.stopPropagation()}>
+                  {it.est_level && <span className="lv" title={tl('按词频估的文本级别')}>{it.est_level}</span>}
+                  <span>{fmtMinutes(it.est_minutes)}</span>
+                  {it.in_library && <span className="tag"><BookmarkCheck />{tl('在书架里')}</span>}
                   <span className="sp" />
-                  {busy[it.id] ? <span className="lbl busy">{busy[it.id]}</span>
-                    : it.document_id && it.in_library ? <button className="btn sm" onClick={() => nav(`/read/${it.document_id}`)}>{tl('在书架里')}</button>
-                    : it.document_id ? <>
-                      <button className="btn sm" onClick={() => nav(`/read/${it.document_id}`)}>{tl('接着读')}</button>
-                      <button className="btn sm" onClick={() => void shelve(it)}>{tl('加入书架')}</button>
-                    </>
-                    : <>
-                      <button className="btn sm pri" onClick={() => void read(it, true)}>{tl('读')}</button>
-                      <button className="btn sm" onClick={() => void read(it, false)}>{tl('稍后读')}</button>
-                      <button className="ibtn" title={tl('不感兴趣')} aria-label={tl('不感兴趣')} onClick={() => void dismiss(it)}><X /></button>
-                    </>}
-                  <OpenLink url={it.comments_url ?? it.url} title={it.comments_url ? tl('看讨论') : tl('在浏览器里打开')} />
+                  {busy[it.id] ? <span className="busy">{busy[it.id]}</span> : <span className="acts">
+                    {!it.in_library && <button className="ibtn" title={tl('加入书架')} aria-label={tl('加入书架')} onClick={() => void read(it, false)}><BookmarkPlus /></button>}
+                    {!it.document_id && <button className="ibtn" title={tl('不感兴趣')} aria-label={tl('不感兴趣')} onClick={() => void dismiss(it)}><X /></button>}
+                    <OpenLink url={it.comments_url ?? it.url} title={it.comments_url ? tl('看讨论') : tl('在浏览器里打开')} />
+                  </span>}
                 </div>
               </article>)}
-              {cursor && <div className="more"><button className="btn" onClick={() => void more()}>{tl('更多')}</button></div>}
+              <Pager page={page} size={PAGE} total={count} onPage={turn} />
             </>}
         </div></div>
       </div>
