@@ -1,4 +1,5 @@
 import { j, now, type Database } from '../../db/driver.js';
+import type { Dict } from '../../dict/types.js';
 import type { Ctx } from '../../rpc/define.js';
 import { TibiError, type AiResult, type SectionBlock, type Sentence, type SectionContent, type Status, type Token } from '../../types.js';
 import { recordUndo, registerUndo } from '../shared/undo.js';
@@ -18,7 +19,7 @@ async function sentenceMeanings(db: Database, section_id: string): Promise<Map<s
 }
 
 /** sections.get：阅读器一次取齐——句子、tokens、词状态、短语、计数（06 §3） */
-export async function sectionContent(db: Database, section_id: string, opts: { translations?: boolean; ai?: boolean } = {}): Promise<SectionContent> {
+export async function sectionContent(db: Database, section_id: string, opts: { translations?: boolean; ai?: boolean; dict?: Dict } = {}): Promise<SectionContent> {
   const sec = await getSection(db, section_id);
   if (!sec || sec.deleted_at) throw new TibiError('not_found', '找不到这一章');
   const rows = await listSentences(db, section_id);
@@ -31,6 +32,12 @@ export async function sectionContent(db: Database, section_id: string, opts: { t
   const phraseMap = new Map<string, { id: string; text: string; sentence_ids: string[] }>();
   for (const p of phraseRows) { const e = phraseMap.get(p.id) ?? { id: p.id, text: p.text, sentence_ids: [] }; e.sentence_ids.push(p.sentence_id); phraseMap.set(p.id, e); }
   const inContext = await sentenceMeanings(db, section_id);
+  // 行没存短释义（旧数据、标过已知 / 忽略又标回来的词）：当场查词典补上，不然高亮了却没有行间释义
+  const dictGloss = new Map<string, string | undefined>();
+  if (opts.dict) for (const term of terms.values()) {
+    if (term.deleted_at || term.status < 0 || term.status > 4 || shortGloss(term.meaning) || term.short_gloss) continue;
+    dictGloss.set(term.text, shortGloss((await opts.dict.lookup(term.text))?.translation));
+  }
   const sentences: Sentence[] = rows.map(r => {
     const tokens = j.parse<Token[]>(r.tokens, []).map(t => {
       const term = terms.get(t.l);
@@ -39,7 +46,7 @@ export async function sectionContent(db: Database, section_id: string, opts: { t
       if (term && !term.deleted_at && ((term.status >= 0 && term.status <= 4) || term.status === 98)) {
         out.status = term.status as Status;
         // 行间释义：这句里的语境义 > 用户写的释义 > 词典短释义
-        const gloss = term.status === 98 ? undefined : shortGloss(inContext.get(r.id)?.[t.l]) || shortGloss(term.meaning) || term.short_gloss;
+        const gloss = term.status === 98 ? undefined : shortGloss(inContext.get(r.id)?.[t.l]) || shortGloss(term.meaning) || term.short_gloss || dictGloss.get(term.text);
         if (gloss) out.gloss = gloss;
         if (!seenCount.has(term.id)) { seenCount.add(term.id); if (term.status === 0) counts.new++; else if (term.status <= 4) counts.learning++; }
       }

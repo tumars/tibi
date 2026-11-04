@@ -11,6 +11,7 @@ import { countWords, segmentMarkdown, splitSentences, type Segmented } from '../
 import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, upsertForm } from '../terms/repo.js';
 import { getSample, sampleUri, writeSampleAi } from './samples.js';
 import { analyzeDocument } from './analyze.js';
+import { linkImported } from '../feeds/repo.js';
 import { background } from './imports.js';
 import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSentence, listSections, listSentences, setDocumentTags, TOKENIZER_VERSION, WPM } from './repo.js';
 
@@ -219,7 +220,19 @@ async function markDeferred(db: Database, document_id: string) {
   await db.run("UPDATE sections SET ai_status = 'deferred', updated_at = ? WHERE document_id = ? AND ai_status IN ('none', 'running')", [t, document_id]);
 }
 
-export async function runImport(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<{ summary: string; action: { label: string; route: string }; document_id: string; duplicate: boolean; title: string; level?: string; minutes: number }> {
+type ImportResult = { summary: string; action: { label: string; route: string }; document_id: string; duplicate: boolean; title: string; level?: string; minutes: number };
+
+export async function runImport(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<ImportResult> {
+  const r = await importOnce(job, ctx, input);
+  // 订阅里的同一篇（请求的链接或重定向后的链接）记成"在书架里"（11 §5.2）
+  if (input.source.type === 'url') {
+    const doc = await getDocument(ctx.db, r.document_id);
+    if (await linkImported(ctx.db, [input.source.url, doc?.source_uri], r.document_id)) ctx.events.emit('data.changed', { table: 'feed_items' });
+  }
+  return r;
+}
+
+async function importOnce(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<ImportResult> {
   job.progress('取正文');
   const fetched = await fetchStep(job, ctx, input);
   const seg = segmentMarkdown(fetched.markdown, { kind: input.hints?.kind ?? fetched.kind ?? 'article', title: fetched.title });

@@ -105,16 +105,20 @@ export function glossSummary(translation: string | undefined | null): string | u
 
 /** 简短释义（2–6 字，行间释义用）：取词典首义去掉词性与分号后面的部分 */
 export function shortGloss(translation: string | undefined | null): string | undefined {
-  const line = firstLine(translation); if (!line) return undefined;
-  // 括号里的补充说明先去掉，不然 8 字一截只剩半句："词法单元（token）" → "词法单元"
-  return line.replace(/^[a-z]+\.\s*/i, '').replace(/[（(][^）)]*[）)]/g, '').split(/[;，,；、]/)[0]!.trim().slice(0, 8) || undefined;
+  // 首行去掉词性、领域标签和括号后可能是空的（"n. (Monday)"），就往下一行找
+  for (const line of translation?.split('\n') ?? []) {
+    // 括号里的补充说明先去掉，不然 8 字一截只剩半句："词法单元（token）" → "词法单元"
+    const g = line.trim().replace(/^[a-z]+\.\s*/i, '').replace(/^\[[^\]]*\]\s*/, '').replace(/[（(][^）)]*[）)]/g, '').split(/[;，,；、]/)[0]!.trim().slice(0, 8);
+    if (g) return g;
+  }
+  return undefined;
 }
 
 export async function termDetail(db: Database, dict: Dict, r: TermRow): Promise<TermDetail> {
   const base = await toTerm(db, dict, r);
   const entry = r.kind === 'word' ? await dict.lookup(r.text) : undefined;
-  const ctxRows = await db.all<{ id: string; source: 'article' | 'dictionary' | 'manual'; document_id: string | null; sentence_id: string | null; text: string | null; surface: string | null; meaning_in_context: string | null; is_primary: number; sentence_text: string | null; tokens: string | null; document_title: string | null }>(
-    `SELECT tc.id, tc.source, tc.document_id, tc.sentence_id, tc.text, tc.surface, tc.meaning_in_context, tc.is_primary, s.text AS sentence_text, s.tokens, d.title AS document_title
+  const ctxRows = await db.all<{ id: string; source: 'article' | 'dictionary' | 'manual'; document_id: string | null; sentence_id: string | null; text: string | null; surface: string | null; meaning_in_context: string | null; is_primary: number; is_favorite: number; sentence_text: string | null; tokens: string | null; document_title: string | null }>(
+    `SELECT tc.id, tc.source, tc.document_id, tc.sentence_id, tc.text, tc.surface, tc.meaning_in_context, tc.is_primary, tc.is_favorite, s.text AS sentence_text, s.tokens, d.title AS document_title
      FROM term_contexts tc LEFT JOIN sentences s ON s.id = tc.sentence_id LEFT JOIN documents d ON d.id = tc.document_id WHERE tc.term_id = ? AND tc.deleted_at IS NULL ORDER BY tc.created_at`, [r.id]);
   // i+1：句子里其它词都认识的排前面（Migaku）
   const contexts: TermContext[] = [];
@@ -127,7 +131,7 @@ export async function termDetail(db: Database, dict: Dict, r: TermRow): Promise<
       const rows = await db.all<{ text: string; status: number }>(`SELECT text, status FROM terms WHERE kind = 'word' AND deleted_at IS NULL AND text IN (${lemmas.map(() => '?').join(',')})`, lemmas);
       unknown_others = rows.filter(x => x.status === 0 || x.status === 1).length;
     }
-    contexts.push({ id: c.id, source: c.source, document_id: c.document_id ?? undefined, document_title: c.document_title ?? undefined, sentence_id: c.sentence_id ?? undefined, sentence: c.sentence_text ?? c.text ?? '', surface: c.surface ?? undefined, meaning_in_context: c.meaning_in_context ?? undefined, is_primary: !!c.is_primary, unknown_others });
+    contexts.push({ id: c.id, source: c.source, document_id: c.document_id ?? undefined, document_title: c.document_title ?? undefined, sentence_id: c.sentence_id ?? undefined, sentence: c.sentence_text ?? c.text ?? '', surface: c.surface ?? undefined, meaning_in_context: c.meaning_in_context ?? undefined, is_primary: !!c.is_primary, is_favorite: !!c.is_favorite, unknown_others });
   }
   contexts.sort((a, b) => a.unknown_others - b.unknown_others || (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0));
   const cardRow = await db.get<{ id: string; state: number; due: number; stability: number; difficulty: number; reps: number; lapses: number; suspended: number; forced_type: string | null }>('SELECT id, state, due, stability, difficulty, reps, lapses, suspended, forced_type FROM cards WHERE term_id = ? AND deleted_at IS NULL', [r.id]);

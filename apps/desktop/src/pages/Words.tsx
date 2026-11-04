@@ -1,14 +1,16 @@
-import type { Status, Term, TermDetail } from '@tibi/core';
-import { X } from 'lucide-react';
+import type { Status, Term, TermContext, TermDetail } from '@tibi/core';
+import { Star, X } from 'lucide-react';
 import { SpeakButtons } from '../components/Speak';
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Empty } from '../components/Empty';
 import { Menu } from '../components/Menu';
 import { Top } from '../components/Shell';
+import '../components/dict.css';
+import { EXAM_NAMES, INFLECTION_NAMES, parseGloss } from '../lib/dict';
 import { pickFile, saveText } from '../lib/files';
 import { fmtAgo, STATUS_NAMES } from '../lib/util';
-import { errorInfo, rpc, type Params } from '../rpc';
+import { errorInfo, rpc, type Params, type Result } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
 
@@ -53,10 +55,41 @@ export function Words() {
   // 全局搜索打开某个词：/words?term=<id>
   const termParam = params.get('term');
   useEffect(() => { if (termParam) rpc.call('terms.get', { id: termParam }).then(setDetail, () => undefined); }, [termParam]);
+  // 详情配上词典：音标、释义、考试标签、词形；自己写的释义排在前面
+  const nav = useNavigate();
+  const [dict, setDict] = useState<Result<'dict.entry'>>();
+  const dictWord = detail?.text;
+  useEffect(() => {
+    setDict(undefined); if (!dictWord) return;
+    let alive = true;
+    rpc.call('dict.entry', { word: dictWord }).then(r => { if (alive) setDict(r); }, () => undefined);
+    return () => { alive = false; };
+  }, [dictWord]);
+  const toDict = (w: string) => nav(`/dict?w=${encodeURIComponent(w)}`);
   const open = async (t: Term) => { try { setDetail(await rpc.call('terms.get', { id: t.id })); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
   const setStatus = async (id: string, s: Status) => {
     try { await rpc.call('terms.setStatus', { ids: [id], status: s, source: 'user' }); setDetail(d => d && d.id === id ? { ...d, status: s } : d); void load(); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
+  const favorite = async (c: TermContext) => {
+    try { await rpc.call('terms.favoriteContext', { id: c.id, favorite: !c.is_favorite }); setDetail(d => d && { ...d, contexts: d.contexts.map(x => x.id === c.id ? { ...x, is_favorite: !c.is_favorite } : x) }); }
+    catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+  };
+  const entry = dict?.entry;
+  const ipa = entry?.phonetic?.replace(/^\/|\/$/g, '') || detail?.ipa;
+  // 自己的释义已经包含词典的每一行（从词典抄来的，或只是少了词性）就不再重复
+  const lines = parseGloss(entry?.translation ?? '');
+  const gloss = detail?.meaning && lines.every(l => detail.meaning!.includes(l.text)) ? [] : lines;
+  const favs = detail?.contexts.filter(c => c.is_favorite) ?? [];
+  const seen = detail?.contexts.filter(c => !c.is_favorite) ?? [];
+  const ctxRow = (c: TermContext) => <div key={c.id} style={{ display: 'flex', gap: 8, padding: '8px 0', boxShadow: '0 1px 0 var(--line)' }}>
+    <div style={{ flex: 1, fontFamily: 'var(--f-read)', fontSize: 15, lineHeight: 1.6 }}>
+      {c.sentence}
+      <div className="lbl" style={{ fontFamily: 'var(--f-ui)' }}>{c.document_title ?? (c.source === 'dictionary' ? tl('词典例句') : tl('手动添加'))}{c.unknown_others === 0 ? tl(' · 复习卡用这句') : c.unknown_others > 0 ? tl(' · 还有 {unknown_others} 个生词', { unknown_others: c.unknown_others }) : ''}</div>
+    </div>
+    <button className="ibtn" onClick={() => void favorite(c)} aria-label={c.is_favorite ? tl('取消收藏') : tl('收藏这句')} title={c.is_favorite ? tl('取消收藏') : tl('收藏这句')} aria-pressed={c.is_favorite}>
+      <Star size={16} fill={c.is_favorite ? 'currentColor' : 'none'} style={c.is_favorite ? { color: 'var(--accent)' } : undefined} />
+    </button>
+  </div>;
 
   return (
     <>
@@ -99,25 +132,35 @@ export function Words() {
         <div className="drawer" role="dialog" aria-label={detail.display}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
             <b style={{ fontFamily: 'var(--f-read)', fontSize: 26 }}>{detail.display}</b>
-            {detail.ipa && <span className="lbl" style={{ fontFamily: 'var(--f-read)', fontStyle: 'italic', fontSize: 14 }}>/{detail.ipa}/</span>}
+            {ipa && <span className="lbl" style={{ fontFamily: 'var(--f-read)', fontStyle: 'italic', fontSize: 14 }}>/{ipa}/</span>}
             <SpeakButtons text={detail.display} size={16} />
             <span className="sp" />
             <button className="ibtn" onClick={() => setDetail(undefined)} aria-label={tl('关闭')}><X /></button>
           </div>
-          <div style={{ marginTop: 6, color: 'var(--ink-2)' }}>{detail.meaning}</div>
+          {entry && (entry.collins || entry.oxford || entry.exam.length > 0) ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+            {entry.collins ? <span className="tagc" title={tl('柯林斯星级')}>{'★'.repeat(entry.collins)}</span> : null}
+            {entry.oxford && <span className="tagc">{tl('牛津 3000')}</span>}
+            {entry.exam.map(x => <span key={x} className="tagc">{EXAM_NAMES[x] ?? x}</span>)}
+          </div> : null}
+          {detail.meaning && <div style={{ marginTop: 8, color: 'var(--ink)' }}>{detail.meaning}</div>}
           {detail.en && <div className="lbl" style={{ marginTop: 4 }}>{detail.en}</div>}
+          {gloss.length > 0 && <div className="dx-gloss" style={{ marginTop: 8, fontSize: 14, color: detail.meaning ? 'var(--ink-2)' : undefined }}>{gloss.map((l, i) => <div key={i}>{l.tag && <em>{l.tag}</em>}<span>{l.text}</span></div>)}</div>}
+          {dict && !entry && !detail.meaning && <div className="lbl" style={{ marginTop: 8 }}>{dict.available ? tl('词典里没有这个词') : tl('没有装词典')}</div>}
+          {entry?.inflections && entry.inflections.length > 0 && <div className="dx-forms" style={{ marginTop: 10 }}>{entry.inflections.map(f => <button key={f.type + f.form} onClick={() => toDict(f.form)}><i>{INFLECTION_NAMES[f.type] ?? f.type}</i>{f.form}</button>)}</div>}
           <div className="lbl" style={{ marginTop: 10 }}>{tl('熟练度')}</div>
           <div className="seg" style={{ marginTop: 6, flexWrap: 'wrap' }}>{([0, 1, 2, 3, 4, 5] as Status[]).map(s => <button key={s} className={detail.status === s ? 'on' : ''} onClick={() => setStatus(detail.id, s)}>{STATUS_NAMES[s]}</button>)}</div>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <button className="btn sm" onClick={() => setStatus(detail.id, 97)}>{tl('标为已知')}</button>
             <button className="btn sm" onClick={() => setStatus(detail.id, 98)}>{tl('忽略')}</button>
+            <button className="btn sm" onClick={() => toDict(detail.text)}>{tl('在词典里看')}</button>
             {detail.lapses >= 3 && <span className="tagc" style={{ color: 'var(--hard)' }}>{tl('难词 · 忘了 {lapses} 次', { lapses: detail.lapses })}</span>}
           </div>
-          <div className="lbl" style={{ marginTop: 16 }}>{tl('遇到过的句子 {length}', { length: detail.contexts.length })}</div>
-          {detail.contexts.map(c => <div key={c.id} style={{ padding: '8px 0', boxShadow: '0 1px 0 var(--line)', fontFamily: 'var(--f-read)', fontSize: 15, lineHeight: 1.6 }}>
-            {c.sentence}
-            <div className="lbl" style={{ fontFamily: 'var(--f-ui)' }}>{c.document_title ?? (c.source === 'dictionary' ? tl('词典例句') : tl('手动添加'))}{c.unknown_others === 0 ? tl(' · 复习卡用这句') : c.unknown_others > 0 ? tl(' · 还有 {unknown_others} 个生词', { unknown_others: c.unknown_others }) : ''}</div>
-          </div>)}
+          {favs.length > 0 && <>
+            <div className="lbl" style={{ marginTop: 16 }}>{tl('收藏的句子 {length}', { length: favs.length })}</div>
+            {favs.map(ctxRow)}
+          </>}
+          <div className="lbl" style={{ marginTop: 16 }}>{tl('遇到过的句子 {length}', { length: seen.length })}<span style={{ marginLeft: 6 }}>{tl('· 只留最近 {n} 句，收藏的一直留着', { n: 10 })}</span></div>
+          {seen.map(ctxRow)}
           {detail.card && <div className="lbl" style={{ marginTop: 14 }}>{tl('复习 {reps} 次 · 忘了 {lapses} 次 · 下次 {due} · 记得率 {ret}', { reps: detail.card.reps, lapses: detail.card.lapses, due: dueLabel(detail.card.due), ret: detail.retention ? Math.round(detail.retention * 100) + '%' : '—' })}</div>}
           {detail.history.length > 0 && <div className="lbl" style={{ marginTop: 10 }}>{detail.history.slice(0, 5).map((h, i) => <div key={i}>{fmtAgo(h.at)} → {STATUS_NAMES[h.status]}</div>)}</div>}
         </div>

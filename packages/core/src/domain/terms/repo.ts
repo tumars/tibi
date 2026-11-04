@@ -73,7 +73,28 @@ export async function insertContext(db: Database, c: NewContext): Promise<string
     'INSERT INTO term_contexts(id, term_id, source, document_id, sentence_id, text, surface, meaning_in_context, is_primary, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
     [id, c.term_id, c.source ?? 'article', c.document_id ?? null, c.sentence_id ?? null, c.text ?? null, c.surface ?? null, c.meaning_in_context ?? null, c.is_primary ? 1 : 0, ts, ts],
   );
+  await pruneContexts(db, c.term_id, ts);
   return id;
+}
+
+/** 没收藏的句子每个词最多留几句（最近的；复习卡用的主句总留着） */
+export const MAX_CONTEXTS = 10;
+
+async function pruneContexts(db: Database, term_id: string, ts: number) {
+  const primary = await db.get<{ n: number }>('SELECT count(*) AS n FROM term_contexts WHERE term_id = ? AND is_primary = 1 AND is_favorite = 0 AND deleted_at IS NULL', [term_id]);
+  const extra = await db.all<{ id: string }>(
+    'SELECT id FROM term_contexts WHERE term_id = ? AND deleted_at IS NULL AND is_favorite = 0 AND is_primary = 0 ORDER BY created_at DESC, rowid DESC LIMIT -1 OFFSET ?',
+    [term_id, MAX_CONTEXTS - Number(primary?.n ?? 0)],
+  );
+  if (extra.length) await db.run(`UPDATE term_contexts SET deleted_at = ?, updated_at = ? WHERE id IN (${extra.map(() => '?').join(',')})`, [ts, ts, ...extra.map(r => r.id)]);
+}
+
+/** 收藏 / 取消收藏一句；取消的句子不马上删，下次遇到新句子时再按上限清 */
+export async function setContextFavorite(db: Database, id: string, favorite: boolean): Promise<string | undefined> {
+  const row = await db.get<{ term_id: string }>('SELECT term_id FROM term_contexts WHERE id = ? AND deleted_at IS NULL', [id]);
+  if (!row) return undefined;
+  await db.run('UPDATE term_contexts SET is_favorite = ?, updated_at = ? WHERE id = ?', [favorite ? 1 : 0, now(), id]);
+  return row.term_id;
 }
 
 export async function hasPrimaryContext(db: Database, term_id: string): Promise<boolean> {

@@ -43,6 +43,24 @@ describe('同步场景（08 §11）', () => {
     expect(await B.db.get("SELECT rowid FROM sections_fts WHERE sections_fts MATCH 'parser'")).toBeTruthy();
   });
 
+  it('订阅：两台设备各订了同一个源，合并成一条；抓取状态不同步', async () => {
+    const files = new Map<string, Uint8Array>();
+    const A = await device('A', files), B = await device('B', files);
+    await A.eng.enable({ device_name: 'A' }); await B.eng.enable({ device_name: 'B' });
+    const t = Date.now();
+    await A.db.run("INSERT INTO feeds(id, url, title, etag, created_at, updated_at) VALUES ('fa', 'https://ex.com/feed.xml', 'Ex', 'etag-a', ?, ?)", [t, t]);
+    await B.db.run("INSERT INTO feeds(id, url, title, folder, created_at, updated_at) VALUES ('fb', 'https://ex.com/feed.xml', 'Ex', '科技', ?, ?)", [t, t]);
+    await A.eng.sync(); await B.eng.sync(); await A.eng.sync();
+    for (const d of [A, B]) {
+      const rows = await d.db.all<{ id: string; folder: string | null }>("SELECT id, folder FROM feeds WHERE url = 'https://ex.com/feed.xml' AND deleted_at IS NULL");
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.folder).toBe('科技');
+    }
+    expect((await B.db.get<{ etag: string | null }>("SELECT etag FROM feeds WHERE url = 'https://ex.com/feed.xml'"))!.etag).toBeNull();
+    // 内置源两边 ID 一样，不会多出来
+    expect(Number((await B.db.get<{ n: number }>('SELECT count(*) AS n FROM feeds WHERE builtin = 1'))!.n)).toBe(5);
+  });
+
   it('离线各改同一个词：不同字段都留下，同一字段后改的赢', async () => {
     const files = new Map<string, Uint8Array>();
     const A = await device('A', files), B = await device('B', files);

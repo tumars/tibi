@@ -19,15 +19,15 @@ describe('migrations', () => {
   it('内存库建表并记录版本', async () => {
     const db = await openAppDb(':memory:');
     const v = await db.get<{ user_version: number }>('PRAGMA user_version');
-    expect(v?.user_version).toBe(5);
+    expect(v?.user_version).toBe(7);
     const tables = (await db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%_fts%'")).map(r => r.name).sort();
-    for (const t of ['documents', 'sections', 'sentences', 'terms', 'cards', 'review_logs', 'conversations', 'messages', 'skill_audit', 'memories', 'learning_events']) {
+    for (const t of ['documents', 'sections', 'sentences', 'terms', 'cards', 'review_logs', 'conversations', 'messages', 'skill_audit', 'memories', 'learning_events', 'feeds', 'feed_items']) {
       expect(tables).toContain(t);
     }
     for (const t of ['jobs', 'job_steps', 'usage_records']) expect(tables).not.toContain(t);
     // 再跑一次是幂等的
     const r = await migrate(db, []);
-    expect(r).toEqual({ from: 5, to: 5 });
+    expect(r).toEqual({ from: 7, to: 7 });
     await db.close();
   });
 
@@ -60,6 +60,18 @@ describe('migrations', () => {
     expect(JSON.parse(rows[2]!.ui).turn).toBeUndefined();   // 回答中补充的那句不带
     expect(JSON.parse(rows[3]!.ui).turn).toMatchObject({ skill: 'tibi', state: 'error', error: '上次没有回答完就中断了' });
     expect((await db.all<{ key: string }>('SELECT key FROM settings')).map(r => r.key)).toEqual(['tts.rate']);
+    await db.close();
+  });
+  it('0007：订阅从 settings.feeds 搬进 feeds 表，关掉的内置源仍关着', async () => {
+    const db = new Database(await BetterSqliteDriver.open(':memory:'));
+    await migrate(db, MIGRATIONS.filter(m => m.version <= 6));
+    const cfg = { custom: [{ url: 'https://ex.com/feed.xml', title: 'Ex' }, { url: 'https://noname.org/rss', title: '' }, { url: 'ftp://bad' }], disabled: ['https://hnrss.org/best', 'https://noname.org/rss'] };
+    await db.run("INSERT INTO settings(key, value, updated_at) VALUES ('feeds', ?, 0)", [JSON.stringify(cfg)]);
+    await migrate(db, MIGRATIONS);
+    const rows = await db.all<{ id: string; url: string; title: string; builtin: number; enabled: number }>('SELECT id, url, title, builtin, enabled FROM feeds ORDER BY builtin DESC, id, url');
+    expect(rows.filter(r => r.builtin).map(r => [r.id, r.enabled])).toEqual([['builtin-ars', 1], ['builtin-go', 1], ['builtin-hn', 0], ['builtin-quanta', 1], ['builtin-rust', 1]]);
+    expect(rows.filter(r => !r.builtin).sort((a, b) => a.url.localeCompare(b.url)).map(r => [r.url, r.title, r.enabled])).toEqual([['https://ex.com/feed.xml', 'Ex', 1], ['https://noname.org/rss', 'https://noname.org/rss', 0]]);
+    expect(await db.get("SELECT 1 FROM settings WHERE key = 'feeds'")).toBeUndefined();
     await db.close();
   });
 });

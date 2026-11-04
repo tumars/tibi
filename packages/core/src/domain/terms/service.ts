@@ -138,6 +138,9 @@ export async function addWords(ctx: Ctx, entries: { text: string; meaning?: stri
       } else {
         await setTermStatus(tx, term, term.status >= 0 && term.status <= 4 ? (term.status as Status) : 0, 'user', { in_wordbook: true });
         if (e.meaning) await tx.run('UPDATE terms SET meaning = ?, updated_at = ? WHERE id = ?', [e.meaning, now(), term.id]);
+        // 旧行可能没存短释义（标过已知 / 忽略的词），补上，行间释义要用
+        const sg = term.short_gloss ? undefined : shortGloss(entry?.translation);
+        if (sg) await tx.run('UPDATE terms SET short_gloss = ?, updated_at = ? WHERE id = ?', [sg, now(), term.id]);
         term = (await getTerm(tx, term.id))!;
       }
       if (e.sentence_id) {

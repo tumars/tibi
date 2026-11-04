@@ -61,6 +61,12 @@ describe('terms.lookup（R5）', () => {
     expect(await ctx.db.get("SELECT c.id FROM cards c JOIN terms t ON t.id = c.term_id WHERE t.text = 'reclaim'")).toBeTruthy();
     const sec = await core.call<SectionContent>('sections.get', { id: section.id });
     expect(sec.counts).toEqual({ new: 1, learning: 0 });
+    // 阅读器收到 terms 变化后重取这一章：刚标的词带上行间释义
+    expect(sec.sentences.flatMap(s => s.tokens).find(t => t.t === 'reclaimed')).toMatchObject({ status: 0, gloss: 'reclaim义' });
+    // 行里没存短释义的旧词（高亮了）：取章节时查词典补上
+    await markNew('upshot');
+    const old = await core.call<SectionContent>('sections.get', { id: section.id });
+    expect(old.sentences.flatMap(s => s.tokens).find(t => t.t === 'upshot')).toMatchObject({ status: 0, gloss: 'upshot义' });
     const b = await core.call<{ term: Term; undo: { undo_id: string } }>('terms.mark', { text: 'Slowly', status: 97 });
     expect(b.term).toMatchObject({ text: 'slowly', status: 97 });
     expect(await ctx.db.get("SELECT c.id FROM cards c JOIN terms t ON t.id = c.term_id WHERE t.text = 'slowly'")).toBeUndefined();

@@ -31,4 +31,5 @@ metadata:
 - 书架和读过的文章：list_documents、search_documents。
 - 复习概况、学习统计：get_review_stats、get_learning_stats。练几道题：create_quiz。
 - 改设置：先 get_config 看能改什么，再 set_config；Tibi 不能改的（API Key、服务商、权限模式、MCP 等）用 open_settings 把用户带过去。
-- 管理文章、记忆、生词本、文章来源、技能或备份：update_document、delete_documents、update_memory、forget、remove_terms、list_feeds、manage_feed、configure_skill、create_backup。批量删除前先 create_backup，并说清要删什么。
+- 管理文章、记忆、生词本、订阅、技能或备份：update_document、delete_documents、update_memory、forget、remove_terms、list_feeds、manage_feed、configure_skill、create_backup。批量删除前先 create_backup，并说清要删什么。
+- 用户想订阅某个网站：manage_feed 的 add 直接给网站地址就行，Tibi 会自己找订阅地址；返回 status 是 choose 时，用 ask_user 让用户从 candidates 里选一个，再用选中的地址 add。删和开关用 list_feeds 里的 id。

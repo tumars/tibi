@@ -21,6 +21,7 @@ export const REFS: Record<string, { t: string; col: string }[]> = {
   terms: [{ t: 'cards', col: 'term_id' }, { t: 'term_contexts', col: 'term_id' }, { t: 'term_forms', col: 'term_id' }, { t: 'term_status_log', col: 'term_id' }],
   documents: [{ t: 'sections', col: 'document_id' }, { t: 'document_tags', col: 'document_id' }, { t: 'term_contexts', col: 'document_id' }, { t: 'term_status_log', col: 'document_id' }, { t: 'practice_logs', col: 'document_id' }, { t: 'reading_sessions', col: 'document_id' }, { t: 'thread_links', col: 'document_id' }],
   tags: [{ t: 'document_tags', col: 'tag_id' }],
+  feeds: [{ t: 'feed_items', col: 'feed_id' }],
   conversations: [{ t: 'messages', col: 'conversation_id' }, { t: 'thread_links', col: 'conversation_id' }],
   cards: [{ t: 'review_logs', col: 'card_id' }],
 };
@@ -30,9 +31,11 @@ const CARD_SCHEDULE = ['due', 'stability', 'stability_fast', 'difficulty', 'elap
 /** 顺序就是推送和初始导出的顺序：被引用的表在前 */
 export const TABLES: TableSpec[] = [
   { t: 'user_profile', kind: 'put', pk: ['id'] },
-  { t: 'settings', kind: 'put', pk: ['key'], localGlobs: ['tts.*', 'mcp.*', 'backup.*', 'sync.*', 'onboarding.*', 'reminder.*'] },   // 深浅色在 localStorage，不在库里
+  { t: 'settings', kind: 'put', pk: ['key'], localGlobs: ['tts.*', 'mcp.*', 'backup.*', 'sync.*', 'onboarding.*', 'reminder.*', 'feeds.*'] },   // 深浅色在 localStorage，不在库里
   { t: 'skills', kind: 'put', pk: ['id'] },
   { t: 'tags', kind: 'put', pk: ['id'], natural: { cols: ['name'], where: 'deleted_at IS NULL' } },
+  // 订阅列表同步；抓取状态各设备自己的。条目（feed_items）P2 再同步（11 §3.3）
+  { t: 'feeds', kind: 'put', pk: ['id'], exclude: ['etag', 'last_modified', 'ttl_minutes', 'last_fetched_at', 'last_ok_at', 'error', 'error_count', 'next_fetch_at'], natural: { cols: ['url'], where: 'deleted_at IS NULL' } },
   { t: 'documents', kind: 'put', pk: ['id'], exclude: ['original_path', 'cover_path'], natural: { cols: ['content_hash'], where: 'deleted_at IS NULL' } },
   { t: 'sections', kind: 'put', pk: ['id'] },
   { t: 'sentences', kind: 'put', pk: ['id'] },

@@ -6,8 +6,8 @@ import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
 
 /**
- * 设置 → 通用 → 语音（00 §3.7）。能读的地方都有系统朗读和 AI 朗读两个按钮，这里定：
- * 默认用哪个（自动播放、快捷键、全文朗读开始时）、两边各自的音色（可试听）、默认语速。AI 朗读是本地 Kokoro，约 92 MB。
+ * 设置 → 通用 → 语音（00 §3.7）。能读的地方都有系统朗读和 AI 朗读两个按钮，所以两边各占一行：音色、试听（AI 没下载时换成下载）；
+ * 另起一行选默认用哪个（快捷键、自动播放、全文朗读开始时），最后是默认语速。AI 朗读是本地 Kokoro，约 92 MB。
  */
 const SAMPLE = 'Reading a little every day is the easiest way to build a large vocabulary.';
 async function save(patch: Record<string, unknown>) { await rpc.call('settings.set', { patch }).catch(e => toast(errorInfo(e).message, { kind: 'err' })); }
@@ -36,16 +36,10 @@ export function VoiceItems() {
     setEngine(e); tts.configure({ engine: e }); await save({ 'tts.engine': e });
   };
 
+  const aiState = dl.state === 'loading' ? tl('正在下载 {pct}%…', { pct: dl.pct }) : dl.state === 'ready' ? tl('模型已下载') : tl('第一次用要下载约 92 MB');
   return <>
     <div className="item">
-      <div><div className="t">{tl('朗读引擎')}</div><div className="d">{tl('能读的地方都有系统朗读和 AI 朗读两个按钮；这里选自动播放和快捷键默认用哪个。系统语音离线可用；AI 朗读是本地的 Kokoro，更自然，第一次要下载约 92 MB。{v0}', { v0: dl.state === 'loading' ? tl(' 正在下载 {pct}%…', { pct: dl.pct }) : '' })}</div></div>
-      <div className="ctl"><div className="seg">
-        <button className={engine === 'system' ? 'on' : ''} onClick={() => void setE('system')}>{tl('系统朗读')}</button>
-        <button className={engine === 'kokoro' ? 'on' : ''} disabled={dl.state === 'loading'} onClick={() => void setE('kokoro')}>{tl('AI 朗读')}{dl.state === 'ready' ? '' : tl(' · 下载')}</button>
-      </div></div>
-    </div>
-    <div className="item">
-      <div><div className="t">{tl('系统朗读的音色')}</div><div className="d">{sys.length ? tl('点"试听"听一句') : voicesSettled ? tl('暂未检测到美音或英音系统语音，可以用 AI 朗读') : tl('正在查找系统语音…')}</div></div>
+      <div><div className="t">{tl('系统朗读')}</div><div className="d">{tl('用电脑自带的语音，离线可用，马上出声。')}{sys.length ? '' : voicesSettled ? tl('暂未检测到美音或英音系统语音，可以用 AI 朗读') : tl('正在查找系统语音…')}</div></div>
       <div className="ctl">
         <select className="input" value={voice} onChange={async e => { setVoice(e.target.value); tts.configure({ voice: e.target.value }); await save({ 'tts.voice': e.target.value }); }} aria-label={tl('系统朗读的音色')}>
           <option value="">{tl('系统默认')}</option>
@@ -55,13 +49,22 @@ export function VoiceItems() {
       </div>
     </div>
     <div className="item">
-      <div><div className="t">{tl('AI 朗读的音色')}</div><div className="d">{dl.state === 'ready' ? tl('点"试听"听一句') : tl('第一次试听或使用时下载模型')}</div></div>
+      <div><div className="t">{tl('AI 朗读')}</div><div className="d">{tl('本地的 Kokoro，更自然，不联网也能用。{v0}', { v0: aiState })}</div></div>
       <div className="ctl">
         <select className="input" value={aiVoice} onChange={async e => { setAiVoice(e.target.value); tts.configure({ aiVoice: e.target.value }); await save({ 'tts.ai_voice': e.target.value }); }} aria-label={tl('AI 朗读的音色')}>
           {tts.KOKORO_VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
         </select>
-        <button className="btn sm" disabled={dl.state === 'loading'} onClick={() => void speakWith(SAMPLE, 'kokoro', 'sample:ai', pct => setDl({ state: pct < 100 ? 'loading' : 'ready', pct })).then(() => setDl(d => (tts.kokoroDownloaded() ? { state: 'ready', pct: 100 } : d.state === 'loading' ? { state: 'idle', pct: 0 } : d)))}>{dl.state === 'loading' ? tl('下载中 {pct}%', { pct: dl.pct }) : sampling ? tl('生成中…') : tl('试听')}</button>
+        {dl.state === 'ready'
+          ? <button className="btn sm" onClick={() => void speakWith(SAMPLE, 'kokoro', 'sample:ai')}>{sampling ? tl('生成中…') : tl('试听')}</button>
+          : <button className="btn sm" disabled={dl.state === 'loading'} onClick={() => void download()}>{dl.state === 'loading' ? tl('下载中 {pct}%', { pct: dl.pct }) : tl('下载')}</button>}
       </div>
+    </div>
+    <div className="item">
+      <div><div className="t">{tl('默认朗读方式')}</div><div className="d">{tl('两种朗读到处都有按钮，随时可以换；复习的快捷键、自动播放和全文朗读刚打开时用这里选的')}</div></div>
+      <div className="ctl"><div className="seg">
+        <button className={engine === 'system' ? 'on' : ''} onClick={() => void setE('system')}>{tl('系统朗读')}</button>
+        <button className={engine === 'kokoro' ? 'on' : ''} disabled={dl.state === 'loading'} onClick={() => void setE('kokoro')}>{tl('AI 朗读')}</button>
+      </div></div>
     </div>
     <div className="item">
       <div><div className="t">{tl('默认语速')}</div><div className="d">{tl('阅读器里朗读时还可以单独调')}</div></div>

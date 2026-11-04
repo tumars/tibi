@@ -41,11 +41,13 @@ async function start(): Promise<Transport> {
       const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), opts?.timeout_ms ?? 20_000);
       opts?.signal?.addEventListener('abort', () => ctrl.abort());
       try {
-        const r = await httpFetch(url, { signal: ctrl.signal, headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Tibi', ...opts?.post?.headers }, ...(opts?.post ? { method: 'POST', body: opts.post.body, maxRedirections: 0 } : {}) });
-        return { status: r.status, final_url: r.url || url, content_type: r.headers.get('content-type') ?? '', body: await r.text() };
+        const r = await httpFetch(url, { signal: ctrl.signal, headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Tibi', ...opts?.headers, ...opts?.post?.headers }, ...(opts?.post ? { method: 'POST', body: opts.post.body, maxRedirections: 0 } : {}) });
+        const etag = r.headers.get('etag') ?? undefined; const last_modified = r.headers.get('last-modified') ?? undefined;
+        return { status: r.status, final_url: r.url || url, content_type: r.headers.get('content-type') ?? '', body: r.status === 304 ? '' : await r.text(), ...(etag || last_modified ? { headers: { ...(etag ? { etag } : {}), ...(last_modified ? { last_modified } : {}) } } : {}) };
       } finally { clearTimeout(t); }
     },
     extractReadable: (html, url) => web.extractReadable(html, url, web.domParser),
+    htmlToMarkdown: (html, url) => web.htmlToMarkdown(html, url, web.domParser),
     async getSecret(ref) { return (await inv<{ secret?: string | null }>('keyring_get', { ref })).secret ?? undefined; },
     info: () => ({ app_version: import.meta.env.VITE_APP_VERSION ?? '0.1.0', platform: isIos ? 'ios' : /Android/.test(navigator.userAgent) ? 'android' : 'ios', db_path: path }),
     isOnline: () => navigator.onLine,

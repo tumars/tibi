@@ -1,4 +1,5 @@
-import { feedsCapabilities, feedsMethods } from './domain/documents/feeds.js';
+import { feedsCapabilities, feedsMethods } from './domain/feeds/index.js';
+import { websearchCapabilities, websearchMethods } from './domain/documents/websearch.js';
 import { dictionaryMethods } from './domain/dictionary/methods.js';
 import { searchMethods } from './domain/search/methods.js';
 import { syncMethods } from './sync/methods.js';
@@ -42,11 +43,12 @@ export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core;
     .use(statsMethods)
     .use(profileMethods)
     .use(feedsMethods)
+    .use(websearchMethods)
     .use(searchMethods)
     .use(dictionaryMethods)
     .use(syncMethods);
 
-  kernel.registerCapabilities({ ...feedsCapabilities, ...documentsCapabilities, ...termsCapabilities, ...reviewCapabilities, ...statsCapabilities, ...configCapabilities });
+  kernel.registerCapabilities({ ...feedsCapabilities, ...websearchCapabilities, ...documentsCapabilities, ...termsCapabilities, ...reviewCapabilities, ...statsCapabilities, ...configCapabilities });
   // 同步开着时按当前表结构重建触发器（08 §5）
   await SyncEngine.resume(core.db);
 

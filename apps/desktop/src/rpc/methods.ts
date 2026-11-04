@@ -4,6 +4,7 @@
 import type {
   Answer, AnswerResult, MessageBlock, MessageStep, WidgetBlock, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession, Skill,
   DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, TurnId, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval, AskState,
+  FeedView, FeedItemView, FeedCandidate, RefreshResult,
 } from '@tibi/core';
 
 export interface WebSearchConfig { provider: 'deepseek' | 'tavily' | 'off'; deepseek_ready: boolean; tavily_ready: boolean }
@@ -43,6 +44,7 @@ export interface MethodTable {
   'sync.removeDevice': { params: { device_id: string }; result: SyncStatus };
   'sync.disable': { params: Record<string, never>; result: Ok };
   'terms.get': { params: { id: Id } | { text: string }; result: TermDetail };
+  'terms.favoriteContext': { params: { id: Id; favorite: boolean }; result: Ok };
   'terms.setStatus': { params: { ids: Id[]; status: Status; source?: 'user' | 'page_done' }; result: { changed: number; undo: Undo } };
   'terms.mark': { params: { text: string; status: Status; sentence_id?: Id }; result: { term: Term; previous?: Status; undo: Undo } };
   'terms.remove': { params: { ids: Id[] }; result: Undo };
@@ -81,10 +83,18 @@ export interface MethodTable {
   'skills.runNow': { params: { id: string; input?: string }; result: { conversation_id: Id; submission_id: TurnId } };
   'websearch.config': { params: Record<string, never>; result: WebSearchConfig };
   'websearch.configure': { params: { provider: WebSearchConfig['provider'] }; result: WebSearchConfig };
-  'feeds.list': { params: Record<string, never>; result: { url: string; title: string; builtin: boolean; enabled: boolean }[] };
+  'feeds.list': { params: Record<string, never>; result: FeedView[] };
+  'feeds.discover': { params: { url: string }; result: FeedCandidate[] };
+  'feeds.add': { params: { url: string; title?: string; folder?: string }; result: FeedView };
+  'feeds.update': { params: { id: Id; title?: string; folder?: string; enabled?: boolean }; result: FeedView };
+  'feeds.remove': { params: { id: Id }; result: { ok: true; undo: Undo } };
+  'feeds.refresh': { params: { feed_ids?: Id[]; force?: boolean }; result: RefreshResult };
+  'feeds.status': { params: Record<string, never>; result: { unread: number; refreshing: boolean; auto_refresh: boolean } };
+  'feeds.configure': { params: { auto_refresh: boolean }; result: { auto_refresh: boolean } };
+  'feeds.items': { params: { feed_id?: Id; folder?: string; filter?: 'unread' | 'all' | 'saved'; cursor?: string; limit?: number }; result: { items: FeedItemView[]; next_cursor?: string } };
+  'feeds.mark': { params: { ids?: Id[]; feed_id?: Id; all?: boolean; state: 'seen' | 'dismissed' | 'new' }; result: { count: number; undo?: Undo } };
   'mcp.config': { params: Record<string, never>; result: { enabled: boolean; write_tools: string[]; tools: { name: string; description: string; write: boolean }[] } };
   'mcp.configure': { params: { enabled?: boolean; write_tools?: string[] }; result: Ok };
-  'feeds.update': { params: { add?: { url: string; title?: string }; remove?: string; toggle?: { url: string; enabled: boolean } }; result: { url: string; title: string; builtin: boolean; enabled: boolean }[] };
   'memory.list': { params: { type?: Memory['type']; q?: string }; result: Memory[] };
   'memory.update': { params: { id: Id; content: string }; result: Memory };
   'memory.delete': { params: { id: Id }; result: Undo };
@@ -123,7 +133,7 @@ export interface EventTable {
   'chat.end': { conversation_id: Id; submission_id: TurnId; state: 'done' | 'error' | 'cancel'; error?: string };
   'approval.requested': { approval: Approval };
   'approval.resolved': { id: Id; decision: 'allow' | 'deny' | 'edit' };
-  'data.changed': { table: 'documents' | 'terms' | 'cards' | 'memories' | 'skills' | 'settings' | 'sentences'; ids?: Id[] };
+  'data.changed': { table: 'documents' | 'terms' | 'cards' | 'memories' | 'skills' | 'settings' | 'sentences' | 'feeds' | 'feed_items'; ids?: Id[] };
   'model.status': { ok: boolean; reason?: 'offline' | 'unauthorized' };
   'chat.delta': { conversation_id: Id; submission_id: TurnId; delta: string; done?: boolean };
   'chat.block': { conversation_id: Id; submission_id: TurnId; block: WidgetBlock };

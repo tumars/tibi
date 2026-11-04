@@ -119,7 +119,7 @@ export const documentsMethods: MethodMap = {
     return { path: '', markdown: parts.join('\n') };
   }, 'M0 先返回 markdown 文本，写文件经壳再做'),
 
-  'sections.get': method(Type.Object({ id: S.id, with: Type.Optional(Type.Array(Type.Union([Type.Literal('translations'), Type.Literal('ai')]))) }), async (p, ctx) => { await ensureAnnotated(ctx, p.id); return sectionContent(ctx.db, p.id, { translations: p.with?.includes('translations'), ai: p.with?.includes('ai') }); }, '阅读器一次取齐；书的后面几章第一次打开时现标注（按章懒处理）'),
+  'sections.get': method(Type.Object({ id: S.id, with: Type.Optional(Type.Array(Type.Union([Type.Literal('translations'), Type.Literal('ai')]))) }), async (p, ctx) => { await ensureAnnotated(ctx, p.id); return sectionContent(ctx.db, p.id, { translations: p.with?.includes('translations'), ai: p.with?.includes('ai'), dict: ctx.dict }); }, '阅读器一次取齐；书的后面几章第一次打开时现标注（按章懒处理）'),
   'sections.progress': method(Type.Object({ id: S.id, sentence_id: S.id, progress: Type.Number({ minimum: 0, maximum: 1 }) }), async (p, ctx) => { await setProgress(ctx.db, p.id, p.sentence_id, p.progress); return { ok: true as const }; }, '阅读位置'),
   'sections.finish': method(Type.Object({ id: S.id }), async (p, ctx) => finishSection(ctx, p.id), '读完：只记进度，不改词的状态'),
   'sections.translate': method(Type.Object({ id: S.id, sentence_ids: Type.Optional(Type.Array(S.id)) }), async (p, ctx) => {

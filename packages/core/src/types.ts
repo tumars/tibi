@@ -34,7 +34,7 @@ export interface DocumentSummary {
   excerpt: string; cover_path?: string; added_at: Ts; opened_at?: Ts; finished_at?: Ts;
 }
 export interface Document extends DocumentSummary {
-  sections: { id: Id; idx: number; title: string; status: string; progress: number; word_count: number }[];
+  sections: { id: Id; idx: number; title: string; status: string; progress: number; word_count: number; /** 点过“读完了”的时间 */ finished_at?: Ts }[];
   ai?: { summary?: AiResult; advice?: AiResult; phrases?: AiResult; hard_sentences?: AiResult; glossary?: AiResult; characters?: AiResult };
 }
 export interface Token { t: string; l: string; s: number; e: number; status?: Status; phrase_id?: Id; gloss?: string }
@@ -57,7 +57,7 @@ export interface Term {
 }
 export interface TermContext {
   id: Id; source: 'article' | 'dictionary' | 'manual'; document_id?: Id; document_title?: string; sentence_id?: Id; sentence: string; surface?: string;
-  meaning_in_context?: string; is_primary: boolean; unknown_others: number;
+  meaning_in_context?: string; is_primary: boolean; is_favorite: boolean; unknown_others: number;
 }
 export interface TermDetail extends Term {
   en?: string; note?: string; contexts: TermContext[];

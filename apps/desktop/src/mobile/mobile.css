@@ -147,6 +147,7 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .endc { margin: 10px 0 0; padding: 18px; border-radius: 22px; background: color-mix(in srgb, var(--ink) 5%, var(--paper)); }
 .endc h3 { margin: 0 0 4px; font-size: 17px; } .endc p { margin: 0 0 14px; font-size: 14px; color: var(--ink-2); line-height: 1.6; font-family: var(--f-ui); }
 .endc .col { display: flex; flex-direction: column; gap: 8px; }
+.endc.done h3 { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; } .endc.done h3 svg { color: var(--ok); }
 .endc .next { margin-top: 14px; padding-top: 14px; box-shadow: 0 -.5px 0 var(--line-2); font-size: 13px; color: var(--ink-3); }
 .endc .next b { display: block; font-family: var(--f-read); font-size: 16px; color: var(--ink); margin-top: 3px; }
 /* 底部面板：半屏 / 全屏两档（iOS sheet detents） */
@@ -175,6 +176,8 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .wc .more h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
 .wc .more .ctx { font-family: var(--f-read); font-size: 15px; line-height: 1.6; padding: 10px 0; box-shadow: 0 -.5px 0 var(--line-2); }
 .wc .more .ctx small { display: block; font-family: var(--f-ui); font-size: 12px; color: var(--ink-3); }
+.wc .more .ctx .fav { float: right; margin: 2px 0 0 8px; padding: 4px; border: 0; background: none; color: var(--ink-3); }
+.wc .more .ctx .fav.on { color: var(--accent); }
 .wc .hint { margin-top: 12px; text-align: center; font-size: 12px; color: var(--ink-3); } .wc.full .hint { display: none; }
 .lgs .row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: center; padding: 11px 0; box-shadow: 0 -.5px 0 var(--line-2); font-size: 13.5px; line-height: 1.5; }
 .lgs .row:first-of-type { box-shadow: none; } .lgs .row .ex { font-family: var(--f-read); font-size: 16px; } .lgs .row span:last-child { color: var(--ink-2); }

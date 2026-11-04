@@ -89,7 +89,7 @@ export async function toSummary(db: Database, d: DocumentRow): Promise<DocumentS
 
 export async function toDocument(db: Database, d: DocumentRow): Promise<Document> {
   const base = await toSummary(db, d);
-  const sections = (await listSections(db, d.id)).map(s => ({ id: s.id, idx: s.idx, title: s.title, status: s.status, progress: Number(s.progress), word_count: Number(s.word_count) }));
+  const sections = (await listSections(db, d.id)).map(s => ({ id: s.id, idx: s.idx, title: s.title, status: s.status, progress: Number(s.progress), word_count: Number(s.word_count), finished_at: s.finished_at != null ? Number(s.finished_at) : undefined }));
   const ai: Document['ai'] = {};
   for (const task of ['summary', 'advice', 'phrases', 'hard_sentences', 'glossary', 'characters'] as const) {
     const r = await db.get<{ output: string; model: string; prompt_version: string; created_at: number }>("SELECT output, model, prompt_version, created_at FROM ai_results WHERE scope = 'document' AND target_id = ? AND task = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1", [d.id, task]);

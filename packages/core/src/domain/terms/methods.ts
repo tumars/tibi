@@ -3,7 +3,7 @@ import { method, S, type MethodMap } from '../../rpc/define.js';
 import { TibiError, type Status } from '../../types.js';
 import { lemmatize } from '../text/lemma.js';
 import { normalizeCase } from '../text/tokenize.js';
-import { getTerm, getTermByText, type TermRow } from './repo.js';
+import { getTerm, getTermByText, setContextFavorite, type TermRow } from './repo.js';
 import { addPhrase, addWords, applyStatus, cacheSentenceMeaning, contextMeaning, markTerm, pauseTerms, removeTerms, setContextMeaning, touchOnLookup } from './service.js';
 import { listTerms, termDetail, toTerm, VIEWS } from './views.js';
 import { exportTerms, importTerms } from './io.js';
@@ -107,6 +107,13 @@ export const termsMethods: MethodMap = {
     if (!c) throw new TibiError('not_found', '这个词还没有复习卡');
     return { card_id: c.id, term_id: p.id, state: c.state, due: Number(c.due), stability: Number(c.stability), difficulty: Number(c.difficulty), reps: Number(c.reps), lapses: Number(c.lapses), suspended: !!c.suspended, forced_type: c.forced_type ?? undefined };
   }, '难词换题型'),
+
+  'terms.favoriteContext': method(Type.Object({ id: S.id, favorite: Type.Boolean() }), async (p, ctx) => {
+    const term_id = await setContextFavorite(ctx.db, p.id, p.favorite);
+    if (!term_id) throw new TibiError('not_found', '这句不在了');
+    ctx.events.emit('data.changed', { table: 'term_contexts', ids: [p.id] });
+    return { ok: true as const };
+  }, '收藏 / 取消收藏一句遇到过的句子。没收藏的每个词只留最近 10 句，收藏的一直留着'),
 
   'terms.remove': method(Type.Object({ ids: Type.Array(S.id, { minItems: 1 }) }), async (p, ctx) => removeTerms(ctx, p.ids), '移出生词本'),
 

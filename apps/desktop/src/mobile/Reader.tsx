@@ -1,5 +1,5 @@
 import type { Document, SectionContent, Sentence, Status } from '@tibi/core';
-import { AudioLines, ChevronLeft, Eye, Info, Languages, LoaderCircle, Pause, Sparkles, Type, Volume2 } from 'lucide-react';
+import { AudioLines, ChevronLeft, CircleCheck, Eye, Info, Languages, LoaderCircle, Pause, Sparkles, Star, Type, Volume2 } from 'lucide-react';
 import { current as currentTts, kokoroDownloaded, type Engine } from '../lib/tts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -56,7 +56,8 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
     const get = () => rpc.call('sections.get', { id: secId, with: ['translations'] }).then(c => { if (alive) setContent(c); }, e => { if (alive) setErr(errorInfo(e).message); });
     void get();
     // 刚导入、还在分词标注时就打开：句子还没有 tokens（词点不了）；标注做完文章会变（data.changed documents），再取一次
-    const off = rpc.on('data.changed', d => { if (d.table === 'documents' && d.ids?.includes(id!)) void get(); });
+    // 标了词也再取：刚标的词加载时还没有记录，不带行间释义
+    const off = rpc.on('data.changed', d => { if ((d.table === 'documents' && d.ids?.includes(id!)) || d.table === 'terms') void get(); });
     return () => { alive = false; off(); };
   }, [secId, id]);
   // 回到上次位置（R16）
@@ -92,14 +93,14 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
     if (!content) return;
     try {
       await rpc.call('sections.finish', { id: content.id });
-      toast(tl('读完了'));
-      const idx = doc?.sections.findIndex(s => s.id === content.id) ?? -1; const next = doc?.sections[idx + 1];
-      if (next) { setSecId(next.id); scroll.current?.scrollTo({ top: 0 }); } else nav('/library');
+      // 留在这一页，底部换成“已读完”
+      setDoc(d => d && { ...d, sections: d.sections.map(s => s.id === content.id ? { ...s, progress: 1, finished_at: s.finished_at ?? Date.now() } : s) });
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
   if (err) return <div className="screen"><div className="topgap" /><Empty image="error-generic" title={tl('打不开这篇文章')} text={err} action={<button className="btn sm" onClick={() => nav('/library')}>{tl('回到书架')}</button>} /></div>;
   const sec = doc?.sections.find(s => s.id === secId);
+  const next = sec && doc?.sections.find(s => s.idx === sec.idx + 1);
   return <>
     <div className="top rdtop"><button className="ib" aria-label={tl('返回')} onClick={() => nav(-1)}><ChevronLeft size={22} /></button><span className="sp" />
       <button className="ib" aria-label={tl('标注说明')} onClick={() => setLegend(true)}><Info size={19} /></button></div>
@@ -113,10 +114,15 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
           {(sec?.idx ?? 0) === 0 && <h1>{doc.title}</h1>}
         </div>
         <SectionView content={content} mode="all" gloss={gloss} overrides={overrides} selected={card ? { sentence: card.sentence.id, s: card.s } : undefined} translations={tr} onWord={onWord} />
-        <div className="rd" style={{ paddingTop: 0 }}><div className="endc">
+        <div className="rd" style={{ paddingTop: 0 }}>{sec?.finished_at ? <div className="endc done">
+          <h3><CircleCheck size={18} />{next ? tl('这一章读完了') : tl('这篇读完了')}</h3>
+          <div className="col">{next
+            ? <button className="btn pri" onClick={() => { setSecId(next.id); scroll.current?.scrollTo({ top: 0 }); }}>{tl('下一章')}</button>
+            : <button className="btn pri" onClick={() => nav('/library')}>{tl('回到书架')}</button>}</div>
+        </div> : <div className="endc">
           <h3>{tl('读完了？')}</h3>
           <div className="col"><button className="btn pri" onClick={() => void finish()}>{tl('读完了')}</button></div>
-        </div></div>
+        </div>}</div>
         <div style={{ height: 'calc(90px + var(--sab))' }} />
       </>}
     </div>
@@ -178,6 +184,10 @@ function WordSheet({ card, onClose, onStatus, onAsk }: { card?: { word: string; 
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card, modelOk]);
+  const favorite = async (id: string, fav: boolean) => {
+    try { await rpc.call('terms.favoriteContext', { id, favorite: fav }); setDetail(d => d && { ...d, contexts: d.contexts.map(x => x.id === id ? { ...x, is_favorite: fav } : x) }); }
+    catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+  };
   // 没有词条的词（没标过）也能直接标：terms.mark 现建
   const setS = async (s: Status) => {
     if (!card) return;
@@ -199,7 +209,10 @@ function WordSheet({ card, onClose, onStatus, onAsk }: { card?: { word: string; 
       {/* 上拉全屏后（J5）：遇到过的句子和复习数据 */}
       <div className="more">
         <h4>{tl('遇到过的句子')}</h4>
-        {detail?.contexts.length ? detail.contexts.slice(0, 8).map(c => <div key={c.id} className="ctx">{c.sentence}<small>{c.document_title ?? ''}</small></div>) : <div className="lbl">{tl('还没有')}</div>}
+        {detail?.contexts.length ? [...detail.contexts].sort((a, b) => Number(b.is_favorite) - Number(a.is_favorite)).map(c => <div key={c.id} className="ctx">
+          <button className={`fav${c.is_favorite ? ' on' : ''}`} aria-label={c.is_favorite ? tl('取消收藏') : tl('收藏这句')} aria-pressed={c.is_favorite} onClick={() => void favorite(c.id, !c.is_favorite)}><Star size={15} fill={c.is_favorite ? 'currentColor' : 'none'} /></button>
+          {c.sentence}<small>{c.document_title ?? ''}</small>
+        </div>) : <div className="lbl">{tl('还没有')}</div>}
         {detail?.card && <><h4 style={{ marginTop: 14 }}>{tl('复习')}</h4><div className="lbl">{tl('复习 {reps} 次 · 忘了 {lapses} 次', { reps: detail.card.reps, lapses: detail.card.lapses })}</div></>}
       </div>
     </Sheet>

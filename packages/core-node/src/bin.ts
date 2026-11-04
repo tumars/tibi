@@ -45,6 +45,10 @@ async function main() {
   };
   setTimeout(tick, 60_000).unref?.();
   setInterval(tick, 3600_000).unref?.();
+  // 订阅（11 §4.1）：启动后 2 分钟、之后每 30 分钟；只抓到点的源，自动刷新关了直接返回
+  const feeds = () => void core.call('feeds.auto', {}).catch(e => console.error('[tibi-core] 刷新订阅失败', e));
+  setTimeout(feeds, 2 * 60_000).unref?.();
+  setInterval(feeds, 30 * 60_000).unref?.();
   // 同步（08 §5）：启动后、每 5 分钟、本机有改动后 30 秒（合并连续的改动）；没开同步时 sync.auto 直接返回
   const autoSync = () => void core.call('sync.auto', {}).catch(() => undefined);
   setTimeout(autoSync, 10_000).unref?.();

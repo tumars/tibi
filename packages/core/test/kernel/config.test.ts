@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Type } from '@sinclair/typebox';
 import { capability } from '../../src/index.js';
 import { documentsCapabilities, documentsMethods } from '../../src/domain/documents/index.js';
-import { feedsCapabilities } from '../../src/domain/documents/feeds.js';
+import { feedsCapabilities } from '../../src/domain/feeds/index.js';
 import { configCapabilities, profileMethods } from '../../src/domain/profile/index.js';
 import { termsCapabilities } from '../../src/domain/terms/index.js';
 import { makeKernelCore, until, type Turn, finished } from './helpers.js';

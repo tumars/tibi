@@ -441,6 +441,31 @@ learning_events        audio_cache        daily_stats
 | consolidated | INTEGER | 是否已被整合进记忆 |
 | created_at | INTEGER | |
 
+### feeds（订阅，迁移 `0007_feeds.sql`，见 [11](11-rss-reader.md)）
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | TEXT PK | 内置源用固定 ID（`builtin-hn` 等），两台设备种出来的是同一条 |
+| url | TEXT | 订阅地址；没删的里唯一（同步的自然键） |
+| site_url / title / folder | TEXT | `title_custom = 1` 时不用源里的标题覆盖（改过名、内置源） |
+| builtin / enabled | INTEGER | |
+| etag / last_modified / ttl_minutes / last_fetched_at / last_ok_at / error / error_count / next_fetch_at | | 抓取状态，本机的，不同步 |
+| created_at / updated_at / deleted_at | INTEGER | 软删 |
+
+### feed_items（订阅条目，不进书架）
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| id | TEXT PK | |
+| feed_id | TEXT FK | `(feed_id, guid)` 唯一；guid 取 guid → Atom id → 链接 |
+| url / title / author / published_at / comments_url | | |
+| excerpt | TEXT | 纯文本摘要 ≤ 600 字 |
+| content_md / word_count | | 源里带的全文（≥ 150 词才收，≤ 200 KB） |
+| est_level | TEXT | 按摘要词频估的文本级别 |
+| state | TEXT | `new` / `seen` / `saved` / `dismissed` |
+| document_id | TEXT | 导入后指向书架里的文档（按链接回填） |
+| seen_at / created_at / updated_at / deleted_at | INTEGER | |
+
+保留期：没保存、没导入的条目超过 60 天或每源超过 300 条就硬删（本机派生数据，P1 不同步；P2 同步时改软删）。
+
 ## 8. dict.db（ECDICT，只读）
 
 直接使用 ECDICT 的 `stardict` 表结构，关键字段：

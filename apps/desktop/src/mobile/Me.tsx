@@ -62,7 +62,7 @@ function WordsList() {
   const [items, setItems] = useState<Term[]>();
   useEffect(() => { rpc.call('terms.list', { view: 'all', sort: 'added', limit: 100 }).then(r => setItems(r.items), () => setItems([])); }, []);
   return <><h2>{tl('生词本')}</h2>{items && !items.length ? <Empty image="empty-words" quip={tl('罐子还是空的。')} title={tl('这里还没有词')} text={tl('读文章时点开的生词会出现在这里。')} /> :
-    <div className="card">{items?.map(t => <div key={t.id} className="doc"><span className="b"><span className="t">{t.display}</span><span className="m">{t.meaning}</span></span><span className={`stage s${t.status}`}>{STATUS_NAMES[t.status]}</span></div>)}</div>}</>;
+    <div className="card">{items?.map(t => <div key={t.id} className="doc"><span className="b"><span className="t">{t.display}</span><span className="m">{t.meaning || t.short_gloss || ''}</span></span><span className={`stage s${t.status}`}>{STATUS_NAMES[t.status]}</span></div>)}</div>}</>;
 }
 
 function Chats({ onOpen }: { onOpen: () => void }) {

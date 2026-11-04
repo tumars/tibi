@@ -1,4 +1,4 @@
-import { BarChart3, BookA, BookOpen, Bookmark, Home as HomeIcon, Moon, PanelLeft, RotateCw, Search, Settings as SettingsIcon, Sun } from 'lucide-react';
+import { BarChart3, BookA, BookOpen, Bookmark, Home as HomeIcon, Moon, PanelLeft, RotateCw, Rss, Search, Settings as SettingsIcon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { OutsideApprovals } from './OutsideApprovals';
@@ -7,11 +7,13 @@ import { SIDE_W, useUi } from '../store/ui';
 import { tl } from '../lib/i18n';
 import { isMacDesktop } from '../lib/macNative';
 import { RecentChats } from './RecentChats';
+import { ResizeHandle } from './ResizeHandle';
 import { SearchPalette } from './SearchPalette';
 
 const NAV = [
   { to: '/', label: tl('首页'), icon: HomeIcon },
   { to: '/library', label: tl('书架'), icon: BookOpen, count: 'docCount' as const },
+  { to: '/feeds', label: tl('订阅'), icon: Rss, count: 'feedUnread' as const },
   { to: '/words', label: tl('生词本'), icon: Bookmark, count: 'wordCount' as const },
   { to: '/dict', label: tl('词典'), icon: BookA },
   { to: '/review', label: tl('复习'), icon: RotateCw, badge: true },
@@ -23,7 +25,7 @@ export function Shell() {
   const sideWidth = useUi(s => s.sideWidth); const setSideWidth = useUi(s => s.setSideWidth);
   const [resizing, setResizing] = useState(false);
   const due = useCore(s => s.due); const connected = useCore(s => s.connected);
-  const counts = { docCount: useCore(s => s.docCount), wordCount: useCore(s => s.wordCount) };
+  const counts = { docCount: useCore(s => s.docCount), wordCount: useCore(s => s.wordCount), feedUnread: useCore(s => s.feedUnread) };
   const goal = useCore(s => s.goal); const minutes = useCore(s => s.todayMinutes); const streak = useCore(s => s.streak);
   const loc = useLocation();
   const reading = loc.pathname.startsWith('/read/');
@@ -33,20 +35,6 @@ export function Shell() {
     const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key === '\\') { e.preventDefault(); toggleSide(); } };
     addEventListener('keydown', onKey); return () => removeEventListener('keydown', onKey);
   }, [toggleSide]);
-
-  /** 拖侧栏右边缘改宽度：拖动中只改内存，松手才落盘 */
-  const startResize = (e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    const x0 = e.clientX, w0 = sideWidth;
-    setResizing(true);
-    const move = (ev: PointerEvent) => setSideWidth(w0 + ev.clientX - x0, false);
-    const up = (ev: PointerEvent) => {
-      setSideWidth(w0 + ev.clientX - x0); setResizing(false);
-      removeEventListener('pointermove', move); removeEventListener('pointerup', up);
-    };
-    addEventListener('pointermove', move); addEventListener('pointerup', up);
-  };
 
   const ring = 87.96 * (1 - Math.min(1, minutes / goal));
 
@@ -65,7 +53,7 @@ export function Shell() {
             <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive || (n.to === '/library' && reading) ? 'cur' : '')} title={n.label}>
               <n.icon /><span className="hide-c">{n.label}</span>
               {n.badge && due > 0 && <span className="n badge hide-c">{due}</span>}
-              {'count' in n && n.count && counts[n.count] > 0 && <span className="n hide-c">{counts[n.count]}</span>}
+              {'count' in n && n.count && counts[n.count] > 0 && <span className="n hide-c">{n.count === 'feedUnread' && counts[n.count] > 99 ? '99+' : counts[n.count]}</span>}
             </NavLink>
           ))}
         </nav>
@@ -82,7 +70,7 @@ export function Shell() {
             <NavLink to="/settings" className="ibtn" title={tl('设置')}><SettingsIcon /></NavLink>
           </div>
         </div>
-        {!collapsed && <div className="side-resize" onPointerDown={startResize} onDoubleClick={() => setSideWidth(SIDE_W)} title={tl('拖动调整宽度，双击恢复')} />}
+        {!collapsed && <ResizeHandle className="side-resize" side="right" width={sideWidth} onChange={setSideWidth} onReset={() => setSideWidth(SIDE_W)} onDragging={setResizing} />}
       </aside>
       <SearchPalette />
       <section className="main">

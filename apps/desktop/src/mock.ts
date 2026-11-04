@@ -39,7 +39,17 @@ const QUEUE: QueueItem[] = [
   { step: 2, card_id: 'c3', term: term('borrow', 2), card_type: 'recognize', is_new: false, intro: false, retry: 0, self_rated: true, context: { id: 'x3', sentence: PARAS[2]![0]!, answer: ['borrow'], translation: '如果只需要读数据，可以借用它。', document_title: 'Understanding Ownership in Rust', document_id: 'd1', source: 'article' } },
   { step: 3, card_id: 'c4', term: term('notoriously', 3), card_type: 'choice', is_new: true, intro: true, retry: 0, self_rated: false, context: { id: 'x4', sentence: PARAS[2]![1]!, answer: ['adv. 出了名地'], translation: '', source: 'dictionary' } },
 ];
-let session: ReviewSession = { session_id: 'rs1', kind: 'review', graded: true, steps: QUEUE, cursor: 0, resumed: false, started_at: now, forecast: [] };
+const FEEDS = [
+  { id: 'builtin-quanta', url: 'https://www.quantamagazine.org/feed/', title: 'Quanta Magazine', builtin: true, enabled: true, folder: '科普', last_ok_at: now - 1800000, error_count: 0 },
+  { id: 'builtin-rust', url: 'https://blog.rust-lang.org/feed.xml', title: 'Rust Blog', builtin: true, enabled: true, folder: '科技', last_ok_at: now - 3600000, error_count: 0 },
+  { id: 'f1', url: 'https://jvns.ca/atom.xml', title: 'Julia Evans', builtin: false, enabled: true, folder: '科技', error: '打不开（503）', error_count: 2 },
+];
+const FEED_ITEMS: { id: string; feed_id: string; feed_title: string; url: string; title: string; published_at: number; excerpt: string; est_level?: string; est_minutes: number; state: 'new' | 'seen' | 'saved' | 'dismissed'; document_id?: string }[] = [
+  { id: 'fi1', feed_id: 'builtin-quanta', feed_title: 'Quanta Magazine', url: 'https://www.quantamagazine.org/sky/', title: 'Why the Sky Is Blue, Revisited', published_at: now - 2 * 3600000, excerpt: 'Physicists have long explained the color of the sky with Rayleigh scattering. A new measurement adds a twist.', est_level: 'B2', est_minutes: 9, state: 'new' },
+  { id: 'fi2', feed_id: 'builtin-rust', feed_title: 'Rust Blog', url: 'https://blog.rust-lang.org/2026/11/01/Rust-1.90.html', title: 'Announcing Rust 1.90', published_at: now - 26 * 3600000, excerpt: 'The Rust team is happy to announce a new version of Rust, 1.90. Rust is a programming language empowering everyone to build reliable and efficient software.', est_level: 'B1', est_minutes: 5, state: 'new' },
+  { id: 'fi3', feed_id: 'builtin-rust', feed_title: 'Rust Blog', url: 'https://blog.rust-lang.org/ownership', title: 'Understanding Ownership in Rust', published_at: now - 3 * 86400000, excerpt: 'Ownership is the feature that makes Rust distinctive among systems languages.', est_level: 'B2', est_minutes: 4, state: 'saved', document_id: 'd1' },
+];
+let session: ReviewSession ={ session_id: 'rs1', kind: 'review', graded: true, steps: QUEUE, cursor: 0, resumed: false, started_at: now, forecast: [] };
 
 export function mockTransport(): Transport {
   const listeners = new Set<(e: string, d: unknown) => void>();
@@ -56,7 +66,7 @@ export function mockTransport(): Transport {
     'dict.suggest': (p) => { const q = String(p.q).trim().toLowerCase(); const items = q ? Object.entries(WORDS).filter(([w, v]) => w.startsWith(q) || v[1].includes(q)).map(([word, v]) => ({ word, phonetic: v[2], gloss: v[1] })) : []; return { available: true, mode: /[\u3400-\u9fff]/.test(q) ? 'zh' : 'prefix', items }; },
     'dict.entry': (p) => { const l = String(p.word).toLowerCase(); const w = WORDS[l]; return { available: true, lemma: l, entry: w ? { word: l, phonetic: w[2], translation: `n. ${w[1]}`, exam: ['cet6'], collins: 3, oxford: true, frequency: 8000, forms: [], inflections: [] } : undefined, term: undefined, in_wordbook: false, readings: w ? [{ document_id: 'd1', title: DOCS[0]!.title, snippet: `The ⟦${l}⟧ of the whole design.` }] : [], similar: [], extras: w ? { word: l, atlas: { cefr: 'B2', tip: `${l} 的辨析提示。`, examples: [{ en: `A sentence with ${l}.`, zh: '一个例句。' }], collocations: [{ en: `${l} design`, zh: '搭配' }], family: [`${l}ly (adv.)`], synonyms: ['unique'], antonyms: ['common'] }, senses: [{ pos: 'a', definition: 'of a feature that helps to distinguish', synonyms: ['characteristic'], examples: ['a distinctive odor'] }], antonyms: [] } : undefined }; },
     'terms.list': (p) => { const v = p.view ?? 'all'; const items = TERMS.filter(t => v === 'all' ? t.status <= 4 : v === 'due' ? t.status <= 4 && (t.due ?? 0) <= now + 86400000 : v === 'leech' ? t.lapses >= 3 : v === 'known' ? t.status === 97 : v === 'mastered' ? t.status === 5 : v === 'ignored' ? t.status === 98 : true).filter(t => !p.q || t.text.includes(String(p.q).toLowerCase())); return { items, total: items.length, counts: { all: TERMS.filter(t => t.status <= 4).length, due: 3, leech: 1, known: 0 } }; },
-    'terms.get': (p) => { const t = TERMS.find(x => x.id === p.id) ?? TERMS[0]!; return { ...t, en: 'the final result of a situation', contexts: [{ id: 'x1', source: 'article', document_id: 'd1', document_title: 'Understanding Ownership in Rust', sentence_id: 's3', sentence: PARAS[0]![2]!, is_primary: true, unknown_others: 0 }], card: { card_id: 'c1', term_id: t.id, state: 2, due: t.due!, stability: 4.2, difficulty: 5.1, reps: 3, lapses: t.lapses, suspended: false }, reviews: [], history: [{ status: t.status, at: now - 86400000, source: 'user' }] }; },
+    'terms.get': (p) => { const t = TERMS.find(x => x.id === p.id) ?? TERMS[0]!; return { ...t, en: 'the final result of a situation', contexts: [{ id: 'x1', source: 'article', document_id: 'd1', document_title: 'Understanding Ownership in Rust', sentence_id: 's3', sentence: PARAS[0]![2]!, is_primary: true, is_favorite: false, unknown_others: 0 }], card: { card_id: 'c1', term_id: t.id, state: 2, due: t.due!, stability: 4.2, difficulty: 5.1, reps: 3, lapses: t.lapses, suspended: false }, reviews: [], history: [{ status: t.status, at: now - 86400000, source: 'user' }] }; },
     'terms.setStatus': (p) => { for (const id of p.ids) { const t = TERMS.find(x => x.id === id); if (t) t.status = p.status; const l = id.replace(/^t-/, ''); if (WORDS[l]) WORDS[l]![0] = p.status; } emit('data.changed', { table: 'terms', ids: p.ids }); return { changed: p.ids.length, undo: { undo_id: 'u2', expires_at: now + 600000 } }; },
     'review.start': () => session,
     'review.overview': () => ({ due: 3, late: 1, fresh: 1, new_waiting: 6, daily_new: 20, today: { reviews: 12, correct: 10, minutes: 4, new_learned: 5 }, later_today: 2, forecast: [4, 9, 6, 12, 3, 7, 5], leeches: 1, mistakes: [{ term_id: 't-overhead', display: 'overhead', meaning: '开销', lapses: 3 }, { term_id: 't-upshot', display: 'upshot', meaning: '最终结果', lapses: 1 }] }),
@@ -78,6 +88,15 @@ export function mockTransport(): Transport {
     'providers.list': () => [{ id: 'p1', kind: 'llm', name: 'DeepSeek', protocol: 'openai_compatible', base_url: 'https://api.deepseek.com', auth: 'api_key', tier: 'fast', model: 'deepseek-flash', has_secret: true, is_default: true }],
     'providers.upsert': (p) => ({ ...p.provider, id: p.provider.id ?? 'p2', has_secret: !!p.secret_ref }), 'providers.delete': () => ({ ok: true }), 'providers.test': () => ({ ok: true, latency_ms: 412, json_mode: true }),
     'system.undo': () => ({ ok: true }), 'system.registerPaths': () => ({ ok: true }),
+    'feeds.list': () => FEEDS.map(f => ({ ...f, unread: FEED_ITEMS.filter(i => i.feed_id === f.id && i.state === 'new').length })),
+    'feeds.status': () => ({ unread: FEED_ITEMS.filter(i => i.state === 'new').length, refreshing: false, auto_refresh: true }),
+    'feeds.items': (p) => ({ items: FEED_ITEMS.filter(i => (!p.feed_id || i.feed_id === p.feed_id) && (p.filter === 'all' ? i.state !== 'dismissed' : p.filter === 'saved' ? i.state === 'saved' : i.state === 'new')) }),
+    'feeds.mark': (p) => { for (const i of FEED_ITEMS) if (p.ids?.includes(i.id) || p.all || p.feed_id === i.feed_id) i.state = p.state; emit('data.changed', { table: 'feed_items' }); return { count: 1, ...(p.state === 'dismissed' ? { undo: { undo_id: 'u6', expires_at: now + 600000 } } : {}) }; },
+    'feeds.refresh': () => ({ feeds: FEEDS.length, not_modified: 1, new_items: 0, failed: 0 }),
+    'feeds.discover': (p) => [{ url: `${String(p.url).replace(/\/$/, '')}/feed.xml`, title: 'Example Blog', latest: { title: 'A post about compilers', published_at: now - 86400000 } }],
+    'feeds.add': (p) => ({ id: 'f9', url: p.url, title: 'Example Blog', builtin: false, enabled: true, unread: 0, error_count: 0 }),
+    'feeds.update': (p) => ({ ...FEEDS.find(f => f.id === p.id)!, ...p, unread: 0 }), 'feeds.remove': () => ({ ok: true, undo: { undo_id: 'u7', expires_at: now + 600000 } }),
+    'feeds.configure': (p) => ({ auto_refresh: p.auto_refresh }),
   };
   return {
     kind: 'mock',

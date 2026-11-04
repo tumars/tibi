@@ -10,7 +10,7 @@ import { tl } from '../lib/i18n';
 
 /**
  * 设置 → 高级 → Tibi 能做的事（00 §3.7，R14）：每项一行（模型档、本月花费），展开改模型档、附加指令、写入权限，恢复默认。
- * 只能配置，不能新建或安装。"找文章"下面管文章来源；"整理记忆"可以现在运行（只在手动运行时工作）。
+ * 只能配置，不能新建或安装。"找文章"下面有去订阅页的入口；"整理记忆"可以现在运行（只在手动运行时工作）。
  */
 const ORDER = ['tibi', 'tutor', 'scout', 'coach', 'insight', 'archivist'];
 
@@ -65,29 +65,21 @@ function WebSearchItem() {
   if (!cfg) return null;
   return <div className="skf col"><span>{tl('网页搜索')}</span>
     <div className="seg">{([['deepseek', 'DeepSeek'], ['tavily', 'Tavily'], ['off', tl('不搜索')]] as const).map(([id, label]) => <button key={id} className={cfg.provider === id ? 'on' : ''} onClick={() => void choose(id)}>{label}</button>)}</div>
-    {cfg.provider === 'deepseek' && <p className="lbl">{cfg.deepseek_ready ? tl('用已连接的 DeepSeek Key，每次约 ¥0.005，计入预算。') : tl('还没连接官方 DeepSeek。连接之前只用文章来源。')}</p>}
+    {cfg.provider === 'deepseek' && <p className="lbl">{cfg.deepseek_ready ? tl('用已连接的 DeepSeek Key，每次约 ¥0.005，计入预算。') : tl('还没连接官方 DeepSeek。连接之前只用订阅里的文章。')}</p>}
     {cfg.provider === 'tavily' && <>
       <p className="lbl">{tl('费用在你的 Tavily 账户结算（有免费额度），不计入 Tibi 的预算。')}</p>
       <div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1 }} type="password" value={key} onChange={e => setKey(e.target.value)} placeholder={cfg.tavily_ready ? tl('已保存，留空不改') : 'Tavily API Key'} aria-label="Tavily API Key" autoComplete="off" />
         <button className="btn sm" disabled={!key.trim()} onClick={() => void saveKey()}>{tl('保存')}</button></div>
     </>}
-    {cfg.provider === 'off' && <p className="lbl">{tl('只从文章来源找文章，不搜索网页。')}</p>}
+    {cfg.provider === 'off' && <p className="lbl">{tl('只从订阅里找文章，不搜索网页。')}</p>}
   </div>;
 }
 
-/** 找文章的文章来源：内置的可关，自己加的可删 */
+/** 找文章的候选来自订阅：管理放在侧栏「订阅」页 */
 function FeedItems() {
-  const [feeds, setFeeds] = useState<Result<'feeds.list'>>([]);
-  const [url, setUrl] = useState(''); const [busy, setBusy] = useState(false);
-  useEffect(() => { rpc.call('feeds.list', {}).then(setFeeds, () => undefined); }, []);
-  const upd = async (p: Parameters<typeof rpc.call<'feeds.update'>>[1]) => { try { setFeeds(await rpc.call('feeds.update', p)); return true; } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); return false; } };
-  return <div className="skf col"><span>{tl('文章来源（找文章从这里挑）')}</span>
-    <div className="feeds">{feeds.map(f => <div key={f.url} className="feed">
-      <Switch label={f.title} checked={f.enabled} onChange={v => void upd({ toggle: { url: f.url, enabled: v } })} />
-      <span className="ft">{f.title}</span><span className="lbl fu">{f.url}</span>
-      {!f.builtin && <button className="linkbtn" onClick={() => void upd({ remove: f.url })}>{tl('删除')}</button>}
-    </div>)}</div>
-    <div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1 }} value={url} onChange={e => setUrl(e.target.value)} placeholder={tl('RSS / Atom 地址，如 https://example.com/feed.xml')} />
-      <button className="btn sm" disabled={!url.trim() || busy} onClick={async () => { setBusy(true); if (await upd({ add: { url: url.trim() } })) setUrl(''); setBusy(false); }}>{busy ? tl('检查中…') : tl('添加')}</button></div>
+  const nav = useNavigate();
+  return <div className="skf col"><span>{tl('订阅')}</span>
+    <p className="lbl">{tl('找文章会先从你的订阅里挑。加订阅、开关和删除都在侧栏「订阅」页。')}</p>
+    <div><button className="btn sm" onClick={() => nav('/feeds/manage')}>{tl('去管理订阅')}</button></div>
   </div>;
 }

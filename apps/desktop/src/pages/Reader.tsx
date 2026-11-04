@@ -1,13 +1,15 @@
 import type { Document, SectionContent, Sentence, Status } from '@tibi/core';
-import { ArrowUp, BookOpenCheck, Eye, FileText, Info, Languages, Sparkles, Type, Volume2 } from 'lucide-react';
+import { ArrowUp, BookA, BookOpenCheck, CircleCheck, Eye, FileText, Info, Languages, Sparkles, Type, Volume2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { DocSource } from '../components/DocSource';
 import { Empty } from '../components/Empty';
 import { Modal } from '../components/Modal';
+import { ResizeHandle } from '../components/ResizeHandle';
 import { Top } from '../components/Shell';
 import { fmtMinutes, GENRE_NAMES, throttle } from '../lib/util';
 import { SectionView } from '../reader/Section';
+import { DictPanel } from '../reader/DictPanel';
 import { SummaryPanel } from '../reader/SummaryPanel';
 import { TibiPanel } from '../reader/TibiPanel';
 import { ReadAloud } from '../reader/ReadAloud';
@@ -15,7 +17,7 @@ import type { Pending } from '../components/ChatThread';
 import { WordCard } from '../reader/WordCard';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
-import { toast, useSepiaPaper, useUi } from '../store/ui';
+import { PANEL_W, toast, useSepiaPaper, useUi } from '../store/ui';
 import { tl } from '../lib/i18n';
 
 export function Reader() {
@@ -25,13 +27,16 @@ export function Reader() {
   const [content, setContent] = useState<SectionContent>();
   const [err, setErr] = useState<string>();
   const mode = useUi(s => s.readerMode); const setMode = useUi(s => s.setReaderMode);
+  const panelWidth = useUi(s => s.panelWidth); const setPanelWidth = useUi(s => s.setPanelWidth);
+  const [resizing, setResizing] = useState(false);
   const [gloss, setGloss] = useState(false);
   const [translations, setTranslations] = useState(false);
   const [legend, setLegend] = useState(false);
   const [card, setCard] = useState<{ word: string; lemma: string; sentence: Sentence; s: number; anchor: DOMRect }>();
   const [overrides, setOverrides] = useState<Map<string, Status>>(new Map());
   const [showTop, setShowTop] = useState(false);
-  const [panel, setPanel] = useState<'summary' | 'tibi'>();
+  const [panel, setPanel] = useState<'summary' | 'tibi' | 'dict'>();
+  const [dictWord, setDictWord] = useState<string>();
   const [pending, setPending] = useState<Pending>();
   const [selAsk, setSelAsk] = useState<{ text: string; sentence_id?: string; x: number; y: number }>();
   const [translating, setTranslating] = useState(false);
@@ -60,6 +65,8 @@ export function Reader() {
       if (d.table === 'sentences' && d.ids?.includes(sectionId)) { setTranslating(false); void rpc.call('sections.get', { id: sectionId, with: ['translations'] }).then(c => { if (alive) setContent(c); }); }
       // 刚导入、还在分词标注时就打开：句子还没有 tokens；标注做完文章会变，再取一次
       else if (d.table === 'documents' && d.ids?.includes(id!)) void rpc.call('sections.get', { id: sectionId, with: ['translations'] }).then(c => { if (alive) setContent(c); });
+      // 词卡上标了词：覆盖状态只管着色，行间释义要重新取（刚标的词加载时还没有记录，不带释义）
+      else if (d.table === 'terms') void rpc.call('sections.get', { id: sectionId, with: ['translations'] }).then(c => { if (alive) setContent(c); });
     });
     return () => { alive = false; off(); };
   }, [sectionId]);
@@ -127,10 +134,8 @@ export function Reader() {
     if (!content) return;
     try {
       await rpc.call('sections.finish', { id: content.id });
-      toast(tl('读完了'));
-      const idx = doc?.sections.findIndex(s => s.id === content.id) ?? -1;
-      const next = doc?.sections[idx + 1];
-      if (next) nav(`/read/${id}/${next.id}`); else nav('/library');
+      // 留在这一页，底部换成“已读完”；文章会因 data.changed 重取，这里先改上，免得闪一下
+      setDoc(d => d && { ...d, sections: d.sections.map(s => s.id === content.id ? { ...s, progress: 1, finished_at: s.finished_at ?? Date.now() } : s) });
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
@@ -138,16 +143,19 @@ export function Reader() {
   if (!doc || !content) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: doc?.title ?? '…' }]} /><div className="scroll" /></>;
 
   const sec = doc.sections.find(s => s.id === content.id);
+  const next = sec && doc.sections.find(s => s.idx === sec.idx + 1);
+  const done = !!sec?.finished_at;
 
   return (
     <>
       <Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: doc.title }]} right={<>
         {doc.sections.length > 1 && <select className="input" value={content.id} onChange={e => nav(`/read/${id}/${e.target.value}`)} aria-label={tl('章节')}>{doc.sections.map(s => <option key={s.id} value={s.id}>{s.idx + 1}. {s.title || tl('第 {v0} 章', { v0: s.idx + 1 })}</option>)}</select>}
         <button className={`pill${panel === 'summary' ? ' on' : ''}`} title={tl('总结')} onClick={() => setPanel(panel === 'summary' ? undefined : 'summary')}><FileText size={15} />{tl('总结')}</button>
+        <button className={`pill${panel === 'dict' ? ' on' : ''}`} title={tl('词典')} onClick={() => setPanel(panel === 'dict' ? undefined : 'dict')}><BookA size={15} />{tl('词典')}</button>
         <button className={`pill${panel === 'tibi' ? ' on' : ''}`} title={tl('问 Tibi')} onClick={() => setPanel(panel === 'tibi' ? undefined : 'tibi')}><Sparkles size={15} />Tibi</button>
         <button className="ibtn" title={tl('标注说明')} onClick={() => setLegend(true)}><Info /></button>
       </>} />
-      <div className={`rdwrap${panel ? ' with-panel' : ''}`}>
+      <div className={`rdwrap${panel ? ' with-panel' : ''}${resizing ? ' resizing' : ''}`} style={panel ? { '--rpanel': `${panelWidth}px` } as React.CSSProperties : undefined}>
       <div className="scroll" ref={scrollRef} onScroll={() => { onScroll(); setSelAsk(undefined); }} onMouseUp={onSelect}>
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '18px 32px 0' }}>
           <div className="rd" style={{ padding: 0 }}>
@@ -161,12 +169,17 @@ export function Reader() {
         </div>
         <SectionView content={content} mode={mode} gloss={gloss} translations={translations} overrides={overrides} selected={card ? { sentence: card.sentence.id, s: card.s } : undefined} onWord={onWord} />
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px 40px' }}>
-          <div className="endc">
-            <h3>{tl('读完了')}</h3>
+          {done ? <div className="endc done">
+            <h3><CircleCheck size={18} />{next ? tl('这一章读完了') : tl('这篇读完了')}</h3>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {next ? <button className="btn pri" onClick={() => nav(`/read/${id}/${next.id}`)}>{tl('下一章')}</button> : <button className="btn pri" onClick={() => nav('/library')}>{tl('回到书架')}</button>}
+            </div>
+          </div> : <div className="endc">
+            <h3>{tl('读完了？')}</h3>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn pri" onClick={() => void onFinish()}>{tl('读完了')}</button>
             </div>
-          </div>
+          </div>}
         </div>
         <div className="rdbar">
           <button className={translations ? 'on' : ''} onClick={async () => {
@@ -181,16 +194,18 @@ export function Reader() {
           <span className="vsep" />
           <button onClick={() => setMode(mode === 'all' ? 'new' : mode === 'new' ? 'clean' : 'all')}>{{ all: tl('全部标注'), new: tl('仅生词'), clean: tl('纯净阅读') }[mode]}</button>
           <span className="vsep" />
-          <button onClick={() => void onFinish()}><BookOpenCheck />{tl('读完了')}</button>
+          <button className={done ? 'on' : ''} disabled={done} onClick={() => void onFinish()}><BookOpenCheck />{done ? tl('已读完') : tl('读完了')}</button>
         </div>
       </div>
+      {panel && <ResizeHandle className="rpanel-resize" side="left" width={panelWidth} onChange={setPanelWidth} onReset={() => setPanelWidth(PANEL_W)} onDragging={setResizing} />}
       {panel === 'tibi' && <TibiPanel doc={doc} sectionId={content.id} pending={pending} onClose={() => setPanel(undefined)} />}
+      {panel === 'dict' && <DictPanel word={dictWord} onClose={() => setPanel(undefined)} onAsk={t => ask(t)} />}
       {panel === 'summary' && <SummaryPanel doc={doc} onClose={() => setPanel(undefined)} onPhrase={text => { const el = [...(scrollRef.current?.querySelectorAll<HTMLElement>('[data-sid]') ?? [])].find(x => x.textContent?.toLowerCase().includes(text.toLowerCase())); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); } else toast(tl('这一章里没有找到这个短语')); }} />}
       </div>
       {aloud && <ReadAloud key={content.id} content={content} scroller={scrollRef.current} onClose={() => setAloud(false)} />}
       {showTop && <button className="totop" onClick={() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setShowTop(false); }}><ArrowUp size={14} />{tl('回到开头')}</button>}
       {selAsk && <button className="selask" style={{ left: selAsk.x, top: selAsk.y }} onMouseDown={e => e.preventDefault()} onClick={() => ask(selAsk.text.length > 80 ? tl('讲讲这句：{text}', { text: selAsk.text }) : tl('「{text}」在这里是什么意思？', { text: selAsk.text }), { sentence_id: selAsk.sentence_id, selection: selAsk.text })}><Sparkles size={13} />{tl('问 Tibi')}</button>}
-      {card && <WordCard onAsk={(w, sid) => ask(tl('「{w}」在这句话里是什么意思？用法上要注意什么？', { w }), { sentence_id: sid, selection: w })} word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} onClose={() => setCard(undefined)} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}
+      {card && <WordCard onAsk={(w, sid) => ask(tl('「{w}」在这句话里是什么意思？用法上要注意什么？', { w }), { sentence_id: sid, selection: w })} word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} onClose={() => setCard(undefined)} onDict={w => { setDictWord(w); setPanel('dict'); setCard(undefined); }} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}
       <Modal open={legend} onOpenChange={setLegend} title={tl('标注说明')} actions={<button className="btn pri" onClick={() => setLegend(false)}>{tl('知道了')}</button>}>
         <div className="legend">
           <div className="row"><span className="ex"><span className="w s0">upshot</span></span><span>{tl('生词：你标过的，点开看释义')}</span></div>

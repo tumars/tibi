@@ -11,7 +11,8 @@ export function AreaChart({ dates, main, dashed, height = 160, fmt = (n: number)
   const [hover, setHover] = useState<number>();
   const H = height, pad = 6;
   const max = Math.max(1, ...main, ...(dashed ?? []));
-  const min = Math.min(...main.filter(v => v > 0), ...(dashed ?? []).filter(v => v > 0), max) * 0.9;
+  // 下界贴近最小的正值让曲线有起伏，但不能高过主线里的值（全是 0 时会画到图外）
+  const min = Math.min(Math.min(...main.filter(v => v > 0), ...(dashed ?? []).filter(v => v > 0), max) * 0.9, ...main);
   const x = (i: number) => (main.length <= 1 ? W / 2 : (i / (main.length - 1)) * W);
   const y = (v: number) => H - pad - ((v - min) / Math.max(1, max - min)) * (H - pad * 2);
   const line = (arr: number[]) => arr.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');

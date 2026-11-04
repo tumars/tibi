@@ -82,19 +82,21 @@ export function nodePlatform(opts: NodePlatformOptions): Platform {
       o.signal?.addEventListener('abort', () => ctrl.abort());
       try {
         for (let hop = 0; hop < 5; hop++) {
-          const res = await fetch(current, { redirect: 'manual', signal: ctrl.signal, method: o.post ? 'POST' : 'GET', body: o.post?.body, headers: { 'user-agent': `Tibi/${opts.app_version} (+https://github.com/tumars/tibi)`, accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5', ...o.post?.headers } });
+          const res = await fetch(current, { redirect: 'manual', signal: ctrl.signal, method: o.post ? 'POST' : 'GET', body: o.post?.body, headers: { 'user-agent': `Tibi/${opts.app_version} (+https://github.com/tumars/tibi)`, accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5', ...o.headers, ...o.post?.headers } });
           if (!o.post && res.status >= 300 && res.status < 400 && res.headers.get('location')) {
             current = await checkUrl(new URL(res.headers.get('location')!, current).toString());   // 重定向每跳重查
             continue;
           }
           const content_type = res.headers.get('content-type') ?? '';
-          const body = await res.text();
-          return { status: res.status, final_url: current.toString(), content_type, body };
+          const body = res.status === 304 ? '' : await res.text();
+          const etag = res.headers.get('etag') ?? undefined; const last_modified = res.headers.get('last-modified') ?? undefined;
+          return { status: res.status, final_url: current.toString(), content_type, body, ...(etag || last_modified ? { headers: { ...(etag ? { etag } : {}), ...(last_modified ? { last_modified } : {}) } } : {}) };
         }
         throw new TibiError('invalid_source', '重定向次数太多');
       } finally { clearTimeout(timer); }
     },
     extractReadable: (html, url) => web.extractReadable(html, url, linkedomParse),
+    htmlToMarkdown: (html, url) => web.htmlToMarkdown(html, url, linkedomParse),
     readFile: (path) => readFile(path).then(b => new Uint8Array(b)),
     getSecret: opts.getSecret,
     info: () => ({ app_version: opts.app_version, platform: process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux', db_path: opts.db_path }),

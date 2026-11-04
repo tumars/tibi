@@ -13,5 +13,5 @@ metadata:
 - 出题用 create_quiz；句子优先取用户读过的原句（get_term_contexts），没有再自己写，句子里其余的词尽量常见。
 - 批改造句：先用 grade_answer 做规则判定，再写评语：说对在哪、错在哪，给一个改好的版本；不夸张，不打击。
 - 答错时解释为什么，一两句就够。
-- "读一篇用到这些词的短文"：先 search_feeds 找同时含这些词的文章；找不到就写一篇 ≤ 300 词、其余用词尽量常见的短文，用 save_document 存，source 写 tibi_generated。
+- "读一篇用到这些词的短文"：先 search_feeds（q 传其中一个词）在订阅里找同时含这些词的文章；找不到就写一篇 ≤ 300 词、其余用词尽量常见的短文，用 save_document 存，source 写 tibi_generated。
 - 临时练习不影响复习排期，只有复习页的作答才经 record_review。

@@ -189,9 +189,17 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `feeds.list` | `{}` | `{ url: string; title: string; builtin: boolean; enabled: boolean }[]` | M5 文章来源：内置 + 自己加的 |
-| `feeds.update` | `{ add?: { url: string; title?: string }; remove?: string; toggle?: { url: string; enabled: boolean } }` | `同 feeds.list` | 加源时先抓一次，确认是 RSS / Atom |
-| `feeds.search` | `{ interests?: string[]; limit?: number }` | `search_feeds 的返回` | 界面直接看候选，不经模型 |
+| `feeds.list` | `{}` | `FeedView[]`：`{ id; url; site_url?; title; builtin; enabled; folder?; unread; last_ok_at?; error?; error_count }` | 订阅（11）：带未读数和出错原因 |
+| `feeds.discover` | `{ url }` | `{ url; title; site_url?; latest?: { title; published_at? } }[]` | 给网站或订阅地址找可订阅的源：本身是订阅 → 网页里的 `<link rel="alternate">` → 常见路径；找不到报 `invalid_source` |
+| `feeds.add` | `{ url; title?; folder? }` | `FeedView` | 先 discover；网站有多个订阅时报 `conflict`（`data.candidates`）；加完马上抓一次 |
+| `feeds.update` | `{ id; title?; folder?; enabled? }` | `FeedView` | 改名后不再被源里的标题覆盖 |
+| `feeds.remove` | `{ id }` | `{ ok; undo }` | 软删订阅，没保存、没导入的条目一起删；撤销后重新抓 |
+| `feeds.refresh` | `{ feed_ids?; force? }` | `{ feeds; not_modified; new_items; failed }` | 只抓到点的源（force 不管），带 ETag / Last-Modified；同一时间只跑一轮 |
+| `feeds.auto` | `{}` | 同上 | 桌面定时调用（启动后 2 分钟、每 30 分钟）；`feeds.auto_refresh` 关了直接返回 |
+| `feeds.status` | `{}` | `{ unread; refreshing; auto_refresh }` | 侧栏角标 |
+| `feeds.configure` | `{ auto_refresh }` | `{ auto_refresh }` | 本机设置（`feeds.*` 不同步） |
+| `feeds.items` | `{ feed_id?; folder?; filter?: 'unread' \| 'all' \| 'saved'; cursor?; limit? }` | `{ items: FeedItemView[]; next_cursor? }` | 按发布时间倒序；`document_id` 有值表示在书架里 |
+| `feeds.mark` | `{ ids? \| feed_id? \| all?; state: 'seen' \| 'dismissed' \| 'new' }` | `{ count; undo? }` | 已读不会改掉保存过的；不感兴趣可撤销 |
 | `search.query` | `{ q: string; limit?: number }` | `{ documents: { id; title; genre; snippet? }[]; terms: { id; text; display; meaning?; status }[]; conversations: { id; title; kind; last_message_at? }[]; dict?: { lemma: string; entry: DictEntry } }` | M6 全局搜索（⌘K，00 §3.8）：文章标题 + 正文 FTS5 片段、生词本里的词（英文前缀 / 词形 / 中文释义，不含已知和忽略）、对话标题；输入像英文单词又不在生词本里时附词典释义。设置项和跳转在界面本地匹配。只读 |
 | `dict.suggest` | `{ q: string; limit?: number }` | `{ available: boolean; mode: 'prefix' \| 'zh' \| 'similar'; items: DictBrief[] }` | 词典页（00 §3.14）联想：输入正好是词头时排第一，是变形时原形紧跟，其余按词频；有汉字时中文反查；英文查不到时给拼写相近的词。只读，不联网。没装词典时 available = false |
 | `dict.entry` | `{ word: string }` | `{ available: boolean; entry?: DictEntry; lemma: string; via?: string; term?: Term; in_wordbook: boolean; readings: { document_id: Id; title: string; snippet: string }[]; similar: DictBrief[] }` | 词典页词条：词典内容、本地状态、读过的文章里出现这个词及其词形的地方（每篇一条，命中处用 ⟦ ⟧ 标出）。lemma 是进生词本的原形。只读，不改熟练度、不建卡；加入生词本走 terms.add |
@@ -351,7 +359,8 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 
 | 能力 | 参数 | 返回 | 权限 | 说明 |
 |---|---|---|---|---|
-| `search_feeds` | `{ interests?: string[]; genres?: Genre[]; since?: Ts; limit?: number }` | `{ url: string; title: string; site: string; published_at?: Ts; excerpt: string; est_minutes: number; est_level?: string }[]` | 读 | 从用户配置的文章来源与内置推荐源拉取候选；文本级别用摘要按词频粗估。M5：内置 Hacker News Best、Rust Blog、Go Blog、Quanta、Ars Technica，设置里可关掉或加自己的 RSS / Atom；一小时内用缓存；书架里已有的不再推荐 |
+| `search_feeds` | `{ interests?: string[]; since?: Ts; limit?: number; q?: string; feed_ids?: string[]; unread_only?: boolean }` | `{ items: { item_id; url; title; site; published_at?; excerpt; est_minutes; est_level? }[]; stale?: true }` | 读 | 查订阅库（`feed_items`，11）：书架里已有的、用户丢弃的不返回；数据旧于 2 小时先刷新（最多等 8 秒），没网或超时就用库里的并返回 `stale`。排序：兴趣词 + 新近程度 |
+| `discover_feeds` | `{ url }` | 同 `feeds.discover` | 读 | 给网站地址找订阅地址，不订阅。不对 MCP 开放 |
 | `web_search` | `{ q: string; limit?: number }` | `{ url: string; title: string; snippet: string }[]` | 读 | 用设置里选的服务：DeepSeek Search（默认，和模型共用 Key）或 Tavily（自己填 Key），也可关闭；用不了时返回 conflict，技能改用文章来源 |
 
 ### 词汇
@@ -412,8 +421,8 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `delete_documents` | `{ ids: Id[] }` | `{ deleted: number; undo: Undo }` | 每次都问 | 软删，最多 50 篇，一次撤销；审批卡写标题。不对 MCP 开放 |
 | `update_memory` | `{ id: Id; content: string }` | `{ memory: Memory; undo: Undo }` | 需确认 | 不对 MCP 开放 |
 | `remove_terms` | `{ ids: Id[] }` | `{ removed: number; undo: Undo }` | 需确认 | 移出生词本，不对 MCP 开放 |
-| `list_feeds` | `{}` | `{ url: string; title: string; enabled: boolean }[]` | 读 | 不对 MCP 开放 |
-| `manage_feed` | `{ add?: { url: string; title?: string }; remove?: string; toggle?: { url: string; enabled: boolean } }` | `Ok` | 需确认 | 不对 MCP 开放 |
+| `list_feeds` | `{}` | `{ id; title; url; enabled; unread; folder?; error? }[]` | 读 | 不对 MCP 开放 |
+| `manage_feed` | `{ add?: { url; title?; folder? }; remove?: string; toggle?: { id: string; enabled: boolean } }` | `{ status: 'subscribed' \| 'choose' \| 'removed' \| 'updated' \| 'noop'; feed?; candidates? }` | 需确认 | add 给网站地址也行，先 discover；有多个订阅时返回 `choose` 和候选、不加，由模型用 `ask_user` 问。remove / toggle 用 `list_feeds` 的 id（也认地址）。不对 MCP 开放 |
 
 ### 调度
 

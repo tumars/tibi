@@ -5,7 +5,7 @@ import type { SyncBackend } from './sync/backend.js';
  * 桌面由 core-node 实现（undici fetch + Readability），手机由各自的运行时实现；测试用假的。
  */
 
-export interface FetchedPage { status: number; final_url: string; content_type: string; body: string }
+export interface FetchedPage { status: number; final_url: string; content_type: string; body: string; /** 条件请求用的响应头（订阅刷新） */ headers?: { etag?: string; last_modified?: string } }
 export interface ReadableArticle { title: string; /** 站点名（og:site_name），用来去掉标题里的站点后缀 */ site_name?: string; /** 页面第一个 h1 */ h1?: string; byline?: string; excerpt?: string; lang?: string; /** 清洗后的正文 Markdown（代码块保留围栏） */ markdown: string; images: string[]; published_at?: number }
 
 /** 文件抽取的结果（EPUB / PDF / DOCX → Markdown，M4） */
@@ -13,9 +13,11 @@ export interface ExtractedFile { title?: string; author?: string; markdown: stri
 
 export interface Platform {
   /** 抓取网页；只在 Core 校验过 URL 之后调用。重定向每跳由实现方重查。post：调带密钥的接口，不跟随重定向（密钥不能带去别的地址） */
-  fetchUrl(url: string, opts?: { signal?: AbortSignal; timeout_ms?: number; post?: { headers: Record<string, string>; body: string } }): Promise<FetchedPage>;
+  fetchUrl(url: string, opts?: { signal?: AbortSignal; timeout_ms?: number; post?: { headers: Record<string, string>; body: string }; /** GET 也带的请求头（订阅的 If-None-Match / If-Modified-Since、accept） */ headers?: Record<string, string> }): Promise<FetchedPage>;
   /** 可读性算法抽正文并转成 Markdown */
   extractReadable(html: string, url: string): Promise<ReadableArticle>;
+  /** HTML 片段 → Markdown（订阅源里带的全文）；Core 不碰 DOM，由运行时给解析器 */
+  htmlToMarkdown?(html: string, baseUrl: string): string;
   /** EPUB / PDF / DOCX 抽成 Markdown（path 已由壳登记）；没有时只支持 txt / md */
   extractFile?(path: string): Promise<ExtractedFile>;
   /** OCR（M4，D4：本地 Tesseract）：图片或扫描版 PDF → 文字；没有时导入图片 / 扫描版会失败并提示 */
