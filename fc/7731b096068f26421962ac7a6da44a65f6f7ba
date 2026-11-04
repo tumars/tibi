@@ -1,0 +1,78 @@
+packages/core/src/domain/text/segment.ts
+  s_bdcbb4155b2220::t_ac566c6f08f940 74
+packages/core/test/documents/import.test.ts
+  s_bdcbb4155b2220::t_19a03c0d14baad 127-142,144-156
+  s_bdcbb4155b2220::t_51a946cdd87fb7 143
+apps/desktop/src/locales/en.json
+  s_bdcbb4155b2220::t_035309866ef539 636
+  s_bdcbb4155b2220::t_36519d6448a868 18-20
+  s_bdcbb4155b2220::t_9bf64fc949e28c 737
+  s_bdcbb4155b2220::t_fae4f5b87432dc 597
+apps/desktop/src/pages/Onboarding.tsx
+  s_bdcbb4155b2220::t_6ded92bb4c80a0 128
+apps/desktop/src/pages/Feeds.tsx
+  s_0e604736f4fe5b::t_545fad188f491b 193
+  s_bdcbb4155b2220::t_669b82b1b3dd41 85
+apps/desktop/src/pages/Reader.tsx
+  s_bdcbb4155b2220::t_62ae45c4b2c3b3 201-203,205
+  s_0e604736f4fe5b::t_545fad188f491b 38
+  s_bdcbb4155b2220::t_69b67863454408 211
+  s_bdcbb4155b2220::t_04aefb12b9fad1 208-210,212-213
+apps/desktop/src/pages/Words.tsx
+  s_bdcbb4155b2220::t_86b6ee27225c95 114
+packages/core/src/domain/documents/pipeline.ts
+  s_bdcbb4155b2220::t_a97f537258b03a 48-50
+  s_bdcbb4155b2220::t_9e4accac223f36 24
+apps/desktop/src/styles.css
+  s_bdcbb4155b2220::t_2fe859df601202 317-320
+  s_bdcbb4155b2220::t_784f2362c7e883 310-312
+  s_0e604736f4fe5b::t_545fad188f491b 829-832
+  s_bdcbb4155b2220::t_f76dabe48767f3 239
+packages/core/src/domain/documents/methods.ts
+  s_bdcbb4155b2220::t_ad994ef4a41b35 39
+  s_bdcbb4155b2220::t_238c84f0334d53 28
+apps/desktop/src/pages/Stats.tsx
+  s_bdcbb4155b2220::t_0093dd40d79d87 39
+  s_bdcbb4155b2220::t_9db7ae73e52bbf 102
+  s_bdcbb4155b2220::t_11eaf8b4c34741 103-104
+apps/desktop/src/rpc/methods.ts
+  s_bdcbb4155b2220::t_6117511ca97dd7 19
+apps/desktop/src/components/Charts.tsx
+  s_bdcbb4155b2220::t_744f54d685b6ae 71
+  s_bdcbb4155b2220::t_40260f7dbc7016 81
+  s_bdcbb4155b2220::t_5238b8e662eae4 67
+apps/desktop/src/review/useReviewSession.ts
+  s_bdcbb4155b2220::t_61c9064be858b9 36-37
+packages/core/src/domain/documents/sections.ts
+  s_bdcbb4155b2220::t_efe9e81cc9ee76 86-90,92-100,105
+  s_bdcbb4155b2220::t_01bc4315c640e3 5
+  s_bdcbb4155b2220::t_ae3c72d3075534 91
+  s_bdcbb4155b2220::t_7964404c10e2c4 121
+packages/core/test/text/segment.test.ts
+  s_bdcbb4155b2220::t_d392ee9e7fc9c9 47
+  s_bdcbb4155b2220::t_dd435f45558be2 44-46,48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "fc7731b096068f26421962ac7a6da44a65f6f7ba",
+  "prompts": {},
+  "sessions": {
+    "s_0e604736f4fe5b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0f3d2884-93b2-4e26-8424-58979b558ba4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_bdcbb4155b2220": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bddfc42b-5e18-4fe8-91a5-64b031cf9585",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
