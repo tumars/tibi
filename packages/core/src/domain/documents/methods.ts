@@ -25,7 +25,7 @@ export function checkUrlShape(raw: string): { ok: boolean; url?: string; host?: 
 
 const sourceSchema = Type.Union([
   Type.Object({ type: Type.Literal('text'), text: Type.String({ minLength: 1 }), title: Type.Optional(Type.String()), generated: Type.Optional(Type.Boolean()) }),
-  Type.Object({ type: Type.Literal('url'), url: Type.String({ minLength: 1 }) }),
+  Type.Object({ type: Type.Literal('url'), url: Type.String({ minLength: 1 }), title: Type.Optional(Type.String()) }),
   Type.Object({ type: Type.Literal('file'), path: Type.String({ minLength: 1 }) }),
   Type.Object({ type: Type.Literal('images'), paths: Type.Array(Type.String()) }),
   Type.Object({ type: Type.Literal('sample'), id: Type.String() }),
@@ -36,7 +36,7 @@ export async function submitImport(ctx: Ctx, input: ImportInput): Promise<{ impo
   if (input.source.type === 'url') {
     const c = checkUrlShape(input.source.url);
     if (!c.ok) throw new TibiError('invalid_source', '网址不对，或者是本机 / 局域网地址');
-    input.source = { type: 'url', url: c.url! };
+    input.source = { type: 'url', url: c.url!, ...(input.source.title?.trim() ? { title: input.source.title.trim() } : {}) };
   }
   if (input.source.type === 'file' && !ctx.platform.isPathAllowed(input.source.path)) throw new TibiError('permission_denied', '这个文件没有经过选择或拖入');
   const title = input.source.type === 'url' ? checkUrlShape(input.source.url).host ?? '网页' : input.source.type === 'text' ? (input.source.title || '粘贴的文字') : input.source.type === 'file' ? input.source.path.split(/[\\/]/).pop()! : input.source.type === 'sample' ? (getSample(input.source.id)?.title ?? '示例') : '图片';

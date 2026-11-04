@@ -35,7 +35,7 @@ export function Reader() {
   const [card, setCard] = useState<{ word: string; lemma: string; sentence: Sentence; s: number; anchor: DOMRect }>();
   const [overrides, setOverrides] = useState<Map<string, Status>>(new Map());
   const [showTop, setShowTop] = useState(false);
-  const [panel, setPanel] = useState<'summary' | 'tibi' | 'dict'>();
+  const [panel, setPanel] = useState<'summary' | 'tibi' | 'dict' | undefined>('summary');   // 进来先看总结
   const [dictWord, setDictWord] = useState<string>();
   const [pending, setPending] = useState<Pending>();
   const [selAsk, setSelAsk] = useState<{ text: string; sentence_id?: string; x: number; y: number }>();
@@ -198,12 +198,19 @@ export function Reader() {
         </div>
         <div className="rdbar">
           <button className={translations ? 'on' : ''} onClick={async () => {
-            const on = !translations; setTranslations(on);
-            if (!on || translating || content.sentences.every(s => s.translation)) return;
+            const on = !translations;
+            if (!on || translating || content.sentences.every(s => s.translation)) { setTranslations(on); return; }
+            // 没有译文也连不上模型：按钮不亮，免得看着像打开了却什么都没有
             if (!modelOk) { toast(tl('要连接模型才能生成译文'), { action: { label: tl('去连接'), run: () => nav(`/welcome?step=3&back=${encodeURIComponent(location.hash.slice(1))}`) } }); return; }
+            setTranslations(true);
             try { setTranslating(true); await rpc.call('sections.translate', { id: content.id }); toast(tl('正在翻译这一章，好了会自动显示')); } catch (e) { setTranslating(false); toast(errorInfo(e).message, { kind: 'err' }); }
           }}><Languages />{translating ? tl('翻译中…') : tl('译文')}</button>
-          <button className={gloss ? 'on' : ''} onClick={() => setGloss(!gloss)}><Type />{tl('释义')}</button>
+          <button className={gloss ? 'on' : ''} onClick={() => {
+            setGloss(!gloss);
+            // 释义只写在生词和学习中的词上方；一个都没有时说清楚，不然看着像没反应
+            const has = content.sentences.some(s => s.tokens.some(t => { const st = overrides.get(t.l) ?? t.status; return !!t.gloss && st !== undefined && st <= 4; }));
+            if (!gloss && !has) toast(tl('这一章还没有要标释义的词。点一个词标成生词，释义会写在它上方'));
+          }}><Type />{tl('释义')}</button>
           <button className={aloud ? 'on' : ''} onClick={() => setAloud(!aloud)}><Volume2 />{tl('朗读')}</button>
           <button className={sepia ? 'on' : ''} onClick={() => setSepia(!sepia)}><Eye />{tl('护眼')}</button>
           <span className="vsep" />

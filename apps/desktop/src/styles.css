@@ -236,7 +236,7 @@ h2.st .sp { flex: 1; }
 .rd .meta .src { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; }
 .rd .meta a.src { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 2px; }
 .rd .meta a.src:hover { color: var(--ink-2); text-decoration-color: currentColor; }
-.rd h1 { font-size: 32px; font-weight: 700; line-height: 1.22; margin: 0; letter-spacing: -.018em; text-wrap: balance; }
+.rd h1 { font-size: 32px; font-weight: 700; line-height: 1.22; margin: 0; letter-spacing: -.018em; text-wrap: balance; overflow-wrap: anywhere; }
 /* 正文排版：段距 1em，标题上松下紧、贴住它管的那段 */
 .rd p { margin: 0 0 1em; text-wrap: pretty; }
 .rd h2, .rd h3 { font-size: 23px; font-weight: 700; line-height: 1.35; letter-spacing: -.01em; margin: 1.7em 0 .45em; text-wrap: balance; }
@@ -307,11 +307,17 @@ h2.st .sp { flex: 1; }
 .views a, .views button { display: flex; align-items: center; height: 30px; padding: 0 10px; border-radius: var(--r-m); color: var(--ink-2); font-size: 13px; width: 100%; text-align: left; }
 .views button.cur { background: var(--accent-wash); color: var(--accent); font-weight: 500; }
 .views button .n { margin-left: auto; font-size: 11.5px; color: var(--ink-3); }
-.wrow { display: grid; grid-template-columns: 170px minmax(0, 1fr) 90px 70px 90px; gap: 12px; align-items: center; padding: 10px 12px; border-radius: var(--r-m); cursor: pointer; font-size: 13px; }
+/* 释义列至少留够几个字；窄了先收掉"遇见"，不让释义被挤成一个字宽 */
+.wtable { container-type: inline-size; min-width: 0; }
+.wrow { display: grid; grid-template-columns: minmax(90px, 170px) minmax(160px, 1fr) 84px 48px 84px; gap: 12px; align-items: center; padding: 10px 12px; border-radius: var(--r-m); cursor: pointer; font-size: 13px; }
 .wrow:hover { background: var(--hover); }
 .wrow.h { font-size: 11.5px; color: var(--ink-3); cursor: default; } .wrow.h:hover { background: none; }
 .wrow .t { font-family: var(--f-read); font-size: 15px; font-weight: 700; }
 .wrow .m { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@container (max-width: 600px) {
+  .wrow { grid-template-columns: minmax(80px, 120px) minmax(0, 1fr) 76px 76px; }
+  .wrow > :nth-child(4) { display: none; }
+}
 .drawer { position: fixed; top: 12px; right: 12px; bottom: 12px; width: 400px; background: var(--surface); border-radius: var(--r-l); box-shadow: 0 0 0 1px var(--line-2), 0 20px 50px -20px rgba(0,0,0,.35); padding: 20px; overflow: auto; z-index: 20; user-select: text; }
 
 /* 复习 */
@@ -820,7 +826,10 @@ h2.st .sp { flex: 1; }
 .fitem .f .lv { padding: 1px 6px; border-radius: 4px; background: var(--sunken); color: var(--ink-2); font-weight: 500; font-variant-numeric: tabular-nums; }
 .fitem .f .tag { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); }
 .fitem .f .tag svg { width: 13px; height: 13px; }
-.fitem .f .busy { color: var(--accent); }
+.fitem.busy { cursor: progress; }
+.fitem.busy .t, .fitem.busy .ex { opacity: .55; }
+.fitem .f .busy { color: var(--accent); display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+.fitem .f .busy .spin { width: 12px; height: 12px; border: 2px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%; animation: obspin .8s linear infinite; }
 .fitem .f .acts { display: flex; gap: 2px; margin-right: -6px; }
 .fitem .f .acts .ibtn svg { width: 16px; height: 16px; }
 @media (hover: hover) {

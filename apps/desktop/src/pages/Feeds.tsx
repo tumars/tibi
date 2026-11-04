@@ -82,7 +82,7 @@ export function Feeds() {
     if (busy[it.id]) return;
     try {
       setBusy(b => ({ ...b, [it.id]: tl('开始') }));
-      const { import_id } = await rpc.call('documents.import', { source: { type: 'url', url: it.url }, shelve: !open });
+      const { import_id } = await rpc.call('documents.import', { source: { type: 'url', url: it.url, title: it.title }, shelve: !open });
       pending.current.set(import_id, { item: it.id, open });
     } catch (e) { setBusy(b => { const n = { ...b }; delete n[it.id]; return n; }); toast(errorInfo(e).message, { kind: 'err' }); }
   };
@@ -190,7 +190,7 @@ export function Feeds() {
                   <span>{fmtMinutes(it.est_minutes)}</span>
                   {it.in_library && <span className="tag"><BookmarkCheck />{tl('在书架里')}</span>}
                   <span className="sp" />
-                  {busy[it.id] ? <span className="busy">{busy[it.id]}</span> : <span className="acts">
+                  {busy[it.id] ? <span className="busy" role="status"><span className="spin" />{busy[it.id]}</span> : <span className="acts">
                     {!it.in_library && <button className="ibtn" title={tl('加入书架')} aria-label={tl('加入书架')} onClick={() => void read(it, false)}><BookmarkPlus /></button>}
                     {!it.document_id && <button className="ibtn" title={tl('不感兴趣')} aria-label={tl('不感兴趣')} onClick={() => void dismiss(it)}><X /></button>}
                     <OpenLink url={it.comments_url ?? it.url} title={it.comments_url ? tl('看讨论') : tl('在浏览器里打开')} />

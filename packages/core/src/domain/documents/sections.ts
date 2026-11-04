@@ -2,6 +2,7 @@ import { j, now, type Database } from '../../db/driver.js';
 import type { Dict } from '../../dict/types.js';
 import type { Ctx } from '../../rpc/define.js';
 import { TibiError, type AiResult, type SectionBlock, type Sentence, type SectionContent, type Status, type Token } from '../../types.js';
+import { uuidv7 } from '../../ids.js';
 import { recordUndo, registerUndo } from '../shared/undo.js';
 import { getTermsByTexts } from '../terms/repo.js';
 import { shortGloss } from '../terms/views.js';
@@ -82,11 +83,26 @@ export async function sectionContent(db: Database, section_id: string, opts: { t
   return { id: sec.id, document_id: sec.document_id, title: sec.title, blocks, sentences, phrases: [...phraseMap.values()], counts, ai };
 }
 
-/** sections.progress：阅读位置（节流后调用）；同时更新文档级进度与 last_read_at */
+/** 两次进度上报隔得超过这么久，算新的一次阅读（中间离开了） */
+const READING_IDLE = 5 * 60_000;
+
+/**
+ * 记阅读时长和词数（reading_sessions，统计和"今日阅读"都读它）：接着上一次的会话延长，隔太久就新开一次。
+ * 词数只算往后读的部分（进度增加 × 本章词数），往回翻不扣。
+ */
+async function recordReading(tx: Database, sec: { id: string; document_id: string; word_count: number }, from: number, to: number, t: number) {
+  const words = Math.round(Math.max(0, to - from) * Number(sec.word_count));
+  const last = await tx.get<{ id: string }>('SELECT id FROM reading_sessions WHERE section_id = ? AND ended_at >= ? ORDER BY ended_at DESC LIMIT 1', [sec.id, t - READING_IDLE]);
+  if (last) await tx.run('UPDATE reading_sessions SET ended_at = ?, words_read = words_read + ?, updated_at = ? WHERE id = ?', [t, words, t, last.id]);
+  else await tx.run('INSERT INTO reading_sessions(id, document_id, section_id, started_at, ended_at, words_read, updated_at) VALUES (?,?,?,?,?,?,?)', [uuidv7(), sec.document_id, sec.id, t, t, words, t]);
+}
+
+/** sections.progress：阅读位置（节流后调用）；同时更新文档级进度与 last_read_at，并记阅读时长 */
 export async function setProgress(db: Database, section_id: string, sentence_id: string, progress: number): Promise<void> {
   const sec = await getSection(db, section_id); if (!sec) throw new TibiError('not_found', '找不到这一章');
   const t = now(); const p = Math.max(0, Math.min(1, progress));
   await db.transaction(async tx => {
+    await recordReading(tx, sec, Number(sec.progress), p, t);
     await tx.run('UPDATE sections SET progress = ?, last_sentence_id = ?, updated_at = ? WHERE id = ?', [p, sentence_id, t, section_id]);
     const secs = await listSections(tx, sec.document_id);
     const total = secs.reduce((a, s) => a + Number(s.word_count), 0) || 1;
@@ -102,6 +118,7 @@ export async function finishSection(ctx: Ctx, section_id: string): Promise<{ ok:
   const sec = await getSection(ctx.db, section_id); if (!sec) throw new TibiError('not_found', '找不到这一章');
   const t = now();
   await ctx.db.transaction(async tx => {
+    await recordReading(tx, sec, Number(sec.progress), 1, t);
     await tx.run('UPDATE sections SET progress = 1, finished_at = COALESCE(finished_at, ?), updated_at = ? WHERE id = ?', [t, t, section_id]);
     const secs = await listSections(tx, sec.document_id);
     const allDone = secs.every(s => s.id === section_id || s.finished_at != null);

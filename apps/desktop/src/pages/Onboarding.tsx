@@ -125,7 +125,7 @@ function FirstRead({ onFox, onSay, onOpen, onSkip, onBack }: { onFox: (s: string
   return <>
     <div className="pane">
       <h1>{tl('读第一篇')}</h1>
-      <p className="oblead">{tl('示例不连模型也能看完整效果。也可以粘贴网址或一段英文。')}</p>
+      <p className="oblead">{tl('示例自带总结，不连模型也能查词、标注。也可以粘贴网址或一段英文。')}</p>
       <div className="samples2">{samples.map(s => <button key={s.id} className={pick === s.id ? 'on' : ''} onClick={() => choose(s)}><span className="g">{tl('{v0} · 示例', { v0: GENRE_NAMES[s.genre] ?? s.genre })}</span><span className="t">{s.title}</span><span className="m">{tl('约 {minutes} 分钟', { minutes: s.minutes })}{s.author && s.author !== 'Tibi' ? ` · ${s.author}` : ''}</span></button>)}</div>
       <div className="or">{tl('或者')}</div>
       <div className="urlrow"><input className="input" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !isImeKey(e.nativeEvent)) importText(); }} placeholder={tl('粘贴网址，或一段英文')} /><button className="btn" onClick={importText} disabled={!text.trim()}>{tl('导入')}</button></div>

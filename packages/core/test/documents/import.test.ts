@@ -124,6 +124,36 @@ describe('导入文本', () => {
     await expect(m.core.call('documents.import', { source: { type: 'url', url: 'http://127.0.0.1/x' } })).rejects.toThrow();
     expect(await m.core.call('documents.checkUrl', { url: 'ftp://a' })).toMatchObject({ ok: false });
   });
+
+  it('网页没有像样的标题（只是网址）时用调用方给的标题', async () => {
+    const body = 'Ownership is the feature that makes the compiler happy. The upshot is memory safety without overhead, which is nice for everyone who writes programs at compile time. Every value has one owner and the rules are simple to follow once you know them well.';
+    const m = await makeCore({ dict, platform: {
+      async fetchUrl(url) { return { status: 200, final_url: url, content_type: 'text/html', body: `<p>${body}</p>` }; },
+      async extractReadable(_html, url) { return { title: url, markdown: body, images: [] }; },
+    } });
+    m.core.use(documentsMethods);
+    const r = await imported(await m.core.call<{ import_id: string }>('documents.import', { source: { type: 'url', url: 'https://example.com/pg/index.html', title: 'The Internals of PostgreSQL' } }));
+    expect(r.ok, r.ok ? '' : r.error).toBe(true);
+    const doc = await m.core.call<DocumentSummary>('documents.get', { id: (r as unknown as { document_id: string }).document_id });
+    expect(doc.title).toBe('The Internals of PostgreSQL');
+  });
+});
+
+describe('阅读时长', () => {
+  it('上报进度记进 reading_sessions：同一次阅读延长，词数只算往后读的部分（往回翻不扣），读完补齐', async () => {
+    const out = await importText();
+    const sec = (await core.call<{ sections: { id: string; word_count: number }[] }>('documents.get', { id: out.document_id })).sections[0]!;
+    await core.call('sections.progress', { id: sec.id, sentence_id: 'x', progress: 0.5 });
+    await core.call('sections.progress', { id: sec.id, sentence_id: 'x', progress: 0.2 });   // 往回翻：不扣也不加
+    await core.call('sections.progress', { id: sec.id, sentence_id: 'x', progress: 0.6 });
+    let rows = await ctx.db.all<{ words_read: number }>('SELECT words_read FROM reading_sessions WHERE section_id = ?', [sec.id]);
+    expect(rows).toHaveLength(1);
+    expect(Number(rows[0]!.words_read)).toBe(Math.round(0.5 * sec.word_count) + Math.round(0.4 * sec.word_count));
+    await core.call('sections.finish', { id: sec.id });
+    rows = await ctx.db.all('SELECT words_read FROM reading_sessions WHERE section_id = ?', [sec.id]);
+    expect(rows).toHaveLength(1);
+    expect(Number(rows[0]!.words_read)).toBe(Math.round(0.5 * sec.word_count) + Math.round(0.4 * sec.word_count) + Math.round(0.4 * sec.word_count));
+  });
 });
 
 describe('内置示例', () => {

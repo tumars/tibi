@@ -33,8 +33,8 @@ export function useReviewSession(opts: { ahead?: boolean } = {}) {
       }
       setSession(s); setDone(s.steps.length === 0 || s.cursor >= s.steps.length); setPhase({ kind: 'ask' }); setTyped(''); setHints(0); t0.current = Date.now(); start.current = Date.now();
       const r: Record<number, StepResult> = {}; s.steps.forEach(st => { if (st.result) r[st.step] = { rating: st.result.rating, correct: st.result.correct, retry: st.retry > 0, intro: st.intro }; }); setResults(r);
-      // StrictMode 下会加载两次：同一轮只提示一次
-      if (s.resumed && told.current !== s.session_id) { told.current = s.session_id; toast(tl('上次复习到一半，还剩 {v0} 张', { v0: s.steps.length - s.cursor })); }
+      // StrictMode 下会加载两次：同一轮只提示一次。复习页的"开始复习"先建好一轮再跳过来，那时一张都没做，不算"到一半"
+      if (s.resumed && s.cursor > 0 && told.current !== s.session_id) { told.current = s.session_id; toast(tl('上次复习到一半，还剩 {v0} 张', { v0: s.steps.length - s.cursor })); }
     } catch (e) { setErr(errorInfo(e).message); }
   }, []);
   // 进来总是先续上未完成的那轮；ahead = 面板上的"提前复习今天晚些到期的"

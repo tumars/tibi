@@ -36,7 +36,7 @@ export function Stats() {
   }, [range]);
   useEffect(() => {
     void rpc.call('stats.series', { metrics: ['minutes', 'words'], days: 30 }).then(setDaily, () => undefined);
-    void rpc.call('stats.series', { metrics: ['minutes'], days: 182 }).then(setCal, () => undefined);
+    void rpc.call('stats.series', { metrics: ['minutes', 'reviews'], days: 182 }).then(setCal, () => undefined);
     void rpc.call('stats.retention', { weeks: 12 }).then(setRet, () => undefined);
     void rpc.call('stats.forecast', { days: 14 }).then(setFc, () => undefined);
     void rpc.call('stats.stages', {}).then(r => setStages(r.stages), () => undefined);
@@ -99,7 +99,9 @@ export function Stats() {
           </div>
 
           <section id="st-cal"><div className="sech"><h2>{tl('学习日历')}</h2><span className="lbl">{tl('最近 26 周，颜色越深学得越久')}</span></div>
-            {cal && <Heatmap dates={cal.dates} values={cal.series.minutes ?? []} />}
+            {/* 和"学习天数"同一个口径：只复习、没读满一分钟的天也点亮（最浅一档） */}
+            {cal && <Heatmap dates={cal.dates} values={(cal.series.minutes ?? []).map((m, i) => m || (cal.series.reviews?.[i] ? 1 : 0))}
+              title={(_, i) => { const day = new Date(cal.dates[i]!).toLocaleDateString(locale); const m = cal.series.minutes?.[i] ?? 0; const r = cal.series.reviews?.[i] ?? 0; return m || !r ? tl('{v0} · {v} 分钟', { v0: day, v: m }) : tl('{v0} · 复习 {n} 次', { v0: day, n: r }); }} />}
           </section>
 
           <div className="two">

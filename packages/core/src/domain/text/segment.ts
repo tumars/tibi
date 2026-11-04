@@ -71,6 +71,7 @@ export function cleanInline(s: string): string {
     .replace(/(\*\*|__)(.+?)\1/g, '$2')              // 粗体
     .replace(/(^|[^*\w])\*([^*\n]+)\*/g, '$1$2')      // 斜体
     .replace(/(^|[^_\w])_([^_\n]+)_(?!\w)/g, '$1$2')
+    .split(/(`[^`]*`)/).map((p, i) => (i % 2 ? p : p.replace(/\*\*/g, ''))).join('')   // 没配上对的 **（网页转出来半截的），行内代码里的不动
     .replace(/\s+/g, ' ')
     .trim();
 }

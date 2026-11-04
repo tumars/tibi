@@ -64,11 +64,11 @@ export function StackBars({ weeks, height = 120 }: { weeks: { ratings: [number, 
 }
 
 /** 学习日历：按周一列，五档深浅；上面标月份，左边标周一 / 三 / 五，右下角图例 */
-export function Heatmap({ dates, values }: { dates: number[]; values: number[] }) {
+export function Heatmap({ dates, values, title }: { dates: number[]; values: number[]; title?: (v: number, i: number) => string }) {
   const max = Math.max(1, ...values);
   const level = (v: number) => (v <= 0 ? 0 : Math.min(4, Math.ceil((v / max) * 4)));
   const first = new Date(dates[0] ?? Date.now()); const offset = (first.getDay() + 6) % 7;
-  const cells = [...Array(offset).fill(undefined), ...values.map((v, i) => ({ v, d: dates[i]! }))];
+  const cells = [...Array(offset).fill(undefined), ...values.map((v, i) => ({ v, d: dates[i]!, i }))];
   const cols: (typeof cells)[] = []; for (let i = 0; i < cells.length; i += 7) cols.push(cells.slice(i, i + 7));
   // 某列里出现某月 1 号（或第一列），就在这列上方写月份
   const month = (c: typeof cells, i: number) => { const d = c.find(Boolean); if (!d) return ''; const day = new Date(d.d); return i === 0 || day.getDate() <= 7 ? day.toLocaleDateString(locale, { month: 'short' }) : ''; };
@@ -78,7 +78,7 @@ export function Heatmap({ dates, values }: { dates: number[]; values: number[] }
       <div className="hgrid" style={{ gridTemplateColumns: `auto repeat(${cols.length}, minmax(0, 18px))` }}>
         {cols.map((c, i) => <span key={`m${i}`} className="hm" style={{ gridColumn: i + 2, gridRow: 1 }}>{month(c, i)}</span>)}
         {[0, 2, 4].map(r => <span key={`w${r}`} className="hw" style={{ gridColumn: 1, gridRow: r + 2 }}>{weekday(r)}</span>)}
-        {cols.map((c, i) => c.map((x, k) => <i key={`${i}-${k}`} style={{ gridColumn: i + 2, gridRow: k + 2 }} className={x ? `l${level(x.v)}` : 'pad'} title={x ? tl('{v0} · {v} 分钟', { v0: new Date(x.d).toLocaleDateString(locale), v: x.v }) : undefined} />))}
+        {cols.map((c, i) => c.map((x, k) => <i key={`${i}-${k}`} style={{ gridColumn: i + 2, gridRow: k + 2 }} className={x ? `l${level(x.v)}` : 'pad'} title={x ? title?.(x.v, x.i) ?? tl('{v0} · {v} 分钟', { v0: new Date(x.d).toLocaleDateString(locale), v: x.v }) : undefined} />))}
       </div>
       <div className="ckey hleg">{tl('少')}{[0, 1, 2, 3, 4].map(l => <i key={l} className={`l${l}`} />)}{tl('多')}</div>
     </div>

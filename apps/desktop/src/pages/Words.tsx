@@ -111,7 +111,7 @@ export function Words() {
             {VIEWS.map(v => <button key={v.key} className={view === v.key ? 'cur' : ''} onClick={() => setView(v.key)}>{v.label}<span className="n">{counts[v.key] ?? ''}</span></button>)}
             {view === 'leech' && <div className="lbl" style={{ padding: '10px 10px 0', lineHeight: 1.6 }}>{tl('复习里忘了 3 次以上的词。')}</div>}
           </div>
-          <div>
+          <div className="wtable">
             {view === 'known' && <div className="seg" style={{ marginBottom: 10 }}>{SUB.map(s => <button key={s.key} className={sub === s.key ? 'on' : ''} onClick={() => setSub(s.key)}>{s.label}</button>)}</div>}
             {items === undefined ? null : items.length === 0 ? <Empty image={q ? undefined : 'empty-words'} quip={q ? undefined : tl('罐子还是空的。')} title={q ? tl('没有找到') : tl('这里还没有词')} text={q ? undefined : tl('读文章时点开的生词会出现在这里。')} /> : (
               <div>

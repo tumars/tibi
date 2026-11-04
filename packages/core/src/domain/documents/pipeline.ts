@@ -21,7 +21,7 @@ import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSe
  * 在后台跑（imports.ts），不存检查点：应用中途退出时这次导入就没了，文章还没入库，用户重新导入即可。
  */
 
-export type ImportSource = { type: 'text'; text: string; title?: string; generated?: boolean } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string };
+export type ImportSource = { type: 'text'; text: string; title?: string; generated?: boolean } | { type: 'url'; url: string; /** 网页抓不到标题时用（订阅条目自带的标题） */ title?: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string };
 export interface ImportInput { source: ImportSource; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' | 'mcp' | 'share' | 'chat'; /** false：从订阅里直接读，不进书架（默认进） */ shelve?: boolean }
 
 /** 一次导入：id 用来对应进度事件；progress 是界面上的一行说明 */
@@ -45,7 +45,9 @@ async function fetchStep(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<
     if (/text\/plain/.test(page.content_type)) return { title: new URL(page.final_url).pathname.split('/').pop() || s.url, markdown: page.body, source_type: 'url', source_uri: page.final_url };
     const art = await ctx.platform.extractReadable(page.body, page.final_url);
     if (countWords(art.markdown) < 30) throw new TibiError('invalid_source', '这个页面抓不到正文。可以复制正文后粘贴');
-    const title = cleanTitle(art.title, { site: art.site_name, h1: art.h1, host: new URL(page.final_url).hostname });
+    const cleaned = cleanTitle(art.title, { site: art.site_name, h1: art.h1, host: new URL(page.final_url).hostname });
+    // 页面没有像样的标题（空的、只是网址）：用调用方给的标题（订阅条目），再退到页面的 h1、正文第一行
+    const title = cleaned && !/^https?:\/\/\S+$/i.test(cleaned) ? cleaned : s.title?.trim() || art.h1?.trim() || titleFromMarkdown(art.markdown);
     return { title, author: art.byline, markdown: dropLeadingTitle(art.markdown, title), source_type: 'url', source_uri: page.final_url, published_at: art.published_at, lang: art.lang };
   }
   if (s.type === 'file') {

@@ -41,4 +41,9 @@ describe('segmentMarkdown', () => {
     expect(seg.sections.map(s => s.title)).toEqual(['Book', 'Chapter 1', 'Chapter 2']);
     expect(seg.sections[2]!.paragraphs[0]!.text).toBe('Two.');
   });
+
+  it('没配上对的 ** 去掉，行内代码里的留着', () => {
+    expect(splitBlocks('** I am officially open to new opportunities!')[0]!.text).toBe('I am officially open to new opportunities!');
+    expect(splitBlocks('In Python, `x ** 2` squares a number.')[0]!.text).toBe('In Python, `x ** 2` squares a number.');
+  });
 });
