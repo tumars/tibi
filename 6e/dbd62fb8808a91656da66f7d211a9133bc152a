@@ -1,0 +1,152 @@
+packages/core/test/db.test.ts
+  s_fa4fac22691145::t_09fdcab2139416 22
+  s_fa4fac22691145::t_3fb26b8f41d523 81-92
+  s_fa4fac22691145::t_bca1085d2f58bb 70
+  s_fa4fac22691145::t_58aa23a7e2385f 77-80
+  s_fa4fac22691145::t_3a792ba64feb35 30
+apps/desktop/package.json
+  s_64dc0e01dd6c06::t_ef4608ea81b546 48
+apps/desktop/src/reader/Section.tsx
+  s_bd50d2eb4ec414::t_5011d2fae9307e 31-48
+apps/desktop/test/localcore.test.ts
+  s_fa4fac22691145::t_3a792ba64feb35 33
+apps/desktop/src/mobile/mobile.css
+  s_64dc0e01dd6c06::t_94eed28907d9c2 262-272
+  s_bd50d2eb4ec414::t_742d2aadcc7cf3 287
+apps/desktop/src/pages/Library.tsx
+  s_3b250afdde9609::t_245af370ede3b5 3,7,51-52,62-65,67,70-77,79-80,82-83,94,115
+  s_3b250afdde9609::t_a06b2d35f51a68 68,88-89,97,99-100
+apps/desktop/src/components/Widgets.tsx
+  s_64dc0e01dd6c06::t_0e2ae01c6ead08 218,220
+apps/desktop/src/rpc/methods.ts
+  s_3b250afdde9609::t_54100c693072b4 94
+packages/core/sql/0009_builtin_feeds.sql
+  s_fa4fac22691145::t_192cc753b34104 1-2,5-13
+  s_fa4fac22691145::t_0125ca8f5da091 3-4
+packages/core/src/domain/feeds/methods.ts
+  s_3b250afdde9609::t_675b42c14d31e5 36-37,44-46,178
+  s_3b250afdde9609::t_297df1bf483ae9 49-51
+docs/guide/README.md
+  s_54734b3474ffda::t_83bb1f33394672 35-38
+  s_54734b3474ffda::t_8594d9592cf4d4 39
+apps/desktop/src/styles.css
+  s_bd50d2eb4ec414::t_b3b9def213b7f8 239-244,246-254
+  s_bd50d2eb4ec414::t_01ad931e3d10ab 234
+  s_7c4bdff31de7cf::t_660b267ac94da7 400
+  s_3b250afdde9609::t_609ccbccb2fc8a 830-832
+  s_bd50d2eb4ec414::t_371d35705f4f00 245
+  s_64dc0e01dd6c06::t_98b714749d4165 561
+  s_887aae87009e60::t_37d26c197b1022 789-791,796-798,800,802-803,805,807-809,811-822,824-829
+  s_887aae87009e60::t_494983df56927a 801
+  s_64dc0e01dd6c06::t_d84c9e6c8c93c4 2-9,571-573,575-576,578-579,581-600,602-611
+apps/desktop/src/components/ChatThread.tsx
+  s_64dc0e01dd6c06::t_98b714749d4165 2,36-43,177-178,190
+apps/desktop/src/components/Pager.tsx
+  s_3b250afdde9609::t_63ca9be48ed95e 7
+  s_3b250afdde9609::t_c0c72faaa51f0c 1-6,8-15
+apps/desktop/src/pages/Feeds.tsx
+  s_3b250afdde9609::t_75d661224c9261 35,44-45,107,112
+  s_887aae87009e60::t_2fa1917d46b35c 168-169
+  s_3b250afdde9609::t_dac7270f30b285 48-49
+  s_887aae87009e60::t_ac12a634ff7cc4 2
+  s_3b250afdde9609::t_964bff57f0ed0f 34,54-56
+  s_3b250afdde9609::t_54100c693072b4 29,50,200
+  s_887aae87009e60::t_13df5dd0c2c08d 179-180,186,188-191,193-197
+  s_887aae87009e60::t_064e8d3c50432e 78
+  s_3b250afdde9609::t_d0fae488fd7b8e 7,20,30-33,43,46-47,51
+packages/core/src/db/migrations.gen.ts
+  s_3b250afdde9609::t_8c647014a51580 44-48
+apps/desktop/src/locales/en.json
+  s_887aae87009e60::t_ae87cbdeebcad3 7,15,93-96,130,170,397-399,416-417,475-484,486-518,627,639,756-759,776-777,780,1010,1012-1014,1062-1065,1068,1073,1079-1080
+  s_887aae87009e60::t_42a482e612048d 485
+docs/CHANGELOG.md
+  s_54734b3474ffda::t_5ebd2e654d3f55 190
+  s_54734b3474ffda::t_e9c1eea8f947e2 189
+apps/desktop/src/components/Process.tsx
+  s_64dc0e01dd6c06::t_b3dcfd3437a783 2-3,6,20-23,34,36-40,60-76,78-92
+apps/desktop/src/mock.ts
+  s_bd50d2eb4ec414::t_1d4bf2a4838d08 4
+  s_bd50d2eb4ec414::t_2cb4b468b1b487 17,19,21-23,25-39
+  s_3b250afdde9609::t_b1daa2c91c135d 66-67,73,107
+  s_3b250afdde9609::t_37fbe5b2fd84c1 55-56,60-62
+apps/desktop/test/md.test.ts
+  s_64dc0e01dd6c06::t_0fd96c683c8dcc 7-8,12,19,23,27-28
+packages/core/test/sync/scenarios.test.ts
+  s_fa4fac22691145::t_19e6b5512ead7c 62
+apps/desktop/src/lib/md.tsx
+  s_64dc0e01dd6c06::t_af56c1f6bd6630 12-13
+  s_64dc0e01dd6c06::t_3f2c07fb8fd5bd 21
+  s_64dc0e01dd6c06::t_c5e3099a3cee5c 3,6-7,10-11,25-28
+packages/core/test/feeds/feeds.test.ts
+  s_3b250afdde9609::t_2e6efd7c34ef0e 63-79
+docs/design/_src/build_interface.py
+  s_fa4fac22691145::t_7ef11de514458a 290
+docs/design/overview.html
+  s_fa4fac22691145::t_77bbd84c498394 277
+pnpm-lock.yaml
+  s_64dc0e01dd6c06::t_372bec2715664d 95-97,1662-1665,1782-1785,1922-1933,1937-1939,1943-1945,1959-1961,2529-2531,2650-2658,2684-2686,2765-2770,2783-2785,2905-2907,3001-3003,4368-4369,4483-4484,4627-4663,4684-4693,4698-4705,4716-4717,5450-5453,5578-5592,5644-5645,5752-5773,5789-5790,5913-5917,5966-5967
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6edbd62fb8808a91656da66f7d211a9133bc152a",
+  "prompts": {},
+  "sessions": {
+    "s_3b250afdde9609": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "15f84140-32ec-4077-aded-b680138f6a12",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_54734b3474ffda": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c0cf8214-0667-4fd3-b38f-e5848ad1dc4f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_64dc0e01dd6c06": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "34f8129c-bfdb-46a9-9758-cfc625f8ce36",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_7c4bdff31de7cf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8107ebce-216f-4719-ac45-0a99719461e8",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_887aae87009e60": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50842340-6931-4d93-8535-e568d00afc45",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_bd50d2eb4ec414": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "baae0dab-923d-4992-820a-d9f3b8acfa93",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_fa4fac22691145": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "274914d0-5dfa-43a3-be62-32ca2bb04564",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
