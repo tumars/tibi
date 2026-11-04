@@ -100,6 +100,7 @@ learning_events        audio_cache        daily_stats
 | progress | REAL | 全书阅读进度 0–1 |
 | last_section_id | TEXT | 上次阅读的章节 |
 | is_favorite / is_archived | INTEGER | |
+| shelved | INTEGER | 1 = 在书架里（默认）；0 = 从订阅里直接读的，书架和书架计数里不显示（迁移 0008，11 §5.2） |
 | created_at / last_read_at / finished_at | INTEGER | |
 | deleted_at | INTEGER NULL | 软删；书架不显示，撤销时清空 |
 

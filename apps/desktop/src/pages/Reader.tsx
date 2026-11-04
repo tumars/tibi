@@ -1,5 +1,5 @@
 import type { Document, SectionContent, Sentence, Status } from '@tibi/core';
-import { ArrowUp, BookA, BookOpenCheck, CircleCheck, Eye, FileText, Info, Languages, Sparkles, Type, Volume2 } from 'lucide-react';
+import { ArrowUp, BookA, BookmarkPlus, BookOpenCheck, CircleCheck, Eye, FileText, Info, Languages, Sparkles, Type, Volume2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { DocSource } from '../components/DocSource';
@@ -139,6 +139,20 @@ export function Reader() {
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
+  const setReadingShelved = useUi(s => s.setReadingShelved);
+  useEffect(() => { setReadingShelved(doc?.shelved !== false); }, [doc?.shelved, setReadingShelved]);
+  useEffect(() => () => setReadingShelved(true), [setReadingShelved]);
+
+  // 从订阅里直接读的文章（不在书架里）：放进书架，可撤销
+  const shelve = async () => {
+    if (!doc) return;
+    try {
+      const r = await rpc.call('documents.update', { id: doc.id, patch: { shelved: true } });
+      setDoc(d => (d ? { ...d, shelved: true } : d));
+      toast(tl('已放进书架'), r.undo ? { action: { label: tl('撤销'), run: () => void rpc.call('system.undo', { undo_id: r.undo!.undo_id }).then(() => setDoc(d => (d ? { ...d, shelved: false } : d)), e => toast(errorInfo(e).message, { kind: 'err' })) } } : undefined);
+    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+  };
+
   if (err) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: tl('文章') }]} /><Empty image="error-generic" title={tl('打不开这篇文章')} text={err} action={<button className="btn" onClick={() => nav('/library')}>{tl('回到书架')}</button>} /></>;
   if (!doc || !content) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: doc?.title ?? '…' }]} /><div className="scroll" /></>;
 
@@ -148,7 +162,8 @@ export function Reader() {
 
   return (
     <>
-      <Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: doc.title }]} right={<>
+      <Top crumbs={[doc.shelved === false ? { label: tl('订阅'), to: '/feeds' } : { label: tl('书架'), to: '/library' }, { label: doc.title }]} right={<>
+        {doc.shelved === false && <button className="pill" title={tl('从订阅里读的文章不在书架里，想留着就加进去')} onClick={() => void shelve()}><BookmarkPlus size={15} />{tl('加入书架')}</button>}
         {doc.sections.length > 1 && <select className="input" value={content.id} onChange={e => nav(`/read/${id}/${e.target.value}`)} aria-label={tl('章节')}>{doc.sections.map(s => <option key={s.id} value={s.id}>{s.idx + 1}. {s.title || tl('第 {v0} 章', { v0: s.idx + 1 })}</option>)}</select>}
         <button className={`pill${panel === 'summary' ? ' on' : ''}`} title={tl('总结')} onClick={() => setPanel(panel === 'summary' ? undefined : 'summary')}><FileText size={15} />{tl('总结')}</button>
         <button className={`pill${panel === 'dict' ? ' on' : ''}`} title={tl('词典')} onClick={() => setPanel(panel === 'dict' ? undefined : 'dict')}><BookA size={15} />{tl('词典')}</button>

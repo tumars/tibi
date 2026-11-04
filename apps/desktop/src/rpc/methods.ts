@@ -16,12 +16,12 @@ export interface MethodTable {
   'system.backup': { params: { reason?: 'manual' | 'before_reset' | 'before_restore' | 'before_update' }; result: { path: string; size: number; created_at: number } };
   'system.backups': { params: Record<string, never>; result: { auto: boolean; dir_supported: boolean; items: { name: string; path: string; size: number; created_at: number; reason: 'auto' | 'manual' | 'before_reset' | 'before_restore' | 'before_update' }[] } };
   'stats.export_summary': { params: Record<string, never>; result: UsageSummary };
-  'documents.import': { params: { source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' }; result: { import_id: Id } };
+  'documents.import': { params: { source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink'; /** false：从订阅里直接读，不进书架 */ shelve?: boolean }; result: { import_id: Id } };
   'documents.samples': { params: Record<string, never>; result: SampleInfo[] };
   'documents.checkUrl': { params: { url: string }; result: { ok: boolean; url?: string; host?: string; error?: string } };
   'documents.list': { params: { kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; status?: 'unread' | 'reading' | 'done'; cursor?: string; limit?: number }; result: Page<DocumentSummary> };
   'documents.get': { params: { id: Id }; result: Document };
-  'documents.update': { params: { id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean } }; result: Document };
+  'documents.update': { params: { id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean; shelved?: boolean } }; result: Document & { undo?: Undo } };
   'documents.delete': { params: { id: Id }; result: Undo };
   'sections.get': { params: { id: Id; with?: ('translations' | 'ai')[] }; result: SectionContent };
   'sections.translate': { params: { id: Id; sentence_ids?: Id[] }; result: Ok };

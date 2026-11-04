@@ -15,11 +15,12 @@ import { getFeed, getFeedByUrl, listFeeds, toView, unreadCount, type FeedRow, ty
 
 export interface FeedItemView {
   id: string; feed_id: string; feed_title: string; url: string; title: string; author?: string; published_at?: number;
-  excerpt: string; est_level?: string; est_minutes: number; state: ItemState; document_id?: string; comments_url?: string;
+  excerpt: string; est_level?: string; est_minutes: number; state: ItemState;
+  /** 读过（导入过）就有；in_library 表示在书架里，否则是直接读的、不在书架里 */ document_id?: string; in_library?: boolean; comments_url?: string;
 }
 
-type ItemRow = { id: string; feed_id: string; feed_title: string; url: string; title: string; author: string | null; published_at: number | null; excerpt: string; est_level: string | null; word_count: number | null; state: string; document_id: string | null; comments_url: string | null };
-const ITEM_SELECT = `SELECT i.id, i.feed_id, f.title AS feed_title, i.url, i.title, i.author, i.published_at, i.excerpt, i.est_level, i.word_count, i.state, d.id AS document_id, i.comments_url
+type ItemRow = { id: string; feed_id: string; feed_title: string; url: string; title: string; author: string | null; published_at: number | null; excerpt: string; est_level: string | null; word_count: number | null; state: string; document_id: string | null; shelved: number | null; comments_url: string | null };
+const ITEM_SELECT = `SELECT i.id, i.feed_id, f.title AS feed_title, i.url, i.title, i.author, i.published_at, i.excerpt, i.est_level, i.word_count, i.state, d.id AS document_id, d.shelved, i.comments_url
   FROM feed_items i JOIN feeds f ON f.id = i.feed_id AND f.deleted_at IS NULL LEFT JOIN documents d ON d.id = i.document_id AND d.deleted_at IS NULL`;
 
 /** 源里的正文 ≥ 400 词才按它算；短的多半只是开头几段（如 Ars Technica），按 1200 词估 */
@@ -28,7 +29,7 @@ function toItem(r: ItemRow): FeedItemView {
   return {
     id: r.id, feed_id: r.feed_id, feed_title: r.feed_title, url: r.url, title: r.title, ...(r.author ? { author: r.author } : {}), ...(r.published_at ? { published_at: r.published_at } : {}),
     excerpt: r.excerpt, ...(r.est_level ? { est_level: r.est_level } : {}), est_minutes: minutesOf(r.word_count), state: r.state as ItemState,
-    ...(r.document_id ? { document_id: r.document_id } : {}), ...(r.comments_url ? { comments_url: r.comments_url } : {}),
+    ...(r.document_id ? { document_id: r.document_id, in_library: Number(r.shelved) === 1 } : {}), ...(r.comments_url ? { comments_url: r.comments_url } : {}),
   };
 }
 
@@ -39,7 +40,7 @@ async function listItems(ctx: Ctx, p: { feed_id?: string; folder?: string; filte
   else where.push('f.enabled = 1');
   if (p.folder) { where.push('f.folder = ?'); args.push(p.folder); }
   const filter = p.filter ?? 'unread';
-  where.push(filter === 'unread' ? "i.state = 'new'" : filter === 'saved' ? "(i.state = 'saved' OR d.id IS NOT NULL)" : "i.state != 'dismissed'");
+  where.push(filter === 'unread' ? "i.state = 'new'" : filter === 'saved' ? 'd.shelved = 1' : "i.state != 'dismissed'");
   const limit = p.limit ?? 30; const offset = Number(p.cursor ?? 0) || 0;
   const rows = await ctx.db.all<ItemRow>(`${ITEM_SELECT} WHERE ${where.join(' AND ')} ORDER BY COALESCE(i.published_at, i.created_at) DESC, i.id DESC LIMIT ? OFFSET ?`, [...args, limit + 1, offset]);
   return { items: rows.slice(0, limit).map(toItem), ...(rows.length > limit ? { next_cursor: String(offset + limit) } : {}) };

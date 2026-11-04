@@ -20,9 +20,9 @@ const IMPORT_WAIT_MS = 3 * 60_000;
 /** 能力层·文章与导入流水线（06 §5） */
 export const documentsCapabilities: CapabilityMap = {
   list_documents: capability({
-    name: 'list_documents', description: '书架里的文章', perm: 'read',
+    name: 'list_documents', description: '读过和要读的文章：书架里的，加上从订阅里直接读过的（shelved 为 false）', perm: 'read',
     params: Type.Object({ kind: Type.Optional(S.kind), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())), status: Type.Optional(Type.Union(['unread', 'reading', 'done'].map(s => Type.Literal(s)))), q: Type.Optional(Type.String()), sort: Type.Optional(Type.Union(['fit', 'opened', 'added'].map(s => Type.Literal(s)))), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })) }),
-    async run(p, ctx) { return (await listDocuments(ctx, { ...p, limit: p.limit ?? 50 } as never)).items; },
+    async run(p, ctx) { return (await listDocuments(ctx, { ...p, limit: p.limit ?? 50, shelf: 'all' } as never)).items; },
   }),
   get_document: capability({
     name: 'get_document', description: '按章节 / 段落范围取正文，避免整本书进上下文', perm: 'read',

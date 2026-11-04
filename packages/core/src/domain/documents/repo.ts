@@ -7,13 +7,13 @@ import type { AiStatus, Document, DocumentSummary, Genre, Kind, Token } from '..
 export interface DocumentRow extends Row {
   id: string; title: string; author: string | null; kind: Kind; genre: Genre; source_type: string; source_uri: string | null; lang: string; content_hash: string;
   original_path: string | null; cover_path: string | null; published_at: number | null; word_count: number; section_count: number; status: string; process_error: string | null;
-  ai_status: string; difficulty_cefr: string | null; rare_ratio: number | null; progress: number; last_section_id: string | null; is_favorite: number; is_archived: number;
+  ai_status: string; difficulty_cefr: string | null; rare_ratio: number | null; progress: number; last_section_id: string | null; is_favorite: number; is_archived: number; shelved: number;
   created_at: number; updated_at: number; last_read_at: number | null; finished_at: number | null; deleted_at: number | null;
 }
 export interface SectionRow extends Row { id: string; document_id: string; idx: number; title: string; content_md: string; word_count: number; status: string; ai_status: string; tokenizer_version: string | null; progress: number; last_sentence_id: string | null; finished_at: number | null }
 export interface SentenceRow extends Row { id: string; section_id: string; paragraph_idx: number; block_type: string; idx: number; text: string; tokens: string; translation: string | null }
 
-export const DOC_COLS = 'id, title, author, kind, genre, source_type, source_uri, lang, content_hash, original_path, cover_path, published_at, word_count, section_count, status, process_error, ai_status, difficulty_cefr, rare_ratio, progress, last_section_id, is_favorite, is_archived, created_at, updated_at, last_read_at, finished_at, deleted_at';
+export const DOC_COLS = 'id, title, author, kind, genre, source_type, source_uri, lang, content_hash, original_path, cover_path, published_at, word_count, section_count, status, process_error, ai_status, difficulty_cefr, rare_ratio, progress, last_section_id, is_favorite, is_archived, shelved, created_at, updated_at, last_read_at, finished_at, deleted_at';
 export const SEC_COLS = 'id, document_id, idx, title, content_md, word_count, status, ai_status, tokenizer_version, progress, last_sentence_id, finished_at';
 export const TOKENIZER_VERSION = 'tibi-1';
 export const WPM = 200;
@@ -24,13 +24,13 @@ export const getSection = (db: Database, id: string) => db.get<SectionRow>(`SELE
 export const listSections = (db: Database, document_id: string) => db.all<SectionRow>(`SELECT ${SEC_COLS} FROM sections WHERE document_id = ? AND deleted_at IS NULL ORDER BY idx`, [document_id]);
 export const listSentences = (db: Database, section_id: string) => db.all<SentenceRow>('SELECT id, section_id, paragraph_idx, block_type, idx, text, tokens, translation FROM sentences WHERE section_id = ? AND deleted_at IS NULL ORDER BY idx', [section_id]);
 
-export interface NewDocument { title: string; author?: string; kind: Kind; genre: Genre; source_type: string; source_uri?: string; lang: string; content_hash: string; word_count: number; section_count: number; published_at?: number; cover_path?: string; original_path?: string }
+export interface NewDocument { title: string; author?: string; kind: Kind; genre: Genre; source_type: string; source_uri?: string; lang: string; content_hash: string; word_count: number; section_count: number; published_at?: number; cover_path?: string; original_path?: string; /** false：从订阅里直接读的，不进书架 */ shelved?: boolean }
 
 export async function insertDocument(db: Database, d: NewDocument): Promise<string> {
   const id = uuidv7(); const t = now();
   await db.run(
-    'INSERT INTO documents(id, title, author, kind, genre, source_type, source_uri, lang, content_hash, original_path, cover_path, published_at, word_count, section_count, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-    [id, d.title, d.author ?? null, d.kind, d.genre, d.source_type, d.source_uri ?? null, d.lang, d.content_hash, d.original_path ?? null, d.cover_path ?? null, d.published_at ?? null, d.word_count, d.section_count, 'processing', t, t],
+    'INSERT INTO documents(id, title, author, kind, genre, source_type, source_uri, lang, content_hash, original_path, cover_path, published_at, word_count, section_count, status, shelved, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    [id, d.title, d.author ?? null, d.kind, d.genre, d.source_type, d.source_uri ?? null, d.lang, d.content_hash, d.original_path ?? null, d.cover_path ?? null, d.published_at ?? null, d.word_count, d.section_count, 'processing', d.shelved === false ? 0 : 1, t, t],
   );
   return id;
 }
@@ -76,7 +76,7 @@ export async function toSummary(db: Database, d: DocumentRow): Promise<DocumentS
   const out: DocumentSummary = {
     id: d.id, kind: d.kind, genre: d.genre, title: d.title, author: d.author ?? undefined, source: sourceOf(d), source_type: d.source_type, source_url: d.source_type === 'url' && d.source_uri ? d.source_uri : undefined, tags,
     minutes: Math.max(1, Math.round(Number(d.word_count) / WPM)), level: d.difficulty_cefr ?? undefined, progress: Number(d.progress),
-    status: d.status as DocumentSummary['status'], ai_status: d.ai_status as AiStatus,
+    status: d.status as DocumentSummary['status'], ai_status: d.ai_status as AiStatus, shelved: Number(d.shelved ?? 1) === 1,
     excerpt: await excerptOf(db, d.id), cover_path: d.cover_path ?? undefined, added_at: Number(d.created_at), opened_at: d.last_read_at != null ? Number(d.last_read_at) : undefined, finished_at: d.finished_at != null ? Number(d.finished_at) : undefined,
   };
   if (d.kind === 'book') {

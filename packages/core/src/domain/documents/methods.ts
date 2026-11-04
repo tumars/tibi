@@ -49,10 +49,11 @@ async function requireDoc(ctx: Ctx, id: string): Promise<DocumentRow> {
   return d;
 }
 
-export interface ListOpts { kind?: 'article' | 'book'; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; status?: 'unread' | 'reading' | 'done'; cursor?: string; limit?: number }
+export interface ListOpts { kind?: 'article' | 'book'; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; status?: 'unread' | 'reading' | 'done'; cursor?: string; limit?: number; /** all：连从订阅里直接读的（不在书架里）也算 */ shelf?: 'shelved' | 'all' }
 
 export async function listDocuments(ctx: Ctx, opts: ListOpts): Promise<{ items: DocumentSummary[]; total: number; cursor?: string }> {
   const conds = ['d.deleted_at IS NULL', 'd.is_archived = ?']; const params: (string | number)[] = [opts.archived ? 1 : 0];
+  if (opts.shelf !== 'all') conds.push('d.shelved = 1');
   if (opts.kind) { conds.push('d.kind = ?'); params.push(opts.kind); }
   if (opts.genre) { conds.push('d.genre = ?'); params.push(opts.genre); }
   if (opts.status === 'unread') conds.push('d.progress = 0 AND d.last_read_at IS NULL');
@@ -78,12 +79,12 @@ export async function listDocuments(ctx: Ctx, opts: ListOpts): Promise<{ items: 
 }
 
 export const documentsMethods: MethodMap = {
-  'documents.import': method(Type.Object({ source: sourceSchema, hints: hintsSchema, origin: Type.Optional(Type.Union([Type.Literal('user'), Type.Literal('deeplink')])) }), async (p, ctx) => ({ import_id: (await submitImport(ctx, p as ImportInput)).import_id }), '在后台导入，立即返回 import_id；进度走 import.progress，结束走 import.done'),
+  'documents.import': method(Type.Object({ source: sourceSchema, hints: hintsSchema, origin: Type.Optional(Type.Union([Type.Literal('user'), Type.Literal('deeplink')])), shelve: Type.Optional(Type.Boolean()) }), async (p, ctx) => ({ import_id: (await submitImport(ctx, p as ImportInput)).import_id }), '在后台导入，立即返回 import_id；进度走 import.progress，结束走 import.done。shelve: false 是从订阅里直接读，不进书架'),
   'documents.samples': method(Type.Object({}), async (_p, ctx) => listSamples(ctx.db), '内置示例（随应用打包，带预生成的总结与语境释义）；导入过的带 document_id'),
   'documents.checkUrl': method(Type.Object({ url: Type.String() }), async p => checkUrlShape(p.url), '按 §1 校验网址，不抓内容'),
   'documents.list': method(Type.Object({ kind: Type.Optional(S.kind), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())), q: Type.Optional(Type.String()), sort: Type.Optional(Type.Union(['fit', 'opened', 'added', 'progress', 'minutes'].map(s => Type.Literal(s)))), archived: Type.Optional(Type.Boolean()), status: Type.Optional(Type.Union(['unread', 'reading', 'done'].map(s => Type.Literal(s)))), ...S.page }), async (p, ctx) => listDocuments(ctx, p as ListOpts), '书架'),
   'documents.get': method(Type.Object({ id: S.id }), async (p, ctx) => toDocument(ctx.db, await requireDoc(ctx, p.id)), '含章节列表与文档级 AI 结果'),
-  'documents.update': method(Type.Object({ id: S.id, patch: Type.Object({ title: Type.Optional(Type.String({ minLength: 1 })), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())), is_favorite: Type.Optional(Type.Boolean()), is_archived: Type.Optional(Type.Boolean()) }) }), async (p, ctx) => {
+  'documents.update': method(Type.Object({ id: S.id, patch: Type.Object({ title: Type.Optional(Type.String({ minLength: 1 })), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())), is_favorite: Type.Optional(Type.Boolean()), is_archived: Type.Optional(Type.Boolean()), shelved: Type.Optional(Type.Boolean()) }) }), async (p, ctx) => {
     const d = await requireDoc(ctx, p.id); const t = now();
     const prevTags = p.patch.tags ? (await toSummary(ctx.db, d)).tags : undefined;
     await ctx.db.transaction(async tx => {
@@ -96,12 +97,13 @@ export const documentsMethods: MethodMap = {
       }
       if (p.patch.is_favorite !== undefined) await tx.run('UPDATE documents SET is_favorite = ?, updated_at = ? WHERE id = ?', [p.patch.is_favorite ? 1 : 0, t, p.id]);
       if (p.patch.is_archived !== undefined) await tx.run('UPDATE documents SET is_archived = ?, updated_at = ? WHERE id = ?', [p.patch.is_archived ? 1 : 0, t, p.id]);
+      if (p.patch.shelved !== undefined) await tx.run('UPDATE documents SET shelved = ?, updated_at = ? WHERE id = ?', [p.patch.shelved ? 1 : 0, t, p.id]);
       if (p.patch.tags) await setDocumentTags(tx, p.id, p.patch.tags, { source: 'user', replace: true });
     });
-    const undo = await recordUndo(ctx.db, ctx, { tool: 'documents.update', args: p, undo_payload: { id: p.id, prev: { title: d.title, genre: d.genre, is_favorite: d.is_favorite, is_archived: d.is_archived, tags: prevTags } } });
+    const undo = await recordUndo(ctx.db, ctx, { tool: 'documents.update', args: p, undo_payload: { id: p.id, prev: { title: d.title, genre: d.genre, is_favorite: d.is_favorite, is_archived: d.is_archived, shelved: d.shelved, tags: prevTags } } });
     ctx.events.emit('data.changed', { table: 'documents', ids: [p.id] });
     return { ...await toDocument(ctx.db, (await getDocument(ctx.db, p.id))!), undo };
-  }, '改 genre 会让相关 ai_results 失效'),
+  }, '改 genre 会让相关 ai_results 失效；shelved：放进 / 移出书架'),
   'documents.delete': method(Type.Object({ id: S.id }), async (p, ctx) => softDeleteDocument(ctx, p.id), '软删，可撤销'),
   'documents.reanalyze': method(Type.Object({ id: S.id, ai: Type.Optional(Type.Boolean()) }), async (p, ctx) => {
     const d = await requireDoc(ctx, p.id);
@@ -154,9 +156,9 @@ export async function analyzeDeferred(ctx: Ctx, limit = 10): Promise<{ queued: n
   return { queued };
 }
 
-registerUndo<{ id: string; prev: { title: string; genre: string; is_favorite: number; is_archived: number; tags?: string[] } }>('documents.update', async (p, ctx) => {
+registerUndo<{ id: string; prev: { title: string; genre: string; is_favorite: number; is_archived: number; shelved?: number; tags?: string[] } }>('documents.update', async (p, ctx) => {
   const t = now();
-  await ctx.db.run('UPDATE documents SET title = ?, genre = ?, is_favorite = ?, is_archived = ?, updated_at = ? WHERE id = ?', [p.prev.title, p.prev.genre, p.prev.is_favorite, p.prev.is_archived, t, p.id]);
+  await ctx.db.run('UPDATE documents SET title = ?, genre = ?, is_favorite = ?, is_archived = ?, shelved = ?, updated_at = ? WHERE id = ?', [p.prev.title, p.prev.genre, p.prev.is_favorite, p.prev.is_archived, p.prev.shelved ?? 1, t, p.id]);
   if (p.prev.tags) await setDocumentTags(ctx.db, p.id, p.prev.tags, { replace: true });
   ctx.events.emit('data.changed', { table: 'documents', ids: [p.id] });
 });

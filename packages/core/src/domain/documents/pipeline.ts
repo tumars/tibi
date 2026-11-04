@@ -22,7 +22,7 @@ import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSe
  */
 
 export type ImportSource = { type: 'text'; text: string; title?: string; generated?: boolean } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string };
-export interface ImportInput { source: ImportSource; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' | 'mcp' | 'share' | 'chat' }
+export interface ImportInput { source: ImportSource; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' | 'mcp' | 'share' | 'chat'; /** false：从订阅里直接读，不进书架（默认进） */ shelve?: boolean }
 
 /** 一次导入：id 用来对应进度事件；progress 是界面上的一行说明 */
 export interface ImportRun { id: string; signal?: AbortSignal; progress(label: string): void }
@@ -106,19 +106,24 @@ export function guessGenre(md: string, source_uri?: string): Genre {
   return 'general';
 }
 
-interface SaveOut { document_id: string; section_ids: string[]; duplicate: boolean }
+interface SaveOut { document_id: string; section_ids: string[]; duplicate: boolean; /** 之前读过但不在书架里，这次导入把它放进了书架 */ shelvedNow?: boolean }
 
 /** 第三步：入库（documents / sections / sentences），内容哈希去重 */
 async function saveStep(job: ImportRun, ctx: Ctx, fetched: Fetched, seg: Segmented, input: ImportInput): Promise<SaveOut> {
   const hash = await sha256Hex(normalizeForHash(fetched.markdown));
   const key = `${job.id}:save`;
   const existing = await getDocumentByHash(ctx.db, hash);
-  if (existing) return { document_id: existing.id, section_ids: (await listSections(ctx.db, existing.id)).map(s => s.id), duplicate: !(await alreadyDone(ctx.db, key)) };
+  if (existing) {
+    // 从订阅里读过（不在书架里）的，这次是要放进书架的导入：放进去
+    const shelvedNow = input.shelve !== false && Number(existing.shelved) === 0;
+    if (shelvedNow) { await ctx.db.run('UPDATE documents SET shelved = 1, updated_at = ? WHERE id = ?', [now(), existing.id]); ctx.events.emit('data.changed', { table: 'documents', ids: [existing.id] }); }
+    return { document_id: existing.id, section_ids: (await listSections(ctx.db, existing.id)).map(s => s.id), duplicate: !(await alreadyDone(ctx.db, key)), shelvedNow };
+  }
   const genre = input.hints?.genre ?? fetched.genre ?? guessGenre(fetched.markdown, fetched.source_uri);
   const out = await ctx.db.transaction(async tx => {
     const document_id = await insertDocument(tx, {
       title: fetched.title, author: fetched.author, kind: seg.kind, genre, source_type: fetched.source_type, source_uri: fetched.source_uri, lang: seg.lang,
-      content_hash: hash, word_count: seg.word_count, section_count: seg.sections.length, published_at: fetched.published_at,
+      content_hash: hash, word_count: seg.word_count, section_count: seg.sections.length, published_at: fetched.published_at, shelved: input.shelve !== false,
     });
     const section_ids: string[] = [];
     for (const sec of seg.sections) {
@@ -241,7 +246,7 @@ async function importOnce(job: ImportRun, ctx: Ctx, input: ImportInput): Promise
   const saved = await saveStep(job, ctx, fetched, seg, input);
   if (saved.duplicate) {
     const d = (await getDocument(ctx.db, saved.document_id))!;
-    return { summary: '这篇已经在书架里', action: { label: '打开', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: true, title: d.title, level: d.difficulty_cefr ?? undefined, minutes: Math.max(1, Math.round(Number(d.word_count) / WPM)) };
+    return { summary: saved.shelvedNow ? `已放进书架：${d.title}` : Number(d.shelved) ? '这篇已经在书架里' : `可以读了：${d.title}`, action: { label: '打开', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: true, title: d.title, level: d.difficulty_cefr ?? undefined, minutes: Math.max(1, Math.round(Number(d.word_count) / WPM)) };
   }
   const ann = await annotateDocument(job, ctx, saved.document_id, saved.section_ids);
   await ctx.db.run('INSERT INTO learning_events(id, type, payload, created_at) VALUES (?,?,?,?)', [uuidv7(), 'document_imported', j.str({ document_id: saved.document_id, source_type: fetched.source_type, title: fetched.title, word_count: seg.word_count }), now()]);
@@ -262,7 +267,7 @@ async function importOnce(job: ImportRun, ctx: Ctx, input: ImportInput): Promise
   }
   ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
   ctx.events.emit('data.changed', { table: 'terms' });
-  return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, level: ann.level, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
+  return { summary: input.shelve === false ? `可以读了：${fetched.title}` : `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, level: ann.level, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
 }
 
 /** documents.reanalyze：按当前词库重新标注（分词升级、词典后来才装上）；ai=true 时把 AI 状态重新置为 deferred 等补做 */

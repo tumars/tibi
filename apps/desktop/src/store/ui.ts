@@ -13,6 +13,8 @@ interface UiState {
   sepia: boolean; setSepia(on: boolean): void;
   readerMode: ReaderMode; setReaderMode(m: ReaderMode): void;
   toasts: Toast[]; toast(text: string, opts?: { kind?: 'err'; action?: Toast['action']; ms?: number }): void; dismiss(id: number): void;
+  /** 正在读的文章在不在书架里：侧栏据此高亮「书架」或「订阅」 */
+  readingShelved: boolean; setReadingShelved(v: boolean): void;
 }
 
 let seq = 0;
@@ -52,6 +54,7 @@ export const useUi = create<UiState>((set, get) => ({
     setTimeout(() => get().dismiss(id), opts.ms ?? (opts.action ? 6000 : 3000));
   },
   dismiss(id) { set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })); },
+  readingShelved: true, setReadingShelved(v) { set({ readingShelved: v }); },
 }));
 
 export const toast = (text: string, opts?: Parameters<UiState['toast']>[1]) => useUi.getState().toast(text, opts);

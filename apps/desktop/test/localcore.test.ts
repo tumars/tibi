@@ -30,7 +30,7 @@ describe('手机上的 Core：InvokeDriver（M7）', () => {
   it('迁移、导入、搜索、事务、同步触发器都能走通', async () => {
     const { db, dict } = await openLocalDbs(fakeShell());
     expect(dict).toBeUndefined();
-    expect((await db.get<{ user_version: number }>('PRAGMA user_version'))?.user_version).toBe(7);
+    expect((await db.get<{ user_version: number }>('PRAGMA user_version'))?.user_version).toBe(8);
     const { core } = await assembleCore({ db, platform: fakePlatform(), device: 'mobile', resume: false });
     const { import_id } = await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: 'The compiler enforces a small set of rules.\n\nA parser builds a syntax tree.' } });
     expect((await documents.importDone(import_id))?.ok).toBe(true);

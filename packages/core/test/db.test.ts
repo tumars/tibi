@@ -19,7 +19,7 @@ describe('migrations', () => {
   it('内存库建表并记录版本', async () => {
     const db = await openAppDb(':memory:');
     const v = await db.get<{ user_version: number }>('PRAGMA user_version');
-    expect(v?.user_version).toBe(7);
+    expect(v?.user_version).toBe(8);
     const tables = (await db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%_fts%'")).map(r => r.name).sort();
     for (const t of ['documents', 'sections', 'sentences', 'terms', 'cards', 'review_logs', 'conversations', 'messages', 'skill_audit', 'memories', 'learning_events', 'feeds', 'feed_items']) {
       expect(tables).toContain(t);
@@ -27,7 +27,7 @@ describe('migrations', () => {
     for (const t of ['jobs', 'job_steps', 'usage_records']) expect(tables).not.toContain(t);
     // 再跑一次是幂等的
     const r = await migrate(db, []);
-    expect(r).toEqual({ from: 7, to: 7 });
+    expect(r).toEqual({ from: 8, to: 8 });
     await db.close();
   });
 

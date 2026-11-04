@@ -29,6 +29,7 @@ export function Shell() {
   const goal = useCore(s => s.goal); const minutes = useCore(s => s.todayMinutes); const streak = useCore(s => s.streak);
   const loc = useLocation();
   const reading = loc.pathname.startsWith('/read/');
+  const readingShelved = useUi(s => s.readingShelved);
 
   useEffect(() => {
     if (isMacDesktop) return;   // mac 上这个快捷键归菜单栏（lib/macNative）
@@ -50,7 +51,7 @@ export function Shell() {
         </div>
         <nav className="nav">
           {NAV.map(n => (
-            <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive || (n.to === '/library' && reading) ? 'cur' : '')} title={n.label}>
+            <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive || (n.to === (readingShelved ? '/library' : '/feeds') && reading) ? 'cur' : '')} title={n.label}>
               <n.icon /><span className="hide-c">{n.label}</span>
               {n.badge && due > 0 && <span className="n badge hide-c">{due}</span>}
               {'count' in n && n.count && counts[n.count] > 0 && <span className="n hide-c">{n.count === 'feedUnread' && counts[n.count] > 99 ? '99+' : counts[n.count]}</span>}

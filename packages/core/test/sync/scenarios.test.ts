@@ -49,6 +49,7 @@ describe('同步场景（08 §11）', () => {
     await A.eng.enable({ device_name: 'A' }); await B.eng.enable({ device_name: 'B' });
     const t = Date.now();
     await A.db.run("INSERT INTO feeds(id, url, title, etag, created_at, updated_at) VALUES ('fa', 'https://ex.com/feed.xml', 'Ex', 'etag-a', ?, ?)", [t, t]);
+    await sleep(5);   // B 后写：同一毫秒时先后由设备 ID 决定，测试就不稳定了
     await B.db.run("INSERT INTO feeds(id, url, title, folder, created_at, updated_at) VALUES ('fb', 'https://ex.com/feed.xml', 'Ex', '科技', ?, ?)", [t, t]);
     await A.eng.sync(); await B.eng.sync(); await A.eng.sync();
     for (const d of [A, B]) {

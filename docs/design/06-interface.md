@@ -126,12 +126,12 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `documents.import` | `{ source: { type: 'text'; text: string } \| { type: 'url'; url: string } \| { type: 'file'; path: string } \| { type: 'images'; paths: string[] } \| { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' \| 'deeplink' }` | `{ import_id: Id }` | 在后台导入，立即返回；进度走 import.progress，完成走 import.done（载荷含 ok、document_id 或 error）；path 与 url 按 §1 校验；sample 直接写入预生成的 AI 结果，不调模型；deeplink 只在用户确认后才调 |
+| `documents.import` | `{ source: { type: 'text'; text: string } \| { type: 'url'; url: string } \| { type: 'file'; path: string } \| { type: 'images'; paths: string[] } \| { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' \| 'deeplink' }` | `{ import_id: Id }` | 在后台导入，立即返回；进度走 import.progress，完成走 import.done（载荷含 ok、document_id 或 error）；path 与 url 按 §1 校验；sample 直接写入预生成的 AI 结果，不调模型；deeplink 只在用户确认后才调。`shelve: false`：从订阅里直接读，用同一个阅读器打开但不进书架（11 §5.2） |
 | `documents.samples` | `{}` | `SampleInfo[]` | 内置示例（随应用打包，正文与预生成结果在 packages/core/samples/）；技术向那篇 is_default；用 documents.import({ source: { type: 'sample', id } }) 导入，导入时写入预生成的总结、短语、长难句、建议与语境释义，不调模型 |
 | `documents.checkUrl` | `{ url: string }` | `{ ok: boolean; url?: string; host?: string; error?: ErrorCode }` | 按 §1 校验网址，不抓内容；深链确认卡先调它 |
-| `documents.list` | `{ kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' \| 'opened' \| 'added' \| 'progress' \| 'minutes'; archived?: boolean; cursor?: string; limit?: number }` | `Page<DocumentSummary>` | 书架页与首页书架；tags 多选为同时满足 |
+| `documents.list` | `{ kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' \| 'opened' \| 'added' \| 'progress' \| 'minutes'; archived?: boolean; cursor?: string; limit?: number }` | `Page<DocumentSummary>` | 书架页与首页书架；tags 多选为同时满足。只列 `shelved = 1` 的（书架）；`list_documents` 能力连不在书架里的也列 |
 | `documents.get` | `{ id: Id }` | `Document` | 含章节列表与文档级 AI 结果 |
-| `documents.update` | `{ id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean } }` | `Document` | 改 genre 会让相关 ai_results 失效 |
+| `documents.update` | `{ id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean; shelved?: boolean } }` | `Document` | 改 genre 会让相关 ai_results 失效 |
 | `documents.delete` | `{ id: Id }` | `Undo` | 软删（documents.deleted_at），书架不再显示，可撤销；原始文件副本一并移入回收区 |
 | `documents.reanalyze` | `{ id: Id; ai?: boolean }` | `Ok` | 在后台按当前词库重新标注，完成后 data.changed(documents)；ai=true 时把 AI 状态置回 deferred |
 | `documents.analyze` | `{ id: Id }` | `Ok` | M2，在后台做：（重新）生成总结 + 学习建议 + 关键词、短语、长难句（三个子任务并行，各一次固定提示的快速档调用，JSON 输出，写 ai_results）。导入完成后自动在后台做一次，"稍后补做"和"重新生成"也走这里；内置示例不适用 |

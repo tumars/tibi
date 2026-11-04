@@ -102,11 +102,11 @@ export async function saveItems(ctx: Ctx, feed_id: string, items: ParsedItem[]):
       continue;
     }
     const level = await estimateLevel(ctx, it.excerpt.split(/\s+/).length >= 12 ? it.excerpt : content_md?.slice(0, 3000));
-    const doc = await ctx.db.get<{ id: string }>("SELECT id FROM documents WHERE source_type = 'url' AND source_uri = ? AND deleted_at IS NULL", [it.url]);
+    const doc = await ctx.db.get<{ id: string; shelved: number }>("SELECT id, shelved FROM documents WHERE source_type = 'url' AND source_uri = ? AND deleted_at IS NULL", [it.url]);
     await ctx.db.run(
       `INSERT INTO feed_items(id, feed_id, guid, url, title, author, published_at, excerpt, content_md, word_count, est_level, comments_url, state, document_id, created_at, updated_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [uuidv7(), feed_id, it.guid, it.url, it.title, it.author ?? null, it.published_at ?? null, it.excerpt, content_md ?? null, content_md ? countWords(content_md) : null, level ?? null, it.comments_url ?? null, doc ? 'saved' : 'new', doc?.id ?? null, t, t]);
+      [uuidv7(), feed_id, it.guid, it.url, it.title, it.author ?? null, it.published_at ?? null, it.excerpt, content_md ?? null, content_md ? countWords(content_md) : null, level ?? null, it.comments_url ?? null, doc ? (Number(doc.shelved) ? 'saved' : 'seen') : 'new', doc?.id ?? null, t, t]);
     added++;
   }
   return added;

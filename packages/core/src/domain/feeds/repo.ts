@@ -40,12 +40,15 @@ export async function unreadCount(db: Database): Promise<number> {
   return Number(r?.n ?? 0);
 }
 
-/** 导入成功后回填：链接对得上的条目记成"在书架里" */
+/** 导入成功后回填：链接对得上的条目指向这篇文档；放进书架的记成 saved，直接读的（不进书架）记成已读 */
 export async function linkImported(db: Database, urls: (string | null | undefined)[], document_id: string): Promise<number> {
   const list = [...new Set(urls.filter((u): u is string => !!u))];
   if (!list.length) return 0;
+  const doc = await db.get<{ shelved: number }>('SELECT shelved FROM documents WHERE id = ?', [document_id]);
+  const shelved = Number(doc?.shelved ?? 1) === 1;
   const t = now();
-  const r = await db.run(`UPDATE feed_items SET document_id = ?, state = 'saved', updated_at = ? WHERE url IN (${list.map(() => '?').join(',')}) AND (document_id IS NULL OR document_id != ?) AND deleted_at IS NULL`, [document_id, t, ...list, document_id]);
+  const state = shelved ? "'saved'" : "CASE WHEN state = 'new' THEN 'seen' ELSE state END";
+  const r = await db.run(`UPDATE feed_items SET document_id = ?, state = ${state}, seen_at = COALESCE(seen_at, ?), updated_at = ? WHERE url IN (${list.map(() => '?').join(',')}) AND (document_id IS NULL OR document_id != ? OR state != 'saved') AND deleted_at IS NULL`, [document_id, t, t, ...list, document_id]);
   return r.changes;
 }
 

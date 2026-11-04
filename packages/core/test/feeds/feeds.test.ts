@@ -139,6 +139,9 @@ describe('订阅和书架、找文章', () => {
     expect(items.find(i => i.title === 'A Tiny Compiler')).toMatchObject({ state: 'saved', document_id: (r as { document_id: string }).document_id });
     expect((await core.call<{ items: unknown[] }>('feeds.items', { filter: 'saved' })).items).toHaveLength(1);
 
+    // 书架只列放进书架的
+    expect((await core.call<{ items: { title: string; shelved: boolean }[] }>('documents.list', {})).items).toMatchObject([{ title: 'A Tiny Compiler', shelved: true }]);
+
     const { searchFeeds } = await import('../../src/domain/feeds/methods.js');
     const ctx = core.ctx({ origin: 'skill' });
     expect((await searchFeeds(ctx, {})).items.map(i => i.title)).toEqual(['Garden notes']);
@@ -147,5 +150,39 @@ describe('订阅和书架、找文章', () => {
     online = false;
     await core.ctx({ origin: 'ui' }).db.run('UPDATE feeds SET last_ok_at = 0');
     expect(await searchFeeds(ctx, {})).toMatchObject({ stale: true, items: [{ title: 'Garden notes' }] });
+  });
+
+  it('从订阅里直接读：同一个阅读器能打开，但不进书架；之后加入书架或再导入一次才进', async () => {
+    const { core } = await setup(url => {
+      if (url === 'https://ex.com/feed.xml') return { status: 200, final_url: url, body: rss([{ guid: 'a', title: 'A Tiny Compiler', link: 'https://ex.com/a' }]) };
+      if (url === 'https://ex.com/a') return { status: 200, final_url: url, content_type: 'text/html', body: '<html></html>' };
+      return undefined;
+    });
+    await core.call('feeds.add', { url: 'https://ex.com/feed.xml' });
+    const read = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'url', url: 'https://ex.com/a' }, shelve: false }));
+    expect(read).toMatchObject({ ok: true, summary: '可以读了：A Tiny Compiler' });
+    const id = (read as { document_id: string }).document_id;
+    // 阅读器要的东西都在：文档、章节
+    expect(await core.call('documents.get', { id })).toMatchObject({ id, shelved: false, sections: [{ idx: 0 }] });
+    // 书架里没有，计数也不算
+    expect(await core.call('documents.list', {})).toMatchObject({ items: [], total: 0 });
+    // 订阅里：读过了（不是未读），但不在书架里，"已保存"里也没有
+    const [item] = (await core.call<{ items: { state: string; document_id?: string; in_library?: boolean }[] }>('feeds.items', { filter: 'all' })).items;
+    expect(item).toMatchObject({ state: 'seen', document_id: id, in_library: false });
+    expect((await core.call<{ items: unknown[] }>('feeds.items', { filter: 'saved' })).items).toEqual([]);
+    expect((await core.call<{ unread: number }>('feeds.status', {})).unread).toBe(0);
+
+    // 在阅读器里点「加入书架」，可以撤销
+    const u = await core.call<{ undo: { undo_id: string } }>('documents.update', { id, patch: { shelved: true } });
+    expect((await core.call<{ total: number }>('documents.list', {})).total).toBe(1);
+    expect((await core.call<{ items: { in_library?: boolean }[] }>('feeds.items', { filter: 'saved' })).items[0]).toMatchObject({ in_library: true });
+    await core.call('system.undo', { undo_id: u.undo.undo_id });
+    expect((await core.call<{ total: number }>('documents.list', {})).total).toBe(0);
+
+    // 用别的方式（首页贴网址）再导入同一篇：放进书架，不重复建文档
+    const again = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'url', url: 'https://ex.com/a' } }));
+    expect(again).toMatchObject({ ok: true, document_id: id, duplicate: true, summary: '已放进书架：A Tiny Compiler' });
+    expect(await core.call('documents.list', {})).toMatchObject({ total: 1, items: [{ id, shelved: true }] });
+    expect((await core.call<{ items: { state: string }[] }>('feeds.items', { filter: 'saved' })).items[0]!.state).toBe('saved');
   });
 });

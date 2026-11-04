@@ -1072,5 +1072,9 @@
   "找文章会先从你的订阅里挑。加订阅、开关和删除都在侧栏「订阅」页。": "Find Articles picks from your subscriptions first. Add, toggle and remove feeds on the Subscriptions page in the sidebar.",
   "去管理订阅": "Manage subscriptions",
   "还没连接官方 DeepSeek。连接之前只用订阅里的文章。": "The official DeepSeek service isn't connected. Tibi only uses your subscriptions until it is.",
-  "只从订阅里找文章，不搜索网页。": "Find articles from your subscriptions only, without searching the web."
+  "只从订阅里找文章，不搜索网页。": "Find articles from your subscriptions only, without searching the web.",
+  "已放进书架：{title}": "Added to library: {title}",
+  "接着读": "Continue",
+  "加入书架": "Add to library",
+  "从订阅里读的文章不在书架里，想留着就加进去": "Articles read from subscriptions aren't in your library. Add this one to keep it"
 }

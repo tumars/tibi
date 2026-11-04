@@ -31,6 +31,7 @@ export interface DocumentSummary {
   minutes: number; /** 按词频估的文本级别 A2–C2（与用户无关）；没有词频表时没有 */ level?: string; progress: number;
   book?: { chapter: number; chapters: number; chapter_progress: number };
   status: 'processing' | 'ready' | 'failed'; ai_status: AiStatus;
+  /** 在书架里；从订阅里直接读的是 false（11 §5.2） */ shelved: boolean;
   excerpt: string; cover_path?: string; added_at: Ts; opened_at?: Ts; finished_at?: Ts;
 }
 export interface Document extends DocumentSummary {

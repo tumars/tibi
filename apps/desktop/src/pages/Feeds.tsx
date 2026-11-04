@@ -51,20 +51,31 @@ export function Feeds() {
       setBusy(b => { const n = { ...b }; delete n[p.item]; return n; });
       // 成功和失败的提示由 App 统一给
       if (!d.ok) return;
-      setItems(cur => cur?.map(i => (i.id === p.item ? { ...i, state: 'saved', document_id: d.document_id } : i)));
+      setItems(cur => cur?.map(i => (i.id === p.item ? { ...i, state: p.open ? 'seen' : 'saved', document_id: d.document_id, in_library: !p.open || i.in_library } : i)));
       if (p.open) nav(`/read/${d.document_id}`);
     });
     return () => { off1(); off2(); };
   }, [nav]);
 
+  // 读：同一个阅读器打开，但不进书架（11 §5.2）；稍后读：放进书架，不跳转
   const read = async (it: FeedItemView, open: boolean) => {
-    if (it.document_id) { nav(`/read/${it.document_id}`); return; }
+    if (it.document_id && open) { nav(`/read/${it.document_id}`); return; }
+    if (it.document_id) { await shelve(it); return; }
     if (busy[it.id]) return;
     try {
       setBusy(b => ({ ...b, [it.id]: tl('开始') }));
-      const { import_id } = await rpc.call('documents.import', { source: { type: 'url', url: it.url } });
+      const { import_id } = await rpc.call('documents.import', { source: { type: 'url', url: it.url }, shelve: !open });
       pending.current.set(import_id, { item: it.id, open });
     } catch (e) { setBusy(b => { const n = { ...b }; delete n[it.id]; return n; }); toast(errorInfo(e).message, { kind: 'err' }); }
+  };
+  /** 读过但没进书架的：放进书架 */
+  const shelve = async (it: FeedItemView) => {
+    if (!it.document_id) return;
+    try {
+      await rpc.call('documents.update', { id: it.document_id, patch: { shelved: true } });
+      setItems(cur => cur?.map(i => (i.id === it.id ? { ...i, in_library: true } : i)));
+      toast(tl('已放进书架：{title}', { title: it.title }));
+    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
   const dismiss = async (it: FeedItemView) => {
     try {
@@ -165,7 +176,11 @@ export function Feeds() {
                   <span className="lbl">{fmtMinutes(it.est_minutes)}</span>
                   <span className="sp" />
                   {busy[it.id] ? <span className="lbl busy">{busy[it.id]}</span>
-                    : it.document_id ? <button className="btn sm" onClick={() => nav(`/read/${it.document_id}`)}>{tl('在书架里')}</button>
+                    : it.document_id && it.in_library ? <button className="btn sm" onClick={() => nav(`/read/${it.document_id}`)}>{tl('在书架里')}</button>
+                    : it.document_id ? <>
+                      <button className="btn sm" onClick={() => nav(`/read/${it.document_id}`)}>{tl('接着读')}</button>
+                      <button className="btn sm" onClick={() => void shelve(it)}>{tl('加入书架')}</button>
+                    </>
                     : <>
                       <button className="btn sm pri" onClick={() => void read(it, true)}>{tl('读')}</button>
                       <button className="btn sm" onClick={() => void read(it, false)}>{tl('稍后读')}</button>
