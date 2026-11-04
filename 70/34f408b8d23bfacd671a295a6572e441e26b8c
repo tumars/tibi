@@ -1,0 +1,52 @@
+apps/desktop/src/lib/feedback.ts
+  s_599c7274b7d047::t_b99e52ad6a09c2 44
+  s_599c7274b7d047::t_fb1e82da984081 1-43,45-79
+apps/desktop/src/settings/FeedbackItems.tsx
+  s_599c7274b7d047::t_65a88c9a7e558a 79-80
+  s_599c7274b7d047::t_b33253aa3e1ae5 1,3
+  s_599c7274b7d047::t_4da276e6bd2fd8 48
+  s_599c7274b7d047::t_7ce7a846ac4cf9 2,4-47,49-78,81-86
+PRIVACY.md
+  s_599c7274b7d047::t_0b10d449371b2c 29
+.github/ISSUE_TEMPLATE/bug.yml
+  s_599c7274b7d047::t_23f0ccaffa3b95 35
+apps/desktop/src/locales/en.json
+  s_599c7274b7d047::t_7c2c51553e0488 1091-1106
+  s_f4849826a0b45a::t_5a5c03574a9e63 1090
+apps/desktop/src/settings/search.ts
+  s_599c7274b7d047::t_f5a36ce60a89e6 25
+apps/desktop/src/pages/Settings.tsx
+  s_599c7274b7d047::t_e19378a49858eb 156
+  s_599c7274b7d047::t_bf01fcb4b43ddc 17
+apps/desktop/src/store/ui.ts
+  s_599c7274b7d047::t_762dab1f1701e3 21-28
+  s_599c7274b7d047::t_2152c2f5ddff2c 61
+apps/desktop/src-tauri/capabilities/default.json
+  s_599c7274b7d047::t_2680fe0108d643 25-26
+apps/desktop/test/feedback.test.ts
+  s_599c7274b7d047::t_fec53f2d904df0 1-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7034f408b8d23bfacd671a295a6572e441e26b8c",
+  "prompts": {},
+  "sessions": {
+    "s_599c7274b7d047": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "77c274ad-97ad-4c5f-9edd-7a70d9971c0c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_f4849826a0b45a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3bd3645c-099e-48d0-b3bf-e3b3d3c0401a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
