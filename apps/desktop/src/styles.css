@@ -733,6 +733,8 @@ h2.st .sp { flex: 1; }
 .aloud .input { height: 28px; padding: 0 6px; font-size: 12.5px; width: auto; }
 .aloud .ibtn.on { color: var(--accent); background: var(--accent-wash); }
 .aloud .vsep { width: 1px; height: 18px; background: var(--line-2); margin: 0 4px; }
+.aloud-on [data-sid] { cursor: pointer; }
+.aloud-on [data-sid]:hover:not(.speaking) { background: var(--hover); border-radius: 4px; }
 [data-sid].speaking { background: var(--accent-wash); border-radius: 4px; box-shadow: 0 0 0 2px var(--accent-wash); transition: background .2s; }
 
 /* 设置 → Tibi 能做的事 */

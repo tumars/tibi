@@ -47,9 +47,11 @@ export function useAloud(sents: Sentence[], o: { start?: number; speed?: number;
     const n = Math.max(0, Math.min(sents.length - 1, idx + d));
     if (playing) void play(n); else { if (paused) halt(); setIdx(n); }
   };
+  /** 点了某一句：从这句开始读 */
+  const goto = (i: number) => { if (i >= 0 && i < sents.length) void play(i); };
   // 调了倍速 / 停顿 / 循环：正在读就从当前句重新开始；暂停着就放弃句中的位置，继续时按新设置读
   useEffect(() => { if (playing) void play(idx); else if (paused) halt(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [speed, gap, loop, engine]);
   useEffect(() => () => { run.current++; tts.stop(); }, []);
 
-  return { idx, setIdx, playing, paused, toggle, jump, halt };
+  return { idx, setIdx, playing, paused, toggle, jump, goto, halt };
 }

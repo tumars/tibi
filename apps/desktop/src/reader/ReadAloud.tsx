@@ -1,6 +1,6 @@
 import type { SectionContent } from '@tibi/core';
 import { AudioLines, LoaderCircle, Pause, Play, Repeat, SkipBack, SkipForward, Volume2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as tts from '../lib/tts';
 import { tl } from '../lib/i18n';
 import { errorInfo } from '../rpc';
@@ -24,7 +24,7 @@ export function ReadAloud({ content, scroller, onClose }: { content: SectionCont
   const [pct, setPct] = useState<number>();
   const sents = content.sentences;
   const status = useTtsStatus();
-  const { idx, playing, paused, toggle, jump, halt } = useAloud(sents, { start, speed, gap, loop, engine, onError: e => toast(tl('AI 朗读用不了：{v0}。可以先用系统朗读', { v0: errorInfo(e).message || tl('模型没下载好') }), { kind: 'err' }) });
+  const { idx, playing, paused, toggle, jump, goto, halt } = useAloud(sents, { start, speed, gap, loop, engine, onError: e => toast(tl('AI 朗读用不了：{v0}。可以先用系统朗读', { v0: errorInfo(e).message || tl('模型没下载好') }), { kind: 'err' }) });
   // 换成 AI 朗读：没下载过先下载（约 92 MB），按钮上显示进度
   const pick = async (e: tts.Engine) => {
     if (e === 'kokoro' && !tts.kokoroDownloaded()) {
@@ -42,6 +42,20 @@ export function ReadAloud({ content, scroller, onClose }: { content: SectionCont
     if (el) { el.classList.add('speaking'); if (playing) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   }, [idx, playing, scroller, sents]);
   useEffect(() => () => { scroller?.querySelectorAll('.speaking').forEach(e => e.classList.remove('speaking')); }, [scroller]);
+  // 朗读时单击选的是句子：从点的那句开始读，不弹词卡（捕获阶段拦下，词上的 onClick 收不到）；拖选文字照旧
+  const gotoRef = useRef(goto); gotoRef.current = goto;
+  useEffect(() => {
+    if (!scroller) return;
+    const on = (e: MouseEvent) => {
+      if (window.getSelection()?.isCollapsed === false) return;
+      const sid = (e.target as Element).closest<HTMLElement>('[data-sid]')?.dataset.sid;
+      const i = sid ? sents.findIndex(s => s.id === sid) : -1;
+      if (i < 0) return;
+      e.stopPropagation(); gotoRef.current(i);
+    };
+    scroller.classList.add('aloud-on'); scroller.addEventListener('click', on, true);
+    return () => { scroller.classList.remove('aloud-on'); scroller.removeEventListener('click', on, true); };
+  }, [scroller, sents]);
 
   return (
     <div className="aloud" role="toolbar" aria-label={tl('朗读')}>
