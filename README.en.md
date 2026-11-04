@@ -37,7 +37,7 @@ Unsigned builds: on macOS, right-click the app in Finder → Open the first time
 
 ## Privacy
 
-Tibi has no server, no account and no telemetry. It only goes online for things you use: fetching a page you import, calling the model you configured, downloading the OCR language pack or the Kokoro voice the first time, and fetching your feeds. See [PRIVACY.md](PRIVACY.md).
+Tibi has no server, no account and no telemetry. It goes online to fetch a page you import, call the model you configured, download the OCR language pack or the Kokoro voice the first time, fetch your feeds, and check once a day for updates and announcements (you can turn this off). See [PRIVACY.md](PRIVACY.md).
 
 ## Development
 

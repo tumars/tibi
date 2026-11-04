@@ -26,6 +26,13 @@
       ]
     },
     "deep-link:default",
-    "notification:default"
+    "notification:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://dl.ferecord.com/notice.json" },
+        { "url": "https://raw.githubusercontent.com/tumars/tibi/main/notice.json" }
+      ]
+    }
   ]
 }

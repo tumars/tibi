@@ -13,7 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 # 在电脑上按手机的方式跑（Core 在 WebView 里、SQLite 走 local_db）：预览手机版、在没有 Xcode / NDK 的机器上检查这段能编译
-mobile-preview = ["dep:rusqlite", "dep:tauri-plugin-http"]
+mobile-preview = ["dep:rusqlite"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -32,7 +32,8 @@ log = "0.4"
 env_logger = "0.11"
 rusqlite = { version = "0.32", features = ["bundled"], optional = true }
 base64 = "0.22"
-tauri-plugin-http = { version = "2", optional = true }
+# 桌面：只给界面取公告（notice.json，capabilities 里限定两个地址）；手机：网页、模型、WebDAV 都走它
+tauri-plugin-http = "2"
 
 # 软件更新只在桌面端（update.rs）；手机走应用商店
 [target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
@@ -52,7 +53,6 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 # 手机（M7）：Core 在 WebView 里，SQLite 由 rusqlite 提供（自带 FTS5）；网页和 WebDAV 走 http 插件（不受 CORS 限制）
 [target.'cfg(any(target_os = "ios", target_os = "android"))'.dependencies]
 rusqlite = { version = "0.32", features = ["bundled"] }
-tauri-plugin-http = "2"
 
 # iOS：iCloud Drive 容器路径（sync_fs.rs）
 [target.'cfg(target_os = "ios")'.dependencies]

@@ -1056,7 +1056,7 @@
   "仍要更新": "Update anyway",
   "安装并重启": "Install and restart",
   "自动检查更新": "Check for updates automatically",
-  "每天查看一次，有新版本时提醒你，不会自动安装": "Checks once a day and lets you know about new versions. Never installs on its own",
+  "每天查看一次新版本和 Tibi 的公告，有新版本时提醒你，不会自动安装": "Checks once a day for new versions and Tibi announcements. Never installs on its own",
   "Kokoro 语音引擎启动失败：{v0}": "Kokoro voice engine failed to start: {v0}",
   "Kokoro 下载失败：{v0}": "Kokoro download failed: {v0}",
   "正在下载 {pct}%…": "Downloading {pct}%…",

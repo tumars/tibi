@@ -1,0 +1,50 @@
+# 公告（notice.json）推到 main 后同步到国内源；已安装的应用先查国内源，连不上再查 GitHub（raw.githubusercontent.com）。
+# 字段见 apps/desktop/src/lib/notice.ts；格式不对 CI 的 test/notice.test.ts 会先拦下。
+# 用 mirror-cn.yml 同一组变量和密钥，没配就跳过。
+name: Notice to CN
+on:
+  push:
+    branches: [main]
+    paths: [notice.json]
+  workflow_dispatch:
+
+concurrency:
+  group: notice-cn
+
+permissions:
+  contents: read
+
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_URL: ${{ vars.CN_MIRROR_BASE_URL }}
+      BUCKET: ${{ secrets.CN_S3_BUCKET }}
+      S3_ENDPOINT: ${{ secrets.CN_S3_ENDPOINT }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.CN_S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CN_S3_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.CN_S3_REGION }}
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+    steps:
+      - name: 配了才同步
+        id: guard
+        run: |
+          for k in BASE_URL BUCKET S3_ENDPOINT AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION; do
+            if [ -z "${!k}" ]; then echo "没配 $k，跳过同步"; exit 0; fi
+          done
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - if: steps.guard.outputs.ready
+        uses: actions/checkout@v4
+      - name: 是合法的 JSON
+        if: steps.guard.outputs.ready
+        run: node -e "const n = JSON.parse(require('fs').readFileSync('notice.json', 'utf8')).notices; if (!Array.isArray(n)) throw new Error('notice.json 要有 notices 数组')"
+      - name: 上传
+        if: steps.guard.outputs.ready
+        run: |
+          aws configure set default.s3.addressing_style virtual
+          aws s3 --endpoint-url "$S3_ENDPOINT" cp notice.json "s3://$BUCKET/notice.json" --cache-control no-cache --content-type application/json --no-progress
+      - name: 确认能从公开地址取到
+        if: steps.guard.outputs.ready
+        run: diff <(curl -fsS "${BASE_URL%/}/notice.json") notice.json

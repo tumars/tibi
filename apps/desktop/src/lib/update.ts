@@ -2,7 +2,7 @@ import { isTauri } from '../rpc';
 
 /**
  * 桌面端软件更新（T31）：下载、验签、安装都在壳里（src-tauri/src/update.rs）。
- * 自动检查默认关（PRIVACY：只有用到的功能才联网）；开关是这台设备自己的，不同步，所以放 localStorage。
+ * 自动检查默认开（2026-11-04 起），关掉后公告（notice.ts）也不再查；开关是这台设备自己的，不同步，所以放 localStorage。
  */
 const AUTO = 'tibi.update.auto';
 const LAST = 'tibi.update.last';
@@ -10,7 +10,7 @@ const HOUR = 3600_000;
 
 export type UpdateInfo = { available: false } | { available: true; version: string };
 
-export const autoCheckOn = () => { try { return localStorage.getItem(AUTO) === '1'; } catch { return false; } };
+export const autoCheckOn = () => { try { return localStorage.getItem(AUTO) !== '0'; } catch { return true; } };
 export const setAutoCheck = (on: boolean) => { try { localStorage.setItem(AUTO, on ? '1' : '0'); } catch { /* */ } };
 
 export async function checkUpdate(): Promise<UpdateInfo> {

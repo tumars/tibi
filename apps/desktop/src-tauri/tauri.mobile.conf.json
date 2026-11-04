@@ -26,6 +26,14 @@
             "deep-link:default",
             "notification:default",
             {
+              "identifier": "opener:allow-open-url",
+              "allow": [
+                {
+                  "url": "https://*"
+                }
+              ]
+            },
+            {
               "identifier": "http:default",
               "allow": [
                 {

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { Fox } from '../components/Fox';
 import { tl } from '../lib/i18n';
+import { presentNotice, startNoticeCheck } from '../lib/notice';
 import { scheduleMobile, type ReminderTime } from '../lib/reminder';
 import { startWidgetSnapshots, takeSharedImports } from './native';
 import { rpc } from '../rpc';
@@ -34,6 +35,8 @@ export function MobileApp() {
     return () => { off(); offTts(); };
   }, []);
   useEffect(() => { setImm(false); }, [loc.pathname]);
+  // 公告：手机没有应用内更新，催升级也靠它（notice.json 的 below）
+  useEffect(() => startNoticeCheck(presentNotice), []);
   // iOS 扩展：Safari 分享进来的网址、小组件快照
   useEffect(() => {
     void takeSharedImports();

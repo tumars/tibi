@@ -52,6 +52,6 @@ export function UpdateItems() {
         ? <button className="btn sm pri" onClick={() => void install(s.version)}>{tl('安装并重启')}</button>
         : <button className="btn sm" disabled={s.k === 'checking' || s.k === 'installing'} onClick={() => void check()}>{tl('检查更新')}</button>}
     </div></div>
-    <div className="item"><div><div className="t">{tl('自动检查更新')}</div><div className="d">{tl('每天查看一次，有新版本时提醒你，不会自动安装')}</div></div><div className="ctl"><Switch label={tl('自动检查更新')} checked={auto} onChange={v => { setAuto(v); setAutoCheck(v); }} /></div></div>
+    <div className="item"><div><div className="t">{tl('自动检查更新')}</div><div className="d">{tl('每天查看一次新版本和 Tibi 的公告，有新版本时提醒你，不会自动安装')}</div></div><div className="ctl"><Switch label={tl('自动检查更新')} checked={auto} onChange={v => { setAuto(v); setAutoCheck(v); }} /></div></div>
   </>;
 }
