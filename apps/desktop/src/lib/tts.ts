@@ -25,9 +25,13 @@ export function configure(o: { engine?: Engine; voice?: string; aiVoice?: string
 export const current = () => ({ engine, voice: voiceId, aiVoice, rate });
 
 /* ---------- 系统语音 ---------- */
+/** macOS 自带的音效 / 整活音色（Bahh、Zarvox…），读英文学不了发音；已经选了的照样留着 */
+const NOVELTY = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox)$/i;
 export function systemVoices(): Voice[] {
   try {
-    return speechSynthesis.getVoices().filter(v => /^en[-_](US|GB)/i.test(v.lang)).map(v => ({ id: v.voiceURI, label: `${v.name}`, accent: /GB/i.test(v.lang) ? 'gb' : 'us' }));
+    return speechSynthesis.getVoices().filter(v => /^en[-_](US|GB)/i.test(v.lang) && (!NOVELTY.test(v.name) || v.voiceURI === voiceId))
+      // "Eddy (英语（英国）)"：括号里的语种后面会按英音 / 美音再标一次，去掉
+      .map(v => ({ id: v.voiceURI, label: v.name.replace(/\s*[(（].*[)）]\s*$/, ''), accent: /GB/i.test(v.lang) ? 'gb' : 'us' }));
   } catch { return []; }
 }
 function systemSay(text: string, r: number): Promise<void> {

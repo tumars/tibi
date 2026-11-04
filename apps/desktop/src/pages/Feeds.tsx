@@ -81,7 +81,7 @@ export function Feeds() {
     if (it.document_id) { await shelve(it); return; }
     if (busy[it.id]) return;
     try {
-      setBusy(b => ({ ...b, [it.id]: tl('开始') }));
+      setBusy(b => ({ ...b, [it.id]: open ? tl('正在打开…') : tl('正在加入书架…') }));
       const { import_id } = await rpc.call('documents.import', { source: { type: 'url', url: it.url, title: it.title }, shelve: !open });
       pending.current.set(import_id, { item: it.id, open });
     } catch (e) { setBusy(b => { const n = { ...b }; delete n[it.id]; return n; }); toast(errorInfo(e).message, { kind: 'err' }); }
@@ -119,9 +119,10 @@ export function Feeds() {
   useEffect(() => {
     observer.current = new IntersectionObserver(entries => {
       for (const e of entries) {
-        const id = (e.target as HTMLElement).dataset.id;
-        if (!id || e.isIntersecting || !e.target.isConnected || !e.rootBounds || e.boundingClientRect.height === 0 || e.boundingClientRect.bottom > e.rootBounds.top) continue;
-        seenQueue.current.add(id); observer.current?.unobserve(e.target);
+        const ids = (e.target as HTMLElement).dataset.id?.split(' ').filter(Boolean);
+        if (!ids?.length || e.isIntersecting || !e.target.isConnected || !e.rootBounds || e.boundingClientRect.height === 0 || e.boundingClientRect.bottom > e.rootBounds.top) continue;
+        for (const id of ids) seenQueue.current.add(id);
+        observer.current?.unobserve(e.target);
       }
       if (!seenQueue.current.size || flush.current) return;
       flush.current = setTimeout(() => {
@@ -137,7 +138,8 @@ export function Feeds() {
       seenQueue.current.clear();
     };
   }, []);
-  const watch = (el: HTMLElement | null, it: FeedItemView) => { if (el && it.state === 'new') observer.current?.observe(el); };
+  const watch = (el: HTMLElement | null, g: FeedItemView[]) => { if (el && g.some(i => i.state === 'new')) observer.current?.observe(el); };
+  const [variant, setVariant] = useState<Record<string, string>>({});   // 分级稿：卡片 → 选中的那一版
 
   const current = feedId ? feeds.find(f => f.id === feedId) : undefined;
   const folders = [...new Set(feeds.filter(f => f.enabled && f.folder).map(f => f.folder!))];
@@ -170,24 +172,29 @@ export function Feeds() {
           </div>
         </aside>
         <div className="scroll" ref={scroller}><div className="page feedlist">
-          {current?.error && <p className="feederr">{tl('这个源上次没刷新成功：{error}', { error: current.error })}</p>}
+          {current?.error && <p className="feederr">{tl('这个源上次没刷新成功：{error}', { error: current.error })}<button className="linkbtn" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? tl('正在刷新') : tl('重试')}</button></p>}
           {items === undefined ? null : items.length === 0
             ? (feeds.length === 0 || enabled.length === 0
               ? <Empty image="empty-library" title={tl('还没有订阅')} text={tl('订阅喜欢的英文博客和杂志，新文章会自动出现在这里。')} action={<button className="btn pri" onClick={() => setAdding(true)}>{tl('加订阅')}</button>} />
+              // 抓失败、一篇都没有：不说"都看过了"
+              : current?.error && !current.last_ok_at
+              ? <Empty image="error-generic" title={tl('还没抓到这个源的文章')} text={tl('刷新没成功，原因在上面。可以过会儿再试，或在管理订阅里换个地址。')} />
               : <Empty image="empty-library" title={filter === 'unread' ? tl('都看过了') : filter === 'saved' ? tl('还没有保存的文章') : tl('这里还没有文章')} text={filter === 'unread' ? tl('新文章来了会出现在这里。也可以看看「全部」。') : undefined} action={filter === 'unread' ? <button className="btn" onClick={() => setFilter('all')}>{tl('看全部')}</button> : undefined} />)
             : <>
               {/* 整张卡片点开就读；收进书架、不感兴趣、原网页放在右下角，悬停才亮 */}
-              {items.map(it => <article key={it.id} data-id={it.id} ref={el => watch(el, it)} className={`fitem${it.state === 'new' ? ' unread' : ''}${busy[it.id] ? ' busy' : ''}`} onClick={() => void read(it, true)}>
+              {groupLevels(items).map(g => { const it = g.find(i => i.id === variant[g[0]!.id]) ?? g[g.length - 1]!; return <article key={g[0]!.id} data-id={g.map(i => i.id).join(' ')} ref={el => watch(el, g)} className={`fitem${g.some(i => i.state === 'new') ? ' unread' : ''}${busy[it.id] ? ' busy' : ''}`} onClick={() => void read(it, true)}>
                 <div className="m">
                   <span className="src">{it.feed_title}</span>
                   {it.published_at && <><span>·</span><span>{fmtAgo(it.published_at)}</span></>}
                   {it.author && <><span>·</span><span className="au">{it.author}</span></>}
                 </div>
-                <button className="t" onClick={e => { e.stopPropagation(); void read(it, true); }}>{it.title}</button>
-                {it.excerpt && <p className="ex">{it.excerpt}</p>}
+                <button className="t" onClick={e => { e.stopPropagation(); void read(it, true); }}>{g.length > 1 ? levelBase(it.title) : it.title}</button>
+                {it.excerpt && <p className="ex">{it.excerpt.replace(LEADING_STAMP, '')}</p>}
                 <div className="f" onClick={e => e.stopPropagation()}>
-                  {it.est_level && <span className="lv" title={tl('按词频估的文本级别')}>{it.est_level}</span>}
-                  <span>{fmtMinutes(it.est_minutes)}</span>
+                  {g.length > 1
+                    ? <span className="lvs" role="group" aria-label={tl('难度版本')}>{g.map(v => <button key={v.id} className={v.id === it.id ? 'on' : ''} title={tl('按词频估的文本级别')} onClick={() => setVariant(m => ({ ...m, [g[0]!.id]: v.id }))}>{v.est_level ?? levelNo(v.title)}</button>)}</span>
+                    : it.est_level && <span className="lv" title={tl('按词频估的文本级别')}>{it.est_level}</span>}
+                  {it.est_minutes && <span>{fmtMinutes(it.est_minutes)}</span>}
                   {it.in_library && <span className="tag"><BookmarkCheck />{tl('在书架里')}</span>}
                   <span className="sp" />
                   {busy[it.id] ? <span className="busy" role="status"><span className="spin" />{busy[it.id]}</span> : <span className="acts">
@@ -196,7 +203,7 @@ export function Feeds() {
                     <OpenLink url={it.comments_url ?? it.url} title={it.comments_url ? tl('看讨论') : tl('在浏览器里打开')} />
                   </span>}
                 </div>
-              </article>)}
+              </article>; })}
               <Pager page={page} size={PAGE} total={count} onPage={turn} />
             </>}
         </div></div>
@@ -204,6 +211,24 @@ export function Feeds() {
       {adding && <AddFeedModal onClose={() => setAdding(false)} onAdded={f => { setAdding(false); void loadFeeds(); go({ feed: f.id }); setFilter('all'); }} />}
     </>
   );
+}
+
+/** News in Levels 这类同一篇按难度出几版（标题以 "– level N" 结尾）：同一个源里合成一张卡，按 level 从低到高 */
+/** 有的源把发布时间写在摘要开头（04-11-2026 15:00），列表上已经有时间了 */
+const LEADING_STAMP = /^\s*\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}(\s+\d{1,2}:\d{2})?\s*/;
+const LEVEL_RE = /\s*[–—-]\s*level\s*(\d)\s*$/i;
+const levelBase = (t: string) => t.replace(LEVEL_RE, '');
+const levelNo = (t: string) => `L${t.match(LEVEL_RE)?.[1] ?? '?'}`;
+function groupLevels(items: FeedItemView[]): FeedItemView[][] {
+  const out: FeedItemView[][] = []; const at = new Map<string, FeedItemView[]>();
+  for (const it of items) {
+    if (!LEVEL_RE.test(it.title)) { out.push([it]); continue; }
+    const key = `${it.feed_id}|${levelBase(it.title).toLowerCase()}`;
+    const g = at.get(key); if (g) { g.push(it); continue; }
+    const ng = [it]; at.set(key, ng); out.push(ng);
+  }
+  for (const g of out) if (g.length > 1) g.sort((a, b) => levelNo(a.title).localeCompare(levelNo(b.title)));
+  return out;
 }
 
 function FeedLink({ f, cur, onClick }: { f: FeedView; cur: boolean; onClick: () => void }) {

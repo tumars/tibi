@@ -15,20 +15,21 @@ import { getFeed, getFeedByUrl, listFeeds, toView, unreadCount, type FeedRow, ty
 
 export interface FeedItemView {
   id: string; feed_id: string; feed_title: string; url: string; title: string; author?: string; published_at?: number;
-  excerpt: string; est_level?: string; est_minutes: number; state: ItemState;
+  excerpt: string; est_level?: string; /** 不知道正文多长时没有（不再按固定词数瞎估） */ est_minutes?: number; state: ItemState;
   /** 读过（导入过）就有；in_library 表示在书架里，否则是直接读的、不在书架里 */ document_id?: string; in_library?: boolean; comments_url?: string;
 }
 
-type ItemRow = { id: string; feed_id: string; feed_title: string; url: string; title: string; author: string | null; published_at: number | null; excerpt: string; est_level: string | null; word_count: number | null; state: string; document_id: string | null; shelved: number | null; comments_url: string | null };
-const ITEM_SELECT = `SELECT i.id, i.feed_id, f.title AS feed_title, i.url, i.title, i.author, i.published_at, i.excerpt, i.est_level, i.word_count, i.state, d.id AS document_id, d.shelved, i.comments_url
+type ItemRow = { id: string; feed_id: string; feed_title: string; url: string; title: string; author: string | null; published_at: number | null; excerpt: string; est_level: string | null; word_count: number | null; doc_words: number | null; state: string; document_id: string | null; shelved: number | null; comments_url: string | null };
+const ITEM_SELECT = `SELECT i.id, i.feed_id, f.title AS feed_title, i.url, i.title, i.author, i.published_at, i.excerpt, i.est_level, i.word_count, d.word_count AS doc_words, i.state, d.id AS document_id, d.shelved, i.comments_url
   FROM feed_items i JOIN feeds f ON f.id = i.feed_id AND f.deleted_at IS NULL LEFT JOIN documents d ON d.id = i.document_id AND d.deleted_at IS NULL`;
 
-/** 源里的正文 ≥ 400 词才按它算；短的多半只是开头几段（如 Ars Technica），按 1200 词估 */
-const minutesOf = (words: number | null) => Math.max(3, Math.round((words && words >= 400 ? words : 1200) / WPM));
+/** 读过的按导入后的正文算；源里的正文 ≥ 400 词才按它算，短的多半只是开头几段（如 Ars Technica），就不估了 */
+const minutesOf = (r: ItemRow) => { const w = Number(r.doc_words) || (r.word_count && r.word_count >= 400 ? r.word_count : 0); return w ? Math.max(1, Math.round(w / WPM)) : undefined; };
 function toItem(r: ItemRow): FeedItemView {
+  const minutes = minutesOf(r);
   return {
     id: r.id, feed_id: r.feed_id, feed_title: r.feed_title, url: r.url, title: r.title, ...(r.author ? { author: r.author } : {}), ...(r.published_at ? { published_at: r.published_at } : {}),
-    excerpt: r.excerpt, ...(r.est_level ? { est_level: r.est_level } : {}), est_minutes: minutesOf(r.word_count), state: r.state as ItemState,
+    excerpt: r.excerpt, ...(r.est_level ? { est_level: r.est_level } : {}), ...(minutes ? { est_minutes: minutes } : {}), state: r.state as ItemState,
     ...(r.document_id ? { document_id: r.document_id, in_library: Number(r.shelved) === 1 } : {}), ...(r.comments_url ? { comments_url: r.comments_url } : {}),
   };
 }
@@ -143,7 +144,7 @@ export async function searchFeeds(ctx: Ctx, p: { interests?: string[]; since?: n
   const rank = (i: ItemRow) => (words.some(w => (i.title + ' ' + i.excerpt).toLowerCase().includes(w)) ? 2 : 0) + (i.published_at ? Math.max(0, 1 - (t - i.published_at) / (14 * 86_400_000)) : 0);
   const items = rows.sort((a, b) => rank(b) - rank(a)).slice(0, p.limit ?? 20).map(r => {
     const v = toItem(r);
-    return { item_id: v.id, url: v.url, title: v.title, site: v.feed_title, ...(v.published_at ? { published_at: v.published_at } : {}), excerpt: v.excerpt, est_minutes: v.est_minutes, ...(v.est_level ? { est_level: v.est_level } : {}) };
+    return { item_id: v.id, url: v.url, title: v.title, site: v.feed_title, ...(v.published_at ? { published_at: v.published_at } : {}), excerpt: v.excerpt, ...(v.est_minutes ? { est_minutes: v.est_minutes } : {}), ...(v.est_level ? { est_level: v.est_level } : {}) };
   });
   return { items, ...(stale ? { stale: true } : {}) };
 }

@@ -72,6 +72,7 @@ html:not([data-paper]) body:has(.app.mac) { background: transparent; }
 .nav a svg { width: 17px; height: 17px; }
 .nav a .n { margin-left: auto; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .nav a .n.badge { font-weight: 500; color: var(--ink-2); }   /* 到期计数：只加粗，不做实心徽标（与原型一致） */
+.nav a .dot { margin-left: auto; margin-right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .nav a.cur .n { color: var(--accent); opacity: .8; }
 .sidefoot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .streak { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: var(--r-m); }
@@ -197,7 +198,7 @@ h2.st .sp { flex: 1; }
 .week { display: flex; gap: 6px; margin-top: 8px; }
 .week i { flex: 1; height: 6px; border-radius: 99px; background: var(--line-2); }
 .week i.on { background: var(--ink); } .week i.now { background: var(--accent); }
-@media (max-width: 1100px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 三张一排的（首页"今天"）窄了也保持三列，免得第二行空一格；四张的（统计）在下面 900px 处折成两行两列 */
 /* 左栏"最近" */
 .sideh { font-size: 11.5px; color: var(--ink-3); padding: 16px 12px 6px; white-space: nowrap; }
 .side > :not(.recent) { flex-shrink: 0; }   /* 对话多时只压缩"最近"，它自己滚动 */
@@ -271,13 +272,10 @@ h2.st .sp { flex: 1; }
 .rdbar button.on { background: var(--accent-wash); color: var(--accent); }
 .rdbar button svg { width: 15px; height: 15px; }
 .rdbar .vsep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
-/* 窄窗口开着右侧面板时放不下文字，带图标的按钮只留图标 */
-@media (max-width: 1100px) { .with-panel .rdbar button:has(svg) { font-size: 0; gap: 0; } }
 .endc { margin-top: 24px; padding: 20px; border-radius: var(--r-l); background: var(--sunken); font-family: var(--f-ui); font-size: 14px; }
 .endc h3 { margin: 0 0 4px; font-size: 17px; font-family: var(--f-ui); }
 .endc.done h3 { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; } .endc.done h3 svg { color: var(--ok); }
 .endc p { margin: 0 0 14px; color: var(--ink-2); font-size: 13.5px; }
-.totop { position: fixed; right: 28px; bottom: 28px; height: 30px; padding: 0 12px; border-radius: 15px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-2); font-size: 12.5px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
 .legend { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
 .legend .ex { font-family: var(--f-read); font-size: 16px; width: 110px; }
 .legend .row { display: flex; gap: 12px; align-items: center; }
@@ -416,6 +414,15 @@ h2.st .sp { flex: 1; }
 .rdwrap.with-panel { grid-template-columns: minmax(0, 1fr) var(--rpanel, 360px); }
 .rpanel-resize { right: calc(var(--rpanel, 360px) - 3px); }   /* 骑在正文和右栏的分界线上 */
 .rdwrap > .scroll { min-height: 0; }
+/* 窄窗口：右栏不再挤正文，改成盖在正文上的抽屉（宽度断点和 Reader 里默认不开面板的一致） */
+@media (max-width: 1100px) {
+  .rdwrap.with-panel { grid-template-columns: minmax(0, 1fr); }
+  .rdwrap.with-panel > .rpanel { position: absolute; top: 0; right: 0; bottom: 0; width: min(var(--rpanel, 360px), 88%); z-index: 6; box-shadow: -12px 0 32px -16px rgba(0,0,0,.3); }
+  .rdwrap.with-panel > .rpanel-resize { display: none; }
+  /* 抽屉开着：工具栏靠左、只留图标，不让右半截藏到抽屉底下 */
+  .rdwrap.with-panel .rdbar { margin-left: 20px; }
+  .rdwrap.with-panel .rdbar button:has(svg) { font-size: 0; gap: 0; }
+}
 .rpanel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; border-left: 1px solid var(--line); background: var(--surface); }
 .rph { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 10px 0 18px; font-size: 14px; }
 .rph .sp { flex: 1; }
@@ -456,7 +463,7 @@ h2.st .sp { flex: 1; }
 .obsteps li i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11.5px; font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--line-2); font-style: normal; flex: none; }
 .obsteps li.cur { color: var(--ink); font-weight: 500; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .obsteps li.cur i { background: var(--accent); color: #fff; box-shadow: none; }
-.obsteps li.done { color: var(--ink-2); } .obsteps li.done i { background: var(--ink); color: var(--surface); box-shadow: none; }
+.obsteps li.done { color: var(--ink-2); } .obsteps li.done i { background: var(--accent-wash); color: var(--accent); box-shadow: none; }   /* 和当前步、选中的选项同一个主色 */
 .ob .right { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
 .ob .pane { padding: 36px 40px 16px; overflow: auto; }
 .ob .pane h1 { margin: 0 0 6px; font-size: 24px; font-weight: 600; letter-spacing: -.015em; }
@@ -465,7 +472,7 @@ h2.st .sp { flex: 1; }
 .ob .f .t { font-size: 13px; font-weight: 500; }
 .ob .f .input { width: 280px; }
 .ob .opts { display: flex; flex-wrap: wrap; gap: 8px; }
-.ob .opts .chip.on { background: var(--ink); color: var(--surface); box-shadow: none; }
+.ob .opts .chip.on { background: var(--accent-wash); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .ob .prov { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
 .ob .prov button { text-align: left; padding: 12px 14px; border-radius: var(--r-l); box-shadow: inset 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 3px; }
 .ob .prov button b { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
@@ -807,6 +814,7 @@ h2.st .sp { flex: 1; }
 .feedside .feedacts > * { color: var(--ink-3); font-size: 12.5px; }
 .feedacts svg { width: 15px; height: 15px; }
 .feedlist { max-width: 720px; display: flex; flex-direction: column; padding-top: 8px; }
+.feederr .linkbtn { margin-left: 8px; }
 .feederr { font-size: 12.5px; color: var(--ink-2); background: var(--sunken); padding: 8px 12px; border-radius: var(--r-m); margin: 0 0 8px; }
 .fitem { display: flex; flex-direction: column; gap: 6px; padding: 16px 16px 10px; margin: 0 -16px; border-radius: var(--r-l); position: relative; cursor: pointer; transition: background .15s; }
 .fitem:hover { background: var(--hover); }
@@ -824,6 +832,10 @@ h2.st .sp { flex: 1; }
 .fitem:not(.unread) .ex { color: var(--ink-3); }
 .fitem .f { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--ink-3); min-height: 30px; cursor: default; }
 .fitem .f .lv { padding: 1px 6px; border-radius: 4px; background: var(--sunken); color: var(--ink-2); font-weight: 500; font-variant-numeric: tabular-nums; }
+.fitem .f .lvs { display: inline-flex; gap: 2px; padding: 2px; border-radius: 6px; background: var(--sunken); }
+.fitem .f .lvs button { padding: 0 6px; height: 18px; border-radius: 4px; color: var(--ink-3); font-weight: 500; font-variant-numeric: tabular-nums; }
+.fitem .f .lvs button:hover { color: var(--ink); }
+.fitem .f .lvs button.on { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line-2); }
 .fitem .f .tag { display: inline-flex; align-items: center; gap: 3px; color: var(--accent); }
 .fitem .f .tag svg { width: 13px; height: 13px; }
 .fitem.busy { cursor: progress; }

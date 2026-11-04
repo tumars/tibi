@@ -35,7 +35,8 @@ export function Reader() {
   const [card, setCard] = useState<{ word: string; lemma: string; sentence: Sentence; s: number; anchor: DOMRect }>();
   const [overrides, setOverrides] = useState<Map<string, Status>>(new Map());
   const [showTop, setShowTop] = useState(false);
-  const [panel, setPanel] = useState<'summary' | 'tibi' | 'dict' | undefined>('summary');   // 进来先看总结
+  // 进来先看总结；窄窗口里右栏盖在正文上，先不开
+  const [panel, setPanel] = useState<'summary' | 'tibi' | 'dict' | undefined>(() => (matchMedia('(max-width: 1100px)').matches ? undefined : 'summary'));
   const [dictWord, setDictWord] = useState<string>();
   const [pending, setPending] = useState<Pending>();
   const [selAsk, setSelAsk] = useState<{ text: string; sentence_id?: string; x: number; y: number }>();
@@ -175,7 +176,7 @@ export function Reader() {
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '18px 32px 0' }}>
           <div className="rd" style={{ padding: 0 }}>
             <div className="meta">
-              <span>{GENRE_NAMES[doc.genre] ?? doc.genre} · {fmtMinutes(sec?.word_count ? sec.word_count / 180 : doc.minutes)}{doc.level ? ` · ${tl('难度约 {level}', { level: doc.level })}` : ''}</span>
+              <span>{GENRE_NAMES[doc.genre] ?? doc.genre} · {fmtMinutes(sec?.word_count ? sec.word_count / 200 : doc.minutes)}{doc.level ? ` · ${tl('难度约 {level}', { level: doc.level })}` : ''}</span>
               <DocSource d={doc} />
               {counts && counts.new + counts.learning > 0 && <span className="tagc">{tl('生词 {new} · 学习中 {learning}', { new: counts.new, learning: counts.learning })}</span>}
             </div>
@@ -197,7 +198,7 @@ export function Reader() {
           </div>}
         </div>
         <div className="rdbar">
-          <button className={translations ? 'on' : ''} onClick={async () => {
+          <button className={translations ? 'on' : ''} title={tl('译文')} onClick={async () => {
             const on = !translations;
             if (!on || translating || content.sentences.every(s => s.translation)) { setTranslations(on); return; }
             // 没有译文也连不上模型：按钮不亮，免得看着像打开了却什么都没有
@@ -205,18 +206,20 @@ export function Reader() {
             setTranslations(true);
             try { setTranslating(true); await rpc.call('sections.translate', { id: content.id }); toast(tl('正在翻译这一章，好了会自动显示')); } catch (e) { setTranslating(false); toast(errorInfo(e).message, { kind: 'err' }); }
           }}><Languages />{translating ? tl('翻译中…') : tl('译文')}</button>
-          <button className={gloss ? 'on' : ''} onClick={() => {
+          <button className={gloss ? 'on' : ''} title={tl('释义')} onClick={() => {
             setGloss(!gloss);
             // 释义只写在生词和学习中的词上方；一个都没有时说清楚，不然看着像没反应
             const has = content.sentences.some(s => s.tokens.some(t => { const st = overrides.get(t.l) ?? t.status; return !!t.gloss && st !== undefined && st <= 4; }));
             if (!gloss && !has) toast(tl('这一章还没有要标释义的词。点一个词标成生词，释义会写在它上方'));
           }}><Type />{tl('释义')}</button>
-          <button className={aloud ? 'on' : ''} onClick={() => setAloud(!aloud)}><Volume2 />{tl('朗读')}</button>
-          <button className={sepia ? 'on' : ''} onClick={() => setSepia(!sepia)}><Eye />{tl('护眼')}</button>
+          <button className={aloud ? 'on' : ''} title={tl('朗读')} onClick={() => setAloud(!aloud)}><Volume2 />{tl('朗读')}</button>
+          <button className={sepia ? 'on' : ''} title={tl('护眼')} onClick={() => setSepia(!sepia)}><Eye />{tl('护眼')}</button>
           <span className="vsep" />
           <button onClick={() => setMode(mode === 'all' ? 'new' : mode === 'new' ? 'clean' : 'all')}>{{ all: tl('全部标注'), new: tl('仅生词'), clean: tl('纯净阅读') }[mode]}</button>
           <span className="vsep" />
-          <button className={done ? 'on' : ''} disabled={done} onClick={() => void onFinish()}><BookOpenCheck />{done ? tl('已读完') : tl('读完了')}</button>
+          <button className={done ? 'on' : ''} disabled={done} title={done ? tl('已读完') : tl('读完了')} onClick={() => void onFinish()}><BookOpenCheck />{done ? tl('已读完') : tl('读完了')}</button>
+          {/* 放在工具栏里：浮在右下角会压住右栏的输入框 */}
+          {showTop && <><span className="vsep" /><button title={tl('回到开头')} onClick={() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setShowTop(false); }}><ArrowUp />{tl('回到开头')}</button></>}
         </div>
       </div>
       {panel && <ResizeHandle className="rpanel-resize" side="left" width={panelWidth} onChange={setPanelWidth} onReset={() => setPanelWidth(PANEL_W)} onDragging={setResizing} />}
@@ -225,7 +228,6 @@ export function Reader() {
       {panel === 'summary' && <SummaryPanel doc={doc} onClose={() => setPanel(undefined)} onPhrase={text => { const el = [...(scrollRef.current?.querySelectorAll<HTMLElement>('[data-sid]') ?? [])].find(x => x.textContent?.toLowerCase().includes(text.toLowerCase())); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); } else toast(tl('这一章里没有找到这个短语')); }} />}
       </div>
       {aloud && <ReadAloud key={content.id} content={content} scroller={scrollRef.current} onClose={() => setAloud(false)} />}
-      {showTop && <button className="totop" onClick={() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setShowTop(false); }}><ArrowUp size={14} />{tl('回到开头')}</button>}
       {selAsk && <button className="selask" style={{ left: selAsk.x, top: selAsk.y }} onMouseDown={e => e.preventDefault()} onClick={() => ask(selAsk.text.length > 80 ? tl('讲讲这句：{text}', { text: selAsk.text }) : tl('「{text}」在这里是什么意思？', { text: selAsk.text }), { sentence_id: selAsk.sentence_id, selection: selAsk.text })}><Sparkles size={13} />{tl('问 Tibi')}</button>}
       {card && <WordCard onAsk={(w, sid) => ask(tl('「{w}」在这句话里是什么意思？用法上要注意什么？', { w }), { sentence_id: sid, selection: w })} word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} onClose={() => setCard(undefined)} onDict={w => { setDictWord(w); setPanel('dict'); setCard(undefined); }} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}
       <Modal open={legend} onOpenChange={setLegend} title={tl('标注说明')} actions={<button className="btn pri" onClick={() => setLegend(false)}>{tl('知道了')}</button>}>

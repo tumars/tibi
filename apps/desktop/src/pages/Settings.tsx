@@ -83,6 +83,19 @@ export function Settings() {
     rpc.call('profile.get', {}).then(setProfile, () => undefined);
   }, []);
 
+  // 左边目录跟着滚动走：顶上那一节高亮；滚到底时是最后一节（它可能顶不到上面）
+  useEffect(() => {
+    const root = swRef.current?.closest('.scroll'); if (!root || searching) return;
+    const onScroll = () => {
+      const top = root.getBoundingClientRect().top + 80; let cur: string = SECTIONS[0]![0];
+      if (root.scrollTop + root.clientHeight >= root.scrollHeight - 2) cur = SECTIONS[SECTIONS.length - 1]![0];
+      else for (const [k] of SECTIONS) { const el = document.getElementById(`s-${k}`); if (el && el.getBoundingClientRect().top <= top) cur = k; }
+      setSec(cur);
+    };
+    root.addEventListener('scroll', onScroll, { passive: true });
+    return () => root.removeEventListener('scroll', onScroll);
+  }, [searching]);
+
   const patch = async (p: Partial<Profile>) => { try { setProfile(await rpc.call('profile.update', { patch: p })); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
 
   return (
@@ -98,7 +111,6 @@ export function Settings() {
             <div className="item"><div><div className="t">{tl('外观')}</div></div><div className="ctl"><div className="seg">{(['auto', 'light', 'dark'] as const).map(t => <button key={t} className={theme === t ? 'on' : ''} onClick={() => setTheme(t)}>{{ auto: tl('跟随系统'), light: tl('浅色'), dark: tl('深色') }[t]}</button>)}</div></div></div>
             <div className="item"><div><div className="t">{tl('界面语言')}</div><div className="d">{tl('只换界面上的字，切换后界面会重新载入')}</div></div><div className="ctl"><div className="seg">{([['zh', '中文'], ['en', 'English']] as const).map(([v, l]) => <button key={v} className={lang === v ? 'on' : ''} onClick={() => { if (v !== lang) setLang(v); }}>{l}</button>)}</div></div></div>
             <div className="item"><div><div className="t">{tl('Tibi 怎么称呼你')}</div></div><div className="ctl"><input className="input" style={{ width: 120 }} maxLength={20} placeholder={tl('比如：小孟')} value={(profile?.assistant_prefs?.nickname ?? profile?.display_name ?? '') === '你' ? '' : profile?.assistant_prefs?.nickname ?? profile?.display_name ?? ''} onChange={e => { const v = e.target.value; setProfile(p => p && { ...p, display_name: v, assistant_prefs: { ...p.assistant_prefs, nickname: v } }); }} onBlur={e => { const v = e.target.value.trim(); void patch({ display_name: v, assistant_prefs: { ...(profile?.assistant_prefs ?? { permission: 'default' }), nickname: v || '你' } }).then(() => useCore.getState().refresh()); }} /></div></div>
-            <div className="item"><div><div className="t">{tl('权限模式')}</div><div className="d">{tl('Tibi 要写入数据（改熟练度、删文章等）之前要不要先问你。读过网页内容的任务写入时一律先问。记忆不问，直接记下，对话里可以撤销')}</div></div><div className="ctl"><div className="seg">{([['ask', tl('每次都问')], ['default', tl('标词自动，其余问')], ['auto', tl('全部自动')]] as const).map(([v, l]) => <button key={v} className={(profile?.assistant_prefs?.permission ?? 'default') === v ? 'on' : ''} onClick={() => patch({ assistant_prefs: { ...(profile?.assistant_prefs ?? { nickname: '你' }), permission: v } })}>{l}</button>)}</div></div></div>
             <VoiceItems />
           </div></section>
 
@@ -111,7 +123,7 @@ export function Settings() {
             <Range label={tl('每日阅读目标')} value={profile?.daily_goal_minutes ?? 20} min={5} max={60} step={5} unit={tl(' 分钟')} onChange={v => patch({ daily_goal_minutes: v })} />
             <Range label={tl('每天最多新学的词')} value={profile?.daily_new_cards ?? 20} min={5} max={50} step={5} unit={tl(' 个')} desc={tl('超过的排到第二天')} onChange={v => patch({ daily_new_cards: v })} />
             <Range label={tl('目标记得率')} value={Math.round((profile?.desired_retention ?? 0.9) * 100)} min={80} max={97} step={1} unit="%" desc={tl('越高复习越频繁')} onChange={v => patch({ desired_retention: v / 100 })} />
-            <div className="item"><div><div className="t">{tl('出识别题')}</div><div className="d">{tl('看着词想意思，自己评分。关掉时这一步由选义题代替（R6）')}</div></div><div className="ctl"><Switch label={tl('出识别题')} checked={recognize} onChange={async v => { setRecognize(v); await rpc.call('settings.set', { patch: { 'review.recognize': v } }).catch(e => toast(errorInfo(e).message, { kind: 'err' })); }} /></div></div>
+            <div className="item"><div><div className="t">{tl('出识别题')}</div><div className="d">{tl('看着词想意思，自己评分。关掉时这一步改出选义题')}</div></div><div className="ctl"><Switch label={tl('出识别题')} checked={recognize} onChange={async v => { setRecognize(v); await rpc.call('settings.set', { patch: { 'review.recognize': v } }).catch(e => toast(errorInfo(e).message, { kind: 'err' })); }} /></div></div>
           </div></section>
 
           <section className="ssec" id="s-memory"><h2>{tl('记忆')}</h2><div className="group">
@@ -121,7 +133,10 @@ export function Settings() {
           <section className="ssec" id="s-advanced">
           <h2>{tl('高级')}</h2>
             <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('Tibi 能做的事')}</h3>
-            <div className="group"><SkillItems /></div>
+            <div className="group">
+              <div className="item"><div><div className="t">{tl('权限模式')}</div><div className="d">{tl('Tibi 改你的数据（熟练度、文章等）前要不要先问。读过网页的任务一律先问')}</div></div><div className="ctl"><div className="seg">{([['ask', tl('每次都问')], ['default', tl('标词自动，其余问')], ['auto', tl('全部自动')]] as const).map(([v, l]) => <button key={v} className={(profile?.assistant_prefs?.permission ?? 'default') === v ? 'on' : ''} onClick={() => patch({ assistant_prefs: { ...(profile?.assistant_prefs ?? { nickname: '你' }), permission: v } })}>{l}</button>)}</div></div></div>
+              <SkillItems />
+            </div>
             <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('其他 AI 工具')}</h3>
               <div className="group"><McpItems /></div>
           </section>
@@ -130,7 +145,6 @@ export function Settings() {
           <section className="ssec" id="s-data"><h2>{tl('数据')}</h2><div className="group">
             <div className="item"><div><div className="t">{tl('数据库位置')}</div><div className="mono" style={{ marginTop: 6 }}>{status?.db_path ?? '—'}</div></div><div className="ctl"><button className="btn sm" onClick={async () => { if (!isTauri() || !status) return toast(tl('浏览器模式不能打开')); const { invoke } = await import('@tauri-apps/api/core'); await invoke('open_path', { path: status.db_path }).catch(e => toast(String(e), { kind: 'err' })); }}>{tl('在文件夹中显示')}</button></div></div>
             <BackupItems />
-            <div className="item"><div><div className="t">{tl('生词本导入与导出')}</div><div className="d">{tl('导出为 Anki / CSV / 纯文本；从其他工具导入已知词表或单词表。在生词本页右上角。')}</div></div><div className="ctl"><button className="btn sm" onClick={() => nav('/words')}>{tl('去生词本')}</button></div></div>
             <ExportSummaryItem />
             <SyncItems />
           </div></section>

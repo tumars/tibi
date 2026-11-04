@@ -24,11 +24,19 @@ export async function listFeeds(db: Database): Promise<FeedView[]> {
   return rows.map(toView);
 }
 
+/** 抓取异常翻成用户看得懂的话（原样是 "This operation was aborted"、"fetch failed" 这类英文） */
+export function netError(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e);
+  if (/abort|timed? ?out/i.test(m)) return '连接超时，稍后会自动再试';
+  if (/ENOTFOUND|EAI_AGAIN|getaddrinfo|ECONNREFUSED|ECONNRESET|fetch failed|network|certificate|SSL|TLS/i.test(m)) return '连不上这个网站，稍后会自动再试';
+  return m;
+}
+
 export function toView(r: FeedRow & { unread?: number }): FeedView {
   return {
     id: r.id, url: r.url, ...(r.site_url ? { site_url: r.site_url } : {}), title: r.title, builtin: !!r.builtin, enabled: !!r.enabled,
     ...(r.folder ? { folder: r.folder } : {}), unread: Number(r.unread ?? 0), ...(r.last_ok_at ? { last_ok_at: r.last_ok_at } : {}),
-    ...(r.error ? { error: r.error } : {}), error_count: r.error_count,
+    ...(r.error ? { error: netError(r.error) } : {}), error_count: r.error_count,
   };
 }
 

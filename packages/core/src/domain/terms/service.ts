@@ -6,7 +6,7 @@ import { ensureCard, newCardsToday, startOfToday } from '../shared/cards.js';
 import { recordUndo, registerUndo } from '../shared/undo.js';
 import { uuidv7 } from '../../ids.js';
 import { lemmatize } from '../text/lemma.js';
-import { getTerm, getTermByText, insertContext, insertTerm, readProfile, setTermStatus, hasPrimaryContext, contextExists, type TermRow } from './repo.js';
+import { bumpEncounter, getTerm, getTermByText, insertContext, insertTerm, readProfile, setTermStatus, hasPrimaryContext, contextExists, type TermRow } from './repo.js';
 import { shortGloss } from './views.js';
 
 /** 词汇的写操作（R5 点词、改状态、加入生词本、短语、暂停、移出），都带审计与撤销 */
@@ -93,7 +93,8 @@ export async function markTerm(ctx: Ctx, text: string, status: Status, sentence_
   }
   if (status >= 0 && status <= 4) {
     if (existing?.deleted_at) await ctx.db.run('UPDATE terms SET deleted_at = NULL, in_wordbook = 0, updated_at = ? WHERE id = ?', [now(), existing.id]);
-    const added = await addWords(ctx, [{ text: raw, sentence_id }]);
+    // 马上要改到点的那一档：先建时不记"生词"那条历史（term_status_log 只追加，记了就删不掉）
+    const added = await addWords(ctx, [{ text: raw, sentence_id, ...(status !== 0 ? { skipLog: true } : {}) }]);
     const term = added.created[0] ?? added.existed[0];
     if (!term) throw new TibiError('not_found', '找不到这个词');
     if (status === 0) return { term: (await getTerm(ctx.db, term.id))!, undo: added.undo };
@@ -121,7 +122,7 @@ registerUndo<{ id: string }>('terms.mark', async (p, ctx) => {
 });
 
 /** 生词本"添加"（terms.add / add_to_wordbook）：查词典补释义，用词典例句做语境 */
-export async function addWords(ctx: Ctx, entries: { text: string; meaning?: string; sentence_id?: string }[]): Promise<{ created: TermRow[]; existed: TermRow[]; undo: Undo }> {
+export async function addWords(ctx: Ctx, entries: { text: string; meaning?: string; sentence_id?: string; /** 调用方随后会改状态并记历史 */ skipLog?: boolean }[]): Promise<{ created: TermRow[]; existed: TermRow[]; undo: Undo }> {
   const created: TermRow[] = []; const existed: TermRow[] = [];
   const profile = await readProfile(ctx.db);
   await ctx.db.transaction(async tx => {
@@ -134,7 +135,7 @@ export async function addWords(ctx: Ctx, entries: { text: string; meaning?: stri
       const entry = isPhrase ? undefined : await ctx.dict.lookup(lemma);
       if (!term) {
         term = await insertTerm(tx, { kind: isPhrase ? 'phrase' : 'word', text: lemma, display: isPhrase ? raw : lemma, status: 0, status_source: 'user', meaning: e.meaning, short_gloss: shortGloss(entry?.translation), in_wordbook: true });
-        await tx.run('INSERT INTO term_status_log(id, term_id, status, source, created_at) VALUES (?,?,?,?,?)', [crypto.randomUUID(), term.id, 0, 'user', now()]);
+        if (!e.skipLog) await tx.run('INSERT INTO term_status_log(id, term_id, status, source, created_at) VALUES (?,?,?,?,?)', [crypto.randomUUID(), term.id, 0, 'user', now()]);
       } else {
         await setTermStatus(tx, term, term.status >= 0 && term.status <= 4 ? (term.status as Status) : 0, 'user', { in_wordbook: true });
         if (e.meaning) await tx.run('UPDATE terms SET meaning = ?, updated_at = ? WHERE id = ?', [e.meaning, now(), term.id]);
@@ -148,6 +149,8 @@ export async function addWords(ctx: Ctx, entries: { text: string; meaning?: stri
           const s = await tx.get<{ section_id: string }>('SELECT section_id FROM sentences WHERE id = ?', [e.sentence_id]);
           const doc = s ? await tx.get<{ document_id: string }>('SELECT document_id FROM sections WHERE id = ?', [s.section_id]) : undefined;
           await insertContext(tx, { term_id: term.id, source: 'article', sentence_id: e.sentence_id, document_id: doc?.document_id ?? null, is_primary: !(await hasPrimaryContext(tx, term.id)) });
+          // 在文章里点的词：这一句就是遇见了一次（和短语一样），不然生词本里"遇见 0"、详情里却有一句
+          await bumpEncounter(tx, term.id, 1, now());
         }
       } else if (!(await hasPrimaryContext(tx, term.id))) {
         const ex = (await ctx.dict.examples?.(lemma))?.[0];

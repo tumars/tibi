@@ -17,12 +17,14 @@ describe('全局搜索 search.query（00 §3.8）', () => {
     const { core, kernel } = await assembleCore({ db, dict, platform: fakePlatform({ isOnline: () => false }), resume: false });
     const doc = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: 'Compilers at work\n\nThe compiler enforces a small set of rules at compile time.' } })) as { document_id: string };
     await core.call('terms.add', { entries: [{ text: 'compiler', meaning: '编译器' }] });   // 导入不建词条：用户自己加进生词本
-    await db.run("INSERT INTO conversations(id, kind, title, created_at, updated_at) VALUES ('c1', 'chat', 'compiler 和 interpreter 有什么区别', ?, ?)", [t, t]);
+    await db.run("INSERT INTO conversations(id, kind, title, last_message_at, created_at, updated_at) VALUES ('c1', 'chat', 'compiler 和 interpreter 有什么区别', ?, ?, ?)", [t, t, t]);
+    // 只是打开过 Tibi 面板、一句话没说的对话：左栏不列，搜索也不出
+    await db.run("INSERT INTO conversations(id, kind, title, created_at, updated_at) VALUES ('c2', 'document', 'Compilers at work', ?, ?)", [t, t]);
 
     const a = await core.call<SearchResult>('search.query', { q: 'compil' });
     expect(a.documents[0]!.id).toBe(doc.document_id);
     expect(a.terms.map(x => x.text)).toContain('compiler');
-    expect(a.conversations[0]!.id).toBe('c1');
+    expect(a.conversations.map(c => c.id)).toEqual(['c1']);
 
     const body = await core.call<SearchResult>('search.query', { q: 'enforces' });
     expect(body.documents[0]?.snippet).toMatch(/\[enforces\]/);

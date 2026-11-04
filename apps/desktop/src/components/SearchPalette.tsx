@@ -39,6 +39,7 @@ export function SearchPalette() {
   const [q, setQ] = useState('');
   const [scope, setScope] = useState<Scope>('all');
   const [res, setRes] = useState<SearchResult>();
+  const [resQ, setResQ] = useState('');   // res 是哪个词搜出来的；和输入框不一致 = 还在搜
   const [sel, setSel] = useState(0);
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const list = useRef<HTMLDivElement>(null);
@@ -55,11 +56,12 @@ export function SearchPalette() {
     window.addEventListener('keydown', onKey); window.addEventListener('tibi:search', onOpen); window.addEventListener('tibi:search-toggle', onToggle);
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('tibi:search', onOpen); window.removeEventListener('tibi:search-toggle', onToggle); };
   }, []);
-  useEffect(() => { if (!open) { setQ(''); setScope('all'); setRes(undefined); } }, [open]);
+  useEffect(() => { if (!open) { setQ(''); setScope('all'); setRes(undefined); setResQ(''); } }, [open]);
+  const searching = !!q.trim() && resQ !== q.trim();
   useEffect(() => {
     const t = q.trim(); if (!t) { setRes(undefined); return; }
     let live = true;
-    const h = setTimeout(() => { rpc.call('search.query', { q: t, limit: 6 }).then(r => { if (live) setRes(r); }, () => { if (live) setRes({ documents: [], terms: [], conversations: [] }); }); }, 120);
+    const h = setTimeout(() => { rpc.call('search.query', { q: t, limit: 6 }).then(r => { if (live) { setRes(r); setResQ(t); } }, () => { if (live) { setRes({ documents: [], terms: [], conversations: [] }); setResQ(t); } }); }, 120);
     return () => { live = false; clearTimeout(h); };
   }, [q]);
 
@@ -142,6 +144,8 @@ export function SearchPalette() {
             {!q && recent.length > 0 && scope !== 'settings' && scope !== 'actions' && <button className="linkbtn" style={{ marginLeft: 'auto' }} onClick={() => { setRecent([]); try { localStorage.removeItem(RECENT_KEY); } catch { /* */ } }}>{tl('清除最近搜索')}</button>}
           </div>
           <div className="pal-list" ref={list}>
+            {/* 文章、单词、对话是一次查出来的：没回来之前说一声，免得以为只有"问 Tibi" */}
+            {searching && <div className="pal-empty">{tl('正在搜索…')}</div>}
             {rows.map((r, i) => {
               const head = r.group && r.group !== lastGroup ? <div className="pal-group">{r.group}</div> : null; lastGroup = r.group || lastGroup;
               return <div key={r.key}>{head}<div className={`pal-row${i === sel ? ' on' : ''}${r.key === 'ask' ? ' ask' : ''}`} onMouseMove={() => setSel(i)} onClick={() => void r.run()}>
@@ -149,7 +153,7 @@ export function SearchPalette() {
                 {r.tag && <span className="tg">{r.tag}</span>}{i === sel && <CornerDownLeft size={13} className="ent" />}
               </div></div>;
             })}
-            {q.trim() && res && rows.length === 1 && <div className="pal-empty">{tl('没有找到，可以直接问 Tibi')}</div>}
+            {q.trim() && res && !searching && rows.length === 1 && <div className="pal-empty">{tl('没有找到，可以直接问 Tibi')}</div>}
           </div>
           <div className="pal-foot"><span><span className="kbd">↑↓</span> {tl('选择')}</span><span><span className="kbd">↵</span> {tl('打开')}</span><span><span className="kbd">⌘↵</span> {tl('问 Tibi')}</span><span><span className="kbd">tab</span> {tl('切换范围')}</span></div>
         </Dialog.Content>

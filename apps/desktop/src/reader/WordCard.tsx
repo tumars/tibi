@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useCore } from '../store/core';
 import { SpeakButtons } from '../components/Speak';
+import { EXAM_NAMES } from '../lib/dict';
 import { STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { toast } from '../store/ui';
@@ -70,7 +71,12 @@ export function WordCard({ word, sentenceId, anchor, onClose, onStatus, onAsk, o
       {ctxm?.state === 'err' && <div className="ai muted"><span className="tag">{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
       {ctxm?.state === 'nomodel' && <div className="ai muted"><span className="tag">{tl('✦ 在这句里')}</span>{tl('连接模型后显示 ·')} <button className="linkbtn" onClick={() => nav(`/welcome?step=3&back=${encodeURIComponent(location.hash.slice(1) || '/')}`)}>{tl('去连接')}</button></div>}
       {data && <div className="dict">{data.term?.meaning || data.dict?.translation || (data.dict ? '' : tl('词典里没有这个词'))}</div>}
-      {data?.dict?.exam?.length ? <div className="lbl" style={{ marginTop: 6 }}>{data.dict.exam.join(' · ')}{data.dict.collins ? tl(' · 柯林斯 {v0}', { v0: '★'.repeat(data.dict.collins) }) : ''}</div> : null}
+      {/* 和生词本详情同一套标签：考试用中文名，不露 zk / gk 这类缩写 */}
+      {data?.dict && (data.dict.exam?.length || data.dict.collins || data.dict.oxford) ? <div className="lbl" style={{ marginTop: 6 }}>{[
+        ...(data.dict.collins ? [tl('柯林斯 {v0}', { v0: '★'.repeat(data.dict.collins) })] : []),
+        ...(data.dict.oxford ? [tl('牛津 3000')] : []),
+        ...(data.dict.exam ?? []).map(x => EXAM_NAMES[x] ?? x),
+      ].join(' · ')}</div> : null}
       <div className="stages">
         {([0, 1, 2, 3, 4, 5] as Status[]).map(s => <button key={s} data-s={s} className={`${status === s ? 'on' : ''}${status !== undefined && status <= 5 && s <= status ? ' fill' : ''}`} onClick={() => setS(s)} title={tl('{s} 键', { s })}><i />{STATUS_NAMES[s]}</button>)}
       </div>

@@ -210,7 +210,7 @@ export function Home() {
               <span className="k">{tl('生词本')}</span>
               <span className="v">{wordCount.toLocaleString()}<small>{tl('词')}</small></span>
               <span className="d">{tl('已掌握 {v0} · 连续 {v1} 天', { v0: (stats?.mastered ?? 0).toLocaleString(), v1: stats?.streak ?? 0 })}</span>
-              <div className="week">{Array.from({ length: 7 }, (_, i) => { const m = week[i] ?? 0; return <i key={i} className={i === 6 ? 'now' : m >= goal ? 'on' : ''} />; })}</div>
+              <div className="week" title={tl('最近 7 天：读够每日目标的那天点亮，最右边是今天')}>{Array.from({ length: 7 }, (_, i) => { const m = week[i] ?? 0; return <i key={i} className={i === 6 ? 'now' : m >= goal ? 'on' : ''} title={i === 6 ? tl('今天 {m} 分钟', { m }) : tl('{d} 天前 {m} 分钟', { d: 6 - i, m })} />; })}</div>
             </div>
           </div>
         </section>

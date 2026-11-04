@@ -54,7 +54,10 @@ export function Shell() {
             <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive || (n.to === (readingShelved ? '/library' : '/feeds') && reading) ? 'cur' : '')} title={n.label}>
               <n.icon /><span className="hide-c">{n.label}</span>
               {n.badge && due > 0 && <span className="n badge hide-c">{due}</span>}
-              {'count' in n && n.count && counts[n.count] > 0 && <span className="n hide-c">{n.count === 'feedUnread' && counts[n.count] > 99 ? '99+' : counts[n.count]}</span>}
+              {/* 订阅的未读是源推来的，数字只会越攒越大，侧栏只给一个点 */}
+              {'count' in n && n.count && counts[n.count] > 0 && (n.count === 'feedUnread'
+                ? <span className="dot hide-c" title={tl('{n} 篇未读', { n: counts[n.count] })} />
+                : <span className="n hide-c">{counts[n.count]}</span>)}
             </NavLink>
           ))}
         </nav>

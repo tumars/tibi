@@ -6,7 +6,7 @@ import { checkUrlShape } from '../documents/methods.js';
 import { annotateSentences } from '../text/annotate.js';
 import { countWords } from '../text/segment.js';
 import { discoverInHtml, parseFeed, type ParsedFeed, type ParsedItem } from './parse.js';
-import { KEEP_DAYS, prune, type FeedRow } from './repo.js';
+import { KEEP_DAYS, netError, prune, type FeedRow } from './repo.js';
 
 /**
  * 抓订阅（11 §4）：到点的源才抓，带 If-None-Match / If-Modified-Since；失败按 2ⁿ 退避。
@@ -67,7 +67,7 @@ async function refreshOne(ctx: Ctx, f: FeedRow): Promise<number | 'not_modified'
   let page;
   try {
     page = await ctx.platform.fetchUrl(f.url, { timeout_ms: 10_000, headers: { accept: FEED_ACCEPT, ...(f.etag ? { 'if-none-match': f.etag } : {}), ...(f.last_modified ? { 'if-modified-since': f.last_modified } : {}) } });
-  } catch (e) { return fail(e instanceof Error ? e.message : String(e)); }
+  } catch (e) { return fail(netError(e)); }
   if (page.status === 304) {
     await ctx.db.run('UPDATE feeds SET error = NULL, error_count = 0, last_fetched_at = ?, last_ok_at = ?, next_fetch_at = ? WHERE id = ?', [t, t, t + interval, f.id]);
     return 'not_modified';

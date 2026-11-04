@@ -138,6 +138,27 @@ describe('订阅：加、刷新、条件请求', () => {
     expect(rows.map(r => r.guid)).toEqual(['full']);
     expect(rows[0]!.word_count).toBeGreaterThan(500);   // 和导入时一样用 countWords（数字不算词）
     expect(rows[0]!.content_md.startsWith('This is sentence 0')).toBe(true);
+    // 正文够长的按它估时长；只有标题、没有正文的不估（以前一律按 1200 词估成"约 6 分钟"）
+    const items = (await core.call<{ items: { title: string; est_minutes?: number }[] }>('feeds.items', { filter: 'all' })).items;
+    expect(items.find(i => i.title === 'Full')!.est_minutes).toBeGreaterThan(0);
+  });
+
+  it('只有标题的条目不估阅读时长', async () => {
+    const { core } = await setup(url => url === 'https://ex.com/feed.xml' ? { status: 200, final_url: url, body: rss([{ guid: 'a', title: 'A', link: 'https://ex.com/a' }]) } : undefined);
+    await core.call('feeds.add', { url: 'https://ex.com/feed.xml' });
+    const [it] = (await core.call<{ items: { est_minutes?: number }[] }>('feeds.items', { filter: 'all' })).items;
+    expect(it).not.toHaveProperty('est_minutes');
+  });
+
+  it('抓取异常翻成中文：超时、连不上；库里存着的旧英文原因读出来时也翻', async () => {
+    const { netError } = await import('../../src/domain/feeds/repo.js');
+    expect(netError(new Error('This operation was aborted'))).toBe('连接超时，稍后会自动再试');
+    expect(netError(new Error('getaddrinfo ENOTFOUND ex.com'))).toBe('连不上这个网站，稍后会自动再试');
+    expect(netError('打不开（503）')).toBe('打不开（503）');
+    const { core, db } = await setup(() => undefined);
+    const t = Date.now();
+    await db.run("INSERT INTO feeds(id, url, title, error, error_count, created_at, updated_at) VALUES ('f1', 'https://ex.com/feed.xml', 'Ex', 'This operation was aborted', 1, ?, ?)", [t, t]);
+    expect((await core.call<{ id: string; error?: string }[]>('feeds.list', {})).find(f => f.id === 'f1')!.error).toBe('连接超时，稍后会自动再试');
   });
 });
 

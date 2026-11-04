@@ -24,7 +24,7 @@ export function SkillItems() {
     try { const s = await rpc.call('skills.update', { id, patch: p }); setSkills(l => l.map(x => (x.id === id ? s : x))); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
   return <>
-    <div className="item"><div className="d">{tl('导入文章是固定的流程（不是模型驱动），这里不用设置。下面这些由模型完成，每项可以单独选快速 / 深入档。')}</div></div>
+    <div className="item"><div className="d">{tl('下面这些由模型完成，每项可以单独选快速 / 深入档。导入文章不用模型，这里没有它。')}</div></div>
     {skills.map(s => <div key={s.id} className="item col">
       <button className="skrow" onClick={() => setOpen(open === s.id ? undefined : s.id)} aria-expanded={open === s.id}>
         <span className="t">{s.id === 'tibi' ? tl('和 Tibi 对话') : s.title}</span>

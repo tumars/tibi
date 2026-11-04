@@ -55,6 +55,13 @@ describe('terms.lookup（R5）', () => {
     expect(d.dict?.word).toBe('sit');
   });
 
+  it('terms.mark：没有词条的词直接标到某一档，历史里只有那一条（不先记一条"生词"）', async () => {
+    const r = await core.call<{ term: Term }>('terms.mark', { text: 'reclaimed', status: 3, sentence_id: sentenceWith('reclaimed').id });
+    expect(r.term.status).toBe(3);
+    const log = await ctx.db.all<{ status: number }>('SELECT status FROM term_status_log WHERE term_id = ? ORDER BY created_at', [r.term.id]);
+    expect(log.map(x => Number(x.status))).toEqual([3]);
+  });
+
   it('terms.mark：词卡上标没有词条的词——生词进生词本并建卡，已知只记状态；可撤销', async () => {
     const a = await core.call<{ term: Term; undo: { undo_id: string } }>('terms.mark', { text: 'reclaimed', status: 0, sentence_id: sentenceWith('reclaimed').id });
     expect(a.term).toMatchObject({ text: 'reclaim', status: 0 });
@@ -75,6 +82,8 @@ describe('terms.lookup（R5）', () => {
     // 已有的行：改状态
     const c = await core.call<{ term: Term; previous: number }>('terms.mark', { text: 'reclaim', status: 3 });
     expect(c.previous).toBe(0); expect(c.term.status).toBe(3);
+    // 在文章里点的词：那一句算遇见一次（生词本"遇见"和详情里的句子对得上）
+    expect((await ctx.db.get<{ encounter_count: number }>("SELECT encounter_count FROM terms WHERE text = 'reclaim'"))?.encounter_count).toBe(1);
     // 再标回来：删掉的行恢复
     const d = await core.call<{ term: Term }>('terms.mark', { text: 'slowly', status: 98 });
     expect(d.term.status).toBe(98);

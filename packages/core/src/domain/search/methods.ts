@@ -51,7 +51,8 @@ export const searchMethods: MethodMap = {
       [q.toLowerCase(), lemma ?? '', `${q.toLowerCase().replace(/[\\%_]/g, m => `\\${m}`)}%`, L, L, like(q), n])).map(t => ({ id: t.id, text: t.text, display: t.text_display, meaning: t.meaning ?? undefined, status: t.status }));
 
     const conversations = (await ctx.db.all<{ id: string; title: string; kind: string; last_message_at: number | null }>(
-      "SELECT id, title, kind, last_message_at FROM conversations WHERE deleted_at IS NULL AND title != '' AND lower(title) LIKE ? ESCAPE '\\' ORDER BY COALESCE(last_message_at, created_at) DESC LIMIT ?", [L, Math.min(n, 4)]))
+      // 和左栏"最近"同一个口径：没说过话的（只是打开过 Tibi 面板）和技能内部的对话不算
+      "SELECT id, title, kind, last_message_at FROM conversations WHERE deleted_at IS NULL AND last_message_at IS NOT NULL AND kind != 'skill' AND title != '' AND lower(title) LIKE ? ESCAPE '\\' ORDER BY last_message_at DESC LIMIT ?", [L, Math.min(n, 4)]))
       .map(c => ({ id: c.id, title: c.title, kind: c.kind, last_message_at: c.last_message_at ?? undefined }));
 
     let dict: SearchResult['dict'];
