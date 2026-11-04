@@ -18,6 +18,14 @@ interface UiState {
 }
 
 let seq = 0;
+/** 最近 5 条报错提示，只在内存里，给反馈的诊断信息用 */
+const errors: { at: string; text: string }[] = [];
+const noteError = (text: string) => {
+  const d = new Date();
+  errors.push({ at: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, text: text.slice(0, 300) });
+  if (errors.length > 5) errors.shift();
+};
+export const recentErrors = () => [...errors];
 const read = <T>(k: string, d: T): T => { try { const v = localStorage.getItem(k); return v == null ? d : (JSON.parse(v) as T); } catch { return d; } };
 const write = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 私密窗口 */ } };
 
@@ -50,6 +58,7 @@ export const useUi = create<UiState>((set, get) => ({
   toasts: [],
   toast(text, opts = {}) {
     const id = ++seq;
+    if (opts.kind === 'err') noteError(text);
     set(s => ({ toasts: [...s.toasts.slice(-2), { id, text, kind: opts.kind, action: opts.action }] }));
     setTimeout(() => get().dismiss(id), opts.ms ?? (opts.action ? 6000 : 3000));
   },

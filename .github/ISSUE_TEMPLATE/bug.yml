@@ -32,5 +32,5 @@ body:
     id: diag
     attributes:
       label: 诊断信息 / Diagnostics
-      description: 和任务有关的问题，可以在运行记录页打开那个任务，点"复制诊断信息"贴在这里（不含文章正文和 API Key）。
+      description: 从 Tibi 的 设置 → 关于 → 反馈与建议 提交会自动填上（版本、系统、模型名、最近的报错，不含文章正文和 API Key）。
       render: text

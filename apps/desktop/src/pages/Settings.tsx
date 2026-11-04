@@ -14,6 +14,7 @@ import { McpItems } from '../settings/McpItems';
 import { SyncItems } from '../settings/SyncItems';
 import { UpdateItems } from '../settings/UpdateItems';
 import { AuthorItems, DonateItems } from '../settings/AuthorItems';
+import { FeedbackItems } from '../settings/FeedbackItems';
 import { useSettingsSearch } from '../settings/search';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
@@ -152,6 +153,7 @@ export function Settings() {
           <section className="ssec" id="s-about"><h2>{tl('关于')}</h2><div className="about-art"><Mascot id="about" /></div><div className="group">
             <div className="item"><div><div className="t">Tibi {status?.version ?? ''}</div><div className="d">{tl('开源 · MIT 协议 · 本地优先的 AI 英语阅读工具')}</div></div></div>
             <UpdateItems />
+            <FeedbackItems />
             <div className="item"><div><div className="t">{tl('致谢')}</div><div className="d">ECDICT · Open English WordNet · Word Atlas · FSRS · pi · Tauri · Charis SIL</div></div></div>
           </div>
             <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('关于作者')}</h3>

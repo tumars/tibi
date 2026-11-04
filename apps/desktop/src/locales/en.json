@@ -1087,5 +1087,21 @@
   "默认朗读方式": "Default voice",
   "两种朗读到处都有按钮，随时可以换；复习的快捷键、自动播放和全文朗读刚打开时用这里选的": "Both voices have buttons everywhere, so you can switch anytime. Review shortcuts, auto-play and read-aloud start with the one picked here",
   "默认语速": "Default speed",
-  "阅读器里朗读时还可以单独调": "You can also adjust it separately while reading in the reader"
+  "阅读器里朗读时还可以单独调": "You can also adjust it separately while reading in the reader",
+  "问题": "Problem",
+  "建议": "Idea",
+  "其他": "Other",
+  "你做了什么、期望看到什么、实际看到什么": "What you did, what you expected, and what actually happened",
+  "你在读文章、学单词时遇到了什么情况，希望 Tibi 怎么帮你": "What came up while you were reading or learning words, and how you'd like Tibi to help",
+  "想说的都可以写": "Anything you'd like to say",
+  "反馈与建议": "Feedback",
+  "遇到问题、有想法都可以告诉作者。在这里写好，再从 GitHub 或邮件发出去": "Tell the author about problems or ideas. Write it here, then send it via GitHub or email",
+  "写反馈": "Write feedback",
+  "内容较长，已复制到剪贴板，打开后粘贴进去": "It's long, so it was copied to the clipboard. Paste it in once the page opens",
+  "没能打开邮件客户端，可以直接发邮件到 {v0}": "Couldn't open your mail app. You can email {v0} directly",
+  "发邮件": "Email",
+  "在 GitHub 提": "Open on GitHub",
+  "反馈内容": "Feedback",
+  "附带诊断信息（不含文章、生词、对话和 API Key）": "Include diagnostics (no articles, words, chats, or API keys)",
+  "Tibi 不会自己发送任何东西：点按钮后会打开浏览器或邮件客户端，你确认后再发。GitHub 需要登录，没有账号就发邮件": "Tibi doesn't send anything itself: the button opens your browser or mail app, and you send it from there. GitHub needs an account; if you don't have one, use email"
 }

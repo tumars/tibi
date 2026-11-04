@@ -22,7 +22,8 @@
         { "url": "https://github.com/tumars/tibi/releases/latest" },
         { "url": "https://dl.ferecord.com/latest/*" },
         { "url": "https://*" },
-        { "url": "http://*" }
+        { "url": "http://*" },
+        { "url": "mailto:*" }
       ]
     },
     "deep-link:default",

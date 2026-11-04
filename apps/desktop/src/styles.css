@@ -402,6 +402,12 @@ h2.st .sp { flex: 1; }
 .modal h3 { margin: 0 0 8px; font-size: 16px; }
 .modal p { margin: 0 0 16px; color: var(--ink-2); font-size: 13.5px; line-height: 1.6; }
 .modal .acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.fbk { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.fbk .seg { align-self: flex-start; }
+.fbk textarea.input { height: auto; padding: 8px 10px; resize: vertical; line-height: 1.6; user-select: text; }
+.fbk-diag { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.fbk pre.mono { margin: 0; white-space: pre-wrap; max-height: 120px; overflow: auto; }
+.modal p.fbk-note { margin: 0; font-size: 12.5px; color: var(--ink-3); }
 .sring circle { transition: stroke-dashoffset .4s; }
 
 /* 顶栏胶囊按钮（阅读器"总结"等，原型 .pill） */
