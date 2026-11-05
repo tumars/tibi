@@ -28,7 +28,7 @@ export interface UserUi { attachment?: string; turn?: TurnInfo }
 type TextPart = { type: 'text'; text: string };
 interface AssistantBody { role: 'assistant'; content: ({ type: string; text?: string; thinking?: string; redacted?: boolean } & Record<string, unknown>)[] }
 
-export function localDay(t: number = now()): string {
+function localDay(t: number = now()): string {
   const d = new Date(t);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -333,16 +333,18 @@ export class Conversations {
 function project(rows: MsgRow[], turns: Map<string, TurnInfo>): Message[] {
   const out: Message[] = [];
   const answered = new Set<string>();
-  let cur: (Message & { blocks: MessageBlock[]; steps: MessageStep[]; receipts: MessageReceipt[]; thinking?: string; think_ms?: number }) | undefined;
+  let cur: (Message & { blocks: MessageBlock[]; steps: MessageStep[]; receipts: MessageReceipt[]; thinking?: string; think_ms?: number; /** 最后一个工具结果之后从 blocks 第几个起 */ cut: number }) | undefined;
   const flush = () => {
     if (!cur) return;
     const turn = cur.turn_id ? turns.get(cur.turn_id) : undefined;
     const interrupted = turn ? interruptedOf(turn) : undefined;
     const widgets = cur.blocks.some(b => b.type === 'widget');
     const text = cur.blocks.filter((b): b is { type: 'text'; text: string } => b.type === 'text').map(b => b.text).join('\n\n');
+    // 最后一次调工具之后说的话才是正文；前面"我先查一下"这类过渡话不算。最后没说话（停在工具上）就用全部
+    const reply = cur.blocks.slice(cur.cut).filter((b): b is { type: 'text'; text: string } => b.type === 'text').map(b => b.text).join('\n\n');
     const skill = turn && turn.skill !== 'tibi' ? skillDef(turn.skill)?.title : undefined;
     out.push({
-      id: cur.id, role: 'assistant', text, ...(widgets ? { blocks: cur.blocks } : {}), turn_id: cur.turn_id, created_at: cur.created_at,
+      id: cur.id, role: 'assistant', text, ...(reply && reply !== text ? { reply } : {}), ...(widgets ? { blocks: cur.blocks } : {}), turn_id: cur.turn_id, created_at: cur.created_at,
       ...(cur.steps.length ? { steps: cur.steps } : {}), ...(cur.receipts.length ? { receipts: cur.receipts } : {}),
       ...(skill ? { skill } : {}), ...(interrupted ? { interrupted } : {}), ...(cur.thinking ? { thinking: cur.thinking, ...(cur.think_ms !== undefined ? { think_ms: cur.think_ms } : {}) } : {}),
     });
@@ -359,7 +361,7 @@ function project(rows: MsgRow[], turns: Map<string, TurnInfo>): Message[] {
       continue;
     }
     if (cur && cur.turn_id !== (r.turn_id ?? undefined)) flush();
-    cur ??= { id: r.id, role: 'assistant', turn_id: r.turn_id ?? undefined, created_at: r.created_at, blocks: [], steps: [], receipts: [] };
+    cur ??= { id: r.id, role: 'assistant', turn_id: r.turn_id ?? undefined, created_at: r.created_at, blocks: [], steps: [], receipts: [], cut: 0 };
     if (r.role === 'assistant') {
       const body = j.parse<AssistantBody>(r.body, { role: 'assistant', content: [] });
       const t = j.parse<{ think_ms?: number }>(r.ui, {}).think_ms;
@@ -374,6 +376,7 @@ function project(rows: MsgRow[], turns: Map<string, TurnInfo>): Message[] {
       for (const w of [...(ui.widgets ?? []), ...(ui.widget ? [ui.widget] : [])]) cur.blocks.push(w.kind === 'ask' && !(w.state as AskState | undefined)?.answered ? { ...w, state: { expired: true } satisfies AskState } : w);
       if (ui.step) cur.steps.push(ui.step);
       if (ui.receipt) cur.receipts.push(ui.receipt);
+      cur.cut = cur.blocks.length;
     }
   }
   flush();
@@ -395,7 +398,7 @@ function interruptedOf(turn: TurnInfo): MessageInterrupted | undefined {
 }
 
 /** 用户消息的原话（不含附件） */
-export function userText(body: unknown): string {
+function userText(body: unknown): string {
   const c = (body as { content?: unknown } | null)?.content;
   if (typeof c === 'string') return c;
   if (Array.isArray(c)) { const first = c.find(x => (x as TextPart).type === 'text') as TextPart | undefined; return first?.text ?? ''; }

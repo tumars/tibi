@@ -23,11 +23,6 @@ export function tokenize(sentence: string): RawToken[] {
   return out;
 }
 
-/** 句首第一个词（用于大小写判断） */
-export function isSentenceStart(tokens: RawToken[], i: number): boolean {
-  return i === 0;
-}
-
 /**
  * 是否当专有名词处理：首字母大写、不在句首、不是全大写缩写（API、HTTP 归为缩写另算）。
  * 专有名词不标生词（category = proper_noun）。

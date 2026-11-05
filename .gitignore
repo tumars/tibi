@@ -9,16 +9,13 @@ Thumbs.db
 .claude/
 # 吉祥物出图的中间产物（定稿后再挑选放进 docs/prototypes/img/mascot/）
 docs/design/mascot/out/
-# 依赖与构建产物（M0 起）
-node_modules/
-dist/
-target/
-# Node / 构建产物
+# 依赖与构建产物（Node、Rust）
 node_modules/
 dist/
 *.tsbuildinfo
-# Rust
 target/
+# pnpm core:dev 的开发库目录
+.tibi/
 # 本地数据库与密钥
 *.db
 *.db-wal

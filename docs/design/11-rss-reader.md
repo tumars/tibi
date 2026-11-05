@@ -9,7 +9,7 @@ Tibi 已经有一个"文章来源"层，但它只是"找文章"技能的**候选
 
 | 方面 | 现在 | 位置 |
 |---|---|---|
-| 订阅列表 | 存在 `settings.feeds`（JSON：`custom[]` + `disabled[]`），外加 5 个写死的内置源 | [feeds.ts:12](../../packages/core/src/domain/documents/feeds.ts) |
+| 订阅列表 | 存在 `settings.feeds`（JSON：`custom[]` + `disabled[]`），外加 5 个写死的内置源 | 当时的 `domain/documents/feeds.ts`（P1 后搬到 [`domain/feeds/`](../../packages/core/src/domain/feeds/)，订阅存在表里） |
 | 条目 | **不入库**，每次 `search_feeds` 现抓，内存里缓存 1 小时；每源最多 30 条，只留 30 天内 | `searchFeeds` |
 | 解析 | 正则解析 RSS 2.0 / Atom，取标题、链接、摘要、时间；没有 guid，`content:encoded` 只在没有 description 时才用 | `parseFeed` |
 | 抓取 | 走 `platform.fetchUrl`（桌面有 SSRF 检查、手动跟重定向），没有条件请求（ETag / Last-Modified） | [core-node/platform.ts:78](../../packages/core-node/src/platform.ts) |

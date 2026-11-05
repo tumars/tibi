@@ -134,8 +134,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `documents.update` | `{ id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean; shelved?: boolean } }` | `Document` | 改 genre 会让相关 ai_results 失效 |
 | `documents.delete` | `{ id: Id }` | `Undo` | 软删（documents.deleted_at），书架不再显示，可撤销；原始文件副本一并移入回收区 |
 | `documents.reanalyze` | `{ id: Id; ai?: boolean }` | `Ok` | 在后台按当前词库重新标注，完成后 data.changed(documents)；ai=true 时把 AI 状态置回 deferred |
-| `documents.analyze` | `{ id: Id }` | `Ok` | M2，在后台做：（重新）生成总结 + 学习建议 + 关键词、短语、长难句（三个子任务并行，各一次固定提示的快速档调用，JSON 输出，写 ai_results）。导入完成后自动在后台做一次，"稍后补做"和"重新生成"也走这里；内置示例不适用 |
-| `documents.analyze_deferred` | `{ limit?: number }` | `{ queued: number }` | 内部：把 ai_status = deferred 的文章放到后台补做（最近打开的优先）。连上模型（providers.upsert）后与 Core 每小时节拍时调用 |
+| `documents.analyze` | `{ id: Id }` | `Ok` | M2，在后台做：（重新）生成总结 + 学习建议 + 关键词、短语、长难句（三个子任务并行，各一次固定提示的快速档调用，JSON 输出，写 ai_results）。导入时不自动做，只由阅读器总结面板的"现在生成 / 重新生成"触发；内置示例不适用 |
 | `documents.export` | `{ id: Id; format: 'markdown' }` | `{ path: string }` | 含标注与笔记 |
 | `sections.get` | `{ id: Id; with?: ('translations' \| 'ai')[] }` | `SectionContent` | 阅读器一次取齐：句子、tokens、词状态、短语、计数 |
 | `sections.progress` | `{ id: Id; sentence_id: Id; progress: number }` | `Ok` | 阅读位置；节流后调用 |

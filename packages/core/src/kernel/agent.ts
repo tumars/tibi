@@ -268,7 +268,7 @@ function toolBrief(description: string, params: unknown): string {
 }
 
 /** 过程卡展开后的"用了什么参数"：给人看的值（id、内部字段不列），最多 4 项 */
-export function argsBrief(params: unknown): string {
+function argsBrief(params: unknown): string {
   if (!params || typeof params !== 'object' || Array.isArray(params)) return '';
   const show = (v: unknown): string => {
     if (typeof v === 'string') return v.length > 60 ? `${v.slice(0, 60)}…` : v;
@@ -281,7 +281,7 @@ export function argsBrief(params: unknown): string {
 }
 
 /** 过程卡展开后的"得到了什么"：按结果的形状给一句话，不调模型 */
-export function resultBrief(out: unknown): string {
+function resultBrief(out: unknown): string {
   if (out === undefined || out === null) return '';
   if (Array.isArray(out)) return out.length ? `${out.length} 条结果` : '没有结果';
   if (typeof out === 'string') return out.length > 80 ? `${out.slice(0, 80)}…` : out;

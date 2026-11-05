@@ -12,11 +12,11 @@ import type { Core } from '@tibi/core';
  *    令牌是 app.db 旁边的 mcp.token（只有本用户能读，T24）；真正的开关、读写白名单在 Core 的 mcp.* 方法里判。
  * 2. `tibi-core --mcp`：外部 AI 工具以 stdio 启动的 MCP Server，自己不开数据库，只把 tools/list、tools/call 转给运行中的 Tibi。
  */
-export function mcpSocketPath(dataDir: string): string {
+function mcpSocketPath(dataDir: string): string {
   if (process.platform === 'win32') return `\\\\.\\pipe\\tibi-mcp-${createHash('sha1').update(dataDir).digest('hex').slice(0, 12)}`;
   return join(dataDir, 'mcp.sock');
 }
-export const tokenPath = (dataDir: string) => join(dataDir, 'mcp.token');
+const tokenPath = (dataDir: string) => join(dataDir, 'mcp.token');
 
 /** Tauri 的 app_data_dir（identifier = app.tibi） */
 export function defaultDataDir(): string {

@@ -45,11 +45,12 @@ export class SqliteDict implements Dict {
   async prefix(prefix: string, limit: number): Promise<DictBrief[]> {
     const p = prefix.trim().replace(/\s+/g, ' ');
     if (!p) return [];
-    // NOCASE 索引上的范围查询；常用的在前（有词频的按词频，其余按长短）
+    // NOCASE 索引上的范围查询；人名地名（大写开头或标了 [人名] [地名]）放最后，其余常用的在前（有词频的按词频，其余按长短）
     const rows = await this.db.all<BriefRow>(
       `SELECT word, phonetic, translation, definition FROM stardict
        WHERE word >= ? COLLATE NOCASE AND word < ? COLLATE NOCASE AND (translation IS NOT NULL OR definition IS NOT NULL)
-       ORDER BY COALESCE(NULLIF(frq, 0), NULLIF(bnc, 0)) IS NULL, COALESCE(NULLIF(frq, 0), NULLIF(bnc, 0)), length(word), word LIMIT ?`, [p, `${p}\uffff`, limit]);
+       ORDER BY (word GLOB '[A-Z]*' OR translation LIKE '%[人名]%' OR translation LIKE '%[地名]%'),
+         COALESCE(NULLIF(frq, 0), NULLIF(bnc, 0)) IS NULL, COALESCE(NULLIF(frq, 0), NULLIF(bnc, 0)), length(word), word LIMIT ?`, [p, `${p}\uffff`, limit]);
     return rows.map(toBrief);
   }
 
@@ -108,7 +109,7 @@ interface BriefRow extends Record<string, string | number | null> { word: string
 const toBrief = (r: BriefRow): DictBrief => ({ word: r.word, phonetic: r.phonetic ?? undefined, gloss: (r.translation || r.definition || '').trim().split('\n').slice(0, 2).join('；') });
 
 /** 中文反查的匹配度，越小越好：某个义项正好是它 0，义项以它开头 1，义项里有它 2，只出现在 [网络] [医] 这类标注行 3 */
-export function zhMatchScore(translation: string, q: string): number {
+function zhMatchScore(translation: string, q: string): number {
   let best = 3;
   for (const line of translation.split('\n')) {
     if (line.trim().startsWith('[')) continue;
@@ -123,7 +124,7 @@ export function zhMatchScore(translation: string, q: string): number {
 }
 
 /** 编辑距离（相邻字母对调算一次，recieve → receive = 1）；超过 max 时返回 max + 1 */
-export function editDistance(a: string, b: string, max: number): number {
+function editDistance(a: string, b: string, max: number): number {
   if (Math.abs(a.length - b.length) > max) return max + 1;
   let prev2: number[] = []; let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {

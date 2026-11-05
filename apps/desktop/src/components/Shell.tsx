@@ -1,4 +1,4 @@
-import { BarChart3, BookA, BookOpen, Bookmark, Home as HomeIcon, Moon, PanelLeft, RotateCw, Rss, Search, Settings as SettingsIcon, Sun } from 'lucide-react';
+import { BarChart3, BookA, BookOpen, Bookmark, Home as HomeIcon, PanelLeft, RotateCw, Rss, Search, Settings as SettingsIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { OutsideApprovals } from './OutsideApprovals';
@@ -27,6 +27,7 @@ export function Shell() {
   const due = useCore(s => s.due); const connected = useCore(s => s.connected);
   const counts = { docCount: useCore(s => s.docCount), wordCount: useCore(s => s.wordCount), feedUnread: useCore(s => s.feedUnread) };
   const goal = useCore(s => s.goal); const minutes = useCore(s => s.todayMinutes); const streak = useCore(s => s.streak);
+  const nickname = useCore(s => s.nickname);
   const loc = useLocation();
   const reading = loc.pathname.startsWith('/read/');
   const readingShelved = useUi(s => s.readingShelved);
@@ -61,7 +62,6 @@ export function Shell() {
             </NavLink>
           ))}
         </nav>
-        <div className="sideh hide-c">{tl('最近')}</div>
         <RecentChats />
         <div className="sidefoot">
           <div className="streak" title={tl('今日 {minutes} / {goal} 分钟', { minutes, goal })}>
@@ -69,7 +69,7 @@ export function Shell() {
             <div className="hide-c"><div className="t">{!connected ? (import.meta.env.DEV ? tl('Core 未连接') : tl('暂时读不到数据')) : streak > 0 ? tl('连续 {streak} 天', { streak }) : tl('今天开始')}</div><div className="s">{connected ? tl('今日 {minutes} / {goal} 分钟', { minutes, goal }) : import.meta.env.DEV ? tl('界面只显示空状态') : tl('重启 Tibi 试试')}</div></div>
           </div>
           <div className="user">
-            <span className="av">{tl('你')}</span>
+            <span className="av" title={nickname || undefined}>{nickname ? avatarChar(nickname) : tl('你')}</span>
             <span className="hide-c" style={{ flex: 1 }} />
             <NavLink to="/settings" className="ibtn" title={tl('设置')}><SettingsIcon /></NavLink>
           </div>
@@ -85,14 +85,13 @@ export function Shell() {
   );
 }
 
-/** 深浅色切换（原型放在顶栏右侧） */
-function ThemeButton() {
-  const theme = useUi(s => s.theme); const setTheme = useUi(s => s.setTheme);
-  const dark = theme === 'dark' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  return <button className="ibtn" title={dark ? tl('切换到浅色') : tl('切换到深色')} onClick={() => setTheme(dark ? 'light' : 'dark')}>{dark ? <Sun /> : <Moon />}</button>;
+/** 头像上的字：中文昵称取最后一个字（小张 → 张），其他取首字母 */
+function avatarChar(name: string) {
+  const cs = [...name.trim()];
+  return /\p{Script=Han}/u.test(cs.at(-1) ?? '') ? cs.at(-1)! : (cs[0] ?? '').toUpperCase();
 }
 
-/** 顶栏：面包屑 + 右侧动作 + 深浅色 */
+/** 顶栏：面包屑 + 右侧动作（深浅色在设置 → 外观和 ⌘K 里） */
 export function Top({ crumbs, right }: { crumbs: { label: string; to?: string }[]; right?: React.ReactNode }) {
   return (
     <header className="top" data-tauri-drag-region>
@@ -106,7 +105,6 @@ export function Top({ crumbs, right }: { crumbs: { label: string; to?: string }[
       </span>
       <span className="sp" />
       {right}
-      <ThemeButton />
     </header>
   );
 }

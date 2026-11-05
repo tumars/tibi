@@ -10,9 +10,7 @@ import { levelOfRatio } from '../text/level.js';
 import { countWords, isTextBlock, segmentMarkdown, splitSentences, type Segmented } from '../text/segment.js';
 import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, upsertForm } from '../terms/repo.js';
 import { getSample, sampleUri, writeSampleAi } from './samples.js';
-import { analyzeDocument } from './analyze.js';
 import { linkImported } from '../feeds/repo.js';
-import { background } from './imports.js';
 import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSentence, listSections, listSentences, setDocumentTags, TOKENIZER_VERSION, WPM } from './repo.js';
 
 /**
@@ -261,19 +259,13 @@ async function importOnce(job: ImportRun, ctx: Ctx, input: ImportInput): Promise
     ctx.events.emit('data.changed', { table: 'terms' });
     return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, level: ann.level, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
   }
-  // AI 分析在后台另做：正文好了就能读，总结稍后出现（00 §3.5"可先读后分析"）。没连模型或离线直接记 deferred，之后补做
-  const has = await ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM providers WHERE kind = 'llm' AND deleted_at IS NULL");
-  if (!ctx.ai || !Number(has?.n ?? 0) || !ctx.platform.isOnline()) await markDeferred(ctx.db, saved.document_id);
-  else {
-    await ctx.db.run("UPDATE documents SET ai_status = 'running', updated_at = ? WHERE id = ?", [now(), saved.document_id]);
-    background(`analyze:${saved.document_id}`, () => analyzeDocument(ctx, saved.document_id));
-  }
+  // 总结不自动做：用户在阅读器的总结面板里点"现在生成"（documents.analyze）
   ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
   ctx.events.emit('data.changed', { table: 'terms' });
   return { summary: input.shelve === false ? `可以读了：${fetched.title}` : `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, level: ann.level, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
 }
 
-/** documents.reanalyze：按当前词库重新标注（分词升级、词典后来才装上）；ai=true 时把 AI 状态重新置为 deferred 等补做 */
+/** documents.reanalyze：按当前词库重新标注（分词升级、词典后来才装上）；ai=true 时把 AI 状态置回 deferred，用户再手动生成 */
 export async function runReanalyze(ctx: Ctx, input: { document_id: string; ai?: boolean }) {
   const doc = await getDocument(ctx.db, input.document_id); if (!doc || doc.deleted_at) throw new TibiError('not_found', '文章不在了');
   const sections = await listSections(ctx.db, doc.id);
@@ -285,7 +277,7 @@ export async function runReanalyze(ctx: Ctx, input: { document_id: string; ai?: 
   return { document_id: doc.id, level: ann.level };
 }
 
-/** 应用上次退出时还在做总结的文章：改回"稍后补做"，连上模型后照常补做 */
+/** 应用上次退出时还在做总结的文章：改回 deferred，用户在总结面板里重新生成 */
 export async function recoverAnalysis(db: Database) {
   const t = now();
   await db.run("UPDATE documents SET ai_status = 'deferred', updated_at = ? WHERE ai_status = 'running'", [t]);

@@ -9,7 +9,7 @@ import { tl } from '../lib/i18n';
 
 /**
  * 阅读器右侧"总结"面板（00 §3.2、原型 reader.html 的 pane-sum）：总结 → 级别 → 值得学的短语 → 长难句 → 学习建议。
- * 内置示例带预生成结果；用户的文章导入时由模型生成（M2），没连模型时记"稍后补做"，这里可以手动生成。
+ * 内置示例带预生成结果；用户的文章和书导入时不自动生成，在这里手动生成。
  */
 export function SummaryPanel({ doc, onClose, onPhrase }: { doc: Document; onClose: () => void; onPhrase?: (text: string) => void }) {
   const ai = doc.ai ?? {};
@@ -31,9 +31,9 @@ export function SummaryPanel({ doc, onClose, onPhrase }: { doc: Document; onClos
     <aside className="rpanel" aria-label={tl('总结')}>
       <div className="rph"><b>{tl('总结')}</b><span className="sp" /><button className="ibtn" title={tl('关闭')} onClick={onClose}><X size={16} /></button></div>
       <div className="rpb">
-        {summary ? <section><h5><span className="note">✦ AI</span>{tl('总结')}</h5><p className="gloss">{summary}</p></section>
-          : <section><h5>{tl('总结')}</h5>
-              <p className="muted">{running ? tl('正在生成…') : doc.ai_status === 'deferred' ? (modelOk ? tl('导入时模型没用上，可以现在生成。') : tl('要连接模型才能生成总结。')) : doc.ai_status === 'failed' ? tl('上次没有生成成功。') : tl('这篇还没有总结。')}</p>
+        {summary ? <section><h5><span className="note">✦ AI</span>{tl('大意')}</h5><p className="gloss">{summary}</p></section>
+          : <section><h5>{tl('大意')}</h5>
+              <p className="muted">{running ? tl('正在生成…') : !modelOk ? tl('要连接模型才能生成总结。') : doc.ai_status === 'failed' ? tl('上次没有生成成功。') : tl('这篇还没有总结。')}</p>
               {!running && <button className="btn sm" style={{ marginTop: 8 }} onClick={generate}>{modelOk ? tl('现在生成') : tl('去连接模型')}</button>}
             </section>}
         {doc.level && <section><h5>{tl('级别')}</h5><p className="muted">{tl('{level}（按词频估的文本级别）', { level: doc.level })}</p></section>}
@@ -41,7 +41,7 @@ export function SummaryPanel({ doc, onClose, onPhrase }: { doc: Document; onClos
         {hard.length > 0 && <section><h5>{tl('长难句')}</h5>{hard.map(h => <div key={h.s} className="hard"><p className="quote">{h.s}</p><p className="tr">{h.zh}</p></div>)}</section>}
         {advice && <section><h5><span className="note">✦ AI</span>{tl('学习建议')}</h5><p className="gloss">{advice}</p></section>}
       </div>
-      {summary && <div className="rpf">{pregenerated ? tl('内置示例 · 随应用预生成，不用连模型') : <>{tl('Tibi · 导入时生成并缓存 ·')} <button className="linkbtn" disabled={running} onClick={generate}>{running ? tl('正在重新生成…') : tl('重新生成')}</button></>}</div>}
+      {summary && <div className="rpf">{pregenerated ? tl('示例文章自带') : <>{tl('Tibi 生成 ·')} <button className="linkbtn" disabled={running} onClick={generate}>{running ? tl('正在重新生成…') : tl('重新生成')}</button></>}</div>}
     </aside>
   );
 }

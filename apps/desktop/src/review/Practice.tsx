@@ -24,7 +24,7 @@ export const MODES: { key: Mode; label: string; desc: string }[] = [
 export const SOURCES: { key: Source; label: string }[] = [{ key: 'recent', label: tl('最近的词') }, { key: 'mistakes', label: tl('这周答错的') }, { key: 'leech', label: tl('难词') }];
 
 /** 听写：按词对齐（LCS），返回每个原词是否写对，和准确率 */
-export function alignWords(target: string, typed: string): { words: { w: string; ok: boolean }[]; accuracy: number } {
+function alignWords(target: string, typed: string): { words: { w: string; ok: boolean }[]; accuracy: number } {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ').split(/\s+/).filter(Boolean);
   const a = target.split(/\s+/).filter(Boolean); const an = norm(target); const b = norm(typed);
   const dp = Array.from({ length: an.length + 1 }, () => new Array<number>(b.length + 1).fill(0));

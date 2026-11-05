@@ -18,7 +18,7 @@ import { tl } from '../lib/i18n';
 const RATING = { 1: tl('忘了'), 2: tl('模糊'), 3: tl('记得'), 4: tl('轻松') } as const;
 
 /** 复习（00 §3.3，G1–G8）：题目在卡片里，所有操作固定在底部；状态和动作在 useReviewSession（手机复习页共用） */
-function ReviewSessionView({ tabs, ahead }: { tabs: React.ReactNode; ahead: boolean }) {
+function ReviewSessionView({ ahead }: { ahead: boolean }) {
   const nav = useNavigate();
   const streak = useCore(s => s.streak);
   const { session, err, phase, setPhase, typed, setTyped, hints, setHints, done, item, load, answer, next, override, undo, pause: pauseSession, drill, story, summary, segClass } = useReviewSession({ ahead });
@@ -56,13 +56,13 @@ function ReviewSessionView({ tabs, ahead }: { tabs: React.ReactNode; ahead: bool
 
   useEffect(() => { if (item?.card_type === 'cloze' && phase.kind === 'ask') inputRef.current?.focus(); }, [item, phase]);
 
-  if (err) return <><Top crumbs={crumbs} right={tabs} /><Empty image="error-generic" title={tl('复习还没准备好')} text={err} action={<button className="btn" onClick={() => load()}>{tl('重试')}</button>} /></>;
-  if (!session) return <><Top crumbs={crumbs} right={tabs} /><div className="scroll" /></>;
+  if (err) return <><Top crumbs={crumbs} /><Empty image="error-generic" title={tl('复习还没准备好')} text={err} action={<button className="btn" onClick={() => load()}>{tl('重试')}</button>} /></>;
+  if (!session) return <><Top crumbs={crumbs} /><div className="scroll" /></>;
   if (done || !item) {
     const { graded, correctPct, minutes, wrong } = summary();
     const medal = session.kind !== 'drill' && isStreakMilestone(streak);
     return <>
-      <Top crumbs={crumbs} right={tabs} />
+      <Top crumbs={crumbs} />
       <div className="scroll"><div className="rv">
         {session.steps.length === 0 ? <Empty image="empty-review" title={tl('今天没有要复习的')} text={tl('读文章时点开的生词会排进来。')} action={<button className="btn" onClick={() => nav('/library')}>{tl('去读点什么')}</button>} /> : (
           <div className="done">
@@ -98,7 +98,7 @@ function ReviewSessionView({ tabs, ahead }: { tabs: React.ReactNode; ahead: bool
 
   return (
     <>
-      <Top crumbs={crumbs} right={<>{tabs}<button className="btn sm" onClick={pause}>{tl('稍后继续')}</button></>} />
+      <Top crumbs={crumbs} right={<button className="btn sm" onClick={pause}>{tl('稍后继续')}</button>} />
       <div className="scroll"><div className="rv">
         <div className="rvhead">
           <div className="segs">{session.steps.map(s => <i key={s.step} className={segClass(s)} />)}</div>
@@ -163,16 +163,14 @@ function ReviewSessionView({ tabs, ahead }: { tabs: React.ReactNode; ahead: bool
 
 /**
  * 复习页（00 §3.3）：进来是面板（今天要做什么、做到哪了），点开始才进一轮（?run=1）；
- * 顶栏"复习 / 练习"切换；练习不计分（G8 / R6）
+ * 练习（?tab=practice）从面板下方的练习卡进，面包屑回到复习；练习不计分（G8）
  */
 export function Review() {
-  const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'practice' ? 'practice' : 'review';
-  const tabs = <div className="seg">{(['review', 'practice'] as const).map(t => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setParams(t === 'practice' ? { tab: 'practice' } : {}, { replace: true })}>{t === 'review' ? tl('复习') : tl('练习')}</button>)}</div>;
-  if (tab === 'practice') {
+  const [params] = useSearchParams();
+  if (params.get('tab') === 'practice') {
     const mode = MODES.find(m => m.key === params.get('mode'))?.key; const source = SOURCES.find(s => s.key === params.get('source'))?.key;
-    return <><Top crumbs={[{ label: tl('复习'), to: '/review' }, { label: tl('练习') }]} right={tabs} /><div className="scroll"><div className="rv"><Practice key={`${mode}-${source}`} initialMode={mode} initialSource={source} /></div></div></>;
+    return <><Top crumbs={[{ label: tl('复习'), to: '/review' }, { label: tl('练习') }]} /><div className="scroll"><div className="rv"><Practice key={`${mode}-${source}`} initialMode={mode} initialSource={source} /></div></div></>;
   }
-  if (params.get('run') === '1') return <ReviewSessionView tabs={tabs} ahead={params.get('ahead') === '1'} />;
-  return <><Top crumbs={[{ label: tl('复习') }]} right={tabs} /><div className="scroll"><ReviewOverview /></div></>;
+  if (params.get('run') === '1') return <ReviewSessionView ahead={params.get('ahead') === '1'} />;
+  return <><Top crumbs={[{ label: tl('复习') }]} /><div className="scroll"><ReviewOverview /></div></>;
 }

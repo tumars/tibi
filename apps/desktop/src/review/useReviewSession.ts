@@ -96,7 +96,7 @@ export function useReviewSession(opts: { ahead?: boolean } = {}) {
     const graded = Object.entries(results).filter(([, r]) => !r.retry && !r.intro);
     const correct = graded.filter(([, r]) => r.correct).length;
     const wrong = session ? session.steps.filter(s => results[s.step] && !results[s.step]!.correct && !s.retry && !s.intro).map(s => s.term.id) : [];
-    return { graded: graded.length, correctPct: graded.length ? Math.round(correct / graded.length * 100) : 0, minutes: Math.max(1, Math.round(elapsed / 60000)), wrong };
+    return { graded: graded.length, correctPct: graded.length ? Math.round(correct / graded.length * 100) : 0, minutes: elapsed < 60000 ? '<1' : String(Math.round(elapsed / 60000)), wrong };
   };
   /** 进度条每一格的样式（cur / r1–r4 / ri / ro / rx / rt） */
   const segClass = (s: QueueItem) => { const res = results[s.step]; const cls = item && s.step === item.step ? 'cur' : res ? (s.intro ? 'ri' : res.retry ? (res.correct ? 'ro' : 'rx') : `r${res.rating ?? (res.correct ? 3 : 1)}`) : ''; return `${cls}${s.retry ? ' rt' : ''}`; };

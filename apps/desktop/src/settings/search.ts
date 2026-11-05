@@ -23,7 +23,7 @@ export const SETTINGS: { label: string; sec: string; kw: string }[] = [
   { label: '检查更新', sec: 'about', kw: '更新 升级 新版本 版本 update upgrade version' },
   { label: '自动检查更新', sec: 'about', kw: '更新 升级 自动 update auto' },
   { label: '反馈与建议', sec: 'about', kw: '反馈 建议 问题 报错 bug 意见 联系 邮件 feedback issue report contact email' },
-  { label: '关于作者', sec: 'about', kw: '作者 开发者 博客 twitter github author developer' },
+  { label: '关于作者', sec: 'about', kw: '作者 开发者 博客 邮箱 twitter github email author developer' },
   { label: '请作者喝咖啡', sec: 'about', kw: '捐赠 打赏 赞助 支付宝 微信 收款码 donate coffee sponsor alipay wechat' },
 ];
 
@@ -49,7 +49,7 @@ function collectRanges(el: Element, q: string, out: Range[]) {
 }
 
 /** 按 q 显示 / 隐藏设置项，返回命中数和没有命中的分组。标题命中时整组都留下 */
-export function applySettingsSearch(root: Element, q: string) {
+function applySettingsSearch(root: Element, q: string) {
   let total = 0; const missed: string[] = []; const ranges: Range[] = [];
   root.querySelectorAll<HTMLElement>('.ssec').forEach(sec => {
     const h2 = sec.querySelector('h2');

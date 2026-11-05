@@ -30,7 +30,7 @@ const parser = new XMLParser({
 });
 
 const ENT: Record<string, string> = { lt: '<', gt: '>', quot: '"', apos: "'", amp: '&', nbsp: ' ', mdash: '—', ndash: '–', hellip: '…', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“' };
-export const decodeEntities = (s: string) => s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+const decodeEntities = (s: string) => s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
   if (e[0] === '#') { const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1)); return Number.isFinite(n) && n > 0 && n < 0x110000 ? String.fromCodePoint(n) : m; }
   return ENT[e.toLowerCase()] ?? m;
 });
@@ -39,7 +39,7 @@ function rawToHtml(raw: string, xhtml = false): string {
   if (xhtml) return raw.trim();
   return raw.split(/(<!\[CDATA\[[\s\S]*?\]\]>)/).map(p => p.startsWith('<![CDATA[') ? p.slice(9, -3) : decodeEntities(p)).join('').trim();
 }
-export const htmlToText = (html: string) => decodeEntities(html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+const htmlToText = (html: string) => decodeEntities(html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
 
 type Node = unknown;
 const arr = (v: Node): Node[] => (v === undefined || v === null ? [] : Array.isArray(v) ? v : [v]);

@@ -7,7 +7,7 @@ import { TibiError } from '../types.js';
  * 用 SQLite 的 `VACUUM INTO` 生成一致的快照（WAL 模式下也安全，better-sqlite3 与 bun:sqlite 都支持）。
  * 恢复要替换正在用的 app.db，由壳来做：停 Core → 换文件 → 重启（06 system.backups）。
  */
-export const KEEP = 7;
+const KEEP = 7;
 export const DAY = 24 * 3600_000;
 export type BackupReason = 'auto' | 'manual' | 'before_reset' | 'before_restore' | 'before_update';
 
@@ -20,7 +20,7 @@ function timeOf(name: string): number | undefined {
   const m = name.match(/^tibi-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-/); if (!m) return undefined;
   return new Date(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!, +m[6]!).getTime();
 }
-export function reasonOf(name: string): BackupReason { const m = name.match(/-(auto|manual|before_reset|before_restore|before_update)\.db$/); return (m?.[1] as BackupReason) ?? 'manual'; }
+function reasonOf(name: string): BackupReason { const m = name.match(/-(auto|manual|before_reset|before_restore|before_update)\.db$/); return (m?.[1] as BackupReason) ?? 'manual'; }
 
 export async function listBackups(platform: Platform): Promise<(BackupFile & { reason: BackupReason })[]> {
   if (!platform.backups) return [];

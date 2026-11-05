@@ -12,5 +12,6 @@ export function Fox({ size = 64, state = 'idle', className }: { size?: number; s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size]);
   useEffect(() => { handle.current?.set(state); }, [state]);
-  return <div ref={el} className={className} style={{ width: size, height: size }} />;
+  // 纯装饰：睡觉的 z、惊讶的 ! 是 SVG 里的字，别让读屏和页面文字读到
+  return <div ref={el} className={className} style={{ width: size, height: size }} aria-hidden />;
 }

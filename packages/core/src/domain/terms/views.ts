@@ -14,7 +14,7 @@ export const VIEWS: View[] = ['all', 'due', 'late', 'new', 'leech', 'stuck', 'st
 
 const DAY = 86_400_000;
 
-export function viewWhere(view: View, t: number = now()): { where: string; params: (string | number)[] } {
+function viewWhere(view: View, t: number = now()): { where: string; params: (string | number)[] } {
   const dayStart = startOfToday(t), dayEnd = dayStart + DAY;
   switch (view) {
     case 'all': return { where: 'tm.in_wordbook = 1 AND tm.status BETWEEN 0 AND 4', params: [] };

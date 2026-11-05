@@ -65,9 +65,9 @@ function WebSearchItem() {
   if (!cfg) return null;
   return <div className="skf col"><span>{tl('网页搜索')}</span>
     <div className="seg">{([['deepseek', 'DeepSeek'], ['tavily', 'Tavily'], ['off', tl('不搜索')]] as const).map(([id, label]) => <button key={id} className={cfg.provider === id ? 'on' : ''} onClick={() => void choose(id)}>{label}</button>)}</div>
-    {cfg.provider === 'deepseek' && <p className="lbl">{cfg.deepseek_ready ? tl('用已连接的 DeepSeek Key，每次约 ¥0.005，计入预算。') : tl('还没连接官方 DeepSeek。连接之前只用订阅里的文章。')}</p>}
+    {cfg.provider === 'deepseek' && <p className="lbl">{cfg.deepseek_ready ? tl('用已连接的 DeepSeek Key，每次约 ¥0.005。') : tl('还没连接官方 DeepSeek。连接之前只用订阅里的文章。')}</p>}
     {cfg.provider === 'tavily' && <>
-      <p className="lbl">{tl('费用在你的 Tavily 账户结算（有免费额度），不计入 Tibi 的预算。')}</p>
+      <p className="lbl">{tl('费用在你的 Tavily 账户结算（有免费额度）。')}</p>
       <div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1 }} type="password" value={key} onChange={e => setKey(e.target.value)} placeholder={cfg.tavily_ready ? tl('已保存，留空不改') : 'Tavily API Key'} aria-label="Tavily API Key" autoComplete="off" />
         <button className="btn sm" disabled={!key.trim()} onClick={() => void saveKey()}>{tl('保存')}</button></div>
     </>}

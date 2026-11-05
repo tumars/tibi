@@ -4,8 +4,8 @@ import type { CardType, PracticeMode, Rating, Status } from '../../types.js';
  * 评分规则（G1，00 §3.3）：用户只管答题，评分交给系统。
  * 阈值按题型：选义 > 9 秒、填空 > 15 秒算慢；填空 6 秒内又快又对算轻松；用了提示最高为模糊。
  */
-export const SLOW_MS: Record<CardType | PracticeMode, number> = { choice: 9_000, cloze: 15_000, recognize: 0, dictation: 15_000, spell: 20_000, confusable: 9_000, produce: 0 };
-export const FAST_MS: Partial<Record<CardType | PracticeMode, number>> = { cloze: 6_000, spell: 6_000 };
+const SLOW_MS: Record<CardType | PracticeMode, number> = { choice: 9_000, cloze: 15_000, recognize: 0, dictation: 15_000, spell: 20_000, confusable: 9_000, produce: 0 };
+const FAST_MS: Partial<Record<CardType | PracticeMode, number>> = { cloze: 6_000, spell: 6_000 };
 
 export function normalizeAnswer(s: string): string {
   return s.toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9'\- ]/g, '').replace(/\s+/g, ' ').trim();

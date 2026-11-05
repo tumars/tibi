@@ -14,7 +14,7 @@
 - **生词你说了算**：不测水平、不替你猜，只标你自己标过的生词和正在学的词。
 - **点词就懂**：词卡给出「在这句里」的意思（AI 生成、缓存），也有 ECDICT 词典释义、音标和发音。
 - **随手查词典**：不用联网，支持词形、中文反查和拼写提示；例句来自你自己读过的文章。
-- **AI 帮你读**：导入时自动写总结、挑出短语和长难句、给阅读建议；整篇译文、选中一段问 Tibi、在对话里继续追问。
+- **AI 帮你读**：一键写总结、挑出短语和长难句、给阅读建议；整篇译文、选中一段问 Tibi、在对话里继续追问。
 - **记得住**：标过的生词自动进复习（FSRS 排期），复习用的是你读过的原句；还有听写、拼写、易混词、造句批改几种练习。
 - **看得见进步**：已掌握的词、每日阅读、复习表现、学习日历，打开统计页时 Tibi 会写一段观察和建议。
 - **朗读**：系统语音或本地神经网络语音（Kokoro），全文朗读句级跟随、倍速、单句循环。
@@ -28,18 +28,18 @@
 
 ## 安装
 
-在 [Releases](https://github.com/tumars/tibi/releases) 下载对应系统的安装包：
+目前只提供 macOS 版，在 [Releases](https://github.com/tumars/tibi/releases) 下载：
 
-| 系统 | 文件 |
+| 芯片 | 文件 |
 |---|---|
-| macOS（Apple 芯片） | `Tibi_x.y.z_aarch64.dmg` |
-| macOS（Intel） | `Tibi_x.y.z_x64.dmg` |
-| Windows 10 / 11 | `Tibi_x.y.z_x64-setup.exe` 或 `.msi` |
-| Linux | `.AppImage` 或 `.deb` |
+| Apple 芯片 | `Tibi_x.y.z_aarch64.dmg` |
+| Intel | `Tibi_x.y.z_x64.dmg` |
 
-GitHub 打不开或下载太慢时，用国内下载：[macOS（Apple 芯片）](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) · [macOS（Intel）](https://dl.ferecord.com/latest/Tibi_x64.dmg) · [Windows](https://dl.ferecord.com/latest/Tibi_x64-setup.exe) · [Linux（AppImage）](https://dl.ferecord.com/latest/Tibi_amd64.AppImage) · [Linux（deb）](https://dl.ferecord.com/latest/Tibi_amd64.deb) · [SHA-256 校验和](https://dl.ferecord.com/latest/SHA256SUMS.txt)
+iOS、Windows、Linux 版即将支持。
 
-还没有签名的版本第一次打开时：macOS 在 Finder 里右键 → 打开；Windows 出现 SmartScreen 时点「更多信息 → 仍要运行」。
+GitHub 打不开或下载太慢时，用国内下载：[Apple 芯片](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) · [Intel](https://dl.ferecord.com/latest/Tibi_x64.dmg) · [SHA-256 校验和](https://dl.ferecord.com/latest/SHA256SUMS.txt)
+
+还没有签名的版本第一次打开时，在 Finder 里右键 → 打开。
 
 ## 开始用
 
@@ -80,6 +80,9 @@ pnpm dev                          # 或者直接 tauri dev（需要 Rust）
 - [06 接口定义：WebView ↔ Core 方法、事件、能力层与 MCP 工具](docs/design/06-interface.md)（由 `docs/design/_src/build_interface.py` 生成）
 - [07 吉祥物素材](docs/design/07-mascot-assets.md)
 - [08 同步：手机与电脑之间](docs/design/08-sync.md)
+- [09 应用图标](docs/design/09-app-icon.md)
+- [10 换用 pi SDK](docs/design/10-pi-sdk-migration.md)
+- [11 订阅（RSS）](docs/design/11-rss-reader.md)
 - 归档：[v1 视觉语言「纸与墨」](docs/design/archive/03-visual-language-v1.md)
 
 ### 调研
@@ -91,7 +94,7 @@ pnpm dev                          # 或者直接 tauri dev（需要 Rust）
 - [06 iOS 英语学习与阅读产品](docs/research/06-ios-apps.md)
 
 ### 原型（HTML，浏览器直接打开）
-- [首页](docs/prototypes/home.html)、[书架](docs/prototypes/library.html)、[阅读器](docs/prototypes/reader.html)、[生词本](docs/prototypes/words.html)、[复习](docs/prototypes/review.html)、[统计](docs/prototypes/stats.html)、[设置](docs/prototypes/settings.html)、[任务](docs/prototypes/tasks.html)
+- [首页](docs/prototypes/home.html)、[书架](docs/prototypes/library.html)、[阅读器](docs/prototypes/reader.html)、[生词本](docs/prototypes/words.html)、[复习](docs/prototypes/review.html)、[统计](docs/prototypes/stats.html)、[设置](docs/prototypes/settings.html)
 - [首次启动引导](docs/prototypes/onboarding.html)、[吉祥物：藏狐](docs/prototypes/mascot.html)、[手机版](docs/prototypes/mobile.html)
 - 归档：[v1 原型](docs/prototypes/v1/)
 

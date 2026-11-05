@@ -3,7 +3,6 @@
 v2 原型页面共用 `../v2.css` 与 `../v2-shell.js`。这里是生成各页面的辅助源文件（仅原型阶段使用）：
 
 - `_build_side.py`：共用侧栏 HTML 与页面头部
-- `_reader_shell.html` + `build_reader.py`：阅读器 v2 最初的生成脚本，**已失效**（见下），只留作历史参考
 - `_words_body.html`：生词本 v2 页面主体
 - `_review_body.html`：复习页主体（生成 `review.html`；含"练习"分段，网址加 `#practice` 直接进入）
 - `_stats_body.html`：统计页主体（生成 `stats.html`）
@@ -18,7 +17,7 @@ v2 原型页面共用 `../v2.css` 与 `../v2-shell.js`。这里是生成各页�
 - `_search.js` + `build_search.py`：搜索面板源码；`build_search.py` 从 `words.html` 取出词表注入后生成 `../v2-search.js`（需要 node）
 - `build_pages.py`：把共用侧栏、页面头部和脚本拼进复习、统计、设置、任务、书架页的主体，生成对应页面
 
-**阅读器 `reader.html` 和生词本 `words.html` 都已是直接维护的文件，直接改它们。不要运行 `build_reader.py`**：`reader.html` 已和 `v1/reader.html` 分叉，脚本会报 `AssertionError`；即使修好，也会覆盖掉直接改过的内容。
+**阅读器 `reader.html` 和生词本 `words.html` 都已是直接维护的文件，直接改它们**（阅读器最初的生成脚本已失效，2026-11-05 删掉）。
 
 `_words_body.html` 的词表数据（`%DATA%`）取自 v1，`words.html` 生成后又直接改过，已不再从它生成。
 

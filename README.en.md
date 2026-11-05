@@ -8,15 +8,15 @@
 
 ![Reader: new words are marked for your level; click one to see what it means in this sentence](docs/img/screenshots/reader.jpg)
 
-> Tibi is built for people whose first language is Chinese: dictionary entries, AI explanations and the default interface are in Chinese. The interface can be switched to English in **Settings → General**, and Tibi can explain in English only (**Settings → Learning and review**).
+> Tibi is built for people whose first language is Chinese: dictionary entries, AI explanations and the default interface are in Chinese. The interface can be switched to English in **Settings → General → Interface language**; to have Tibi explain in English, just tell it so in a chat.
 
 ## What it does
 
 - **Import almost anything**: web pages, pasted text, EPUB books, PDF, Word, images and scanned PDFs (local OCR), plus a browser clipper extension.
-- **Marks new words for your level**: a 3-minute vocabulary test, then only the words you probably don't know are highlighted. It gets more accurate as you read.
+- **You decide what's new**: no level test and no guessing. Only words you've marked as new or are learning get highlighted.
 - **Click a word to understand it**: the word card shows its meaning *in this sentence* (AI-generated, cached), the ECDICT dictionary entry, phonetics and pronunciation.
 - **A dictionary at hand**: works offline, understands inflected forms, Chinese lookups and misspellings; examples come from articles you've read.
-- **AI reading help**: a summary, key phrases, hard sentences and reading advice on import; a full translation; select a passage to ask Tibi; keep asking in chat.
+- **AI reading help**: a one-click summary, key phrases, hard sentences and reading advice; a full translation; select a passage to ask Tibi; keep asking in chat.
 - **Remember what you read**: new words go into spaced repetition (FSRS) using the sentences you actually read, plus dictation, spelling, confusable-word and sentence-writing practice.
 - **See your progress**: known words, daily reading, review performance, a study calendar, and a short note from Tibi.
 - **Read aloud**: system voices or a local neural voice (Kokoro), sentence-level highlighting, speed control, sentence loop.
@@ -25,15 +25,15 @@
 
 ## Install
 
-Download the installer for your system from [Releases](https://github.com/tumars/tibi/releases): `.dmg` for macOS (Apple silicon or Intel), `-setup.exe` / `.msi` for Windows 10/11, `.AppImage` / `.deb` for Linux.
+Tibi is currently available for macOS only: download the `.dmg` for Apple silicon (`aarch64`) or Intel (`x64`) from [Releases](https://github.com/tumars/tibi/releases). iOS, Windows and Linux versions are coming. If GitHub is slow, use the mirror: [Apple silicon](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) · [Intel](https://dl.ferecord.com/latest/Tibi_x64.dmg).
 
-Unsigned builds: on macOS, right-click the app in Finder → Open the first time; on Windows, choose "More info → Run anyway" if SmartScreen appears.
+Unsigned builds: right-click the app in Finder → Open the first time.
 
 ## Getting started
 
-1. Open Tibi, tell it what to call you, your level and your goal (and optionally take the vocabulary test).
+1. Open Tibi, tell it what to call you and what you usually read.
 2. Read one of the built-in sample articles, or paste an English URL into the box on the home page.
-3. For summaries, meanings in context and chat, connect a model in **Settings → Advanced → Models**. [DeepSeek](https://platform.deepseek.com/) is the default suggestion; any OpenAI-compatible service works. Reading, the dictionary and review all work without a model.
+3. For summaries, meanings in context and chat, connect a model in **Settings → Models**. [DeepSeek](https://platform.deepseek.com/) is the default suggestion; any OpenAI-compatible service works. Reading, the dictionary and review all work without a model.
 
 ## Privacy
 

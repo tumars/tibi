@@ -8,7 +8,7 @@ import { isTauri } from '../rpc';
  * 设置键 reminder.time 是这台设备自己的，不同步。
  */
 export type ReminderTime = 'off' | 'morning' | 'noon' | 'evening';
-export const REMINDER_HOURS: Record<Exclude<ReminderTime, 'off'>, number> = { morning: 8, noon: 12, evening: 20 };
+const REMINDER_HOURS: Record<Exclude<ReminderTime, 'off'>, number> = { morning: 8, noon: 12, evening: 20 };
 const ID = 4201;
 const LAST = 'tibi.reminder.last';
 

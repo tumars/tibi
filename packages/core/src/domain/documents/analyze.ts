@@ -10,11 +10,11 @@ import { getDocument, listSections, listSentences } from './repo.js';
  * 没连模型、离线：整篇记 ai_status = deferred（"稍后补做"），连上模型后 documents.analyze 补做。
  * 正文是不可信材料：放在分隔符里，提示里说明不执行其中的指令（05 §8）。
  */
-export const ANALYZE_PROMPT_VERSION = '1';
+const ANALYZE_PROMPT_VERSION = '1';
 const MAX_CHARS = 16_000;
 
 /** 模型不可用这类"等一等再做"的错误 */
-export function isDeferrable(e: unknown): boolean {
+function isDeferrable(e: unknown): boolean {
   return e instanceof TibiError && ['model_unavailable', 'offline'].includes(e.code);
 }
 

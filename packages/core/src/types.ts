@@ -143,7 +143,7 @@ export type WidgetBlock = WidgetSpec & { type: 'widget'; id: string; v: 1; state
 export type MessageBlock = { type: 'text'; text: string } | WidgetBlock;
 /** 回答没说完就结束了：用户停止（cancel）或模型出错（error，message 可直接显示） */
 export interface MessageInterrupted { reason: 'cancel' | 'error'; message?: string }
-export interface Message { id: string; role: 'user' | 'assistant' | 'tool'; text?: string; /** 用户提问时界面附上的（正在读的文章、选中的句子、当前卡片）：界面显示成小标签 */ attachment?: string; blocks?: MessageBlock[]; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; /** 属于哪一轮回答 */ turn_id?: TurnId; interrupted?: MessageInterrupted; /** 这次回答做过的步骤（收起的过程卡） */ steps?: MessageStep[]; /** 模型的思考过程（开了思考的模型才有），过程卡里折叠显示 */ thinking?: string; /** 思考用了多久 */ think_ms?: number; /** 用到的技能名（主对话不写） */ skill?: string; /** Tibi 写了什么：回答下面显示一行，能撤销 */ receipts?: MessageReceipt[]; created_at: Ts }
+export interface Message { id: string; role: 'user' | 'assistant' | 'tool'; text?: string; /** 助手回答最后那段正文（最后一次调工具之后说的话），和 text 不同时才有：朗读只读这段 */ reply?: string; /** 用户提问时界面附上的（正在读的文章、选中的句子、当前卡片）：界面显示成小标签 */ attachment?: string; blocks?: MessageBlock[]; tool?: { name: string; args: unknown; result?: unknown; duration_ms?: number }; /** 属于哪一轮回答 */ turn_id?: TurnId; interrupted?: MessageInterrupted; /** 这次回答做过的步骤（收起的过程卡） */ steps?: MessageStep[]; /** 模型的思考过程（开了思考的模型才有），过程卡里折叠显示 */ thinking?: string; /** 思考用了多久 */ think_ms?: number; /** 用到的技能名（主对话不写） */ skill?: string; /** Tibi 写了什么：回答下面显示一行，能撤销 */ receipts?: MessageReceipt[]; created_at: Ts }
 export interface MessageReceipt { summary: string; undo?: Undo; undone?: boolean }
 /**
  * 回答里的一步工具调用（过程卡的一行）：summary 是"做了什么 + 对象"；展开后看 detail（关键参数）、result（结果摘要）、

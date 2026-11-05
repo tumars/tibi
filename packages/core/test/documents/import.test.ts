@@ -39,7 +39,7 @@ describe('导入文本', () => {
     expect(doc.title).toBe('Understanding Ownership in Rust');
     expect(doc.genre).toBe('tech');
     expect(doc.status).toBe('ready');
-    expect(doc.ai_status).toBe('deferred');
+    expect(doc.ai_status).toBe('none');   // 总结不自动生成
     expect(doc.sections).toHaveLength(1);
     expect(doc.excerpt).toMatch(/^Ownership is the feature/);
     const sec = await core.call<SectionContent>('sections.get', { id: (doc.sections[0] as { id: string }).id });

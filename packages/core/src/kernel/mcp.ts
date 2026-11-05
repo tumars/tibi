@@ -21,7 +21,7 @@ async function settings(db: Database): Promise<{ enabled: boolean; write: Set<st
   return { enabled: m['mcp.enabled'] === true, write: new Set((m['mcp.write_tools'] as string[] | null) ?? []) };
 }
 
-export function mcpTools(registry: CapabilityRegistry, write: Set<string>, all = false): McpTool[] {
+function mcpTools(registry: CapabilityRegistry, write: Set<string>, all = false): McpTool[] {
   const out: McpTool[] = [];
   for (const c of registry.listForMcp()) {
     if (SKIP.has(c.name)) continue;
@@ -34,7 +34,7 @@ export function mcpTools(registry: CapabilityRegistry, write: Set<string>, all =
 }
 
 /** 写调用等用户确认最多这么久 */
-export const MCP_APPROVAL_MS = 5 * 60_000;
+const MCP_APPROVAL_MS = 5 * 60_000;
 
 export function makeMcpMethods(deps: { db: Database; registry: CapabilityRegistry; turns: Turns; makeCtx: (caller: Ctx['caller']) => Ctx }): MethodMap {
   const { db, registry, turns } = deps;

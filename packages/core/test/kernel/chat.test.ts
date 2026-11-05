@@ -184,6 +184,7 @@ describe('对话卡片', () => {
     expect(r.status).toBe('done');
     const [, msg] = (await rpc('chat.history', { conversation_id: conv.id })).items;
     expect(msg.text).toBe('我查一下。\n\n这是结果。');
+    expect(msg.reply).toBe('这是结果。');   // 朗读只读最后的正文
     expect(msg.blocks.map((b: { type: string }) => b.type)).toEqual(['text', 'widget', 'text']);
     expect(events.filter(e => e.event === 'chat.block').map(e => e.data.block.id)).toEqual([msg.blocks[1].id]);
   });

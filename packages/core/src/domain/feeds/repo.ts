@@ -15,7 +15,7 @@ export interface FeedView { id: string; url: string; site_url?: string; title: s
 
 /** 保留期：60 天、每源 300 条；保存过和导入过的不删 */
 export const KEEP_DAYS = 60;
-export const KEEP_PER_FEED = 300;
+const KEEP_PER_FEED = 300;
 
 export async function listFeeds(db: Database): Promise<FeedView[]> {
   const rows = await db.all<FeedRow & { unread: number }>(

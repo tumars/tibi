@@ -25,8 +25,11 @@ export function configure(o: { engine?: Engine; voice?: string; aiVoice?: string
 export const current = () => ({ engine, voice: voiceId, aiVoice, rate });
 
 /* ---------- 系统语音 ---------- */
-/** macOS 自带的音效 / 整活音色（Bahh、Zarvox…），读英文学不了发音；已经选了的照样留着 */
-const NOVELTY = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox)$/i;
+/**
+ * macOS 自带的音效 / 整活音色（Bahh、Zarvox…）和机器味很重的老音色（Eloquence 的 Eddy、Grandma…，MacinTalk 的 Fred、Kathy…），
+ * 学不了发音；已经选了的照样留着
+ */
+const NOVELTY = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley|Fred|Junior|Kathy|Ralph)( \(.*\))?$/i;
 export function systemVoices(): Voice[] {
   try {
     return speechSynthesis.getVoices().filter(v => /^en[-_](US|GB)/i.test(v.lang) && (!NOVELTY.test(v.name) || v.voiceURI === voiceId))
@@ -34,12 +37,17 @@ export function systemVoices(): Voice[] {
       .map(v => ({ id: v.voiceURI, label: v.name.replace(/\s*[(（].*[)）]\s*$/, ''), accent: /GB/i.test(v.lang) ? 'gb' : 'us' }));
   } catch { return []; }
 }
-function systemSay(text: string, r: number): Promise<void> {
+/** 中文用的系统音色：英文音色读到中文会跳过。优先婷婷（macOS 上最自然的普通话），再是别的普通话 */
+function zhVoice(): SpeechSynthesisVoice | undefined {
+  const vs = speechSynthesis.getVoices().filter(v => /^zh/i.test(v.lang) && !NOVELTY.test(v.name));
+  return vs.find(v => /Tingting|婷婷/i.test(v.name)) ?? vs.find(v => /^zh[-_]CN/i.test(v.lang)) ?? vs[0];
+}
+function systemSay(text: string, r: number, zh = false): Promise<void> {
   return new Promise(resolve => {
     try {
       const u = new SpeechSynthesisUtterance(text);
-      const v = speechSynthesis.getVoices().find(x => x.voiceURI === voiceId);
-      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
+      const v = zh ? zhVoice() : speechSynthesis.getVoices().find(x => x.voiceURI === voiceId);
+      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = zh ? 'zh-CN' : 'en-US';
       u.rate = r; u.onend = () => resolve(); u.onerror = () => resolve();
       speechSynthesis.speak(u);
     } catch { resolve(); }
@@ -187,13 +195,31 @@ export function resume(): boolean {
   try { speechSynthesis.resume(); } catch { /* 无语音 */ }
   return true;
 }
+const ZH = /[\p{Script=Han}\u3000-\u303f\uff00-\uffef]/u;
 /**
- * 读一段文字。engine 不传用设置里的默认（自动播放、全文朗读）：Kokoro 失败（没下载、离线）时退回系统语音；
+ * 中英混排的文字按语言切成几段（Tibi 的回答是中文讲解夹英文例句）：中文交给系统中文音色，英文用选的音色。
+ * 空格、数字、标点不算语言，跟着前一段
+ */
+export function splitLang(text: string): { text: string; zh: boolean }[] {
+  const out: { text: string; zh?: boolean }[] = [];
+  for (const ch of text) {
+    const zh = ZH.test(ch) ? true : /[A-Za-z]/.test(ch) ? false : undefined;
+    const last = out.at(-1);
+    if (!last) out.push({ text: ch, zh });
+    else if (zh === undefined || zh === last.zh) last.text += ch;
+    else if (last.zh === undefined) { last.text += ch; last.zh = zh; }
+    else out.push({ text: ch, zh });
+  }
+  return out.filter(s => /[\p{L}\p{N}]/u.test(s.text)).map(s => ({ text: s.text.trim(), zh: s.zh ?? false }));
+}
+
+/**
+ * 读一段文字。zh：这段是中文，只用系统中文音色（Kokoro 只有英文音色）。engine 不传用设置里的默认（自动播放、全文朗读）：Kokoro 失败（没下载、离线）时退回系统语音；
  * 传了就是用户点的那个按钮：只用这个引擎，AI 朗读失败时抛错，由界面提示
  */
-export async function say(text: string, o: { rate?: number; engine?: Engine } = {}): Promise<boolean> {
+export async function say(text: string, o: { rate?: number; engine?: Engine; zh?: boolean } = {}): Promise<boolean> {
   const r = o.rate ?? rate;
-  const use = o.engine ?? engine;
+  const use = o.zh ? 'system' : o.engine ?? engine;
   if (use === 'kokoro') {
     const job = synth(text, r);
     halt(job); const my = ++seq;
@@ -203,7 +229,7 @@ export async function say(text: string, o: { rate?: number; engine?: Engine } = 
   } else halt();
   const my = ++seq;
   setStatus('speaking');
-  await systemSay(text, r);
+  await systemSay(text, r, o.zh);
   if (my === seq) setStatus('idle');
   return my === seq;
 }

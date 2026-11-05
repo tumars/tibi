@@ -15,8 +15,8 @@ import { rollupToday } from '../stats/rollup.js';
  * 步骤里的隐藏字段（不在接口类型里）：correct_option（选义正确项）、result._undo（作答前快照，撤销与改评分用）。
  */
 
-export const RETRY_GAP = 3;
-export const MAX_RETRY = 2;
+const RETRY_GAP = 3;
+const MAX_RETRY = 2;
 
 type Step = QueueItem & { correct_option?: string; result?: QueueItem['result'] & { _undo?: UndoSnapshot; near_miss?: boolean; reason?: string; suggested_rating?: Rating; first?: boolean } };
 
@@ -27,7 +27,7 @@ export function toReviewSession(s: SessionRow, steps: QueueItem[], resumed: bool
 }
 
 /** 发给界面的步骤不带 _undo 快照 */
-export function stripHidden(step: QueueItem): QueueItem {
+function stripHidden(step: QueueItem): QueueItem {
   const s = step as Step;
   if (!s.result?._undo) return step;
   const { _undo, ...rest } = s.result;

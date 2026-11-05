@@ -78,28 +78,4 @@ v3 最终编辑提示词：
 Edit this Tibi app icon. Remove the entire ivory foreground page, both blue strokes and yellow highlight completely. No book, no page, no foreground panel, no accessories, no symbols. Retain the same charming Tibetan fox identity, broad cream square cheeks, orange fur, grey cheek edges, dark brown half-lidded eyes and tiny knowing smile, same soft 3D style and saturated deep indigo blue background. Recompose the head so it peeks diagonally into the square canvas from the bottom edge: move the tilted head down so the bottom canvas boundary itself crops the lower cheeks/chin, both eyes and nose and small smile remain visible, ears comfortably inside the top boundary with some blue breathing room. Large closeup face, slightly off centre, tilted about 12 degrees, bold and simple silhouette. The entire background is uninterrupted indigo, no artificial diagonal divider. Single full bleed square app icon, no rounded external frame, no margins, no text, no mockup. Preserve the personality and warm orange versus blue contrast of the source.
 ```
 
-## 历史提案 v2：书页（已放弃）
-
-> 2026-11-02 设计提案。原图：[`mascot/icon-reading-v2.png`](mascot/icon-reading-v2.png)。尚未替换应用打包图标和界面 Logo。
-
-## 设计意图
-
-Icon 优先承担吸引注意、快速识别与传递产品感受的任务。Tibi 是有性格的阅读伙伴，因此以藏狐表情为主体，以书页与荧光标记传递阅读、生词学习功能。
-
-- **主体**：保留藏狐宽方脸、奶油色脸颊、灰色侧毛和淡定的半垂眼神；只展示头部，去除身体与额外配饰。
-- **构图**：头部倾斜，靠近画布边缘；下方斜向书页遮住部分下巴，形成探头陪读的动作。
-- **对比**：暖橙色主体与深靛蓝背景形成冷暖对比；奶油白书页承载两道阅读线，其中一道使用荧光黄标记。
-- **质感**：柔和立体体积与接触阴影。此稿仍有细微绒毛纹理，后续若缩小后显杂，应优先简化材质。
-- **边界**：本稿是满版方形设计母图。正式接入需沿用平台规则：macOS 留透明外边距，iOS 由系统裁圆角，Android 单独考虑自适应安全区域；不能直接用满版方图替换所有平台图标。
-
-## 生成记录
-
-使用内置 imagegen，以 `mascot/ref-sheet.png` 作为角色身份参考。此次只新增设计资产，不变更现有 SVG Logo 或图标生成脚本。
-
-最终提示词：
-
-```text
-Use case: stylized-concept. Create one finished square app icon for Tibi, an AI English reading companion. Reference image is CHARACTER IDENTITY only, not composition. Preserve this Tibetan fox's broad square cream cheeks, orange head, small pointed ears, grey cheek edges, dark brown almost fully dark eyes with gently half lowered straight upper lids, tiny nose, calm knowing friendly expression. Design an attractive bold app icon, not a logo and not a presentation board. Full bleed rich deep cobalt/indigo #2f3fa8 square background, no external margin, no pre-rounded corners. Extreme closeup of the fox peeking diagonally over a single oversized ivory book page entering from the bottom; head tilted 12 degrees, slightly off centre, ears and upper face dominate, bottom cheek/chin partly hidden by the diagonal page, no torso, no paws. Head fills roughly 80 percent width. Page is a simple foreground diagonal occupying only bottom 22 percent, with two short thick indigo reading strokes and ONE fluorescent yellow highlight behind one stroke, no letters. Strong orange #f5a043 and creamy white #fff4e2 versus cobalt contrast. Charming premium softly sculpted 3D illustration with matte smooth toy-like material, simplified large shapes, subtle crisp contact shadow separating fox from page and backdrop. Keep Tibetan fox square face, avoid generic pointy long-muzzle fox, avoid dense fur texture. Clear bold silhouette and large expressive eyes readable at 32px. Composition feels like a clever little reading friend peeking out of the app canvas. No text, no lettering, no stars, no sparkles, no accessories, no extra objects, no mockup, no device, no watermark. Output just the single square icon.
-```
-
-已检查生成图的角色、配色与构图；尚未完成真实 Dock 和移动端小尺寸验收。
+（2026-11-02 的"书页"提案 v2 已放弃，原图和说明 2026-11-05 删掉。）

@@ -18,7 +18,7 @@ import { ATLAS_URL, downloadTo, ingestAtlas, ingestWordnet, WORDNET_URL } from '
 const CSV_URL = 'https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv';
 const COLS = ['word', 'phonetic', 'definition', 'translation', 'pos', 'collins', 'oxford', 'tag', 'bnc', 'frq', 'exchange'] as const;
 
-export async function downloadCsv(dest: string, log: (s: string) => void = () => {}): Promise<string> {
+async function downloadCsv(dest: string, log: (s: string) => void = () => {}): Promise<string> {
   if (existsSync(dest) && statSync(dest).size > 1_000_000) { log(`已有 ${dest}`); return dest; }
   mkdirSync(dirname(dest), { recursive: true });
   log(`下载 ${CSV_URL} …`);

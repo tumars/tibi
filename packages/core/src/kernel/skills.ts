@@ -19,7 +19,7 @@ export interface SkillDef {
 
 export interface ResolvedSkill extends SkillDef { extra_instructions?: string; enabled: boolean; write_permission: 'inherit' | 'ask' }
 
-export const SKILL_IDS = SKILL_DEFS.map(s => s.id);
+const SKILL_IDS = SKILL_DEFS.map(s => s.id);
 export function skillDef(id: string): SkillDef | undefined { return SKILL_DEFS.find(s => s.id === id); }
 
 interface SkillRow extends Record<string, string | number | null> { id: string; model_tier: string | null; extra_instructions: string | null; write_permission: string; enabled: number }
@@ -39,7 +39,7 @@ export async function resolveSkill(db: Database, id: string): Promise<ResolvedSk
   };
 }
 
-export async function skillView(db: Database, id: string): Promise<Skill> {
+async function skillView(db: Database, id: string): Promise<Skill> {
   const s = await resolveSkill(db, id);
   return { id: s.id, title: s.title, description: s.description, tools: s.allowed_tools, model_tier: s.model, extra_instructions: s.extra_instructions, write_permission: s.write_permission, enabled: s.enabled };
 }

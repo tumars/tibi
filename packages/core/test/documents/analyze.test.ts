@@ -26,16 +26,27 @@ async function setup(turns: Turn[] | null) {
   const { core } = await assembleCore({ db, dict, platform: fakePlatform({ isOnline: () => true, getSecret: async () => 'sk' }), resolveModel, resume: false });
   const imp = async (text = TEXT) => {
     const r = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text } }));
-    await idle();   // 导入完成后在后台做的总结
     return (r as unknown as { document_id: string }).document_id;
   };
   return { core, db, stream, imp };
 }
 
-describe('导入后的 AI 分析（M2）', () => {
-  it('连了模型：写入总结、建议、短语（只留原文里有的）、长难句，ai_status = done', async () => {
+describe('文章的 AI 分析（M2）', () => {
+  it('导入时不自动生成总结，连了模型也一样', async () => {
+    const { core, stream, imp } = await setup([{ text: ALL }]);
+    const id = await imp();
+    await idle();
+    const doc = await core.call<{ ai_status: string; ai?: Record<string, unknown> }>('documents.get', { id });
+    expect(doc.ai_status).toBe('none');
+    expect(doc.ai?.summary).toBeUndefined();
+    expect(stream!.calls).toBe(0);
+  });
+
+  it('手动生成：写入总结、建议、短语（只留原文里有的）、长难句，ai_status = done', async () => {
     const { core, stream, imp } = await setup([{ text: '```json\n' + ALL + '\n```' }]);
     const id = await imp();
+    await core.call('documents.analyze', { id });
+    await idle();
     const doc = await core.call<{ ai_status: string; ai?: Record<string, { output: unknown; model: string }> }>('documents.get', { id });
     expect(doc.ai_status).toBe('done');
     expect(doc.ai?.summary?.output).toBe('文章说重试策略会放大故障。');
@@ -46,21 +57,21 @@ describe('导入后的 AI 分析（M2）', () => {
     expect(stream!.calls).toBe(3);
   });
 
-  it('没连模型：deferred；连上后 analyze_deferred 补做', async () => {
+  it('连上模型后也不自动补做', async () => {
     const none = await setup(null);
     const id = await none.imp();
-    expect((await none.core.call<{ ai_status: string }>('documents.get', { id })).ai_status).toBe('deferred');
     // 同一个库换成有模型的 Core：模拟"之后连上了模型"
-    const later = await assembleCore({ db: none.db, dict, platform: fakePlatform({ isOnline: () => true, getSecret: async () => 'sk' }), resolveModel: async () => ({ model: FAKE_MODEL, apiKey: 'k', streamFn: scriptedStream([{ text: ALL }]) }), resume: false });
-    expect(await later.core.call('documents.analyze_deferred', {})).toEqual({ queued: 0 });   // 还没有 provider
+    const stream = scriptedStream([{ text: ALL }]);
+    const later = await assembleCore({ db: none.db, dict, platform: fakePlatform({ isOnline: () => true, getSecret: async () => 'sk' }), resolveModel: async () => ({ model: FAKE_MODEL, apiKey: 'k', streamFn: stream }), resume: false });
     await later.core.call('providers.upsert', { provider: { kind: 'llm', name: 'DeepSeek', protocol: 'openai_compatible', auth: 'api_key', tier: 'fast', model: 'deepseek-flash', is_default: true }, secret_ref: 'x' });
     await new Promise(r => setTimeout(r, 50));
     await idle();
-    expect((await later.core.call<{ ai_status: string }>('documents.get', { id })).ai_status).toBe('done');
+    expect((await later.core.call<{ ai_status: string }>('documents.get', { id })).ai_status).toBe('none');
+    expect(stream.calls).toBe(0);
   });
 
   it('译文：按批翻译并写回句子', async () => {
-    const { core, imp } = await setup([{ text: ALL }, { text: ALL }, { text: ALL }, { text: '["大多数团队低估了重试策略增加的延迟。", "天真的指数退避会放大故障。"]' }]);
+    const { core, imp } = await setup([{ text: '["大多数团队低估了重试策略增加的延迟。", "天真的指数退避会放大故障。"]' }]);
     const id = await imp();
     const doc = await core.call<{ sections: { id: string }[] }>('documents.get', { id });
     await core.call('sections.translate', { id: doc.sections[0]!.id });
@@ -92,7 +103,7 @@ describe('练习批改与短文（M3）', () => {
   });
   it('review.story 写短文并作为 Tibi 写的文章导入', async () => {
     const story = 'The Quiet Retry\n\n' + 'Every engineer knows that a retry can amplify a small outage into a large one. '.repeat(6);
-    const { core, db, imp } = await setup([{ text: ALL }, { text: ALL }, { text: ALL }, { text: story }, { text: ALL }]);
+    const { core, db, imp } = await setup([{ text: story }]);
     await imp();
     await core.call('terms.add', { entries: [{ text: 'amplify' }] });   // 导入不建词条：用户自己加的生词
     const t = await db.get<{ id: string }>("SELECT id FROM terms LIMIT 1");

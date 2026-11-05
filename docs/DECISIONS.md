@@ -47,7 +47,7 @@
 | D4 | OCR 默认本地 Tesseract，可选视觉模型 | [research/03 §3](research/03-tech-survey.md#3-内容导入与识别) |
 | D5 | 释义语言可设，默认中文语境释义 + 可展开英英 | [00 §7](design/00-concept-design.md#7-待讨论决策汇总) |
 | D7 | 译文开关默认关，另有句级按需翻译 | [00 §3.2](design/00-concept-design.md#32-沉浸式阅读面板reader核心界面) |
-| D9 | 首页发送后进独立对话页；右侧抽屉只给阅读器、生词本、运行记录 | [00 §3.5](design/00-concept-design.md#35-首页与书架home--library) |
+| D9 | 首页发送后进独立对话页；右侧抽屉只给阅读器、生词本~~、运行记录~~（运行记录 2026-11-04 去掉，T35） | [00 §3.5](design/00-concept-design.md#35-首页与书架home--library) |
 | D10 | 书架三维度：形态、类型、标签 | [00 §3.1](design/00-concept-design.md#31-文章导入import) |
 | R5 | 新增 97 标为已知（不建卡、计入已知词、不等于掌握）；批量只把 status = 0 设为 97，不动待确认词；点开生词自动进"见过"并建卡，受每日新卡上限约束 | [00 §3.2](design/00-concept-design.md#32-沉浸式阅读面板reader核心界面) |
 | D11 | 生词本按智能视图组织，词族合并，词条不单独打标签 | [00 §3.3](design/00-concept-design.md#33-生词本与每日练习vocabulary--review)、[01 §3](design/01-database.md#3-词条已知词库核心) |
@@ -86,7 +86,7 @@
 | — | 表结构、删除语义、索引、迁移 | [01](design/01-database.md)、[01 §9](design/01-database.md#9-约束与迁移) |
 | — | 接口只改 `_src/build_interface.py`，06 与总览页同源生成 | [06](design/06-interface.md) |
 | — | 安全规则：不可信内容、入口校验、CSP、密钥 | [05 §8](design/05-agent-architecture.md#8-权限审批与安全) |
-| — | 失败路径：预算预留、稍后补做、幂等 | [06 §1](design/06-interface.md#1-约定) |
+| — | 失败路径：~~预算预留~~（T36 去掉）、稍后补做、幂等 | [06 §1](design/06-interface.md#1-约定) |
 
 ## 视觉与吉祥物
 

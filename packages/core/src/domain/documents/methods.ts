@@ -135,8 +135,7 @@ export const documentsMethods: MethodMap = {
     if (d.source_type === 'sample') throw new TibiError('conflict', '内置示例已经带了总结');
     await queueAnalysis(ctx, d.id);
     return { ok: true as const };
-  }, '（重新）生成总结、短语、长难句，在后台做；"稍后补做"和"重新生成"都走这里，完成后 data.changed(documents)'),
-  'documents.analyze_deferred': method(Type.Object({ limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })) }), async (p, ctx) => analyzeDeferred(ctx, p.limit ?? 10), '内部：连上模型后把"稍后补做"的文章放到后台补做（最近打开的优先）'),
+  }, '（重新）生成总结、短语、长难句，在后台做；导入时不自动做，用户在总结面板里点"现在生成 / 重新生成"，完成后 data.changed(documents)'),
 };
 
 async function queueAnalysis(ctx: Ctx, document_id: string): Promise<boolean> {
@@ -144,16 +143,6 @@ async function queueAnalysis(ctx: Ctx, document_id: string): Promise<boolean> {
   await ctx.db.run("UPDATE documents SET ai_status = 'running', updated_at = ? WHERE id = ?", [now(), document_id]);
   ctx.events.emit('data.changed', { table: 'documents', ids: [document_id] });
   return background(`analyze:${document_id}`, () => analyzeDocument(ctx, document_id));
-}
-
-/** 把 ai_status = deferred 的文章放到后台补做；没连模型时什么都不做 */
-export async function analyzeDeferred(ctx: Ctx, limit = 10): Promise<{ queued: number }> {
-  const ok = await ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM providers WHERE kind = 'llm' AND deleted_at IS NULL");
-  if (!Number(ok?.n ?? 0) || !ctx.platform.isOnline()) return { queued: 0 };
-  const rows = await ctx.db.all<{ id: string; title: string }>("SELECT id, title FROM documents WHERE ai_status = 'deferred' AND status = 'ready' AND deleted_at IS NULL AND source_type != 'sample' ORDER BY COALESCE(last_read_at, created_at) DESC LIMIT ?", [limit]);
-  let queued = 0;
-  for (const d of rows) if (await queueAnalysis(ctx, d.id)) queued++;
-  return { queued };
 }
 
 registerUndo<{ id: string; prev: { title: string; genre: string; is_favorite: number; is_archived: number; shelved?: number; tags?: string[] } }>('documents.update', async (p, ctx) => {

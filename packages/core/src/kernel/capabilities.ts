@@ -17,7 +17,7 @@ import { parseDeepLink } from '../deeplink.js';
  */
 
 /** 工具结果给模型和存库都截到这么长（10 §5.2） */
-export const TOOL_RESULT_MAX = 16_000;
+const TOOL_RESULT_MAX = 16_000;
 
 /** 读过不可信内容后必须审批的外联能力（05 §8）；web_search 不用审批 */
 const EXTERNAL = new Set(['fetch_url']);
@@ -71,7 +71,7 @@ export class CapabilityRegistry {
     if (perm === 'read' && !(external && tainted)) return { ok: true, approval: 'auto', params };
     if (perm === 'always' && tainted) return { ok: false, reason: '这一轮读过网页内容，不能做这项改动。请用户自己到设置里改' };
     const mode = await ctx.permission();
-    const skill = ctx.caller.skill_id ? await resolveSkill(this.db, ctx.caller.skill_id).catch(() => undefined) : undefined;
+    const skill = ctx.caller.skill_id ? await resolveSkill(this.db, ctx.caller.skill_id) : undefined;
     const skillAsk = skill?.write_permission === 'ask';
     let needAsk: boolean;
     if (perm === 'always' || (tainted && (perm !== 'read' || external))) needAsk = true;   // 读过不可信内容：写入与外联一律审批，全部自动也不放行

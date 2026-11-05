@@ -1,7 +1,7 @@
 # 技能架构 v0.1：以 pi 为 harness 底座
 
 > 状态：**已确认**（2026-10-29，决策 B1–B8 见 §12；2026-10-31 按 R9 改为不用 `pi-durable`，对话与任务自建，见 §1、§6、§11）。已同步到 [`00-concept-design.md` §3.10 / §4](./00-concept-design.md#4-系统架构)、[`01-database.md` §7](./01-database.md#7-技能tibi-的能力扩展) 和 [`02-ai-assistant.md`](./02-ai-assistant.md)。
-> 原型：[运行记录](../prototypes/tasks.html) · [首页 `/` 技能与过程卡](../prototypes/home.html) · [设置 → Tibi 的技能](../prototypes/settings.html#agents) · [统计页洞察来源](../prototypes/stats.html)；技能目录 [`v2-agents.js`](../prototypes/v2-agents.js)。
+> 原型：[首页 `/` 技能与过程卡](../prototypes/home.html) · [设置 → Tibi 的技能](../prototypes/settings.html#agents) · [统计页洞察来源](../prototypes/stats.html)；技能目录 [`v2-agents.js`](../prototypes/v2-agents.js)。
 > 目标：把 Tibi 从"应用里带一个 AI 助手"改成"一只会多项技能的 Tibi"——导入文章、找文章、讲解、出题与批改、学习洞察、整理记忆都是技能，内部各自是一个专职 agent（子对话），用户只面对 Tibi 一个角色（§13）；底座使用开源 harness **pi**。
 > 术语（2026-10-29 复审统一）：**技能** = 用户看到的、也是内部的单位，每项一份 `SKILL.md`；本文 §2 讲 pi 时仍用它自己的词"agent / subagent"；§12、§13 记录决策经过时会提到旧称"智能体"。术语表见 [`DECISIONS.md`](../DECISIONS.md#术语)。
 
@@ -50,7 +50,7 @@ pi 是 Mario Zechner（libGDX 作者）发起的开源 agent 工具集，MIT 协
 
 ```
 ┌──────────────────────────── Tauri App ────────────────────────────┐
-│  WebView（React）：首页 / 阅读器 / 生词本 / 复习 / 统计 / 设置 / 运行记录 │
+│  WebView（React）：首页 / 阅读器 / 生词本 / 复习 / 统计 / 设置 / 订阅     │
 │        │  JSON-RPC：请求 + 事件流（经 Rust 转发 sidecar 的 stdio）       │
 │  Rust 壳（很薄）：窗口、托盘、密钥存储、启动 / 守护 Tibi Core          │
 └────────┼──────────────────────────────────────────────────────────┘
@@ -113,7 +113,7 @@ pi 是 Mario Zechner（libGDX 作者）发起的开源 agent 工具集，MIT 协
 | **整理记忆**（`archivist`） | 把对话和学习事件整理成记忆：去重、合并、标记过时 | 手动：`/整理记忆`、记忆管理页 | `search_memory` `remember` `forget` `list_learning_events` | 快速 | 设置 → Tibi 记忆（每条带来源） |
 
 说明：
-- 导入时固定的那部分（总结、短语、长难句）由"导入文章"一次跑完并缓存到 `ai_results`；"讲解"只处理你临时问的问题。
+- 固定的那部分（总结、短语、长难句）由用户在总结面板里手动生成（导入时不自动做），一次跑完并缓存到 `ai_results`；"讲解"只处理你临时问的问题。
 - **导入是流水线而不是技能**（R10，2026-10-31）：步骤固定，由代码按顺序执行，模型只负责其中几个生成步骤，不由模型决定调哪个工具。所以它没有 `SKILL.md`，也不经"技能审批"；在界面上仍和其他几项一起列为"Tibi 能做的事"。其余 5 项（找文章、讲解、出题与批改、学习洞察、整理记忆）是技能。
 - Tibi 主对话通过 `run_skill(skill, input)` 运行技能：子技能在同一轮回答里跑（共用停止、审批和不可信标记），说完把结果作为工具结果交回；界面上显示为收起的过程卡"Tibi 正在…"，中途可以展开看步骤或取消。
 - 用户看到的始终是 Tibi 一个角色；想控制的用户可以在设置里逐项配置技能。

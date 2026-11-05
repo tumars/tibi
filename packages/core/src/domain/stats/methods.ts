@@ -3,6 +3,8 @@ import { j, now, type Database } from '../../db/driver.js';
 import { capability, method, type CapabilityMap, type Ctx, type MethodMap } from '../../rpc/define.js';
 import type { Dict } from '../../dict/types.js';
 import { TibiError, type Genre, type UsageSummary } from '../../types.js';
+import { parseJsonLoose } from '../documents/analyze.js';
+import { forecast } from '../review/queue.js';
 import { startOfToday } from '../shared/cards.js';
 import { dateKey, rollupToday } from './rollup.js';
 
@@ -103,7 +105,6 @@ export const statsMethods: MethodMap = {
   'stats.insight': method(Type.Object({ regenerate: Type.Optional(Type.Boolean()) }), async (p, ctx) => insight(ctx, !!p.regenerate),
     '学习洞察（M3）：当天有缓存就直接返回；否则用快速档按固定提示写一段话 + 1–3 个动作（只能从固定的几个里挑）。没连模型 → model_unavailable'),
   'stats.forecast': method(Type.Object({ days: Type.Optional(Type.Integer({ minimum: 1, maximum: 60 })) }), async (p, ctx) => {
-    const { forecast } = await import('../review/queue.js');
     const days = await forecast(ctx.db, p.days ?? 14);
     const r = await ctx.db.get<{ v: string }>("SELECT value AS v FROM settings WHERE key = 'review.retention'");
     return { days, target_retention: r ? Number(JSON.parse(r.v)) : 0.9 };
@@ -164,14 +165,12 @@ async function insight(ctx: Ctx, regenerate: boolean) {
   const s30 = await summary(ctx.db, 30, ctx.dict);
   const ser = await series(ctx.db, ['minutes', 'reviews'], 14, ctx.dict);
   const genres = await ctx.call<{ genre: string; words: number }[]>('stats.genres', { range: 30 });
-  const { forecast } = await import('../review/queue.js');
   const due = (await forecast(ctx.db, 1))[0] ?? 0;
   const leeches = Number((await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND lapses >= 3'))?.n ?? 0);
   const data = { last_30_days: s30, last_14_days_minutes: ser.series.minutes, last_14_days_reviews: ser.series.reviews, genres, due_today: due, leeches };
   const r = await ctx.ai.complete({ tier: 'fast',
     system: `你是英语学习教练 Tibi。根据用户最近的学习数据（JSON，只有计数），用中文写 2–3 句观察：说清一个变化或现象，再给一个具体建议。不要客套、不要打气、不要编造数据里没有的东西。再从这些动作里挑 1–3 个最相关的：${Object.keys(INSIGHT_ACTIONS).join(', ')}。只输出 JSON：{"text": "...", "actions": ["review"]}`,
     prompt: JSON.stringify(data) });
-  const { parseJsonLoose } = await import('../documents/analyze.js');
   const out = parseJsonLoose<{ text?: string; actions?: string[] }>(r.text);
   if (!out?.text) throw new TibiError('model_unavailable', '模型没有给出洞察');
   const ins: Insight = { text: out.text.trim().slice(0, 400), actions: (out.actions ?? []).filter(a => a in INSIGHT_ACTIONS).slice(0, 3).map(a => INSIGHT_ACTIONS[a]!), generated_at: now(), day: today };

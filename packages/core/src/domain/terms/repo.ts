@@ -112,9 +112,3 @@ export async function readProfile(db: Database): Promise<{ daily_new_cards: numb
   const r = await db.get<{ daily_new_cards: number; interests: string }>("SELECT daily_new_cards, interests FROM user_profile WHERE id = '1'");
   return { daily_new_cards: Number(r?.daily_new_cards ?? 20), interests: j.parse<string[]>(r?.interests, []) };
 }
-
-/** 本地日期 YYYY-MM-DD（daily_stats 的键） */
-export function localDate(t: number = now()): string {
-  const d = new Date(t); const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}

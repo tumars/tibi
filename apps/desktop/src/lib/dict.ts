@@ -1,7 +1,7 @@
 import { tl } from './i18n';
 
 /** ECDICT 字段的显示：词性、考试标签、词形类型 */
-export const POS_NAMES: Record<string, string> = { n: tl('名词'), v: tl('动词'), j: tl('形容词'), a: tl('形容词'), r: tl('副词'), d: tl('限定词'), i: tl('介词'), p: tl('代词'), c: tl('连词'), m: tl('数词'), u: tl('感叹词'), t: tl('不定式') };
+const POS_NAMES: Record<string, string> = { n: tl('名词'), v: tl('动词'), j: tl('形容词'), a: tl('形容词'), r: tl('副词'), d: tl('限定词'), i: tl('介词'), p: tl('代词'), c: tl('连词'), m: tl('数词'), u: tl('感叹词'), t: tl('不定式') };
 export const EXAM_NAMES: Record<string, string> = { zk: tl('中考'), gk: tl('高考'), cet4: tl('四级'), cet6: tl('六级'), ky: tl('考研'), toefl: tl('托福'), ielts: tl('雅思'), gre: 'GRE' };
 export const INFLECTION_NAMES: Record<string, string> = { p: tl('过去式'), d: tl('过去分词'), i: tl('现在分词'), 3: tl('三单'), r: tl('比较级'), t: tl('最高级'), s: tl('复数') };
 

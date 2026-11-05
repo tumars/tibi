@@ -3,8 +3,8 @@ import { tl } from '../lib/i18n';
 import { isTauri } from '../rpc';
 import { toast } from '../store/ui';
 
-// 这三个地址同时写在 capabilities/default.json 的 opener:allow-open-url 里，改这里要一起改
-const LINKS = [['Twitter', 'https://x.com/Tumars'], ['GitHub', 'https://github.com/tumars'], [tl('个人站点'), 'https://www.ferecord.com/']] as const;
+// 这些地址同时写在 capabilities/default.json 的 opener:allow-open-url 里（mailto 走 mailto:*），改这里要一起改
+const LINKS = [['Twitter', 'https://x.com/Tumars'], ['GitHub', 'https://github.com/tumars'], [tl('个人站点'), 'https://www.ferecord.com/'], [tl('邮箱'), 'mailto:menghui9898@gmail.com']] as const;
 
 /** WebView 里 target="_blank" 打不开，桌面端交给系统浏览器；地址要在 capabilities 的白名单里 */
 export const openLink = async (e: MouseEvent<HTMLAnchorElement>) => {

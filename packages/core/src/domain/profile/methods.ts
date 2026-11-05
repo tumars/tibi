@@ -82,8 +82,6 @@ export const profileMethods: MethodMap = {
         [id, p.provider.kind, p.provider.name, p.provider.protocol, p.provider.base_url ?? null, 'api_key', p.provider.tier ?? null, p.provider.model, p.secret_ref ?? null, '{}', p.provider.is_default ? 1 : 0, t, t]);
     });
     ctx.events.emit('data.changed', { table: 'settings' });
-    // 连上模型后把"稍后补做"的文章排进任务（M2）
-    void ctx.call('documents.analyze_deferred', {}).catch(() => undefined);
     return (await listProviders(ctx.db)).find(x => x.id === id)!;
   }, '密钥先由 Rust 写入密钥存储，这里只传引用；没带 id 时，同服务同档已有记录就更新它'),
 

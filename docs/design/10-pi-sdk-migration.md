@@ -1,6 +1,6 @@
 # 10 Agent 底座改用 pi-coding-agent SDK
 
-> 状态：**已确定，待实施**（2026-11-03 评审，决定见 §15）。实施后改写 [`05` §1 底座、§6 运行机制、§7 上下文工程](05-agent-architecture.md#6-运行机制tibikernelr9-后自建)，以及 [`01`](01-database.md) 的 `messages`、`conversations`、`jobs`、`job_steps`、`usage_records`。
+> 状态：**已实施**（2026-11-03 评审，决定见 §15；代码在 `packages/core/src/kernel/engine.ts`、`packages/core-node/src/engine-pi.ts`）。文中的任务、预算、用量部分后来按 T35、T36 去掉了，以 [`DECISIONS.md`](../DECISIONS.md) 为准。实施后改写 [`05` §1 底座、§6 运行机制、§7 上下文工程](05-agent-architecture.md#6-运行机制tibikernelr9-后自建)，以及 [`01`](01-database.md) 的 `messages`、`conversations`、`jobs`、`job_steps`、`usage_records`。
 > 前提：项目还没上线，**不考虑兼容**：不保留旧引擎，不迁移旧数据（开发库删掉重建），表结构直接改 `0001`。只考虑 Mac 桌面端；手机端暂缓，但保留以后接入的余地。以后可能接多个引擎。
 > 依据：`@earendil-works/pi-coding-agent` 1.5.0 的源码、文档和类型定义；一个用假模型跑的验证脚本（§11）；Cherry Studio 接 pi 和 Claude Agent SDK 的做法。
 

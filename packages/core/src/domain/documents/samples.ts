@@ -22,7 +22,7 @@ export interface SampleAi {
 export interface SampleBody { markdown: string; ai: SampleAi }
 export interface SampleDef { id: string; title: string; author?: string; genre: Genre; kind: Kind; source: string; is_default: boolean; order: number; words: number; /** 书的章数 */ chapters?: number; load(): Promise<SampleBody> }
 
-export const PREGENERATED_MODEL = 'bundled';
+const PREGENERATED_MODEL = 'bundled';
 
 export function getSample(id: string): SampleDef | undefined { return SAMPLE_DEFS.find(s => s.id === id); }
 

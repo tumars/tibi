@@ -55,6 +55,3 @@ export function uuidv7Time(id: string): number {
   const hex = id.replace(/-/g, '').slice(0, 12);
   return parseInt(hex, 16);
 }
-
-export const isUuid = (s: unknown): s is string =>
-  typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);

@@ -4,7 +4,7 @@ import { isTauri, rpc } from '../rpc';
 export type ProviderDraft = Partial<Provider> & { key?: string };
 
 /** 每个服务一个密钥条目；快速 / 深入两档共用 */
-export const secretRef = (name: string) => `provider.${(name || 'llm').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.llm`;
+const secretRef = (name: string) => `provider.${(name || 'llm').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.llm`;
 
 /** Key 交给壳保存（只在 Tauri 里能写；浏览器 dev 模式用环境变量 TIBI_SECRET_<REF>） */
 export async function storeSecret(ref: string, key: string): Promise<boolean> {

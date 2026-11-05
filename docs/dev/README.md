@@ -1,7 +1,5 @@
 # 开发说明
 
-> 状态：M0 骨架、M1 最小闭环、M2 AI 与助手的功能都已做完（2026-10-31）；待在本机验证 Tauri 窗口、深链与真实模型调用（开发时可用 `--fake-model` 走通界面）。
-
 ## 1. 仓库结构
 
 ```
@@ -16,10 +14,10 @@ tibi/
         db/               Driver 接口、Database（事务互斥）、migrate（PRAGMA user_version）
         platform.ts       运行时接口：抓网页、抽正文、密钥、文件白名单
         dict/             词典接口（dict.db / ECDICT）
-        kernel/           TibiKernel：对话、任务、步骤检查点、审批、用量、pi-agent-core 桥接
+        kernel/           对话、审批、能力（capability）、技能、MCP；engine.ts 是 Agent 引擎接口，Node 端实现在 core-node/src/engine-pi.ts（pi-coding-agent）
         rpc/              JSON-RPC 方法定义（TypeBox 参数）、分发器、system.*
         domain/           领域模块：text（切分 / 分词 / 还原 / 预标注）、documents、terms、review、stats、profile、memory、shared（撤销审计、建卡）
-        core.ts           组装：db + dict + platform + jobs + 方法表
+        core.ts           组装：db + dict + platform + 方法表
       skills/             内置 SKILL.md（真相源；构建成 src/kernel/skills.gen.ts）
       samples/            内置示例 <id>/article.md + ai.json（正文与预生成结果的真相源；构建成 src/domain/documents/samples.gen.ts）
       test/               vitest；helpers.ts 的 makeCore() 给出内存库 + 假平台
@@ -46,7 +44,7 @@ pnpm --filter @tibi/desktop web    # 浏览器里跑界面，连上面的开发�
 pnpm dev                           # tauri dev（需要 Rust 工具链与系统库）
 pnpm --filter @tibi/core-node build   # 打包 dist/tibi-core.js（sidecar 的 JS）
 pnpm --filter @tibi/core-node sidecar # Bun --compile 单文件 sidecar → apps/desktop/src-tauri/binaries/（另把 OCR 的 worker 与 wasm 拷到 binaries/ocr/）
-TIBI_TEST_OCR=1 pnpm --filter @tibi/core-node test   # 连带跑 OCR 测试（要下载约 10 MB 的语言包）
+TIBI_TEST_OCR=1 pnpm test packages/core-node   # 连带跑 OCR 测试（要下载约 10 MB 的语言包）
 pnpm --filter @tibi/core gen          # 改了 sql/*.sql、skills/*.md 或 samples/ 后重新生成内嵌文件
 pnpm ecdict                        # 下载 ECDICT、词光、Open English WordNet 并生成 data/ecdict/dict.db（不进仓库；开发时壳和 Core 都会找这里；旧的 dict.db 要重跑才有新内容）
 pnpm clipper:zip                   # 打包剪藏插件 extensions/clipper/dist/*.zip

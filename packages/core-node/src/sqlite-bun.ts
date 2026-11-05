@@ -14,7 +14,7 @@ async function loadBunSqlite(): Promise<BunSqliteModule> {
   return (await import(/* @vite-ignore */ name)) as BunSqliteModule;
 }
 
-export class BunSqliteDriver implements Driver {
+class BunSqliteDriver implements Driver {
   constructor(readonly db: BunDb) {}
   async exec(sql: string) { this.db.exec(sql); }
   async run(sql: string, params: SqlParams = []) {

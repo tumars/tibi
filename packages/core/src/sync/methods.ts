@@ -2,6 +2,7 @@ import { Type } from '@sinclair/typebox';
 import { method, type Ctx, type MethodMap } from '../rpc/define.js';
 import { TibiError } from '../types.js';
 import { SyncError, webdavBackend, type SyncBackend } from './backend.js';
+import { dropTriggers } from './capture.js';
 import { SyncEngine } from './engine.js';
 
 /**
@@ -130,7 +131,7 @@ export const syncMethods: MethodMap = {
   'sync.disable': method(Type.Object({}), async (_p, ctx) => {
     while (running) await running.catch(() => undefined);
     const cfg = JSON.parse((await SyncEngine.get(ctx.db, 'backend')) ?? 'null') as BackendCfg | null;
-    if (cfg) { try { await (await engine(ctx, cfg)).disable(); } catch { const { dropTriggers } = await import('./capture.js'); await dropTriggers(ctx.db); } }
+    if (cfg) { try { await (await engine(ctx, cfg)).disable(); } catch { await dropTriggers(ctx.db); } }
     await SyncEngine.set(ctx.db, 'enabled', '0'); await SyncEngine.set(ctx.db, 'capture', '0'); await SyncEngine.set(ctx.db, 'last_error', null);
     return { ok: true as const };
   }, '停止同步；本机数据保留，云端文件不删'),

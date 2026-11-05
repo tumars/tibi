@@ -30,7 +30,7 @@ export async function loadParams(db: Database): Promise<FsrsParams> {
   return { desired_retention: Number(row?.desired_retention ?? 0.9), weights };
 }
 
-export function getScheduler(params: FsrsParams): Promise<Scheduler> {
+function getScheduler(params: FsrsParams): Promise<Scheduler> {
   const key = `${params.desired_retention}|${params.weights?.join(',') ?? ''}`;
   let p = cache.get(key);
   if (!p) {
@@ -41,7 +41,7 @@ export function getScheduler(params: FsrsParams): Promise<Scheduler> {
 }
 
 /** 卡片行 → ts-fsrs 卡片对象 */
-export function toFsrsCard(row: CardRow): FsrsCard {
+function toFsrsCard(row: CardRow): FsrsCard {
   const state = row.state as 0 | 1 | 2 | 3;
   // srs-kit 只认 new / learning / review：重学（state 3）在它那里是 learning（遗忘后的学习步骤）
   const status = state === 0 ? 'new' : state === 2 ? 'review' : 'learning';
@@ -59,7 +59,7 @@ export function toFsrsCard(row: CardRow): FsrsCard {
 /** 调度后要写回卡片行的字段 */
 export interface CardPatch { due: number; stability: number; stability_fast: number; difficulty: number; elapsed_days: number; scheduled_days: number; learning_steps: number; reps: number; lapses: number; state: number; last_review: number }
 
-export function fromFsrsCard(c: FsrsCard, now: number, prevLastReview: number | null): CardPatch {
+function fromFsrsCard(c: FsrsCard, now: number, prevLastReview: number | null): CardPatch {
   const last = c.lastReviewAt ? new Date(c.lastReviewAt).getTime() : now;
   const elapsed = prevLastReview ? (now - prevLastReview) / 86_400_000 : 0;
   return {
@@ -80,7 +80,7 @@ export async function schedule(params: FsrsParams, row: CardRow, rating: Rating,
 }
 
 /** 四档评分各自的下次间隔（天，小数） */
-export async function previewDays(params: FsrsParams, row: CardRow, now: number): Promise<Record<Rating, number>> {
+async function previewDays(params: FsrsParams, row: CardRow, now: number): Promise<Record<Rating, number>> {
   const s = await getScheduler(params);
   const out = { 1: 0, 2: 0, 3: 0, 4: 0 } as Record<Rating, number>;
   for (const item of s.preview({ card: toFsrsCard(row) as never, now: new Date(now) })) {

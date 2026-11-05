@@ -44,7 +44,7 @@ export function ocrImages(images: Uint8Array[], onProgress?: (done: number, tota
 }
 
 /** 扫描版 PDF 的 OCR：pdfjs 把每页按约 2 倍分辨率（长边不超过 2400 像素）画到画布上再识别；最多 300 页 */
-export const OCR_MAX_PAGES = 300;
+const OCR_MAX_PAGES = 300;
 export async function ocrPdf(buf: Uint8Array, onProgress?: (done: number, total: number) => void, signal?: AbortSignal) {
   const pdfjs = await browserExtractDeps.pdfjs!() as unknown as PdfJs;
   const doc = await pdfjs.getDocument({ data: buf, isEvalSupported: false }).promise;

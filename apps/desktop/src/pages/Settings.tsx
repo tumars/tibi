@@ -66,7 +66,7 @@ export function Settings() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // 全局搜索跳到某一项：?sec=advanced&item=每月预算 → 滚过去并闪一下浅蓝底
+  // 全局搜索跳到某一项：?sec=advanced&item=权限模式 → 滚过去并闪一下浅蓝底
   const secParam = params.get('sec'), itemParam = params.get('item');
   useEffect(() => {
     if (!secParam) return;

@@ -1,7 +1,7 @@
 import { AudioLines, LoaderCircle, Square, Volume2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { tl } from '../lib/i18n';
-import { getStatus, kokoroDownloaded, loadKokoro, onStatus, say, stop, type Engine, type Status } from '../lib/tts';
+import { getStatus, kokoroDownloaded, loadKokoro, onStatus, prefetch, say, splitLang, stop, type Engine, type Status } from '../lib/tts';
 import { errorInfo } from '../rpc';
 import { toast } from '../store/ui';
 
@@ -36,10 +36,18 @@ export async function speakWith(text: string, engine: Engine, key = text, onProg
   // 先停下正在读的，再去下载、合成：下载 AI 模型那几十秒里旧声音不该接着响
   stop();
   const my = ++run; set({ key, engine });
+  // 中英混排按语言分段读：中文用系统中文音色，英文用按的这个引擎
+  const parts = splitLang(text);
   try {
-    if (engine === 'kokoro' && !kokoroDownloaded()) await loadKokoro(onProgress);
-    if (my !== run) return;
-    await say(text, { engine });
+    if (engine === 'kokoro' && !kokoroDownloaded() && parts.some(p => !p.zh)) await loadKokoro(onProgress);
+    for (const [i, p] of parts.entries()) {
+      if (my !== run) return;
+      const done = say(p.text, { engine, zh: p.zh });
+      // 读这段时先把下一段英文合成好，换段不卡顿。要在 say 之后：say 一开始会扔掉还没合成完的
+      const next = parts.slice(i + 1).find(x => !x.zh);
+      if (engine === 'kokoro' && next) prefetch(next.text);
+      if (!await done) return;
+    }
   } catch (e) {
     if (my === run) toast(tl('AI 朗读用不了：{v0}。可以先用系统朗读', { v0: errorInfo(e).message || tl('模型没下载好') }), { kind: 'err' });
   } finally {
@@ -47,7 +55,7 @@ export async function speakWith(text: string, engine: Engine, key = text, onProg
   }
 }
 
-export function SpeakButtons({ text, id, size = 14, className = '' }: { text: string; /** 同一段文字出现在多处时区分 */ id?: string; size?: number; className?: string }) {
+export function SpeakButtons({ text, id, size = 14, className = '', engines = ['system', 'kokoro'] }: { text: string; /** 同一段文字出现在多处时区分 */ id?: string; size?: number; className?: string; /** 给哪几个按钮：中文为主的地方只给系统朗读 */ engines?: Engine[] }) {
   const p = useSpeaking();
   const status = useTtsStatus();
   const [pct, setPct] = useState<number>();
@@ -63,5 +71,5 @@ export function SpeakButtons({ text, id, size = 14, className = '' }: { text: st
       {loading ? <span className="spk-pct">{pct}%</span> : busy ? <LoaderCircle size={size} className="ttsspin" /> : on ? <Square size={size - 3} fill="currentColor" /> : engine === 'system' ? <Volume2 size={size} /> : <AudioLines size={size} />}
     </button>;
   };
-  return <span className={`spkbtns ${className}`}>{btn('system')}{btn('kokoro')}</span>;
+  return <span className={`spkbtns ${className}`}>{engines.map(btn)}</span>;
 }

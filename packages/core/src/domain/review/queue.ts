@@ -15,7 +15,7 @@ import { getSetting, newCardsReviewedToday, termContexts, termForms, toTerm, typ
  * 没有释义或凑不齐三个选项时，选义 / 识别改出填空：不出只有一两个选项的题。
  */
 
-export const NEW_GROUP = 5;
+const NEW_GROUP = 5;
 
 export interface CardWithTerm { card: CardRow; term: TermRow }
 
@@ -160,7 +160,7 @@ export function shuffle<T>(arr: T[]): T[] {
 }
 
 /** 新词是否需要"初见"：没有 source = article 的语境（G4） */
-export async function needsIntro(db: Database, term_id: string): Promise<boolean> {
+async function needsIntro(db: Database, term_id: string): Promise<boolean> {
   const r = await db.get<{ n: number }>("SELECT count(*) AS n FROM term_contexts WHERE term_id = ? AND source = 'article' AND deleted_at IS NULL", [term_id]);
   return Number(r?.n ?? 0) === 0;
 }

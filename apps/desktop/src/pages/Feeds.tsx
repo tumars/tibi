@@ -247,7 +247,7 @@ function OpenLink({ url, title }: { url: string; title: string }) {
 }
 
 /** 加订阅：贴网址 → 找订阅地址 → 选一个（可以填分组）→ 订阅 */
-export function AddFeedModal({ onClose, onAdded }: { onClose: () => void; onAdded: (f: FeedView) => void }) {
+function AddFeedModal({ onClose, onAdded }: { onClose: () => void; onAdded: (f: FeedView) => void }) {
   const [url, setUrl] = useState('');
   const [found, setFound] = useState<FeedCandidate[]>();
   const [pick, setPick] = useState<string>();

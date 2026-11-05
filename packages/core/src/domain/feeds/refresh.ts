@@ -13,7 +13,7 @@ import { KEEP_DAYS, netError, prune, type FeedRow } from './repo.js';
  * 已有的条目只更新内容，不碰已读 / 保存 / 丢弃的状态。
  */
 
-export const FEED_ACCEPT = 'application/rss+xml, application/atom+xml, application/feed+json, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5';
+const FEED_ACCEPT = 'application/rss+xml, application/atom+xml, application/feed+json, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5';
 const MIN_INTERVAL_MIN = 120;
 const MAX_BACKOFF_MIN = 1440;
 const CONCURRENCY = 4;
@@ -85,7 +85,7 @@ async function refreshOne(ctx: Ctx, f: FeedRow): Promise<number | 'not_modified'
 }
 
 /** 写入条目：新的估级别、转全文；已有的只更新内容。返回新增几条 */
-export async function saveItems(ctx: Ctx, feed_id: string, items: ParsedItem[]): Promise<number> {
+async function saveItems(ctx: Ctx, feed_id: string, items: ParsedItem[]): Promise<number> {
   const t = now();
   const oldest = t - KEEP_DAYS * 86_400_000;
   let added = 0;

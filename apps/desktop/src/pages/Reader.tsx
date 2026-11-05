@@ -14,12 +14,14 @@ import { DictPanel } from '../reader/DictPanel';
 import { SummaryPanel } from '../reader/SummaryPanel';
 import { TibiPanel } from '../reader/TibiPanel';
 import { ReadAloud } from '../reader/ReadAloud';
+import { FindBar } from '../reader/FindBar';
 import type { Pending } from '../components/ChatThread';
 import { WordCard } from '../reader/WordCard';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { PANEL_W, toast, useSepiaPaper, useUi } from '../store/ui';
 import { tl } from '../lib/i18n';
+import { isMacDesktop } from '../lib/macNative';
 
 export function Reader() {
   const { id, section } = useParams();
@@ -33,7 +35,7 @@ export function Reader() {
   const [gloss, setGloss] = useState(false);
   const [translations, setTranslations] = useState(false);
   const [legend, setLegend] = useState(false);
-  const [card, setCard] = useState<{ word: string; lemma: string; sentence: Sentence; s: number; anchor: DOMRect }>();
+  const [card, setCard] = useState<{ word: string; lemma: string; sentence: Sentence; s: number; anchor: DOMRect; right?: number }>();
   const [overrides, setOverrides] = useState<Map<string, Status>>(new Map());
   const [showTop, setShowTop] = useState(false);
   // 进来先看总结；窄窗口里右栏盖在正文上，先不开
@@ -43,7 +45,9 @@ export function Reader() {
   const [selAsk, setSelAsk] = useState<{ text: string; sentence_id?: string; x: number; y: number }>();
   const [translating, setTranslating] = useState(false);
   const [aloud, setAloud] = useState(false);
+  const [find, setFind] = useState(false);
   const modelOk = useCore(st => !!st.status?.models.ok);
+  const wordCount = useCore(st => st.wordCount);
   const sepia = useSepiaPaper(); const setSepia = useUi(s => s.setSepia);
   const scrollRef = useRef<HTMLDivElement>(null);
   const restored = useRef(false);
@@ -54,7 +58,7 @@ export function Reader() {
     let alive = true; setErr(undefined); restored.current = false;
     const get = () => rpc.call('documents.get', { id: id! }).then(d => { if (alive) setDoc(d); }, e => { if (alive) setErr(errorInfo(e).message); });
     void get();
-    // 后台生成的总结（导入时、补做、重新生成）好了就刷新
+    // 后台生成的总结（现在生成、重新生成）好了就刷新
     const off = rpc.on('data.changed', d => { if (d.table === 'documents' && (!d.ids || d.ids.includes(id!))) void get(); });
     return () => { alive = false; off(); };
   }, [id]);
@@ -111,7 +115,7 @@ export function Reader() {
   }, [content, saveProgress]);
 
   const onWord = useCallback((ev: React.MouseEvent<HTMLSpanElement>, word: string, lemma: string, sentence: Sentence, s: number) => {
-    setCard({ word, lemma, sentence, s, anchor: (ev.currentTarget as HTMLElement).getBoundingClientRect() });
+    setCard({ word, lemma, sentence, s, anchor: (ev.currentTarget as HTMLElement).getBoundingClientRect(), right: scrollRef.current?.getBoundingClientRect().right });
   }, []);
 
   // 问 Tibi：打开右侧面板，把问题和当前位置一起发给讲解技能
@@ -146,6 +150,16 @@ export function Reader() {
   useEffect(() => { setReadingShelved(doc?.shelved !== false); }, [doc?.shelved, setReadingShelved]);
   useEffect(() => () => setReadingShelved(true), [setReadingShelved]);
 
+  // ⌘F / Ctrl+F 在这一章里查找；mac 上 ⌘F 归菜单栏（lib/macNative），发 tibi:find
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isMacDesktop && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') { e.preventDefault(); window.dispatchEvent(new Event('tibi:find')); }
+    };
+    const onFind = () => setFind(true);
+    addEventListener('keydown', onKey); addEventListener('tibi:find', onFind);
+    return () => { removeEventListener('keydown', onKey); removeEventListener('tibi:find', onFind); };
+  }, []);
+
   // 从订阅里直接读的文章（不在书架里）：放进书架，可撤销
   const shelve = async () => {
     if (!doc) return;
@@ -157,7 +171,7 @@ export function Reader() {
   };
 
   if (err) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: tl('文章') }]} /><Empty image="error-generic" title={tl('打不开这篇文章')} text={err} action={<button className="btn" onClick={() => nav('/library')}>{tl('回到书架')}</button>} /></>;
-  if (!doc || !content) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: doc?.title ?? '…' }]} /><div className="scroll" /></>;
+  if (!doc || !content) return <><Top crumbs={[{ label: tl('书架'), to: '/library' }, { label: doc?.title ?? '…' }]} /><div className="scroll"><p className="rd rdloading">{tl('正在打开…')}</p></div></>;
 
   const sec = doc.sections.find(s => s.id === content.id);
   const next = sec && doc.sections.find(s => s.idx === sec.idx + 1);
@@ -174,6 +188,7 @@ export function Reader() {
         <button className="ibtn" title={tl('标注说明')} onClick={() => setLegend(true)}><Info /></button>
       </>} />
       <div className={`rdwrap${panel ? ' with-panel' : ''}${resizing ? ' resizing' : ''}`} style={panel ? { '--rpanel': `${panelWidth}px` } as React.CSSProperties : undefined}>
+      {find && <FindBar root={scrollRef.current} deps={[content, translations]} onClose={() => setFind(false)} />}
       <div className="scroll" ref={scrollRef} onScroll={() => { onScroll(); setSelAsk(undefined); }} onMouseUp={onSelect}>
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '18px 32px 0' }}>
           <div className="rd" style={{ padding: 0 }}>
@@ -181,6 +196,8 @@ export function Reader() {
               <span>{GENRE_NAMES[doc.genre] ?? doc.genre} · {fmtMinutes(sec?.word_count ? sec.word_count / 200 : doc.minutes)}{doc.level ? ` · ${tl('难度约 {level}', { level: doc.level })}` : ''}</span>
               <DocSource d={doc} />
               {counts && counts.new + counts.learning > 0 && <span className="tagc">{tl('生词 {new} · 学习中 {learning}', { new: counts.new, learning: counts.learning })}</span>}
+              {/* 不替用户猜生词，正文一开始一个高亮都没有；还没标过词的人告诉他从哪下手 */}
+              {wordCount === 0 && <span className="tagc">{tl('点任何不认识的词，看它在这句里的意思')}</span>}
             </div>
             <h1>{doc.sections.length > 1 && sec?.title ? sec.title : doc.title}</h1>
           </div>
@@ -232,7 +249,7 @@ export function Reader() {
       </div>
       {aloud && <ReadAloud key={content.id} content={content} scroller={scrollRef.current} onClose={() => setAloud(false)} />}
       {selAsk && <button className="selask" style={{ left: selAsk.x, top: selAsk.y }} onMouseDown={e => e.preventDefault()} onClick={() => ask(selAsk.text.length > 80 ? tl('讲讲这句：{text}', { text: selAsk.text }) : tl('「{text}」在这里是什么意思？', { text: selAsk.text }), { sentence_id: selAsk.sentence_id, selection: selAsk.text })}><Sparkles size={13} />{tl('问 Tibi')}</button>}
-      {card && <WordCard onAsk={(w, sid) => ask(tl('「{w}」在这句话里是什么意思？用法上要注意什么？', { w }), { sentence_id: sid, selection: w })} word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} onClose={() => setCard(undefined)} onDict={w => { setDictWord(w); setPanel('dict'); setCard(undefined); }} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}
+      {card && <WordCard onAsk={(w, sid) => ask(tl('「{w}」在这句话里是什么意思？用法上要注意什么？', { w }), { sentence_id: sid, selection: w })} word={card.word} sentenceId={card.sentence.id} anchor={card.anchor} right={card.right} onClose={() => setCard(undefined)} onDict={w => { setDictWord(w); setPanel('dict'); setCard(undefined); }} onStatus={(text, st) => setOverrides(m => new Map(m).set(text, st))} />}
       <Modal open={legend} onOpenChange={setLegend} title={tl('标注说明')} actions={<button className="btn pri" onClick={() => setLegend(false)}>{tl('知道了')}</button>}>
         <div className="legend">
           <div className="row"><span className="ex"><span className="w s0">upshot</span></span><span>{tl('生词：你标过的，点开看释义')}</span></div>

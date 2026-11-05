@@ -9,34 +9,39 @@ import { errorInfo, rpc, type Result } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
 
-export interface WordCardProps { word: string; sentenceId?: string; anchor: DOMRect; onClose: () => void; onStatus?: (text: string, status: Status) => void; onAsk?: (word: string, sentenceId?: string) => void; onDict?: (word: string) => void }
+export interface WordCardProps { word: string; sentenceId?: string; anchor: DOMRect; /** 浮层不越过的右边界：阅读器正文列的右边，免得盖住右栏 */ right?: number; onClose: () => void; onStatus?: (text: string, status: Status) => void; onAsk?: (word: string, sentenceId?: string) => void; onDict?: (word: string) => void }
 
 /** 词卡浮层（00 §3.2）：词典 + 本地状态 + 语境释义；六档熟练度与忽略 */
-export function WordCard({ word, sentenceId, anchor, onClose, onStatus, onAsk, onDict }: WordCardProps) {
+export function WordCard({ word, sentenceId, anchor, right = innerWidth, onClose, onStatus, onAsk, onDict }: WordCardProps) {
   const [data, setData] = useState<Result<'terms.lookup'>>();
   const [err, setErr] = useState<string>();
   const [status, setStatus] = useState<Status | undefined>();
   const ref = useRef<HTMLDivElement>(null);
   const nav = useNavigate();
   const modelOk = useCore(s => !!s.status?.models.ok);
-  // 语境释义（M1）：缓存里没有、又连了模型时现写一条；没连模型只提示一句，不打断阅读（00 §3.9）
-  const [ctxm, setCtxm] = useState<{ state: 'loading' | 'ok' | 'err' | 'nomodel'; text?: string }>();
+  // 语境释义（M1）：缓存里有就直接显示；没有时等用户点了再让模型写，不自动花调用（00 §3.9）
+  const [ctxm, setCtxm] = useState<{ state: 'idle' | 'loading' | 'ok' | 'err' | 'nomodel'; text?: string }>();
+  const alive = useRef(true);
 
   useEffect(() => {
-    let alive = true;
+    alive.current = true;
     setCtxm(undefined);
     rpc.call('terms.lookup', { text: word, sentence_id: sentenceId }).then(r => {
-      if (!alive) return; setData(r); setStatus(r.term?.status);
+      if (!alive.current) return; setData(r); setStatus(r.term?.status);
       if (r.context_meaning) { setCtxm({ state: 'ok', text: r.context_meaning }); return; }
-      if (!sentenceId || !r.dict && !r.term) return;
-      if (!modelOk) { setCtxm({ state: 'nomodel' }); return; }
-      setCtxm({ state: 'loading' });
-      rpc.call('terms.context_meaning', { text: word, sentence_id: sentenceId }).then(
-        m => { if (alive) setCtxm({ state: 'ok', text: m.meaning }); },
-        e => { if (!alive) return; const i = errorInfo(e); setCtxm(i.code === 'model_unavailable' && !modelOk ? { state: 'nomodel' } : { state: 'err', text: i.message }); });
-    }, e => { if (alive) setErr(errorInfo(e).message); });
-    return () => { alive = false; };
-  }, [word, sentenceId, modelOk]);
+      if (sentenceId && (r.dict || r.term)) setCtxm({ state: 'idle' });
+    }, e => { if (alive.current) setErr(errorInfo(e).message); });
+    return () => { alive.current = false; };
+  }, [word, sentenceId]);
+
+  const explain = () => {
+    if (!sentenceId) return;
+    if (!modelOk) { setCtxm({ state: 'nomodel' }); return; }
+    setCtxm({ state: 'loading' });
+    rpc.call('terms.context_meaning', { text: word, sentence_id: sentenceId }).then(
+      m => { if (alive.current) setCtxm({ state: 'ok', text: m.meaning }); },
+      e => { if (!alive.current) return; const i = errorInfo(e); setCtxm(i.code === 'model_unavailable' && !modelOk ? { state: 'nomodel' } : { state: 'err', text: i.message }); });
+  };
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
@@ -53,9 +58,9 @@ export function WordCard({ word, sentenceId, anchor, onClose, onStatus, onAsk, o
     try { const r = await rpc.call('terms.mark', { text, status: s, sentence_id: sentenceId }); setStatus(r.term.status); setData(d => d && { ...d, term: r.term }); onStatus?.(r.term.text, r.term.status); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
-  // 位置：优先放在词的下方，放不下就放上方；横向贴边
+  // 位置：优先放在词的下方，放不下就放上方；横向不越过正文列
   const W = 340, H = 300;
-  const left = Math.min(Math.max(12, anchor.left - 20), innerWidth - W - 12);
+  const left = Math.min(Math.max(12, anchor.left - 20), right - W - 12);
   const below = anchor.bottom + 10 + H < innerHeight;
   const top = below ? anchor.bottom + 10 : Math.max(12, anchor.top - 10 - H);
   const head = data?.term?.display ?? data?.dict?.word ?? word;
@@ -66,7 +71,8 @@ export function WordCard({ word, sentenceId, anchor, onClose, onStatus, onAsk, o
       {data?.card_created && <div className="added">{tl('已加入复习')} <button className="linkbtn" style={{ fontSize: 12 }} onClick={() => setS(97)}>{tl('其实认识')}</button></div>}
       {err && <div className="dict" style={{ color: 'var(--hard)' }}>{err}</div>}
       {!data && !err && <div className="dict">{tl('查询中…')}</div>}
-      {ctxm?.state === 'ok' && <div className="ai"><span className="tag">{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
+      {ctxm?.state === 'idle' && <button className="ai muted ask" onClick={explain}><span className="tag">{tl('✦ 在这句里')}</span>{tl('点一下，看它在这句里的意思')}</button>}
+      {ctxm?.state === 'ok' &&<div className="ai"><span className="tag">{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
       {ctxm?.state === 'loading' && <div className="ai muted"><span className="tag">{tl('✦ 在这句里')}</span>{tl('正在看这句话…')}</div>}
       {ctxm?.state === 'err' && <div className="ai muted"><span className="tag">{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
       {ctxm?.state === 'nomodel' && <div className="ai muted"><span className="tag">{tl('✦ 在这句里')}</span>{tl('连接模型后显示 ·')} <button className="linkbtn" onClick={() => nav(`/welcome?step=3&back=${encodeURIComponent(location.hash.slice(1) || '/')}`)}>{tl('去连接')}</button></div>}

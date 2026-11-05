@@ -41,7 +41,7 @@ const prefField = (field: 'nickname', label: string, schema: TSchema): ConfigIte
 });
 const oneOf = (...v: string[]) => Type.Union(v.map(s => Type.Literal(s)));
 
-export const CONFIG: Record<string, ConfigItem> = {
+const CONFIG: Record<string, ConfigItem> = {
   nickname: prefField('nickname', 'Tibi 怎么称呼你', Type.String({ minLength: 1, maxLength: 40 })),
   interests: profileField('interests', '兴趣（找文章时用）', 'normal', Type.Array(Type.String({ maxLength: 40 }), { maxItems: 30 })),
   daily_goal_minutes: profileField('daily_goal_minutes', '每日阅读目标（分钟）', 'normal', Type.Integer({ minimum: 1, maximum: 600 })),

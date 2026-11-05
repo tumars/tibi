@@ -4,7 +4,7 @@ import { parseDeepLink, type DeepLink } from '@tibi/core/deeplink';
 const isMobile = () => !!(window as { __TIBI_LOCAL_CORE__?: boolean }).__TIBI_LOCAL_CORE__;
 
 /** tibi:// 深链 → 这个平台的路由；手机上没有的页面退回最接近的 */
-export function routeOf(l: DeepLink, mobile = isMobile()): string {
+function routeOf(l: DeepLink, mobile = isMobile()): string {
   switch (l.to) {
     case 'read': return mobile || !l.section_id ? `/read/${l.document_id}` : `/read/${l.document_id}/${l.section_id}`;
     case 'library': return '/library';

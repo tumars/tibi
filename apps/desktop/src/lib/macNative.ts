@@ -77,6 +77,8 @@ async function installMenuBar(go: (to: string) => void) {
           { item: 'Copy', text: tl('拷贝') },
           { item: 'Paste', text: tl('粘贴') },
           { item: 'SelectAll', text: tl('全选') },
+          { item: 'Separator' },
+          { id: 'find', text: tl('查找…'), accelerator: 'Cmd+F', action: () => window.dispatchEvent(new Event('tibi:find')) },
         ],
       }),
       await Submenu.new({

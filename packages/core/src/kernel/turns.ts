@@ -118,5 +118,5 @@ export class Turns {
   }
 }
 
-export function autoRuleKey(skill_id: string | null | undefined, tool: string) { return `perm.auto.${skill_id ?? '-'}.${tool}`; }
+function autoRuleKey(skill_id: string | null | undefined, tool: string) { return `perm.auto.${skill_id ?? '-'}.${tool}`; }
 export const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));

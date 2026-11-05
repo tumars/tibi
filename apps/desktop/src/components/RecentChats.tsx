@@ -37,9 +37,9 @@ export function RecentChats() {
 
   return (
     <>
+      {chats.length > 0 && <div className="sideh hide-c">{tl('最近')}</div>}
       <div className="recent hide-c">
         {chats.map(c => <RecentRow key={c.id} chat={c} onDelete={() => setDeleting(c)} />)}
-        {!chats.length && <div className="none">{tl('还没有对话')}</div>}
       </div>
       <Modal open={!!deleting} onOpenChange={o => { if (!o) setDeleting(undefined); }} title={tl('删除这段对话？')}
         actions={<><button className="btn" onClick={() => setDeleting(undefined)}>{tl('取消')}</button><button className="btn pri" onClick={() => void remove()}>{tl('删除')}</button></>}>

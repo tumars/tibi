@@ -1,5 +1,5 @@
 import type { DocumentSummary, Kind } from '@tibi/core';
-import { LayoutGrid, List, Tag, X } from 'lucide-react';
+import { LayoutGrid, List, Plus, Tag, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Empty } from '../components/Empty';
@@ -90,6 +90,7 @@ export function Library() {
           <option value="fit">{tl('在读的在前')}</option><option value="opened">{tl('最近打开')}</option><option value="added">{tl('最近导入')}</option><option value="progress">{tl('按进度')}</option><option value="minutes">{tl('按时长')}</option>
         </select>
         <button className="ibtn" title={grid ? tl('列表') : tl('网格')} onClick={() => setGrid(!grid)}>{grid ? <List /> : <LayoutGrid />}</button>
+        <button className="btn sm" title={tl('到首页粘贴网址、英文或添加文件')} onClick={() => nav('/?compose=1')}><Plus />{tl('导入')}</button>
       </>} />
       <div className="scroll" ref={scroller}><div className="page">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>

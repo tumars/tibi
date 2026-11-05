@@ -26,7 +26,7 @@ export function folderBackend(root: string, kind: 'folder' | 'icloud' = 'folder'
   };
 }
 
-export function icloudRoot(): string | undefined {
+function icloudRoot(): string | undefined {
   if (process.platform !== 'darwin') return undefined;
   const container = join(homedir(), 'Library', 'Mobile Documents', 'iCloud~app~tibi');
   return existsSync(container) ? join(container, 'Documents', 'Tibi Sync') : undefined;

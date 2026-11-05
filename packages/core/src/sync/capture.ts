@@ -15,11 +15,11 @@ export async function syncedColumns(db: Database, spec: TableSpec): Promise<stri
   const cols = await db.all<{ name: string }>(`PRAGMA table_info(${spec.t})`);
   return cols.map(c => c.name).filter(c => !META.has(c) && !spec.exclude?.includes(c));
 }
-export const idExpr = (spec: TableSpec, alias: 'NEW' | 'OLD' | '') => spec.pk.map(k => (alias ? `${alias}.${k}` : k)).join(" || '|' || ");
+const idExpr = (spec: TableSpec, alias: 'NEW' | 'OLD' | '') => spec.pk.map(k => (alias ? `${alias}.${k}` : k)).join(" || '|' || ");
 
 function q(s: string) { return `'${s.replace(/'/g, "''")}'`; }
 
-export async function triggerSql(db: Database, spec: TableSpec): Promise<string[]> {
+async function triggerSql(db: Database, spec: TableSpec): Promise<string[]> {
   const cols = await syncedColumns(db, spec);
   const obj = (a: string) => `json_object(${cols.map(c => `${q(c)}, ${a}.${c}`).join(', ')})`;
   const local = (a: string) => (spec.localGlobs ?? []).map(g => ` AND ${a}.key NOT GLOB ${q(g)}`).join('');

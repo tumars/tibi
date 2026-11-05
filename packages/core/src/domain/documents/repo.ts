@@ -14,7 +14,7 @@ export interface SectionRow extends Row { id: string; document_id: string; idx: 
 export interface SentenceRow extends Row { id: string; section_id: string; paragraph_idx: number; block_type: string; idx: number; text: string; tokens: string; translation: string | null }
 
 export const DOC_COLS = 'id, title, author, kind, genre, source_type, source_uri, lang, content_hash, original_path, cover_path, published_at, word_count, section_count, status, process_error, ai_status, difficulty_cefr, rare_ratio, progress, last_section_id, is_favorite, is_archived, shelved, created_at, updated_at, last_read_at, finished_at, deleted_at';
-export const SEC_COLS = 'id, document_id, idx, title, content_md, word_count, status, ai_status, tokenizer_version, progress, last_sentence_id, finished_at';
+const SEC_COLS = 'id, document_id, idx, title, content_md, word_count, status, ai_status, tokenizer_version, progress, last_sentence_id, finished_at';
 export const TOKENIZER_VERSION = 'tibi-1';
 export const WPM = 200;
 
@@ -47,7 +47,7 @@ export async function insertSentence(db: Database, s: { section_id: string; para
   return id;
 }
 
-export async function documentTags(db: Database, document_id: string): Promise<string[]> {
+async function documentTags(db: Database, document_id: string): Promise<string[]> {
   return (await db.all<{ name: string }>('SELECT tg.name FROM document_tags dt JOIN tags tg ON tg.id = dt.tag_id WHERE dt.document_id = ? AND dt.deleted_at IS NULL AND tg.deleted_at IS NULL ORDER BY tg.name', [document_id])).map(r => r.name);
 }
 
@@ -98,9 +98,9 @@ export async function toDocument(db: Database, d: DocumentRow): Promise<Document
   return { ...base, sections, ai: Object.keys(ai).length ? ai : undefined };
 }
 
-export function safeHost(uri: string): string { try { return new URL(uri).hostname.replace(/^www\./, ''); } catch { return uri; } }
+function safeHost(uri: string): string { try { return new URL(uri).hostname.replace(/^www\./, ''); } catch { return uri; } }
 /** 书架和阅读页显示的来源：网址显示域名，文件、图片显示原文件名，其余显示来源类型 */
-export function sourceOf(d: Pick<DocumentRow, 'source_type' | 'source_uri'>): string {
+function sourceOf(d: Pick<DocumentRow, 'source_type' | 'source_uri'>): string {
   if (!d.source_uri) return sourceLabel(d.source_type);
   if (d.source_type === 'url') return safeHost(d.source_uri);
   if (d.source_type === 'file' || d.source_type === 'image') return d.source_uri;

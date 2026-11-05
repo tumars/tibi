@@ -46,7 +46,7 @@ export async function checkUrl(raw: string): Promise<URL> {
 
 
 /** 备份放在 app.db 旁边的 backups/ 目录；内存库（测试）没有 */
-export function fileBackups(dbPath: string): BackupStore | undefined {
+function fileBackups(dbPath: string): BackupStore | undefined {
   if (!dbPath || dbPath === ':memory:') return undefined;
   const dir = join(dirname(dbPath), 'backups');
   return {

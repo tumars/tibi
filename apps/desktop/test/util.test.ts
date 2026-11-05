@@ -42,6 +42,10 @@ describe('splitAnswer', () => {
   it('填空题遮住句子里别处的同一个词', () => {
     expect(splitAnswer('Do it, then do it again.', ['do'], 'do', true)).toEqual({ before: '', mid: 'Do', after: ' it, then ____ it again.' });
   });
+  it('没记过的变形退一步认以原形开头的词，不把词接在句尾', () => {
+    expect(splitAnswer('Comments are typically discarded here.', ['discard'])).toEqual({ before: 'Comments are typically ', mid: 'discarded', after: ' here.' });
+    expect(splitAnswer('Open the window.', ['do'])).toEqual({ before: 'Open the window.', mid: '', after: '' });
+  });
   it('句子里没有这个词时不切', () => {
     expect(splitAnswer('Nothing here.', ['do'])).toEqual({ before: 'Nothing here.', mid: '', after: '' });
   });

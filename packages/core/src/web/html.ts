@@ -10,7 +10,7 @@ export type HtmlParser = (html: string) => Document;
 export const domParser: HtmlParser = html => new DOMParser().parseFromString(html, 'text/html');
 
 /** 不是正文的块：导航、目录、快捷键帮助（文档站常见：mdBook、Docusaurus、Sphinx、MkDocs） */
-export const NOISE = [
+const NOISE = [
   'nav', '[role="navigation"]', '[role="banner"]', '[role="search"]', '[aria-hidden="true"]', 'script', 'style', 'noscript', 'template',
   '#mdbook-help-container', '#help-container', '#menu-bar', '#mdbook-menu-bar', '.menu-title', '#mdbook-sidebar', '#sidebar', '.sidebar', '.nav-chapters', '.nav-wrapper', '.mobile-nav-chapters', '#searchbar-outer', '#search-wrapper',
   '.toc', '#toc', '.table-of-contents', '.breadcrumb', '.breadcrumbs', '.skip-link', '.skip-to-content', '.theme-doc-toc-mobile', '.pagination-nav', '.headerlink', '.md-sidebar', '.md-header', '.md-footer',

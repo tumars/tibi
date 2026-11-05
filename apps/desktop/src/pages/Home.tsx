@@ -53,8 +53,11 @@ export function Home() {
     const off2 = rpc.on('import.done', d => { setTask(t => (t?.id === d.import_id ? undefined : t)); if (d.ok) void load(); });
     return () => { off1(); off2(); };
   }, [load]);
-  // 深链：先确认再导入
-  useEffect(() => { const u = params.get('import'); if (u) { setConfirmUrl(u); setParams({}, { replace: true }); } }, [params, setParams]);
+  // 深链：先确认再导入；书架的「导入」带 compose=1 过来，直接聚焦输入框
+  useEffect(() => {
+    const u = params.get('import'); if (u) { setConfirmUrl(u); setParams({}, { replace: true }); }
+    if (params.has('compose')) { ta.current?.focus(); setParams({}, { replace: true }); }
+  }, [params, setParams]);
 
   const importSource = async (source: { type: 'text'; text: string } | { type: 'url'; url: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] }, origin: 'user' | 'deeplink' = 'user') => {
     try {
@@ -142,7 +145,7 @@ export function Home() {
         <section className="hero">
           <div className="welcome">
             {!coreDown && <Fox className="hero-fox" size={124} state={foxState} />}
-            <h1><span className="hl">{greeting}</span>{nickname ? <>{tl('，')}<span className="name">{nickname}</span></> : ''}</h1>
+            <h1>{greeting}{nickname ? <><span className="p">{tl('，')}</span><span className="name">{nickname}</span></> : ''}</h1>
             <div className="sub">{welcomeLine}</div>
           </div>
           <div className={`composer${over ? ' over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}>

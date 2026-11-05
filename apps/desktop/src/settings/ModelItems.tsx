@@ -11,24 +11,12 @@ export function ModelItems() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [editing, setEditing] = useState<Partial<Provider> & { key?: string }>();
   const [removing, setRemoving] = useState<string>();
-  const [price, setPrice] = useState({ input: '', output: '' });   // 自定义服务的单价：人民币 / 百万 token
   useEffect(() => { rpc.call('providers.list', {}).then(setProviders, () => undefined); }, []);
-  useEffect(() => {
-    setPrice({ input: '', output: '' });
-    const id = editing?.id; if (!id) return;
-    const key = `provider.price.${id}`;
-    rpc.call('settings.get', { keys: [key] }).then(r => { const p = r[key] as { input?: number; output?: number } | undefined; if (p) setPrice({ input: String(p.input ?? ''), output: String(p.output ?? '') }); }, () => undefined);
-  }, [editing?.id]);
-  const isDeepseek = (d: { base_url?: string }) => (d.base_url ?? '').includes('api.deepseek.com');
 
   const onSaveProvider = async () => {
     if (!editing) return;
     try {
       const { provider: p, keyStored } = await saveProvider(editing);
-      if (!isDeepseek(p)) {
-        const input = Number(price.input), output = Number(price.output);
-        await rpc.call('settings.set', { patch: { [`provider.price.${p.id}`]: (input > 0 || output > 0) ? { input: input > 0 ? input : 0, output: output > 0 ? output : 0 } : null } });
-      }
       if (editing.key && !keyStored) toast(tl('浏览器模式不能写钥匙串。dev 下用环境变量 TIBI_SECRET_<REF>'));
       setProviders(ps => ps.some(x => x.id === p.id) ? ps.map(x => x.id === p.id ? p : x) : [...ps, p]); setEditing(undefined); toast(tl('已保存'));
       void useCore.getState().refresh();
@@ -56,10 +44,6 @@ export function ModelItems() {
       <span>{tl('模型')}</span><input className="input" value={editing.model ?? ''} onChange={e => setEditing({ ...editing, model: e.target.value })} placeholder="deepseek-flash" />
       <span>{tl('档位')}</span><select className="input" value={editing.tier ?? 'fast'} onChange={e => setEditing({ ...editing, tier: e.target.value as 'fast' | 'deep' })}><option value="fast">{tl('快速')}</option><option value="deep">{tl('深入')}</option></select>
       <span>API Key</span><input className="input" type="password" value={editing.key ?? ''} onChange={e => setEditing({ ...editing, key: e.target.value })} placeholder={editing.has_secret ? tl('已保存，留空不改') : 'sk-…'} />
-      {!isDeepseek(editing) && <>
-        <span>{tl('输入单价')}</span><input className="input" inputMode="decimal" value={price.input} onChange={e => setPrice({ ...price, input: e.target.value })} placeholder={tl('¥ / 百万 token，可不填')} />
-        <span>{tl('输出单价')}</span><input className="input" inputMode="decimal" value={price.output} onChange={e => setPrice({ ...price, output: e.target.value })} placeholder={tl('不填就不计入花费和预算')} />
-      </>}
       <div className="row"><button className="btn sm pri" onClick={onSaveProvider}>{tl('保存')}</button><button className="btn sm" onClick={() => setEditing(undefined)}>{tl('取消')}</button><span className="lbl" style={{ alignSelf: 'center' }}>{tl('Key 只存在这台电脑上')}</span></div>
     </div>}
     {providers.length > 0 && !editing && <div className="item"><div className="lbl">{tl('添加其他 OpenAI 兼容服务')}</div><div className="ctl"><button className="btn sm" onClick={() => setEditing({ name: '', kind: 'llm', protocol: 'openai_compatible', base_url: '', model: '', tier: 'deep', is_default: false })}>{tl('添加')}</button></div></div>}

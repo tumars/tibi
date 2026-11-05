@@ -9,9 +9,15 @@ export function splitAnswer(sentence: string, answers: string[], surface?: strin
   const forms = [...new Set(answers.filter(Boolean))].sort((a, b) => b.length - a.length);
   const wordRe = (f: string, flags: string) => new RegExp(`(?<![\\p{L}\\p{N}])${f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`, flags);
   const blank = (s: string) => blankOthers ? forms.reduce((acc, f) => acc.replace(wordRe(f, 'giu'), '____'), s) : s;
+  const at = (m: RegExpExecArray) => ({ before: blank(sentence.slice(0, m.index)), mid: m[0], after: blank(sentence.slice(m.index + m[0].length)) });
   for (const f of surface ? [surface, ...forms] : forms) {
     const m = wordRe(f, 'iu').exec(sentence);
-    if (m) return { before: blank(sentence.slice(0, m.index)), mid: m[0], after: blank(sentence.slice(m.index + m[0].length)) };
+    if (m) return at(m);
+  }
+  // 原句里是没记过的变形（卡片 discard、句子 discarded）：退一步认以它开头的词，免得把词接在句尾
+  for (const f of forms) {
+    const m = new RegExp(`(?<![\\p{L}\\p{N}])${f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\p{L}*`, 'iu').exec(sentence);
+    if (m) return at(m);
   }
   return { before: sentence, mid: '', after: '' };
 }
