@@ -4,6 +4,8 @@
 
 ## 已完成
 
+- 修正最低系统要求为 macOS 13：实际 Bun sidecar 的 Mach-O `LC_BUILD_VERSION` 声明 `minos 13.0`，原配置 macOS 12 会允许不受支持的系统尝试启动。安装包和发布说明必须与 Core 一致，修改后重新签名、公证。
+
 - Vitest：59 个测试文件通过，333 项通过、1 项跳过。
 - 全部工作区 TypeScript 类型检查、桌面生产构建通过；1110 条界面文案无缺译。
 - 本机 Rust `cargo clippy --all-targets -- -D warnings` 通过；修复两处模块文档列表后的段落分隔，不改变产品设计或运行逻辑。

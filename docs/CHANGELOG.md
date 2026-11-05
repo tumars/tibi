@@ -4,6 +4,7 @@
 
 | 日期 | 结论 |
 |---|---|
+| 2026-11-05 | Mac 首发补齐 Developer ID 签名，Bun hardened runtime 启用 JIT 权限；按实际 sidecar 的 Mach-O 要求将最低系统版本修正为 macOS 13，避免 macOS 12 安装后 Core 无法启动。 |
 | 2026-11-05 | Mac 首发检查：333 项测试、类型检查、生产构建及 Rust 严格检查通过；修复两处 Rust 文档段落格式。实际安装包 Core 冒烟通过，签名待完成；网页已确认用户为 Account Holder，Xcode 的权限报错原因尚未确认。尚未发布，见 `dev/mac-release-0.1.0.md`。 |
 | 2026-10-29 | 阅读材料需覆盖技术文档、新闻、小说 → 引入内容类型（Genre）与「文档→章节→句子」结构 |
 | 2026-10-29 | 常驻 AI 助手，具备用户身份、能力认知、学习记忆；除 OpenAI 兼容接口外支持接入本地 harness（Codex 等） |
