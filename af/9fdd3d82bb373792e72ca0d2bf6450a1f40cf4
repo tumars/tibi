@@ -1,0 +1,21 @@
+docs/dev/mac-release-0.1.0.md
+  s_678d671a0e9cb1::t_351727e6a26ec9 9,11,20,29
+docs/dev/mac-0.1.0-release-notes.md
+  s_678d671a0e9cb1::t_351727e6a26ec9 16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "af9fdd3d82bb373792e72ca0d2bf6450a1f40cf4",
+  "prompts": {},
+  "sessions": {
+    "s_678d671a0e9cb1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1aa93-db86-7211-adef-a021b70cfd21",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
