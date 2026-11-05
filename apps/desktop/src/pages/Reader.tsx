@@ -8,6 +8,7 @@ import { Modal } from '../components/Modal';
 import { ResizeHandle } from '../components/ResizeHandle';
 import { Top } from '../components/Shell';
 import { fmtMinutes, GENRE_NAMES, throttle } from '../lib/util';
+import { ChapterNav } from '../reader/ChapterNav';
 import { SectionView } from '../reader/Section';
 import { DictPanel } from '../reader/DictPanel';
 import { SummaryPanel } from '../reader/SummaryPanel';
@@ -59,8 +60,9 @@ export function Reader() {
   }, [id]);
   useEffect(() => {
     if (!sectionId) return;
-    let alive = true;
-    rpc.call('sections.get', { id: sectionId, with: ['translations'] }).then(c => { if (alive) { setContent(c); setOverrides(new Map()); } }, e => { if (alive) setErr(errorInfo(e).message); });
+    let alive = true; restored.current = false;   // 切章后按这一章的进度重新定位：各章进度在文章里，连文章一起重取（切走的那章刚存了位置）
+    Promise.all([rpc.call('sections.get', { id: sectionId, with: ['translations'] }), id ? rpc.call('documents.get', { id }) : undefined])
+      .then(([c, d]) => { if (alive) { if (d) setDoc(d); setContent(c); setOverrides(new Map()); } }, e => { if (alive) setErr(errorInfo(e).message); });
     // 译文写好后重新取（只换句子，不重置覆盖状态）
     const off = rpc.on('data.changed', d => {
       if (d.table === 'sentences' && d.ids?.includes(sectionId)) { setTranslating(false); void rpc.call('sections.get', { id: sectionId, with: ['translations'] }).then(c => { if (alive) setContent(c); }); }
@@ -80,7 +82,7 @@ export function Reader() {
     const el = scrollRef.current;
     if (el && sec && sec.progress > 0.02 && sec.progress < 1) {
       requestAnimationFrame(() => { el.scrollTop = (el.scrollHeight - el.clientHeight) * sec.progress; setShowTop(true); });
-    }
+    } else if (el) { el.scrollTop = 0; setShowTop(false); }   // 没读过或读完了的章从头开始（切章时滚动条不留在上一章的末尾）
   }, [content, doc]);
 
   // 存不上只提示一次，存上了再清掉；继续滚动时自然会重试
@@ -196,6 +198,7 @@ export function Reader() {
               <button className="btn pri" onClick={() => void onFinish()}>{tl('读完了')}</button>
             </div>
           </div>}
+          <ChapterNav sections={doc.sections} current={sec} onGo={s => nav(`/read/${id}/${s}`)} />
         </div>
         <div className="rdbar">
           <button className={translations ? 'on' : ''} title={tl('译文')} onClick={async () => {

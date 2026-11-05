@@ -7,6 +7,7 @@ import { tl } from '../lib/i18n';
 import { fmtMinutes, GENRE_NAMES, STATUS_NAMES, throttle, isImeKey } from '../lib/util';
 import { DocSource } from '../components/DocSource';
 import { SpeakButtons, useTtsStatus } from '../components/Speak';
+import { ChapterNav } from '../reader/ChapterNav';
 import { SectionView } from '../reader/Section';
 import { useAloud } from '../reader/useAloud';
 import { errorInfo, rpc, type Result } from '../rpc';
@@ -122,7 +123,8 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
         </div> : <div className="endc">
           <h3>{tl('读完了？')}</h3>
           <div className="col"><button className="btn pri" onClick={() => void finish()}>{tl('读完了')}</button></div>
-        </div>}</div>
+        </div>}
+        <ChapterNav sections={doc.sections} current={sec} onGo={s => { setSecId(s); scroll.current?.scrollTo({ top: 0 }); }} /></div>
         <div style={{ height: 'calc(90px + var(--sab))' }} />
       </>}
     </div>

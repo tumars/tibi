@@ -972,3 +972,12 @@ h2.st .sp { flex: 1; }
 @keyframes lvpop { from { transform: scale(.6); } to { transform: scale(1); } }
 .pstk img { display: block; width: 88px; height: 88px; margin: 0 auto 6px; }
 @media (prefers-reduced-motion: reduce) { .lvup .pop { animation: none; } }
+/* 章末的上一章 / 下一章：两头对齐，章名太长省略 */
+.chapnav { display: flex; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.chapnav button { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 48%; padding: 10px 12px; border-radius: var(--r-l); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink-2); text-align: left; }
+.chapnav button.next { margin-left: auto; text-align: right; }
+.chapnav button:hover { background: var(--hover); color: var(--ink); }
+.chapnav button svg { flex: none; color: var(--ink-3); }
+.chapnav button > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.chapnav small { font-size: 11.5px; color: var(--ink-3); }
+.chapnav b { font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
