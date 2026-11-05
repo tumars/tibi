@@ -118,15 +118,19 @@ async function autoRefreshOn(ctx: Ctx) {
   return j.parse<boolean>(r?.value, true) !== false;
 }
 
-/** 数据旧于 2 小时就先刷一下（最多等 8 秒）；没网或超时用库里的 */
+/**
+ * 数据旧于 2 小时就先刷一下（最多等 8 秒）。stale：没网、超时，或刷完一个新的源都没有——
+ * 断网时系统常常仍说在线，源很快就以域名解析失败告终；只有个别源坏掉不算
+ */
 const STALE_MS = 2 * 3600_000;
+const countFeeds = async (ctx: Ctx, fresh: boolean) => Number((await ctx.db.get<{ n: number }>(
+  `SELECT count(*) AS n FROM feeds WHERE deleted_at IS NULL AND enabled = 1 AND ${fresh ? 'last_ok_at >= ?' : '(last_ok_at IS NULL OR last_ok_at < ?)'}`, [now() - STALE_MS]))?.n ?? 0);
 async function freshen(ctx: Ctx): Promise<boolean> {
-  const stale = await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM feeds WHERE deleted_at IS NULL AND enabled = 1 AND (last_ok_at IS NULL OR last_ok_at < ?)', [now() - STALE_MS]);
-  if (!Number(stale?.n ?? 0)) return false;
+  if (!(await countFeeds(ctx, false))) return false;
   if (!ctx.platform.isOnline()) return true;
   let timer: ReturnType<typeof setTimeout> | number | undefined;
   const done = await Promise.race([refreshFeeds(ctx).then(() => true, () => true), new Promise<false>(res => { timer = setTimeout(() => res(false), 8_000); })]).finally(() => clearTimeout(timer));
-  return !done;
+  return !done || (await countFeeds(ctx, true)) === 0;
 }
 
 /** search_feeds：查订阅库。排序：兴趣词命中 + 新近程度（P2 换成 fitScore） */

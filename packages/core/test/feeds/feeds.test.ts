@@ -164,8 +164,9 @@ describe('订阅：加、刷新、条件请求', () => {
 
 describe('订阅和书架、找文章', () => {
   it('导入一篇后条目记成"在书架里"，search_feeds 不再返回；按关键词找、离线时用库里的', async () => {
-    let online = true;
+    let online = true, down = false;
     const { core } = await setup(url => {
+      if (down) throw new Error('getaddrinfo ENOTFOUND ex.com');
       if (url === 'https://ex.com/feed.xml') return { status: 200, final_url: url, body: rss([{ guid: 'a', title: 'A Tiny Compiler', link: 'https://ex.com/a' }, { guid: 'b', title: 'Garden notes', link: 'https://ex.com/b', desc: 'Tomatoes and basil grow well together in a sunny spot near the kitchen window.' }]) };
       if (url === 'https://ex.com/a') return { status: 200, final_url: 'https://ex.com/a?ref=rss', content_type: 'text/html', body: '<html></html>' };
       return undefined;
@@ -188,6 +189,12 @@ describe('订阅和书架、找文章', () => {
     online = false;
     await core.ctx({ origin: 'ui' }).db.run('UPDATE feeds SET last_ok_at = 0');
     expect(await searchFeeds(ctx, {})).toMatchObject({ stale: true, items: [{ title: 'Garden notes' }] });
+    // 系统说在线、但源很快就连不上（断网时多半是域名解析失败）：刷完一个新的源都没有，也要标 stale
+    online = true; down = true;
+    expect(await searchFeeds(ctx, {})).toMatchObject({ stale: true, items: [{ title: 'Garden notes' }] });
+    // 只是个别源坏了、别的源是新的：不标
+    await core.ctx({ origin: 'ui' }).db.run("INSERT INTO feeds(id, url, title, last_ok_at, created_at, updated_at) VALUES ('ok', 'https://ok.com/feed', 'OK', ?, 0, 0)", [Date.now()]);
+    expect((await searchFeeds(ctx, {})).stale).toBeUndefined();
   });
 
   it('从订阅里直接读：同一个阅读器能打开，但不进书架；之后加入书架或再导入一次才进', async () => {
