@@ -1,6 +1,7 @@
 //! iOS 的 App Group 共享目录（group.app.tibi）：主应用和扩展之间交换数据（00 §3.13 J3、J7）。
 //! - Safari 分享扩展（ios-extensions/ShareExtension）把网址写进 share-inbox/<时间>.json，主应用打开 / 回到前台时取走导入；
 //! - 小组件（ios-extensions/TibiWidget）读主应用写的 widget.json（待复习数、连续天数、今日分钟、继续读的文章）。
+//!
 //! 不是 iOS 时没有共享目录：取收件箱返回空、写快照什么都不做（测试时可以用 TIBI_APP_GROUP_DIR 指一个目录）。
 
 use serde_json::Value;

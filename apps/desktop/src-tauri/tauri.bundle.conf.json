@@ -1,6 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
+    "macOS": {
+      "entitlements": "Entitlements.mac.plist"
+    },
     "resources": {
       "binaries/ocr/*": "ocr/",
       "resources/dict.db": "dict.db"

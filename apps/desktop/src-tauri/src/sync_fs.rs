@@ -2,6 +2,7 @@
 //! - iOS 的 iCloud Drive：应用容器 iCloud.app.tibi/Documents/Tibi Sync（NSFileManager，需要 iCloud 权限和 entitlements）。
 //!   还没下载到本机的文件是 `.名字.icloud` 占位：列目录时按原名列出，读的时候先触发下载、这次当作还没到（下次同步再读）。
 //! - 桌面预览（mobile-preview）的"文件夹"后端也走这里。
+//!
 //! 路径一律相对根目录，拒绝 `..`。
 
 use base64::Engine;

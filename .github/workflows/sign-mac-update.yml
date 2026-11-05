@@ -1,0 +1,56 @@
+# 本机完成 Apple 签名、公证后，给草稿 Release 中的 Mac 更新包签名。
+# 更新私钥只在 GitHub Secrets 内使用，不下载到开发机。
+name: Sign Mac update
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 已上传公证后安装包的草稿 Release tag
+        required: true
+permissions:
+  contents: write
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 下载草稿更新包
+        run: |
+          gh release view "$TAG" --json isDraft --jq '.isDraft' | grep -qx true
+          gh release download "$TAG" --pattern 'Tibi_*_aarch64.app.tar.gz' --dir dist
+      - name: 签名
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+        run: npx --yes @tauri-apps/cli@2.12.4 signer sign --app-version "${TAG#v}" dist/*.app.tar.gz
+      - name: 更新元数据
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y minisign
+          node -e "const fs = require('fs'); fs.writeFileSync('dist/updater.pub', Buffer.from(require('./apps/desktop/src-tauri/tauri.conf.json').plugins.updater.pubkey, 'base64')); for (const f of fs.readdirSync('dist').filter(n => n.endsWith('.sig'))) fs.writeFileSync('dist/' + f + '.decoded', Buffer.from(fs.readFileSync('dist/' + f, 'utf8').trim(), 'base64'));"
+          for archive in dist/*.app.tar.gz; do
+            minisign -Vm "$archive" -p dist/updater.pub -x "$archive.sig.decoded"
+          done
+          node --input-type=module <<'JS'
+          import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+          const name = readdirSync('dist').find(n => n.endsWith('.app.tar.gz'));
+          const version = process.env.TAG.replace(/^v/, '');
+          if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Invalid version');
+          writeFileSync('dist/latest.json', JSON.stringify({
+            version,
+            notes: 'Tibi 首个 Mac 版本，支持 Apple Silicon。',
+            pub_date: new Date().toISOString(),
+            platforms: { 'darwin-aarch64': {
+              signature: readFileSync(`dist/${name}.sig`, 'utf8').trim(),
+              url: `https://github.com/${process.env.GITHUB_REPOSITORY}/releases/download/${process.env.TAG}/${name}`,
+            } },
+          }, null, 2) + '\n');
+          JS
+          gh release upload "$TAG" dist/*.sig dist/latest.json --clobber
