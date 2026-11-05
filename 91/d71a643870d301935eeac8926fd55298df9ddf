@@ -1,0 +1,149 @@
+packages/core-node/src/platform.ts
+  s_54fc629f9c6b4a::t_ddfcd8a4d9f0e7 68-80,99,104
+  s_ee7a8250981742::t_06f23e6f437283 2,81-95,103
+packages/core/samples/how-a-compiler-sees-your-code/article.md
+  s_ee7a8250981742::t_c364c5df7cfe8b 7
+packages/core/src/domain/documents/samples/how-a-compiler-sees-your-code.gen.ts
+  s_ee7a8250981742::t_0001e18bd6ba9c 1-104
+packages/core/test/text/segment.test.ts
+  s_ee7a8250981742::t_ad131fcfc688b2 25-29
+packages/core-node/src/extract.ts
+  s_54fc629f9c6b4a::t_ddfcd8a4d9f0e7 19-20
+packages/core/src/domain/documents/samples.gen.ts
+  s_ee7a8250981742::t_c364c5df7cfe8b 7-8
+  s_ee7a8250981742::t_1530be71396bd0 5-6
+apps/desktop/src/mobile/local/runtime.ts
+  s_ee7a8250981742::t_c2c7f7962837c6 64-65
+  s_54fc629f9c6b4a::t_746954b4601e34 38-42,63,66
+apps/desktop/src/pages/Reader.tsx
+  s_ee7a8250981742::t_3aaa17647d5075 168
+packages/core/test/documents/epub-images.test.ts
+  s_ee7a8250981742::t_7817e83335a61e 6,119-128
+  s_54fc629f9c6b4a::t_b66f6d998ef330 60
+  s_54fc629f9c6b4a::t_6333573b7a3215 1-5,7,9-59,61-67,96-112,130-136
+  s_ee7a8250981742::t_71b1895f767e39 68-95
+  s_ee7a8250981742::t_cef05f2d7604fb 8,113-118,129
+packages/core/src/platform.ts
+  s_ee7a8250981742::t_2ae0e4d6fc92a4 30-33
+  s_54fc629f9c6b4a::t_ddfcd8a4d9f0e7 25-29
+packages/core/src/types.ts
+  s_ee7a8250981742::t_ced4c34442fe2a 43
+  s_ee7a8250981742::t_5ea4cace46a145 50
+packages/core/src/assemble.ts
+  s_ee7a8250981742::t_06f23e6f437283 10,22,55-58
+packages/core/src/domain/text/index.ts
+  s_ee7a8250981742::t_ced4c34442fe2a 1
+apps/desktop/src/mobile/mobile.css
+  s_ee7a8250981742::t_afdacbaa5bc7f2 335
+  s_ee7a8250981742::t_b72c5ddf6c4e63 336-337
+packages/core/src/domain/documents/assets.ts
+  s_ee7a8250981742::t_2ae0e4d6fc92a4 1-25
+packages/core/test/documents/import.test.ts
+  s_ee7a8250981742::t_0f7ac479a7b373 160,162,204-217
+  s_ee7a8250981742::t_7817e83335a61e 3,218-236
+  s_ee7a8250981742::t_e0501b7b9c634e 184-203,237
+  s_ee7a8250981742::t_3e105e667263ea 181
+apps/desktop/src/locales/en.json
+  s_ee7a8250981742::t_5ea4cace46a145 133
+packages/core/samples/peter-and-wendy/ai.json
+  s_ee7a8250981742::t_0104410e589a7d 1,4,53-54,67-179,184
+  s_ee7a8250981742::t_333617a401ad26 2-3,5-52,55-66,180-183
+packages/core-node/src/index.ts
+  s_ee7a8250981742::t_06f23e6f437283 2
+  s_54fc629f9c6b4a::t_ddfcd8a4d9f0e7 3
+packages/core/samples/why-cities-are-getting-hotter/article.md
+  s_ee7a8250981742::t_c364c5df7cfe8b 7
+packages/core/src/domain/documents/index.ts
+  s_ee7a8250981742::t_06f23e6f437283 3
+apps/desktop/src-tauri/src/lib.rs
+  s_ee7a8250981742::t_c2c7f7962837c6 259
+packages/core/src/domain/documents/sections.ts
+  s_ee7a8250981742::t_ced4c34442fe2a 68,75
+packages/core/src/domain/documents/samples/peter-and-wendy.gen.ts
+  s_ee7a8250981742::t_0001e18bd6ba9c 1-191
+apps/desktop/src/lib/imageSrc.ts
+  s_54fc629f9c6b4a::t_f8f09d153472fb 2-3,6,11,13,15-18,20,26,30
+  s_ee7a8250981742::t_506f4fa1416612 4-5,7-10,27-29,31-33
+  s_ee7a8250981742::t_c360e4e38a90fb 1,12,14,19,21-25
+packages/core/src/web/html.ts
+  s_54fc629f9c6b4a::t_6a917881b619d5 93-94,98
+  s_54fc629f9c6b4a::t_821b0b7b45c713 23,25-26,30-31,34-40,59-61
+  s_ee7a8250981742::t_c9a3dd8e67625d 29,32-33
+apps/desktop/src/components/Samples.tsx
+  s_ee7a8250981742::t_5ea4cace46a145 25-30,43
+packages/core/samples/oliver-twist/ai.json
+  s_ee7a8250981742::t_5982efa5f4e14f 1-99
+apps/desktop/src-tauri/src/local_db.rs
+  s_54fc629f9c6b4a::t_746954b4601e34 176-184
+  s_ee7a8250981742::t_c2c7f7962837c6 185-218
+packages/core/src/domain/documents/pipeline.ts
+  s_ee7a8250981742::t_ced4c34442fe2a 133-134,138
+  s_ee7a8250981742::t_f0584752148454 10
+  s_ee7a8250981742::t_3ca19836fba4ec 89-90,259
+packages/core/src/domain/documents/samples.ts
+  s_ee7a8250981742::t_3ca19836fba4ec 9,22,39,41-42,50
+  s_ee7a8250981742::t_5ea4cace46a145 23,35
+  s_ee7a8250981742::t_f8e5a824728791 3,19-20
+packages/core/scripts/build-samples.mjs
+  s_ee7a8250981742::t_c364c5df7cfe8b 38
+  s_ee7a8250981742::t_5ea4cace46a145 28-30
+  s_ee7a8250981742::t_3ca19836fba4ec 2,4,25-27,32-37,39-40
+  s_ee7a8250981742::t_f8e5a824728791 11,21-22
+packages/core/src/domain/documents/capabilities.ts
+  s_ee7a8250981742::t_f0584752148454 10
+  s_ee7a8250981742::t_ced4c34442fe2a 134
+apps/desktop/src/pages/Onboarding.tsx
+  s_ee7a8250981742::t_1530be71396bd0 6
+  s_ee7a8250981742::t_5ea4cace46a145 137
+packages/core/src/domain/documents/samples/why-cities-are-getting-hotter.gen.ts
+  s_ee7a8250981742::t_0001e18bd6ba9c 1-88
+apps/desktop/src/reader/Section.tsx
+  s_ee7a8250981742::t_c000b6f0ec0453 8,37,40-44
+  s_ee7a8250981742::t_52687a13438d8e 3,14
+packages/core/src/domain/text/segment.ts
+  s_ee7a8250981742::t_ced4c34442fe2a 8-10,18-22,33,50-51,69,133,152
+packages/core/src/domain/documents/samples/oliver-twist.gen.ts
+  s_ee7a8250981742::t_0001e18bd6ba9c 1-144
+packages/core/samples/peter-and-wendy/article.md
+  s_ee7a8250981742::t_3e3f0e08e4cf3c 1-2,4-5,8-11,16-117,119-120
+  s_ee7a8250981742::t_9ce236ba21726e 3,6-7,12,15,118,121-3378
+  s_ee7a8250981742::t_9754de02c96c34 13-14
+packages/core/src/web/extract.ts
+  s_ee7a8250981742::t_9a4e82089e4f88 110
+  s_54fc629f9c6b4a::t_1dff2cc606e348 41-42,69,165-168,183
+  s_54fc629f9c6b4a::t_5473fb90696e7b 8,20-21,43-68,70-74,125,127,172-182,184-187
+  s_ee7a8250981742::t_06f2098409c561 88,91,158-159
+  s_54fc629f9c6b4a::t_f689238f46eb9c 126
+  s_ee7a8250981742::t_db78c7dee56c4f 160-163
+  s_ee7a8250981742::t_97d56ff9920f33 87,89-90,92,94,96-99,101,103-109,111-124,128-138,142-157,164,169
+packages/core/samples/oliver-twist/article.md
+  s_ee7a8250981742::t_15ce312aaacbdc 4795,5171
+  s_ee7a8250981742::t_10f88c082b899d 6529
+  s_ee7a8250981742::t_08c5cb353f5d27 1-4794,4796-5170,5172-6528,6530-7835
+apps/desktop/src/styles.css
+  s_ee7a8250981742::t_2c96070b0dc064 243-249,459,506-507
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "91d71a643870d301935eeac8926fd55298df9ddf",
+  "prompts": {},
+  "sessions": {
+    "s_54fc629f9c6b4a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1f29e1b9-5e6d-4bcf-87ff-8005f79f8be5",
+        "model": "unknown"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_ee7a8250981742": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "540706cf-7025-4dce-890c-a454f372182e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
