@@ -52,18 +52,17 @@
 
 ## Install
 
-Tibi is currently available for macOS 13 or later. Download from [Releases](https://github.com/tumars/tibi/releases):
+Tibi is currently available for Apple silicon Macs running macOS 13 or later. Download from [Releases](https://github.com/tumars/tibi/releases):
 
 | Chip | File |
 |---|---|
 | Apple silicon (M series) | `Tibi_x.y.z_aarch64.dmg` |
-| Intel | `Tibi_x.y.z_x64.dmg` |
 
-If GitHub is slow, use the mirror: [Apple silicon](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) · [Intel](https://dl.ferecord.com/latest/Tibi_x64.dmg) · [SHA-256 checksums](https://dl.ferecord.com/latest/SHA256SUMS.txt)
+If GitHub is slow, use the mirror: [Apple silicon](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) · [SHA-256 checksums](https://dl.ferecord.com/latest/SHA256SUMS.txt)
 
 Release builds are signed and notarized by Apple and open normally. For your own or unsigned builds, right-click the app in Finder → Open the first time.
 
-iOS, Windows and Linux versions are on the way.
+Intel Mac, iOS, Windows and Linux versions are on the way.
 
 ## Getting started
 

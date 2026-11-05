@@ -50,18 +50,17 @@
 
 ## 安装
 
-目前提供 macOS 版（需要 macOS 13 或更新），在 [Releases](https://github.com/tumars/tibi/releases) 下载：
+目前提供 Apple 芯片的 macOS 版（需要 macOS 13 或更新），在 [Releases](https://github.com/tumars/tibi/releases) 下载：
 
 | 芯片 | 文件 |
 |---|---|
 | Apple 芯片（M 系列） | `Tibi_x.y.z_aarch64.dmg` |
-| Intel | `Tibi_x.y.z_x64.dmg` |
 
-GitHub 打不开或下载太慢，可以用国内下载：[Apple 芯片](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) · [Intel](https://dl.ferecord.com/latest/Tibi_x64.dmg) · [SHA-256 校验和](https://dl.ferecord.com/latest/SHA256SUMS.txt)
+GitHub 打不开或下载太慢，可以用国内下载：[Apple 芯片](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) · [SHA-256 校验和](https://dl.ferecord.com/latest/SHA256SUMS.txt)
 
 正式版已签名并经过 Apple 公证，可以直接打开。自己构建的或未签名的版本，第一次打开时在 Finder 里右键 → 打开。
 
-iOS、Windows、Linux 版在路上。
+Intel Mac、iOS、Windows、Linux 版在路上。
 
 ## 开始用
 
