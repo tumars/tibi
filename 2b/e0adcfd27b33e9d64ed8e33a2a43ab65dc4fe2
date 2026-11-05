@@ -1,0 +1,26 @@
+docs/dev/mac-0.1.0-release-notes.md
+  s_678d671a0e9cb1::t_4359fc094a2834 12
+  s_678d671a0e9cb1::t_7d61835aa6c069 1-11,13-16
+docs/dev/mac-release-0.1.0.md
+  s_678d671a0e9cb1::t_4359fc094a2834 7-8
+apps/desktop/src-tauri/tauri.conf.json
+  s_678d671a0e9cb1::t_4359fc094a2834 54
+docs/CHANGELOG.md
+  s_678d671a0e9cb1::t_961dc923de6213 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2be0adcfd27b33e9d64ed8e33a2a43ab65dc4fe2",
+  "prompts": {},
+  "sessions": {
+    "s_678d671a0e9cb1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1aa93-db86-7211-adef-a021b70cfd21",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
