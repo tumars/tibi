@@ -1,0 +1,33 @@
+README.md
+  s_ea66af9649bc09::t_e118fcb55b9fd8 5,7-11,17-22,25-35,37-43,53,57,60,62,64,69-70,72,76-84,95,97
+  s_ea66af9649bc09::t_32beee249bdcce 13
+  s_678d671a0e9cb1::t_0230754f59c70f 12
+README.en.md
+  s_ea66af9649bc09::t_0f853494609d08 5,7-11,19-24,27-31,33-38,41-45,48-52,55-62,64-66,71-74,78-86,97
+  s_ea66af9649bc09::t_53c1512fc7fef7 13
+  s_ea66af9649bc09::t_edb1b72c055be5 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "482982d8fc07149c554089c9a825c0ab0a4ce549",
+  "prompts": {},
+  "sessions": {
+    "s_678d671a0e9cb1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1aa93-db86-7211-adef-a021b70cfd21",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_ea66af9649bc09": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4005bca-c4d8-409b-8c16-f28cde4dd9ad",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
