@@ -1,0 +1,25 @@
+packages/core/src/domain/feeds/methods.ts
+  s_ee88277e2f880a::t_ba1f0616e322dd 121-124,126-127,129,133
+docs/dev/plan-rss-p1.md
+  s_ee88277e2f880a::t_8e63913d253c52 171,174-176
+packages/core/test/feeds/feeds.test.ts
+  s_ee88277e2f880a::t_31a16ce6eb89ea 167,169
+  s_ee88277e2f880a::t_7006ba4864d4c2 192,195-197
+  s_ee88277e2f880a::t_b3284a79d3d78c 193-194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "cedbc4f8bf0b86588a53ae354eac9d0fbdd8cefe",
+  "prompts": {},
+  "sessions": {
+    "s_ee88277e2f880a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "641e614c-5172-4990-ac46-5d371f2924b1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
