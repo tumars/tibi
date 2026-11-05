@@ -1,0 +1,22 @@
+apps/desktop/src/pages/Reader.tsx
+  s_ee7a8250981742::t_c076a1e2e258db 63-64
+  s_ee7a8250981742::t_971b7be138e4d3 65
+apps/desktop/src/reader/ChapterNav.tsx
+  s_ee7a8250981742::t_f541e3f368706b 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "245f425276d1db4984768aa470dee2788656327b",
+  "prompts": {},
+  "sessions": {
+    "s_ee7a8250981742": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "540706cf-7025-4dce-890c-a454f372182e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
