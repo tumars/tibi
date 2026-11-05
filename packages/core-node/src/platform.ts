@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { readdir, readFile, stat, unlink } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
@@ -65,13 +65,43 @@ export function fileBackups(dbPath: string): BackupStore | undefined {
   };
 }
 
+/** 文档图片放在 app.db 旁边的 assets/<key>/<name>（界面经 Tauri 的 asset 协议读，范围 $APPDATA）；内存库（测试）没有 */
+export function fileAssets(dbPath: string): Platform['saveAsset'] {
+  if (!dbPath || dbPath === ':memory:') return undefined;
+  const root = join(dirname(dbPath), 'assets');
+  return async (key, name, data) => {
+    if (!/^[\w-]+$/.test(key) || !/^[\w-][\w.-]*$/.test(name)) throw new Error('图片名不对');
+    const dir = join(root, key); const p = join(dir, name);
+    await mkdir(dir, { recursive: true });
+    await writeFile(p + '.tmp', data); await rename(p + '.tmp', p);
+    return `asset:${key}/${name}`;
+  };
+}
+
+/** assets/ 下的目录（listAssets / removeAssets，启动时清掉没文档用的） */
+export function fileAssetDirs(dbPath: string): Pick<Platform, 'listAssets' | 'removeAssets'> {
+  if (!dbPath || dbPath === ':memory:') return {};
+  const root = join(dirname(dbPath), 'assets');
+  return {
+    async listAssets() {
+      const names = await readdir(root).catch(() => [] as string[]);
+      const out: { key: string; modified_at: number }[] = [];
+      for (const key of names.filter(n => /^[\w-]+$/.test(n))) { const s = await stat(join(root, key)).catch(() => undefined); if (s?.isDirectory()) out.push({ key, modified_at: s.mtimeMs }); }
+      return out;
+    },
+    async removeAssets(key) { if (!/^[\w-]+$/.test(key)) throw new Error('目录名不对'); await rm(join(root, key), { recursive: true, force: true }); },
+  };
+}
+
 export function nodePlatform(opts: NodePlatformOptions): Platform {
   const allowed = new Set<string>();
   if (opts.db_path && opts.db_path !== ':memory:') setOcrDataDir(dirname(opts.db_path));   // 语言包缓存在 app.db 旁边
+  const saveAsset = fileAssets(opts.db_path);
   return {
     backups: fileBackups(opts.db_path),
     syncFolder, deviceName,
-    extractFile: (path) => extractFile(path),
+    saveAsset, ...fileAssetDirs(opts.db_path),
+    extractFile: (path) => extractFile(path, saveAsset),
     ocr: (input, o) => ocr(input, o),
     registerPaths(paths) { for (const p of paths) allowed.add(p); },
     isPathAllowed(path) { return allowed.has(path) || !!process.env.TIBI_DEV_ALLOW_ANY_PATH; },

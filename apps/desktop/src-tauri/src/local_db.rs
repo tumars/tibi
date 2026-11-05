@@ -173,6 +173,49 @@ pub async fn keyring_get(r#ref: String) -> Result<Value, String> {
     Ok(json!({ "secret": crate::keys::get(&r#ref).ok().flatten() }))
 }
 
+/// 存文档图片（EPUB 插图，Platform.saveAsset）：app_data_dir/assets/<key>/<name>，界面经 asset 协议读（范围 $APPDATA）
+#[tauri::command]
+pub fn asset_write(app: AppHandle, key: String, name: String, data: String) -> Result<Value, String> {
+    let root = app.path().app_data_dir().map_err(|e| e.to_string())?.join("assets");
+    let rel = format!("{key}/{name}");
+    crate::sync_fs::sync_fs_write(root.to_string_lossy().into_owned(), rel.clone(), data)?;
+    Ok(json!({ "uri": format!("asset:{rel}") }))
+}
+
+/// assets/ 下的图片目录和最后改动时间（毫秒）：启动时 Core 清掉没有文档再用的（pruneAssets）
+#[tauri::command]
+pub fn asset_list(app: AppHandle) -> Result<Value, String> {
+    let root = app.path().app_data_dir().map_err(|e| e.to_string())?.join("assets");
+    let mut out = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(&root) {
+        for e in rd.flatten() {
+            let key = e.file_name().to_string_lossy().into_owned();
+            if !valid_asset_key(&key) { continue; }
+            let Ok(meta) = e.metadata() else { continue };
+            if !meta.is_dir() { continue; }
+            let ms = meta.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_millis() as u64).unwrap_or(0);
+            out.push(json!({ "key": key, "modified_at": ms }));
+        }
+    }
+    Ok(json!(out))
+}
+
+/// 删掉一本书的图片目录
+#[tauri::command]
+pub fn asset_remove(app: AppHandle, key: String) -> Result<(), String> {
+    if !valid_asset_key(&key) { return Err("bad key".into()); }
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("assets").join(&key);
+    match std::fs::remove_dir_all(&dir) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+fn valid_asset_key(key: &str) -> bool {
+    !key.is_empty() && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
 /// 读用户在系统文件选择里挑的文件（手机导入 EPUB / PDF / Word / 图片）：原始字节，不过 JSON
 #[tauri::command]
 pub fn read_file(path: String) -> Result<tauri::ipc::Response, String> {

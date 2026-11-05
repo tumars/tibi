@@ -22,6 +22,12 @@ export async function openSample(s: SampleInfo, nav: (to: string) => void) {
   } catch (e) { off(); toast(errorInfo(e).message, { kind: 'err' }); }
 }
 
+/** 示例卡片的第三行：书显示章数，文章显示分钟数；作者是 Tibi 的不写 */
+export function sampleMeta(s: SampleInfo) {
+  const size = s.chapters ? tl('全本 {chapters} 章', { chapters: s.chapters }) : tl('约 {minutes} 分钟', { minutes: s.minutes });
+  return s.author && s.author !== 'Tibi' ? `${size} · ${s.author}` : size;
+}
+
 /** 内置示例卡片（空书架、首次引导里用；00 §3.9：技术向一篇默认，另有小说、新闻各一篇） */
 export function Samples() {
   const nav = useNavigate();
@@ -34,7 +40,7 @@ export function Samples() {
         <button key={s.id} className="sample" onClick={() => void openSample(s, nav)}>
           <span className="g">{tl('{v0} · 示例', { v0: GENRE_NAMES[s.genre] ?? s.genre })}</span>
           <span className="t">{s.title}</span>
-          <span className="m">{tl('约 {minutes} 分钟', { minutes: s.minutes })}{s.author && s.author !== 'Tibi' ? ` · ${s.author}` : ''}</span>
+          <span className="m">{sampleMeta(s)}</span>
         </button>
       ))}
     </div>

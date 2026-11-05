@@ -22,6 +22,15 @@ export interface Platform {
   extractFile?(path: string): Promise<ExtractedFile>;
   /** OCR（M4，D4：本地 Tesseract）：图片或扫描版 PDF → 文字；没有时导入图片 / 扫描版会失败并提示 */
   ocr?(input: { images?: string[]; pdf?: string }, opts?: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void }): Promise<{ text: string; pages: number; confidence: number }>;
+  /**
+   * 存文档用的图片（EPUB 插图）到正文外面（应用数据目录的 assets/<key>/<name>），返回正文里 `![alt](地址)` 用的地址 `asset:<key>/<name>`，
+   * 界面按应用数据目录换成能显示的网址。key 是一本书一个（按文件内容取），name 只含 [\w.-]。没有时导入的书不带图片
+   */
+  saveAsset?(key: string, name: string, data: Uint8Array): Promise<string>;
+  /** saveAsset 存下的目录（一个 key 一个）和最后改动时间；启动时据此清掉没有文档再用的（pruneAssets） */
+  listAssets?(): Promise<{ key: string; modified_at: number }[]>;
+  /** 删掉一个 key 的整个目录 */
+  removeAssets?(key: string): Promise<void>;
   /** 读本地文件（path 已由壳登记）；手机上是沙盒内路径 */
   readFile?(path: string): Promise<Uint8Array>;
   /** 密钥：经壳按需取，只留内存（05 §8） */

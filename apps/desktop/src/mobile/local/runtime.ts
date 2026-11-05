@@ -35,6 +35,11 @@ async function start(): Promise<Transport> {
   const bytesOf = async (cmd: string, args: Record<string, unknown>) => new Uint8Array(await invoke<ArrayBuffer>(cmd, args));
   const readBytes = async (p: string) => (p.startsWith('mem:') ? takeMemFile(p) : undefined) ?? bytesOf('read_file', { path: p });
   const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  // 书里的图片存到应用数据目录的 assets/（壳的 asset_write），界面经 asset 协议读
+  const saveAsset = async (key: string, name: string, data: Uint8Array) => {
+    let bin = ''; for (let i = 0; i < data.length; i += 0x8000) bin += String.fromCharCode(...data.subarray(i, i + 0x8000));
+    return (await inv<{ uri: string }>('asset_write', { key, name, data: btoa(bin) })).uri;
+  };
   const platform: Platform = {
     async fetchUrl(url, opts) {
       const shape = documents.checkUrlShape(url); if (!shape.ok) throw new TibiError('invalid_source', '网址不对');
@@ -55,7 +60,10 @@ async function start(): Promise<Transport> {
     registerPaths() {}, isPathAllowed: () => true,
     // 文件来自系统的文件选择（壳的 read_file 读原始字节）；EPUB / PDF / Word 用和桌面同一份抽取逻辑，图片用浏览器版 tesseract
     readFile: readBytes,
-    async extractFile(p) { return web.extractBuffer(p, await readBytes(p), browserExtractDeps); },
+    saveAsset,
+    listAssets: () => inv<{ key: string; modified_at: number }[]>('asset_list', {}),
+    removeAssets: async key => { await inv('asset_remove', { key }); },
+    async extractFile(p) { return web.extractBuffer(p, await readBytes(p), { ...browserExtractDeps, saveAsset }); },
     // 图片和扫描版 PDF 都用浏览器版 tesseract；PDF 先由 pdfjs 一页一页画到画布上
     async ocr(input, opts) {
       if (input.pdf) return ocrPdf(await readBytes(input.pdf), opts?.onProgress, opts?.signal);

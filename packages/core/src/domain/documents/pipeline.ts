@@ -7,7 +7,7 @@ import { alreadyDone, recordUndo } from '../shared/undo.js';
 import { annotateSentences } from '../text/annotate.js';
 import { cleanTitle, dropLeadingTitle } from '../text/title.js';
 import { levelOfRatio } from '../text/level.js';
-import { countWords, segmentMarkdown, splitSentences, type Segmented } from '../text/segment.js';
+import { countWords, isTextBlock, segmentMarkdown, splitSentences, type Segmented } from '../text/segment.js';
 import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, upsertForm } from '../terms/repo.js';
 import { getSample, sampleUri, writeSampleAi } from './samples.js';
 import { analyzeDocument } from './analyze.js';
@@ -86,7 +86,8 @@ async function fetchStep(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<
   }
   const sample = getSample(s.id);
   if (!sample) throw new TibiError('not_found', '没有这篇示例');
-  return { title: sample.title, author: sample.author, markdown: sample.markdown, source_type: 'sample', source_uri: sampleUri(sample.id), genre: sample.genre, kind: 'article' };
+  const { markdown } = await sample.load();
+  return { title: sample.title, author: sample.author, markdown, source_type: 'sample', source_uri: sampleUri(sample.id), genre: sample.genre, kind: sample.kind };
 }
 
 function titleFromMarkdown(md: string): string {
@@ -129,12 +130,12 @@ async function saveStep(job: ImportRun, ctx: Ctx, fetched: Fetched, seg: Segment
     });
     const section_ids: string[] = [];
     for (const sec of seg.sections) {
-      const content_md = sec.paragraphs.map(p => p.block_type === 'code' ? '```' + (p.lang ?? '') + '\n' + p.text + '\n```' : p.block_type === 'heading' ? '## ' + p.text : p.block_type === 'list_item' ? '- ' + p.text : p.block_type === 'quote' ? '> ' + p.text : p.text).join('\n\n');
-      const section_id = await insertSection(tx, { document_id, idx: sec.idx, title: sec.title, content_md, word_count: sec.paragraphs.filter(p => p.block_type !== 'code').reduce((a, p) => a + countWords(p.text), 0) });
+      const content_md = sec.paragraphs.map(p => p.block_type === 'code' ? '```' + (p.lang ?? '') + '\n' + p.text + '\n```' : p.block_type === 'image' ? `![${p.text}](${p.src})` : p.block_type === 'heading' ? '## ' + p.text : p.block_type === 'list_item' ? '- ' + p.text : p.block_type === 'quote' ? '> ' + p.text : p.text).join('\n\n');
+      const section_id = await insertSection(tx, { document_id, idx: sec.idx, title: sec.title, content_md, word_count: sec.paragraphs.filter(isTextBlock).reduce((a, p) => a + countWords(p.text), 0) });
       section_ids.push(section_id);
       let idx = 0;
       for (const p of sec.paragraphs) {
-        if (p.block_type === 'code') continue;
+        if (!isTextBlock(p)) continue;
         for (const text of splitSentences(p.text)) await insertSentence(tx, { section_id, paragraph_idx: p.idx, block_type: p.block_type, idx: idx++, text });
       }
     }
@@ -255,7 +256,7 @@ async function importOnce(job: ImportRun, ctx: Ctx, input: ImportInput): Promise
   const sample = input.source.type === 'sample' ? getSample(input.source.id) : undefined;
   if (sample) {
     // 内置示例：写入预生成的总结与语境释义，不调模型
-    await writeSampleAi(ctx.db, saved.document_id, sample);
+    await writeSampleAi(ctx.db, saved.document_id, (await sample.load()).ai);
     ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
     ctx.events.emit('data.changed', { table: 'terms' });
     return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, level: ann.level, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };

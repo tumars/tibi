@@ -332,3 +332,6 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 @keyframes lvpop { from { transform: scale(.6); } to { transform: scale(1); } }
 .pstk img { display: block; width: 88px; height: 88px; margin: 0 auto 6px; }
 @media (prefers-reduced-motion: reduce) { .lvup .pop { animation: none; } }
+.rd .fig { margin: 20px 0; } .rd .fig img { display: block; max-width: 100%; margin: 0 auto; border-radius: 10px; } .rd .fig figcaption { margin-top: 6px; text-align: center; font-size: 12.5px; color: var(--ink-3); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rd .fig img { filter: brightness(.82); } }
+:root[data-theme="dark"] .rd .fig img { filter: brightness(.82); }

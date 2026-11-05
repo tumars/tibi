@@ -22,6 +22,11 @@ describe('splitBlocks', () => {
     expect(b[1]!.text).toBe('First para line one line two.');
     expect(b[5]).toMatchObject({ text: 'fn main() {}', lang: 'rust' });
   });
+  it('单独成行的图片成图片块，夹在文字里的去掉', () => {
+    const b = splitBlocks('Before.\n![A *boy* at the window](sample:x/a.webp "t")\nAfter ![icon](i.png) text.\n\n![](https://e.com/b.png)');
+    expect(b.map(x => [x.block_type, x.text, x.src])).toEqual([['prose', 'Before.', undefined], ['image', 'A boy at the window', 'sample:x/a.webp'], ['prose', 'After text.', undefined], ['image', '', 'https://e.com/b.png']]);
+    expect(segmentMarkdown('Some words here and more.\n\n![pic](a.png)').word_count).toBe(5);
+  });
   it('行内标记去掉但保留行内代码', () => {
     const b = splitBlocks('Use **bold** and [link](http://x) and `code()` here.');
     expect(b[0]!.text).toBe('Use bold and link and `code()` here.');

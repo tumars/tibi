@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Dict, SectionContent, DocumentSummary, Core, Ctx } from '../../src/index.js';
-import { documentsMethods } from '../../src/domain/documents/index.js';
+import { documentsMethods, pruneAssets } from '../../src/domain/documents/index.js';
 import { termsMethods } from '../../src/domain/terms/index.js';
 import { undoMethods } from '../../src/domain/shared/undo.js';
 import { imported, makeCore } from '../helpers.js';
@@ -157,9 +157,9 @@ describe('阅读时长', () => {
 });
 
 describe('内置示例', () => {
-  it('列出三篇、默认一篇；导入后带预生成总结与语境释义，且不标 deferred', async () => {
+  it('列出四篇、默认一篇；导入后带预生成总结与语境释义，且不标 deferred', async () => {
     const list = await core.call<{ id: string; is_default: boolean; document_id?: string; minutes: number }[]>('documents.samples', {});
-    expect(list.map(s => s.id)).toEqual(['how-a-compiler-sees-your-code', 'gift-of-the-magi', 'why-cities-are-getting-hotter']);
+    expect(list.map(s => s.id)).toEqual(['peter-and-wendy', 'oliver-twist', 'how-a-compiler-sees-your-code', 'why-cities-are-getting-hotter']);
     expect(list.filter(s => s.is_default)).toHaveLength(1);
     const r = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'sample', id: 'how-a-compiler-sees-your-code' } }));
     expect(r.ok, r.ok ? '' : r.error).toBe(true);
@@ -178,8 +178,62 @@ describe('内置示例', () => {
     expect(look.context_meaning).toBe('编译器');
     // 代码块不拆句
     expect(sec.sentences.some(x => x.text.includes('fn area'))).toBe(false);
-    expect((await core.call<{ document_id?: string }[]>('documents.samples', {}))[0]!.document_id).toBe(id);
+    expect((await core.call<{ id: string; document_id?: string }[]>('documents.samples', {})).find(x => x.id === 'how-a-compiler-sees-your-code')!.document_id).toBe(id);
     await expect(core.call<{ import_id: string }>('documents.import', { source: { type: 'sample', id: 'nope' } }).then(imported)).resolves.toMatchObject({ ok: false });
+  });
+
+  it('彼得·潘是默认示例：按书分章，插图成图片块，语境释义只写第一章', async () => {
+    const def = (await core.call<{ id: string; is_default: boolean }[]>('documents.samples', {})).find(s => s.is_default);
+    expect(def?.id).toBe('peter-and-wendy');
+    const r = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'sample', id: 'peter-and-wendy' } }));
+    expect(r.ok, r.ok ? '' : r.error).toBe(true);
+    const doc = await core.call<{ kind: string; sections: { id: string; title: string }[] }>('documents.get', { id: (r as unknown as { document_id: string }).document_id });
+    expect(doc.kind).toBe('book');
+    expect(doc.sections).toHaveLength(17);
+    expect(doc.sections[0]!.title).toBe('Chapter I. Peter Breaks Through');
+    const ch1 = await core.call<SectionContent>('sections.get', { id: doc.sections[0]!.id });
+    expect(ch1.blocks[0]).toEqual({ type: 'image', src: 'sample:peter-and-wendy/cover.webp', alt: 'The cover of Peter and Wendy, 1911' });
+    expect(ch1.blocks.filter(b => b.type === 'image')).toHaveLength(2);
+    expect(ch1.sentences.some(s => s.text.includes('sample:'))).toBe(false);
+    const s1 = ch1.sentences.find(x => x.tokens.some(t => t.l === 'perambulator'))!;
+    expect((await core.call<{ context_meaning?: string }>('terms.lookup', { text: 'perambulator', sentence_id: s1.id })).context_meaning).toContain('婴儿车');
+    // 第二章不写第一章的释义（form 在第一章是“长凳”）
+    const ch2 = await core.call<SectionContent>('sections.get', { id: doc.sections[1]!.id });
+    const n = await ctx.db.get<{ n: number }>("SELECT count(*) AS n FROM ai_results WHERE scope = 'sentence' AND target_id IN (" + ch2.sentences.map(() => '?').join(',') + ')', ch2.sentences.map(s => s.id));
+    expect(Number(n?.n)).toBe(0);
+  });
+
+  it('雾都孤儿：53 章，25 幅插图都在，章节数和列表里的一致', async () => {
+    const info = (await core.call<{ id: string; chapters?: number; minutes: number }[]>('documents.samples', {})).find(s => s.id === 'oliver-twist')!;
+    expect(info.chapters).toBe(53);
+    const r = await imported(await core.call<{ import_id: string }>('documents.import', { source: { type: 'sample', id: 'oliver-twist' } }));
+    expect(r.ok, r.ok ? '' : r.error).toBe(true);
+    const doc = await core.call<{ kind: string; sections: { id: string; title: string }[] }>('documents.get', { id: (r as unknown as { document_id: string }).document_id });
+    expect(doc.kind).toBe('book');
+    expect(doc.sections).toHaveLength(53);
+    expect(doc.sections[52]!.title).toBe('Chapter LIII. And last');
+    let images = 0;
+    for (const sec of doc.sections) images += (await core.call<SectionContent>('sections.get', { id: sec.id })).blocks.filter(b => b.type === 'image').length;
+    expect(images).toBe(25);
+  });
+});
+
+describe('书内图片清理', () => {
+  it('删了的书（过了撤销期）的图片目录收掉；在用的、撤销期内的、刚写下的留着', async () => {
+    const img = (key: string) => `${'The boy ran down the long road to the old town. '.repeat(3)}\n\n![A picture](asset:${key}/a.jpg)\n\nThen he stopped and looked back at the hill.`;
+    const live = await importText(img('live'));
+    const gone = await importText(img('gone'));
+    const recent = await importText(img('recent'));
+    const hour = 60 * 60 * 1000; const old = Date.now() - 2 * hour;
+    await ctx.db.run('UPDATE documents SET deleted_at = ? WHERE id = ?', [Date.now() - 20 * 60 * 1000, gone.document_id]);   // 过了撤销期
+    await ctx.db.run('UPDATE documents SET deleted_at = ? WHERE id = ?', [Date.now() - 60 * 1000, recent.document_id]);       // 还能撤销
+    expect(live.document_id).toBeTruthy();
+    const removed: string[] = [];
+    const dirs = [{ key: 'live', modified_at: old }, { key: 'gone', modified_at: old }, { key: 'recent', modified_at: old }, { key: 'orphan', modified_at: old }, { key: 'importing', modified_at: Date.now() }];
+    const n = await pruneAssets(ctx.db, { listAssets: async () => dirs, removeAssets: async k => { removed.push(k); } } as never);
+    expect(removed.sort()).toEqual(['gone', 'orphan']);
+    expect(n).toBe(2);
+    expect(await pruneAssets(ctx.db, {} as never)).toBe(0);   // 平台不支持时什么都不做
   });
 });
 

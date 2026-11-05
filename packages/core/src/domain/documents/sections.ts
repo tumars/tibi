@@ -65,13 +65,14 @@ export async function sectionContent(db: Database, section_id: string, opts: { t
     }
     return { id: r.id, idx: r.idx, paragraph_idx: r.paragraph_idx, block_type: r.block_type as Sentence['block_type'], text: r.text, tokens, translation: opts.translations ? r.translation ?? undefined : undefined };
   });
-  // 块：按 content_md 的段落顺序，代码块直接取原文，其余段落引用句子
+  // 块：按 content_md 的段落顺序，代码块、图片直接取原文，其余段落引用句子
   const paras = splitBlocks(sec.content_md);
   const byPara = new Map<number, Sentence[]>();
   for (const s of sentences) { const a = byPara.get(s.paragraph_idx) ?? []; a.push(s); byPara.set(s.paragraph_idx, a); }
   const blocks: SectionBlock[] = [];
   for (const p of paras) {
     if (p.block_type === 'code') { blocks.push({ type: 'code', lang: p.lang, code: p.text }); continue; }
+    if (p.block_type === 'image') { blocks.push({ type: 'image', src: p.src!, alt: p.text }); continue; }
     const ss = byPara.get(p.idx);
     if (ss?.length) blocks.push({ type: 'sentences', ids: ss.map(s => s.id), block_type: ss[0]!.block_type, paragraph_idx: p.idx });
   }

@@ -5,8 +5,9 @@ import type { BlockType, Kind } from '../../types.js';
  * 规则，不调模型（能力 segment_document）。代码块保留围栏、不拆句（01 §2 sentences 表不收代码）。
  */
 
-export type ParagraphBlockType = BlockType | 'code';
-export interface Paragraph { idx: number; text: string; block_type: ParagraphBlockType; lang?: string }
+export type ParagraphBlockType = BlockType | 'code' | 'image';
+/** 图片块：text 是替代文字，src 是地址（内置示例用 sample:<id>/<文件名>，由界面换成打包的资源） */
+export interface Paragraph { idx: number; text: string; block_type: ParagraphBlockType; lang?: string; src?: string }
 export interface SegSection { idx: number; title: string; paragraphs: Paragraph[] }
 export interface Segmented { kind: Kind; lang: string; word_count: number; sections: SegSection[] }
 
@@ -14,6 +15,11 @@ const HEADING = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 const FENCE = /^(```|~~~)\s*([\w+#.-]*)\s*$/;
 const LIST = /^\s*(?:[-*+]|\d+[.)])\s+(.*)$/;
 const QUOTE = /^\s*>\s?(.*)$/;
+/** 单独成行的图片 ![alt](src "title")；行内夹在文字里的图片仍由 cleanInline 去掉 */
+const IMAGE = /^\s*!\[([^\]]*)\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)\s*$/;
+
+/** 有文字、要拆句的块（代码和图片不算） */
+export const isTextBlock = (p: { block_type: ParagraphBlockType }) => p.block_type !== 'code' && p.block_type !== 'image';
 
 /** Markdown → 块（段落 / 标题 / 列表项 / 引用 / 代码块） */
 export function splitBlocks(md: string): Paragraph[] {
@@ -24,6 +30,7 @@ export function splitBlocks(md: string): Paragraph[] {
     if (!t.trim()) return;
     out.push({ idx: out.length, text: t, block_type, ...(lang ? { lang } : {}) });
   };
+  const pushImage = (alt: string, src: string) => { out.push({ idx: out.length, text: cleanInline(alt), block_type: 'image', src }); };
   let i = 0;
   while (i < lines.length) {
     const line = lines[i]!;
@@ -40,6 +47,8 @@ export function splitBlocks(md: string): Paragraph[] {
       push(buf.join('\n'), 'code'); continue;
     }
     if (!line.trim()) { i++; continue; }
+    const img = line.match(IMAGE);
+    if (img) { pushImage(img[1]!, img[2]!); i++; continue; }
     const h = line.match(HEADING);
     if (h) { push(h[2]!, 'heading'); i++; continue; }
     if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { i++; continue; }
@@ -57,7 +66,7 @@ export function splitBlocks(md: string): Paragraph[] {
     }
     // 普通段落：连续非空行
     const buf = [line]; i++;
-    while (i < lines.length && lines[i]!.trim() && !HEADING.test(lines[i]!) && !FENCE.test(lines[i]!) && !LIST.test(lines[i]!) && !QUOTE.test(lines[i]!)) buf.push(lines[i++]!);
+    while (i < lines.length && lines[i]!.trim() && !HEADING.test(lines[i]!) && !FENCE.test(lines[i]!) && !LIST.test(lines[i]!) && !QUOTE.test(lines[i]!) && !IMAGE.test(lines[i]!)) buf.push(lines[i++]!);
     push(buf.join(' '), 'prose');
   }
   return out;
@@ -121,7 +130,7 @@ export function segmentMarkdown(md: string, opts: { kind?: Kind; title?: string 
   const blocks = splitBlocks(md);
   const kind: Kind = opts.kind ?? 'article';
   const sections: SegSection[] = [];
-  const lang = detectLang(blocks.filter(b => b.block_type !== 'code').map(b => b.text).join(' ').slice(0, 2000));
+  const lang = detectLang(blocks.filter(isTextBlock).map(b => b.text).join(' ').slice(0, 2000));
   if (kind === 'book') {
     const headLines = md.replace(/\r\n?/g, '\n').split('\n').map(l => l.match(HEADING)).filter(Boolean) as RegExpMatchArray[];
     const level = headLines.some(h => h[1]!.length === 1) ? 1 : 2;
@@ -140,7 +149,7 @@ export function segmentMarkdown(md: string, opts: { kind?: Kind; title?: string 
     const ps = blocks.filter((b, i) => !(i === 0 && b.block_type === 'heading' && opts.title && b.text.trim().toLowerCase() === opts.title.trim().toLowerCase()));
     sections.push({ idx: 0, title: opts.title ?? '', paragraphs: ps.map((b, i) => ({ ...b, idx: i })) });
   }
-  const word_count = sections.reduce((s, sec) => s + sec.paragraphs.filter(p => p.block_type !== 'code').reduce((a, p) => a + countWords(p.text), 0), 0);
+  const word_count = sections.reduce((s, sec) => s + sec.paragraphs.filter(isTextBlock).reduce((a, p) => a + countWords(p.text), 0), 0);
   return { kind, lang, word_count, sections };
 }
 

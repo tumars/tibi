@@ -16,7 +16,8 @@ const deps: web.ExtractDeps = {
   async docxToHtml(buf) { const mammoth = await import('mammoth'); return (await mammoth.convertToHtml({ buffer: Buffer.from(buf) })).value; },
 };
 
-export async function extractFile(path: string): Promise<ExtractedFile> { return web.extractBuffer(path, new Uint8Array(await readFile(path)), deps); }
+/** saveAsset：EPUB 插图存到哪（Platform.saveAsset）；不给时不带图片 */
+export async function extractFile(path: string, saveAsset?: web.ExtractDeps['saveAsset']): Promise<ExtractedFile> { return web.extractBuffer(path, new Uint8Array(await readFile(path)), { ...deps, saveAsset }); }
 export const extractEpub = (buf: Uint8Array) => web.extractEpub(buf, deps);
 export const extractPdf = (buf: Uint8Array) => web.extractPdf(buf, deps);
 export const extractDocx = (buf: Uint8Array) => web.extractDocx(buf, deps);

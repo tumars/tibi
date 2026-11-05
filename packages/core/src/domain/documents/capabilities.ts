@@ -7,7 +7,7 @@ import { presenters } from '../../kernel/conversations.js';
 import { importTitle } from './imports.js';
 import { recordUndo, registerUndo } from '../shared/undo.js';
 import { annotateSentences } from '../text/annotate.js';
-import { countWords, segmentMarkdown } from '../text/segment.js';
+import { countWords, isTextBlock, segmentMarkdown } from '../text/segment.js';
 import { getTermsByTexts } from '../terms/repo.js';
 import { checkUrlShape, listDocuments, submitImport } from './methods.js';
 import { runImport, type ImportInput } from './pipeline.js';
@@ -131,7 +131,7 @@ export const documentsCapabilities: CapabilityMap = {
         learning = (await ctx.db.all<{ text: string }>('SELECT t.text FROM terms t JOIN term_contexts tc ON tc.term_id = t.id AND tc.deleted_at IS NULL WHERE tc.document_id = ? AND t.status BETWEEN 0 AND 4 AND t.deleted_at IS NULL GROUP BY t.id ORDER BY count(*) DESC LIMIT 10', [p.document_id])).map(r => r.text);
       } else if (p.text) {
         const seg = segmentMarkdown(p.text); words = seg.word_count;
-        const sentences = seg.sections.flatMap(s => s.paragraphs.filter(x => x.block_type !== 'code').map(x => x.text));
+        const sentences = seg.sections.flatMap(s => s.paragraphs.filter(isTextBlock).map(x => x.text));
         const pre = await annotateSentences({ sentences, dict: ctx.dict, statusOf: () => undefined });
         const known = await getTermsByTexts(ctx.db, [...new Set(pre.sentences.flatMap(s => s.tokens.map(t => t.l)))]);
         const r = await annotateSentences({ sentences, dict: ctx.dict, statusOf: l => { const k = known.get(l); return k && !k.deleted_at ? (k.status as never) : undefined; } });

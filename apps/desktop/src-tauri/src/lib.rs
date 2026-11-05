@@ -256,7 +256,7 @@ fn run_mobile() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            local_db::db_open, local_db::db_exec, local_db::db_run, local_db::db_all, local_db::keyring_get, local_db::read_file,
+            local_db::db_open, local_db::db_exec, local_db::db_run, local_db::db_all, local_db::keyring_get, local_db::read_file, local_db::asset_write, local_db::asset_list, local_db::asset_remove,
             sync_fs::sync_fs_read, sync_fs::sync_fs_write, sync_fs::sync_fs_list, sync_fs::sync_fs_remove, sync_fs::sync_icloud_root, app_group::share_take_pending, app_group::widget_write,
             keyring_set, keyring_delete, pick_file, save_text_file
         ])

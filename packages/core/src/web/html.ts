@@ -20,10 +20,24 @@ export const NOISE = [
 /**
  * 很小的 HTML → Markdown：只保留 Tibi 需要的结构（标题、段落、列表、引用、代码块、行内代码、链接文字、强调），
  * 其余标签只取文字。代码块保留围栏并带语言（sections.content_md 的约定，01 §2）。
+ * opts.image：单独成块的图片（不夹在文字里）交给它换成要存的地址，返回 undefined 就不要这张；不给时图片一律去掉（网页正文）。
  */
-export function htmlToMarkdown(html: string, baseUrl: string | undefined, parse: HtmlParser): string {
+export interface HtmlToMarkdownOptions { image?: (src: string, el: Element) => string | undefined }
+export function htmlToMarkdown(html: string, baseUrl: string | undefined, parse: HtmlParser, opts: HtmlToMarkdownOptions = {}): string {
   const document = parse(`<!doctype html><html><body>${html}</body></html>`);
   const out: string[] = [];
+  // 图片块 ![alt](src)：alt 里的方括号、换行会弄坏这一行，去掉；像文件名的 alt（"0060m"、"img_12.jpg"，制书工具常这么填）不要，免得当成图注显示
+  const image = (el: Element) => {
+    const raw = el.getAttribute('src'); const src = raw && opts.image?.(raw, el); if (!src) return;
+    const alt = (el.getAttribute('alt') ?? '').replace(/[[\]\s]+/g, ' ').trim();
+    out.push(`![${/^[\w.-]*$/.test(alt) && /\d|\.(jpe?g|png|gif|webp|svg)$/i.test(alt) ? '' : alt}](${src})`, '');
+  };
+  // 只有图片、没有文字的块（EPUB 常见 <p><img/></p>、<div class="figure"><img/></div>）
+  const onlyImages = (el: Element) => {
+    if (!opts.image || (el.textContent ?? '').trim()) return undefined;
+    const imgs = Array.from(el.querySelectorAll('img')) as Element[];
+    return imgs.length ? imgs : undefined;
+  };
 
   const text = (n: Node): string => {
     if (n.nodeType === 3) return (n.textContent ?? '').replace(/\s+/g, ' ');
@@ -42,6 +56,9 @@ export function htmlToMarkdown(html: string, baseUrl: string | undefined, parse:
 
   const block = (el: Element, depth = 0) => {
     const tag = el.tagName.toLowerCase();
+    if (tag === 'img') { image(el); return; }
+    const imgs = tag === 'pre' ? undefined : onlyImages(el);
+    if (imgs) { for (const i of imgs) image(i); return; }
     if (/^h[1-6]$/.test(tag)) { const t = inner(el).trim(); if (t) out.push('#'.repeat(Number(tag[1])) + ' ' + t, ''); return; }
     if (tag === 'pre') {
       const code = el.querySelector('code');
@@ -73,12 +90,12 @@ export function htmlToMarkdown(html: string, baseUrl: string | undefined, parse:
     if (tag === 'script' || tag === 'style' || tag === 'noscript' || tag === 'svg' || tag === 'img' || tag === 'iframe' || tag === 'form' || tag === 'button' || tag === 'nav' || tag === 'aside') return;
     // 容器：递归；只有行内内容时当成一段
     const children = Array.from(el.childNodes) as Node[];
-    const hasBlock = children.some(c => c.nodeType === 1 && /^(p|div|section|article|ul|ol|pre|h[1-6]|blockquote|table|figure|hr|main|header|footer|li)$/i.test((c as Element).tagName));
-    if (hasBlock) {
+    const isBlock = (c: Node) => c.nodeType === 1 && (/^(p|div|section|article|ul|ol|pre|h[1-6]|blockquote|table|figure|figcaption|hr|main|header|footer|li)$/i.test((c as Element).tagName) || !!opts.image && /^img$/i.test((c as Element).tagName));
+    if (children.some(isBlock)) {
       let run: Node[] = [];
       const flush = () => { const t = run.map(text).join('').trim(); if (t) out.push(t, ''); run = []; };
       for (const c of children) {
-        if (c.nodeType === 1 && /^(p|div|section|article|ul|ol|pre|h[1-6]|blockquote|table|figure|hr|main|header|footer|li)$/i.test((c as Element).tagName)) { flush(); block(c as Element, depth); }
+        if (isBlock(c)) { flush(); block(c as Element, depth); }
         else run.push(c);
       }
       flush();

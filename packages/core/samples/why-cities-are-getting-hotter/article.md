@@ -4,7 +4,7 @@ title: Why Cities Are Getting Hotter
 author: Tibi
 genre: news
 source: Tibi 自拟示例（MIT）
-order: 3
+order: 4
 ---
 
 On a summer afternoon, the center of a large city can feel noticeably hotter than the farmland a short drive away. The difference is not just a feeling. Scientists have measured it for decades and given it a name: the urban heat island. As cities grow and summers become more extreme, the effect is moving from a scientific curiosity to a public health concern.

@@ -7,7 +7,7 @@ import { SyncEngine } from './sync/engine.js';
 import { Core } from './core.js';
 import type { Database } from './db/driver.js';
 import type { Dict } from './dict/types.js';
-import { documentsCapabilities, documentsMethods, recoverAnalysis } from './domain/documents/index.js';
+import { documentsCapabilities, documentsMethods, pruneAssets, recoverAnalysis } from './domain/documents/index.js';
 import { configCapabilities, profileMethods } from './domain/profile/index.js';
 import { reviewCapabilities, reviewMethods } from './domain/review/index.js';
 import { undoMethods } from './domain/shared/undo.js';
@@ -19,7 +19,7 @@ import type { Platform } from './platform.js';
 
 /**
  * 组装一个完整的 Tibi Core（桌面、手机、测试共用）：
- * 数据库 + 词典 + 平台 → 内核（对话、技能、记忆）→ 各领域的方法与能力 → 收拾上次没做完的。
+ * 数据库 + 词典 + 平台 → 内核（对话、技能、记忆）→ 各领域的方法与能力 → 收拾上次没做完的、清掉删了的书留下的图片。
  */
 export interface AssembleOptions extends KernelOptions {
   db: Database;
@@ -52,6 +52,9 @@ export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core;
   // 同步开着时按当前表结构重建触发器（08 §5）
   await SyncEngine.resume(core.db);
 
-  if (opts.resume !== false) { await kernel.recover(); await recoverAnalysis(core.db); }
+  if (opts.resume !== false) {
+    await kernel.recover(); await recoverAnalysis(core.db);
+    void pruneAssets(core.db, opts.platform).catch(() => undefined);   // 后台做，不拖启动
+  }
   return { core, kernel };
 }

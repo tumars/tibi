@@ -1,0 +1,184 @@
+{
+  "summary": "伦敦达林家的三个孩子温迪、约翰和迈克尔，一天夜里被不肯长大的男孩彼得·潘和小仙子叮叮铃带出窗外，飞往梦幻岛。岛上有走失的孩子们、美人鱼、印第安人，还有被鳄鱼追着、怕听滴答声的胡克船长。温迪在地下小屋里给大家当“妈妈”，讲故事、缝补袜子；后来孩子们被海盗掳上船，彼得赶来与胡克决战，救下众人。孩子们最终回到家，走失的男孩们也被达林家收养；只有彼得不愿长大，留在梦幻岛。多年后，长大的温迪看着女儿简、外孙女玛格丽特一代代被彼得接去岛上。",
+  "advice": "全书 17 章，篇幅较长，适合一章一章读。巴里的旁白像在给孩子讲故事，常用 you、I 直接跟读者说话，句子长但不难，顺着逗号往下读就行。生词多是英国旧式生活用语和航海、海盗词汇（perambulator、pinafore、shillings、brig、bo’sun），知道大意即可。第一章已经备好语境释义，后面的章节连上模型后可以按需生成。",
+  "phrases": [
+    {
+      "text": "grow up",
+      "zh": "长大成人（全书的主题：彼得不肯长大）"
+    },
+    {
+      "text": "the beginning of the end",
+      "zh": "结局的开始，由盛转衰的起点"
+    },
+    {
+      "text": "give up",
+      "zh": "放弃（不再尝试）"
+    },
+    {
+      "text": "come what might",
+      "zh": "不管发生什么，无论如何"
+    },
+    {
+      "text": "a narrow squeak",
+      "zh": "（英式口语）险些出事，侥幸逃过；narrower squeak 就是“更悬”"
+    },
+    {
+      "text": "just so",
+      "zh": "井井有条，一切都恰到好处"
+    },
+    {
+      "text": "put things straight",
+      "zh": "把东西收拾整齐、理顺"
+    },
+    {
+      "text": "on earth",
+      "zh": "（用在疑问词后加强语气）到底、究竟"
+    },
+    {
+      "text": "mark my words",
+      "zh": "记住我的话（我说的准没错）"
+    },
+    {
+      "text": "blow over",
+      "zh": "（风波）平息、过去"
+    },
+    {
+      "text": "make a dash at",
+      "zh": "冲过去（三两下）弄一下"
+    },
+    {
+      "text": "a matter-of-fact way",
+      "zh": "就事论事、若无其事的口气"
+    }
+  ],
+  "hard_sentences": [
+    {
+      "s": "Her romantic mind was like the tiny boxes, one within the other, that come from the puzzling East, however many you discover there is always one more; and her sweet mocking mouth had one kiss on it that Wendy could never get, though there it was, perfectly conspicuous in the right-hand corner.",
+      "zh": "她浪漫的心思就像那些从神秘的东方传来的小套盒，一个套一个，不管你打开多少个，里面总还有一个；她那张甜美、带点调侃的嘴上挂着一个吻，温迪怎么也得不到，虽然它就在那儿，在右嘴角，明明白白。"
+    },
+    {
+      "s": "It is the nightly custom of every good mother after her children are asleep to rummage in their minds and put things straight for next morning, repacking into their proper places the many articles that have wandered during the day.",
+      "zh": "每个好妈妈晚上都有个习惯：等孩子睡着了，就在他们的心思里翻一翻，替第二天早上收拾好，把白天乱跑的许多东西重新放回原处。"
+    },
+    {
+      "s": "But in her dream he had rent the film that obscures the Neverland, and she saw Wendy and John and Michael peeping through the gap.",
+      "zh": "可在她的梦里，他撕破了遮住梦幻岛的那层薄膜，她看见温迪、约翰和迈克尔正从裂缝里往外偷看。"
+    }
+  ],
+  "context_meanings": {
+    "pluck": "摘（花）",
+    "henceforth": "从此以后",
+    "mocking": "带点调侃、俏皮的",
+    "puzzling": "神秘难解的",
+    "conspicuous": "显眼的，一眼就能看见的",
+    "simultaneously": "同时地",
+    "propose": "求婚",
+    "nip": "（英式口语）抢先一步溜进去",
+    "innermost": "最里面的",
+    "passion": "一阵怒气；（下文 a passion for）热衷",
+    "boast": "夸口，炫耀",
+    "stock": "股票",
+    "share": "股份",
+    "gleefully": "兴高采烈地",
+    "sprout": "（Brussels sprout）抱子甘蓝",
+    "cauliflower": "菜花",
+    "tot": "（tot up）把数目加起来",
+    "doubtful": "说不准的",
+    "honourable": "正派、讲原则的",
+    "calculate": "计算",
+    "imploringly": "恳求地",
+    "interrupt": "打断（说话）",
+    "shilling": "先令（英国旧币，20 先令合 1 英镑）",
+    "cheque-book": "支票簿",
+    "prejudiced": "偏心的，有偏向的",
+    "mumps": "腮腺炎",
+    "measles": "麻疹",
+    "guinea": "基尼（英国旧金币，合 21 先令）",
+    "waggle": "摇来摇去",
+    "whooping-cough": "百日咳",
+    "squeak": "（narrow squeak）险些出事",
+    "kindergarten": "幼儿园",
+    "prim": "一本正经、规规矩矩的",
+    "acquainted": "认识的，相识的",
+    "perambulator": "婴儿车（旧式说法，今多作 pram）",
+    "nursemaid": "保姆，女佣",
+    "mistress": "女主人，雇主",
+    "treasure": "难得的好帮手",
+    "thorough": "一丝不苟的",
+    "kennel": "狗窝",
+    "nursery": "（家里的）儿童房",
+    "rhubarb": "大黄（一种植物，旧时当药用）",
+    "contempt": "轻蔑",
+    "new-fangled": "新奇古怪的（贬义）",
+    "germ": "细菌",
+    "propriety": "规矩，得体",
+    "sedately": "稳稳当当、不慌不忙地",
+    "butt": "用头顶",
+    "stray": "走散，离开队伍",
+    "footer": "（英式口语）足球",
+    "form": "（无靠背的）长凳",
+    "affect": "假装",
+    "inferior": "低一等的",
+    "despise": "看不起",
+    "resent": "不满，讨厌",
+    "pinafore": "（儿童穿的）围裙罩衫",
+    "braiding": "编织的饰带、镶边",
+    "conduct": "管理，经营",
+    "uneasily": "不安地",
+    "midget": "小不点儿",
+    "gaiety": "欢乐",
+    "romp": "嬉闹，打闹",
+    "pirouette": "（芭蕾）踮脚旋转",
+    "rummage": "翻找",
+    "linger": "流连，停留不走",
+    "stow": "收起，藏好",
+    "naughtiness": "淘气",
+    "aired": "（衣物）晾过的",
+    "intensely": "非常，极其",
+    "rakish": "（船）外形流线、像海盗船的",
+    "craft": "船只",
+    "offing": "（in the offing）在远处海面上",
+    "savage": "野人（旧时用语）",
+    "lair": "巢穴，藏身处",
+    "gnome": "地精，小矮人",
+    "dative": "（语法）与格",
+    "lagoon": "泻湖",
+    "flamingo": "火烈鸟",
+    "wigwam": "（北美原住民的）圆顶棚屋",
+    "deftly": "灵巧地",
+    "forsake": "抛弃",
+    "resemblance": "相像之处",
+    "coracle": "（柳条蒙皮的）小圆舟",
+    "surf": "拍岸的浪花",
+    "delectable": "令人愉快的",
+    "snug": "舒适温馨的",
+    "compact": "紧凑的",
+    "sprawly": "摊得很开、松散的",
+    "tedious": "冗长乏味的",
+    "cram": "塞满",
+    "perplexing": "令人困惑的",
+    "scrawl": "潦草地写满",
+    "cocky": "神气活现、自以为是的",
+    "pooh-pooh": "（表示不屑地）嗤之以鼻",
+    "disquieting": "令人不安的",
+    "revelation": "（出人意料的）透露",
+    "tolerant": "宽容的",
+    "precious": "（称呼）宝贝",
+    "dismiss": "不当一回事，打发掉",
+    "poker": "拨火棍",
+    "spout": "水落管",
+    "sheer": "垂直的，陡峭的",
+    "tranquilly": "平静地",
+    "rend": "撕破",
+    "obscure": "遮住",
+    "trifle": "小事，不值一提",
+    "dart": "飞快地窜来窜去",
+    "entrancing": "迷人的",
+    "clad": "穿着……的",
+    "ooze": "渗出",
+    "gnash": "咬（牙），磨（牙）"
+  },
+  "context_sections": [
+    0
+  ]
+}

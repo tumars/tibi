@@ -4,8 +4,7 @@ title: How a Compiler Sees Your Code
 author: Tibi
 genre: tech
 source: Tibi 自拟示例（MIT）
-default: true
-order: 1
+order: 3
 ---
 
 You write code as a story for other people. The compiler reads it as a long, flat string of characters. Everything a compiler does is an attempt to recover the structure that you had in mind, check that it makes sense, and then translate it into something a machine can execute. This article walks through those stages using one tiny function.

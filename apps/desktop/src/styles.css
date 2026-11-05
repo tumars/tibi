@@ -240,6 +240,13 @@ h2.st .sp { flex: 1; }
 .rd h1 { font-size: 32px; font-weight: 700; line-height: 1.22; margin: 0; letter-spacing: -.018em; text-wrap: balance; overflow-wrap: anywhere; }
 /* 正文排版：段距 1em，标题上松下紧、贴住它管的那段 */
 .rd p { margin: 0 0 1em; text-wrap: pretty; }
+/* 章节下拉：长章名（Oliver Twist 那种一句话的章名）不撑宽顶栏 */
+.chapsel { width: 220px; min-width: 0; flex-shrink: 1; text-overflow: ellipsis; }
+.rd .fig { margin: 1.6em 0; text-align: center; }
+.rd .fig img { display: block; max-width: 100%; max-height: 72vh; margin: 0 auto; border-radius: var(--r-m); box-shadow: 0 0 0 1px var(--line); }
+.rd .fig figcaption { margin-top: 8px; font: 13px/1.5 var(--f-ui); color: var(--ink-3); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rd .fig img { filter: brightness(.82); } }
+:root[data-theme="dark"] .rd .fig img { filter: brightness(.82); }
 .rd h2, .rd h3 { font-size: 23px; font-weight: 700; line-height: 1.35; letter-spacing: -.01em; margin: 1.7em 0 .45em; text-wrap: balance; }
 .rd > h2:first-child { margin-top: .4em; }
 .rd .quote { margin: 1.3em 0; padding: 2px 0 2px 20px; border-left: 3px solid var(--line-2); color: var(--ink-2); font-style: italic; }
@@ -449,7 +456,7 @@ h2.st .sp { flex: 1; }
 [data-sid].flash { background: var(--hl-new, rgba(255, 200, 0, .25)); border-radius: 3px; transition: background .6s; }
 
 /* 内置示例卡片（空书架、首次引导） */
-.samples { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; width: 100%; max-width: 680px; margin-top: 14px; }
+.samples { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; width: 100%; max-width: 680px; margin-top: 14px; }
 .sample { text-align: left; padding: 12px 14px; border-radius: var(--r-l); box-shadow: inset 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 4px; transition: box-shadow .15s, background .15s; }
 .sample:hover { background: var(--hover); box-shadow: inset 0 0 0 1px var(--line-2); }
 .sample .g { font-size: 11.5px; color: var(--ink-3); }
@@ -496,8 +503,8 @@ h2.st .sp { flex: 1; }
 .ob .tiers div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; }
 .ob .tiers div + div { border-top: 1px solid var(--line); }
 .ob .tiers div span:last-child { color: var(--ink-3); font-family: var(--f-mono); font-size: 12px; }
-.ob .samples2 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
-.ob .samples2 button { text-align: left; padding: 14px 14px 12px; border-radius: var(--r-l); box-shadow: inset 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 6px; min-height: 120px; }
+.ob .samples2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+.ob .samples2 button { text-align: left; padding: 14px 14px 12px; border-radius: var(--r-l); box-shadow: inset 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 6px; min-height: 96px; }
 .ob .samples2 button .g { font-size: 11.5px; color: var(--ink-3); }
 .ob .samples2 button .t { font-family: var(--f-read); font-size: 16px; font-weight: 700; line-height: 1.3; }
 .ob .samples2 button .m { font-size: 12px; color: var(--ink-3); margin-top: auto; }
