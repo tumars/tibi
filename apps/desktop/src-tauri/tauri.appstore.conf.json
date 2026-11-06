@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "beforeBuildCommand": "VITE_DISTRIBUTION=app-store pnpm build:web"
+  },
+  "app": {
+    "macOSPrivateApi": false,
+    "windows": [{
+      "title": "Tibi",
+      "width": 1200,
+      "height": 800,
+      "minWidth": 960,
+      "minHeight": 600,
+      "titleBarStyle": "Overlay",
+      "hiddenTitle": true,
+      "transparent": false,
+      "dragDropEnabled": true
+    }]
+  },
+  "bundle": {
+    "targets": ["app"],
+    "category": "Education",
+    "copyright": "Copyright © 2026 hui zhang",
+    "createUpdaterArtifacts": false,
+    "macOS": {
+      "bundleVersion": "1",
+      "entitlements": "Entitlements.appstore.plist"
+    },
+    "resources": {
+      "binaries/ocr/*": "ocr/",
+      "resources/dict.db": "dict.db"
+    }
+  },
+  "plugins": { "updater": null }
+}

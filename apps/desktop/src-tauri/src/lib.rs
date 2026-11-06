@@ -1,6 +1,9 @@
 //! Tibi 的 Rust 壳：很薄，只做系统能力（06 §7）——启动 / 守护 Tibi Core、转发 JSON-RPC、密钥、文件选择、深链、托盘。
 //! 业务数据全部在 Core（TypeScript），界面不直连数据库（B2）。
 
+#[cfg(all(feature = "app-store", feature = "direct-distribution"))]
+compile_error!("App Store builds require --no-default-features --features app-store");
+
 mod core;
 mod keys;
 #[cfg(any(mobile, feature = "mobile-preview"))]
@@ -9,7 +12,7 @@ mod local_db;
 mod sync_fs;
 #[cfg(any(mobile, feature = "mobile-preview", test))]
 mod app_group;
-#[cfg(not(any(mobile, feature = "mobile-preview")))]
+#[cfg(all(feature = "direct-distribution", not(any(mobile, feature = "mobile-preview"))))]
 mod update;
 
 use serde_json::{json, Value};
@@ -275,17 +278,17 @@ fn run_desktop() {
             let _ = w.set_focus();
         }
     }));
-    builder
+    #[cfg(feature = "direct-distribution")]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build()).manage(update::Pending::default());
+    let builder = builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_http::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Allowed::default())
         .manage(TrayMode::default())
-        .manage(update::Pending::default())
         .setup(|app| {
             // 密钥文件的目录，要在 Core 启动、来取密钥之前设好（keys.rs）
             if let Ok(dir) = app.path().app_data_dir() {
@@ -319,7 +322,7 @@ fn run_desktop() {
                 app.deep_link().on_open_url(move |event| handle_deep_link(&handle, &event.urls()));
             }
             // E2：macOS 侧栏 vibrancy（失败不阻塞）。窗口透明只在 tauri.macos.conf.json 里开，圆角交给系统窗口
-            #[cfg(target_os = "macos")]
+            #[cfg(all(target_os = "macos", not(feature = "app-store")))]
             if let Some(w) = app.get_webview_window("main") {
                 if let Err(e) = window_vibrancy::apply_vibrancy(&w, window_vibrancy::NSVisualEffectMaterial::Sidebar, None, None) {
                     log::warn!("侧栏材质没加上：{e}");
@@ -376,8 +379,11 @@ fn run_desktop() {
                 let app = window.app_handle().clone();
                 tauri::async_runtime::spawn(async move { register_paths(&app, &paths).await; });
             }
-        })
-        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command, update::update_check, update::update_install, update::update_mirror_asset])
-        .run(tauri::generate_context!())
+        });
+    #[cfg(feature = "direct-distribution")]
+    let builder = builder.invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command, update::update_check, update::update_install, update::update_mirror_asset]);
+    #[cfg(not(feature = "direct-distribution"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command]);
+    builder.run(tauri::generate_context!())
         .expect("Tibi 启动失败");
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Switch } from '../components/Switch';
 import { tl } from '../lib/i18n';
-import { autoCheckOn, BackupFailed, checkUpdate, installUpdate, mirrorDownloadUrl, RELEASES_URL, setAutoCheck, type InstallStage } from '../lib/update';
+import { autoCheckOn, BackupFailed, checkUpdate, installUpdate, isAppStore, mirrorDownloadUrl, RELEASES_URL, setAutoCheck, type InstallStage } from '../lib/update';
 import { isTauri } from '../rpc';
 import { openLink } from './AuthorItems';
 
@@ -11,6 +11,8 @@ type State = { k: 'idle' } | { k: 'checking' } | { k: 'latest' } | { k: 'found';
 export function UpdateItems() {
   const [s, setS] = useState<State>({ k: 'idle' });
   const [auto, setAuto] = useState(autoCheckOn);
+
+  if (isAppStore) return <div className="item"><div><div className="t">App Store</div><div className="d">{tl('请通过 Mac App Store 更新 Tibi')}</div></div></div>;
 
   const check = async () => {
     if (!isTauri()) return setS({ k: 'failed', reason: tl('浏览器模式不能更新') });

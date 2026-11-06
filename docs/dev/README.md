@@ -62,6 +62,8 @@ Core 的 stdio 协议（06 §1）：每行一条 JSON。壳 → Core 请求 `{js
 
 ## 4. 出安装包与 CI
 
+- **Mac App Store**：独立构建与沙盒验证进度见 [mac-app-store.md](mac-app-store.md)，与下面的 DMG 分发流程分开；当前尚未提交审核。
+
 - **省 Actions 分钟**：仓库是私有的，GitHub 按 Linux ×1、Windows ×2、macOS ×10 计分钟（免费账号每月 2,000 分钟）。2026-10-31 调通发布流程和手机冒烟测试时一晚用了约 2,800 分钟（macOS 占三分之二），之后改成：平时只跑便宜的 Linux 检查，macOS 和模拟器的任务手动勾选才跑。
 - **CI**（`.github/workflows/ci.yml`，每个 PR 和推到 main；只改 `docs/`、`*.md` 的提交不跑）：内嵌文件是否最新（`pnpm --filter @tibi/core gen` 后无改动）、类型检查、单测、界面构建、界面文案是否都有英文（`i18n:check`）。Rust 壳的检查只在 `src-tauri` 有改动时跑（`dorny/paths-filter`）：Ubuntu 上 `cargo clippy` 与 `--features mobile-preview`，`android`（`cargo check --target aarch64-linux-android`）。`ios`（macOS runner：`cargo check --target aarch64-apple-ios`，两个扩展的 Swift 对 iOS SDK 做 `swiftc -typecheck`）只在手动触发（Actions → CI → Run workflow）勾了 `ios` 时跑。
 - **发布**（`.github/workflows/release.yml`）：推一个 `v0.1.0` 这样的 tag → 先生成一次词典（缓存）→ macOS（Apple 芯片、Intel）、Windows、Linux 四个目标各自打 sidecar + 安装包 → 放进一个**草稿** Release，剪藏插件 zip 也挂上去；人工检查后再发布。tag 必须和 `tauri.conf.json`、`Cargo.toml` 的版本一致。另有 `android` 任务打 APK（aarch64，未签名），也挂到这个 Release。手动触发（Actions → Release → Run workflow，不打 tag）不建 Release，产物留在 Actions 页面，用来在打 tag 之前验证打包；可以勾选跑哪些：桌面安装包、APK（默认都跑），`android_smoke`、`ios_smoke` 两个冒烟测试（默认不跑；打 tag 时也不跑）。每个任务都有超时。（开发阶段曾经推 `m0-scaffold` 就跑全套，2026-11-01 去掉。）

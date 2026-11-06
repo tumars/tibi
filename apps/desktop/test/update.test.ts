@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BackupFailed, installUpdate, type InstallStage } from '../src/lib/update';
 
 const invoke = vi.fn();
@@ -35,5 +35,25 @@ describe('安装更新', () => {
     invoke.mockResolvedValue(undefined);
     await installUpdate(() => undefined, { skipBackup: true });
     expect(invoke).toHaveBeenCalledWith('update_install', { skipBackup: true });
+  });
+});
+
+describe('App Store 分发', () => {
+  afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); vi.useRealTimers(); });
+
+  it('不启动更新检查，也不读取旧的自动更新设置', async () => {
+    vi.stubEnv('VITE_DISTRIBUTION', 'app-store');
+    vi.resetModules();
+    vi.useFakeTimers();
+    const { isAppStore, autoCheckOn, startAutoUpdateCheck } = await import('../src/lib/update');
+    invoke.mockReset();
+    const found = vi.fn();
+    expect(isAppStore).toBe(true);
+    expect(autoCheckOn()).toBe(false);
+    const stop = startAutoUpdateCheck(found);
+    await vi.advanceTimersByTimeAsync(24 * 3600_000);
+    expect(invoke).not.toHaveBeenCalled();
+    expect(found).not.toHaveBeenCalled();
+    stop();
   });
 });
