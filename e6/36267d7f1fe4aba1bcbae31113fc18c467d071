@@ -1,0 +1,21 @@
+docs/design/13-mac-app-store.md
+  s_f18e3ee75ab0a8::t_0e53eb5a2957f0 3,16,18,21-22
+docs/dev/mac-app-store.md
+  s_f18e3ee75ab0a8::t_0e53eb5a2957f0 5-7,11,16-19,22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e636267d7f1fe4aba1bcbae31113fc18c467d071",
+  "prompts": {},
+  "sessions": {
+    "s_f18e3ee75ab0a8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ab29-189a-7691-996c-e69e870cbd68",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
