@@ -2,18 +2,24 @@
 
 ## 当前状态（2026-11-06）
 
-首个包已上传但被 Apple 处理阶段拒绝；修正版 0.1.0 (2) 已准备，尚未提交审核、未发布。
+**0.1.0 (2) 已于 2026-11-06 17:19（Asia/Singapore）成功提交 App Review，尚未审核通过或上架。** 页面返回 `1 Item Submitted`，提示审核可能需要最多 48 小时。已设置审核通过后自动发布。
+
+审核记录：[App Review](https://appstoreconnect.apple.com/apps/6831512333/distribution/reviewsubmissions/details/484ee6f1-fc40-4660-8899-ce7dea336245)，提交 ID `484ee6f1-fc40-4660-8899-ce7dea336245`。免费、148 个非欧盟地区；正式包为 `~/Documents/releases/tibi-app-store-0.1.0/Tibi-0.1.0-2.pkg`。
 
 - 独立工作目录 `/Users/zhanghui/Documents/github/tibi-appstore`，分支 `codex/mac-app-store`，基于 `aaf9b34`，没有包含原工作区尚未提交的 Web 版等修改。
 - 商店 Application / Installer 证书及描述文件已准备，本机签名可用。
-- 浏览器控制已恢复并完成商店资料操作；重新上传修正版时电脑再次锁定，待恢复桌面后继续 Transporter。
+- 浏览器与桌面控制已恢复，已完成修正版上传、构建关联及最终审核提交。
 - 设计边界及未完成项见 [商店分发设计](../design/13-mac-app-store.md)。
 
 ## 已验证
 
+修正版于 17:12 由 Transporter 交付，App Store Connect 显示处理 `Complete`。加密合规选择“除 Apple 操作系统外使用标准加密算法”（Bun 标准 TLS），法国发行选择 No（首发排除欧盟），保存后构建显示 `Ready to Submit`。版本关联 0.1.0 (2) 后通过 Add for Review 完整性检查，再执行 Submit for Review，确认提交成功。
+
+AI 数据分享确认由用户在真实原生弹窗中协助验证：同意后连接保存；新地址 `http://127.0.0.1:18995/v1` 选择取消后未保存，连接仍为上次同意的 `18994` 地址。测试没有 Key、没有调用第三方模型。沙盒内保留无 Key 的 `Local consent test` 连接，仅属本地验证数据，不随安装包分发。真实模型调用、WebDAV 服务端同步、OCR 和完整恢复流程仍未在本轮覆盖。
+
 Apple 于 2026-11-06 16:28（Asia/Singapore）邮件返回 **ITMS-91109**：`Contents/embedded.provisionprofile` 带 `com.apple.quarantine`。Transporter“已交付”不代表构建处理成功。从已交付原件解包，将 CFBundleVersion 提升到 2，移除产物中该属性、重新签名并打包，保存为 `~/Documents/releases/tibi-app-store-0.1.0/Tibi-0.1.0-2.pkg`。再次解包确认无 quarantine，并通过深度严格签名检查；不是从截图构建取包。
 
-两张真实截图（2560×1600）已上传，刷新后仍显示 2 张。审核联系人、电话、邮箱和英文 Notes 已用原生界面保存并刷新核验；无需登录、审核后自动发布设置保持。用户确认后隐私声明已发布。TestFlight 当时仍显示 No Builds，须待修正版处理成功后关联版本。
+两张真实截图（2560×1600）已上传，刷新后仍显示 2 张。审核联系人、电话、邮箱和英文 Notes 已用原生界面保存并刷新核验；无需登录、审核后自动发布设置保持。用户确认后隐私声明已发布。
 
 2026-11-06 16:27（Asia/Singapore）：从本分支源码重建 Bun Core 和桌面壳，分别使用商店 Application / Installer 证书签名，`codesign --verify --deep --strict` 与 `pkgutil --check-signature` 通过。Transporter 已成功交付 **0.1.0 (1)**，Apple ID `6831512333`，此时后台仍在处理，尚未提交审核。交付包保存在 `~/Documents/releases/tibi-app-store-0.1.0/Tibi-0.1.0-1.pkg`。
 
