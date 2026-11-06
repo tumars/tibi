@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { tl } from '../lib/i18n';
 import { storeSecret } from '../lib/providers';
 import { fmtAgo } from '../lib/util';
-import { errorInfo, isTauri, rpc } from '../rpc';
+import { errorInfo, isTauri, isWeb, rpc } from '../rpc';
 import type { SyncBackendCfg, SyncStatus } from '../rpc/methods';
 import { toast } from '../store/ui';
 
@@ -14,12 +14,14 @@ type Kind = SyncBackendCfg['kind'];
 const KIND_LABEL: Record<Kind, string> = { icloud: 'iCloud Drive', folder: tl('文件夹'), webdav: 'WebDAV' };
 const PW_REF = 'sync.webdav';
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
-const PLATFORM: Record<string, string> = { macos: 'macOS', windows: 'Windows', linux: 'Linux', ios: 'iPhone', android: 'Android', test: 'test' };
+const PLATFORM: Record<string, string> = { macos: 'macOS', windows: 'Windows', linux: 'Linux', ios: 'iPhone', android: 'Android', web: tl('网页版'), test: 'test' };
+// Web 版只有 WebDAV（12 §2）：iCloud 和本地文件夹都要原生壳
+const KINDS: Kind[] = isWeb() ? ['webdav'] : (['icloud', 'folder', 'webdav'] as Kind[]).filter(k => k !== 'icloud' || isMac);
 
 export function SyncItems() {
   const [st, setSt] = useState<SyncStatus>();
   const [setup, setSetup] = useState(false);
-  const [kind, setKind] = useState<Kind>(isMac ? 'icloud' : 'folder');
+  const [kind, setKind] = useState<Kind>(KINDS[0]!);
   const [path, setPath] = useState('');
   const [dav, setDav] = useState({ url: '', user: '', pw: '' });
   const [probe, setProbe] = useState<{ text: string; ready: boolean; join: boolean }>();
@@ -43,7 +45,7 @@ export function SyncItems() {
     const c = cfg(); if (!c) { toast(kind === 'webdav' ? tl('填好地址、账号和应用密码') : tl('先选一个文件夹')); return; }
     if (c.kind === 'webdav' && dav.pw) {
       const ok = await storeSecret(PW_REF, dav.pw).catch(() => false);
-      if (!ok && isTauri()) { toast(tl('应用密码没能保存'), { kind: 'err' }); return; }
+      if (!ok && (isTauri() || isWeb())) { toast(tl('应用密码没能保存'), { kind: 'err' }); return; }
     }
     setBusy(true); setProbe({ text: tl('正在检查…'), ready: false, join: false });
     try {
@@ -80,10 +82,10 @@ export function SyncItems() {
       <div className="item"><div><div className="t">{tl('停止同步')}</div><div className="d">{tl('这台电脑上的数据保留，云盘里的文件不删')}</div></div><div className="ctl"><button className="btn sm" onClick={() => void stop()}>{tl('停止')}</button></div></div>
     </>;
   }
-  if (!setup) return <div className="item"><div><div className="t">{tl('同步')}</div><div className="d">{tl('和手机、其他电脑同步，经过你自己的 iCloud Drive、WebDAV 云盘或一个共享文件夹。没有 Tibi 的服务器')}</div></div><div className="ctl"><button className="btn sm pri" onClick={() => setSetup(true)}>{tl('开启同步')}</button></div></div>;
+  if (!setup) return <div className="item"><div><div className="t">{tl('同步')}</div><div className="d">{isWeb() ? tl('和电脑、手机上的 Tibi 同步，经过你自己的 WebDAV 云盘（坚果云、Nextcloud 等）。网页版经 Tibi 的中转连接，中转不存任何内容') : tl('和手机、其他电脑同步，经过你自己的 iCloud Drive、WebDAV 云盘或一个共享文件夹。没有 Tibi 的服务器')}</div></div><div className="ctl"><button className="btn sm pri" onClick={() => setSetup(true)}>{tl('开启同步')}</button></div></div>;
   return <>
     <div className="item"><div><div className="t">{tl('同步')}</div><div className="d">{tl('同步文件不加密，存放在你选的位置')}</div></div><div className="ctl"><div className="seg">
-      {(['icloud', 'folder', 'webdav'] as Kind[]).filter(k => k !== 'icloud' || isMac).map(k => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND_LABEL[k]}</button>)}
+      {KINDS.map(k => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND_LABEL[k]}</button>)}
     </div></div></div>
     {kind === 'icloud' && <div className="item"><div><div className="d">{tl('用 iCloud Drive 里 Tibi 自己的文件夹，和 iPhone 上的 Tibi 共用。需要登录 iCloud 并打开 iCloud Drive')}</div></div><div className="ctl" /></div>}
     {kind === 'folder' && <div className="pform"><span>{tl('文件夹')}</span><div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1 }} value={path} onChange={e => setPath(e.target.value)} placeholder={tl('比如 Dropbox 或 OneDrive 里的一个文件夹')} /><button className="btn sm" onClick={() => void pickFolder()}>{tl('选择…')}</button></div></div>}

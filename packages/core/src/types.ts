@@ -171,7 +171,7 @@ export interface UsageSummary {
   h2: { window_closed: boolean; self_imports_7d: number; passed?: boolean };
   h3: { has_card: boolean; reviewed_next_day?: boolean };
 }
-export interface SyncStatus { enabled: boolean; backend?: 'icloud' | 'webdav'; state: 'off' | 'idle' | 'syncing' | 'error'; last_synced_at?: Ts; pending: number; sync_files: boolean; device: { id: string; name: string }; peers: { id: string; name: string; platform: 'macos' | 'windows' | 'linux' | 'ios' | 'android'; last_seen_at: Ts }[]; error?: SyncError }
+export interface SyncStatus { enabled: boolean; backend?: 'icloud' | 'webdav'; state: 'off' | 'idle' | 'syncing' | 'error'; last_synced_at?: Ts; pending: number; sync_files: boolean; device: { id: string; name: string }; peers: { id: string; name: string; platform: 'macos' | 'windows' | 'linux' | 'ios' | 'android' | 'web'; last_seen_at: Ts }[]; error?: SyncError }
 export type SyncError = 'offline' | 'auth' | 'icloud_signed_out' | 'quota' | 'newer_format' | 'unknown';
 export type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavailable' | 'offline' | 'invalid_source' | 'busy' | 'invalid_params';
 

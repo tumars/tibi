@@ -2,7 +2,7 @@ import type { Provider } from '@tibi/core';
 import { useEffect, useState } from 'react';
 import { tl } from '../lib/i18n';
 import { deleteProvider, saveProvider } from '../lib/providers';
-import { errorInfo, rpc } from '../rpc';
+import { errorInfo, isWeb, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
 
@@ -44,7 +44,7 @@ export function ModelItems() {
       <span>{tl('模型')}</span><input className="input" value={editing.model ?? ''} onChange={e => setEditing({ ...editing, model: e.target.value })} placeholder="deepseek-flash" />
       <span>{tl('档位')}</span><select className="input" value={editing.tier ?? 'fast'} onChange={e => setEditing({ ...editing, tier: e.target.value as 'fast' | 'deep' })}><option value="fast">{tl('快速')}</option><option value="deep">{tl('深入')}</option></select>
       <span>API Key</span><input className="input" type="password" value={editing.key ?? ''} onChange={e => setEditing({ ...editing, key: e.target.value })} placeholder={editing.has_secret ? tl('已保存，留空不改') : 'sk-…'} />
-      <div className="row"><button className="btn sm pri" onClick={onSaveProvider}>{tl('保存')}</button><button className="btn sm" onClick={() => setEditing(undefined)}>{tl('取消')}</button><span className="lbl" style={{ alignSelf: 'center' }}>{tl('Key 只存在这台电脑上')}</span></div>
+      <div className="row"><button className="btn sm pri" onClick={onSaveProvider}>{tl('保存')}</button><button className="btn sm" onClick={() => setEditing(undefined)}>{tl('取消')}</button><span className="lbl" style={{ alignSelf: 'center' }}>{isWeb() ? tl('Key 只存在这个浏览器里') : tl('Key 只存在这台电脑上')}</span></div>
     </div>}
     {providers.length > 0 && !editing && <div className="item"><div className="lbl">{tl('添加其他 OpenAI 兼容服务')}</div><div className="ctl"><button className="btn sm" onClick={() => setEditing({ name: '', kind: 'llm', protocol: 'openai_compatible', base_url: '', model: '', tier: 'deep', is_default: false })}>{tl('添加')}</button></div></div>}
   </>;

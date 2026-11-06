@@ -4,9 +4,9 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { Dictionary } from '../components/Dictionary';
 import { lang, setLang, tl } from '../lib/i18n';
-import { PRESETS, saveProvider } from '../lib/providers';
+import { PRESETS, saveProvider, storeSecret } from '../lib/providers';
 import { fmtAgo, fmtDate, STATUS_NAMES } from '../lib/util';
-import { errorInfo, isTauri, rpc } from '../rpc';
+import { errorInfo, isWeb, rpc } from '../rpc';
 import type { SyncStatus } from '../rpc/methods';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
@@ -85,13 +85,13 @@ function Memories() {
 
 /** 同步（08 §10 手机：我 › 同步）：iPhone 上默认 iCloud Drive，也可以 WebDAV */
 function SyncPanel({ st, onChange }: { st?: SyncStatus; onChange: (s: SyncStatus) => void }) {
-  const [kind, setKind] = useState<'icloud' | 'webdav'>('icloud');
+  const [kind, setKind] = useState<'icloud' | 'webdav'>(isWeb() ? 'webdav' : 'icloud');
   const [dav, setDav] = useState({ url: '', user: '', pw: '' });
   const [busy, setBusy] = useState(false);
   const enable = async () => {
     setBusy(true);
     try {
-      if (kind === 'webdav' && dav.pw && isTauri()) { const { invoke } = await import('@tauri-apps/api/core'); await invoke('keyring_set', { ref: 'sync.webdav', secret: dav.pw }); }
+      if (kind === 'webdav' && dav.pw) await storeSecret('sync.webdav', dav.pw);
       const backend = kind === 'icloud' ? { kind } as const : { kind, url: dav.url.trim(), user: dav.user.trim(), password_ref: 'sync.webdav' } as const;
       const p = await rpc.call('sync.probe', { backend });
       if (!p.ok) { toast(p.error?.message ?? tl('连不上'), { kind: 'err' }); return; }
@@ -111,7 +111,7 @@ function SyncPanel({ st, onChange }: { st?: SyncStatus; onChange: (s: SyncStatus
   </>;
   return <><h2>{tl('同步')}</h2>
     <p className="note2">{tl('和电脑上的 Tibi 同步，经过你自己的 iCloud Drive 或 WebDAV 云盘。同步文件不加密。')}</p>
-    <div className="seg" style={{ marginTop: 10 }}><button className={kind === 'icloud' ? 'on' : ''} onClick={() => setKind('icloud')}>iCloud Drive</button><button className={kind === 'webdav' ? 'on' : ''} onClick={() => setKind('webdav')}>WebDAV</button></div>
+    <div className="seg" style={{ marginTop: 10 }}>{!isWeb() && <button className={kind === 'icloud' ? 'on' : ''} onClick={() => setKind('icloud')}>iCloud Drive</button>}<button className={kind === 'webdav' ? 'on' : ''} onClick={() => setKind('webdav')}>WebDAV</button></div>
     {kind === 'webdav' && <>
       <input className="field" value={dav.url} onChange={e => setDav({ ...dav, url: e.target.value })} placeholder="https://dav.jianguoyun.com/dav/Tibi" />
       <input className="field" value={dav.user} onChange={e => setDav({ ...dav, user: e.target.value })} placeholder={tl('邮箱或用户名')} />
@@ -134,7 +134,7 @@ export function ModelPanel({ onDone }: { onDone: () => void }) {
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } finally { setBusy(false); }
   };
   return <><h2>{tl('连接模型')}</h2>
-    <p className="note2">{tl('连上模型后才能讲解和总结。推荐 DeepSeek：便宜、中文好。Key 只存在这台手机上。')}</p>
+    <p className="note2">{isWeb() ? tl('连上模型后才能讲解和总结。推荐 DeepSeek：便宜、中文好。Key 只存在这个浏览器里。') : tl('连上模型后才能讲解和总结。推荐 DeepSeek：便宜、中文好。Key 只存在这台手机上。')}</p>
     <input className="field" type="password" value={key} onChange={e => setKey(e.target.value)} placeholder="DeepSeek API Key" autoCapitalize="off" autoCorrect="off" />
     <button className="btn pri full" style={{ marginTop: 14 }} disabled={!key.trim() || busy} onClick={() => void save()}>{busy ? tl('正在连接…') : tl('保存并测试')}</button>
     <p className="note2">{tl('其他 OpenAI 兼容的服务在电脑上的 设置 → 模型 里添加。')}</p>

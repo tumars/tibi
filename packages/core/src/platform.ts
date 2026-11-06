@@ -36,7 +36,7 @@ export interface Platform {
   /** 密钥：经壳按需取，只留内存（05 §8） */
   getSecret(ref: string): Promise<string | undefined>;
   /** 应用版本、平台 */
-  info(): { app_version: string; platform: 'macos' | 'windows' | 'linux' | 'ios' | 'android' | 'test'; db_path: string };
+  info(): { app_version: string; platform: 'macos' | 'windows' | 'linux' | 'ios' | 'android' | 'web' | 'test'; db_path: string };
   /** 是否在线（界面可提前知道 AI 跑不了） */
   isOnline(): boolean;
   /** 文件路径白名单（06 §1）：只认 pick_file 所选或拖入后由壳登记的路径 */

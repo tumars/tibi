@@ -68,15 +68,20 @@ export async function ocrPdf(buf: Uint8Array, onProgress?: (done: number, total:
 type PdfJs = { getDocument(o: { data: Uint8Array; isEvalSupported?: boolean }): { promise: Promise<{ numPages: number; getPage(i: number): Promise<{ getViewport(o: { scale: number }): { width: number; height: number }; render(o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }): { promise: Promise<void> }; cleanup(): void }>; destroy(): Promise<void> }> } };
 
 /**
- * 内存里的文件（拍书页：<input type="file"> 拿到的是 File，不是路径）：登记成 mem:… 路径交给导入流水线，
- * readBytes 读到 mem: 时从这里取，取一次就删（OCR 只读一遍）。只在手机（Core 在 WebView 里）用。
+ * 内存里的文件（<input type="file"> 拿到的是 File，不是路径）：登记成 mem:<id>/<文件名> 交给导入流水线（流水线按扩展名分类型），
+ * readBytes 读到 mem: 时从这里取。扫描版 PDF 要读两遍（抽取、OCR），所以不是读完就删，而是总量超过 300 MB 时删最早的。
+ * 手机拍书页、Web 版选文件用。
  */
 const memFiles = new Map<string, Uint8Array>();
+const MEM_LIMIT = 300 * 1024 * 1024;
 export async function registerMemFile(f: Blob): Promise<string> {
-  const id = `mem:${crypto.randomUUID()}`;
+  const name = (f as File).name?.replace(/[\\/]/g, '_') || 'file';
+  const id = `mem:${crypto.randomUUID()}/${name}`;
   memFiles.set(id, new Uint8Array(await f.arrayBuffer()));
+  let total = 0; for (const b of memFiles.values()) total += b.length;
+  for (const [k, b] of memFiles) { if (total <= MEM_LIMIT || k === id) break; memFiles.delete(k); total -= b.length; }
   return id;
 }
 export function takeMemFile(path: string): Uint8Array | undefined {
-  const b = memFiles.get(path); memFiles.delete(path); return b;
+  return memFiles.get(path);
 }

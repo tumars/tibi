@@ -1,7 +1,7 @@
 import { parseDeepLink, type DeepLink } from '@tibi/core/deeplink';
 
-/** 手机壳（Core 跑在 WebView 里）：页面比桌面少，设置都在"我的"里 */
-const isMobile = () => !!(window as { __TIBI_LOCAL_CORE__?: boolean }).__TIBI_LOCAL_CORE__;
+// 手机壳（手机端、窄屏的 Web 版）：页面比桌面少，设置都在"我的"里
+import { isMobileUi as isMobile } from '../rpc/client';
 
 /** tibi:// 深链 → 这个平台的路由；手机上没有的页面退回最接近的 */
 function routeOf(l: DeepLink, mobile = isMobile()): string {

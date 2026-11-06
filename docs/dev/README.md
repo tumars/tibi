@@ -124,6 +124,21 @@ pnpm --filter @tibi/desktop mobile:preview # Tauri 窗口里按手机的方式�
 
 **还没做 / 没验证**：iOS 上的 iCloud 同步代码写好了（`sync_fs.rs` 的 iOS 分支调 NSFileManager），CI 里 `cargo check --target aarch64-apple-ios` 通过，但没在真机上跑过（要 iCloud 权限和开发者账号）；Android 上 API Key 存在应用私有目录的 `secrets.json`（0600，`keys.rs`；`gen/android` 的备份规则把它排除在云端备份和换机迁移之外），值经 Android Keystore 加密（AES-256-GCM，密钥不出系统；壳里的小插件 `tibi-keystore`，Kotlin 在 `gen/android/app/src/main/java/app/tibi/KeystorePlugin.kt`），以前的明文读到时加密写回；`android-smoke` 会存一个假 Key、`run-as` 看文件里是不是密文（Actions 恢复后才跑过）；Safari 分享扩展和小组件：`ios-smoke` 在 iPhone 模拟器里验证了两个扩展编进应用、被系统登记，App Group 里有主应用写的小组件快照、分享收件箱里的网址被主应用取走；分享面板里点「导入」、主屏小组件的显示没在模拟器里点过（要真机或手动）。CI 里 `cargo check --features mobile-preview` 保证手机这条路至少能编译。
 
+## 6.1 Web 版
+
+设计见 [12-web.md](../design/12-web.md)。入口 `web.html`（`src/web/`）：和手机走同一个 `startLocalCore`（`mobile/local/runtime.ts`），壳换成 Worker 里的 sqlite-wasm + OPFS（`web/db.worker.ts`，命令名和 `local_db.rs` 一样）；跨域请求经 `web/net.ts` 和中转 `web/edge-functions/api/proxy.js`。
+
+```bash
+pnpm --filter @tibi/desktop webapp        # 先生成精简词典到 .web-dict/，再开 http://localhost:1420/web.html（/api/proxy 由 vite 插件跑同一份边缘函数）
+pnpm --filter @tibi/desktop build:webapp  # → apps/desktop/dist-web/（index.html、dict/、edge-functions/、edgeone.json）
+```
+
+- 词典要先有完整的 `dict.db`（`pnpm ecdict`）；`scripts/web-dict.mjs` 从它挑出约 7.5 万词，35 MB，gzip 后约 16 MB。
+- 同一个浏览器只能开一个 Tibi 标签页（OPFS 的库独占）；调试时第二个标签页会显示"已经在另一个标签页打开"。
+- 想清空：浏览器开发者工具 → Application → Storage → Clear site data。
+- 部署：`.github/workflows/webapp.yml`，推到 main 时打包；配了 `secrets.EDGEONE_API_TOKEN`（和可选的 `vars.EDGEONE_PROJECT`）才部署到 EdgeOne Makers。域名 `app.tibi.ferecord.com` 在 Makers 控制台绑定。本机手动部署：`npx edgeone@1.6.47 login -s china`（在自己的浏览器里完成，Claude 的内置浏览器连不回本机的登录回调），再 `npx edgeone@1.6.47 makers deploy apps/desktop/dist-web -n tibi-app`。项目和域名的实际配置见 12-web.md §7。
+- 单测 `apps/desktop/test/web.test.ts`：Worker 的数据库命令用 Node 版 sqlite-wasm 的内存库跑，中转函数用假的 fetch。
+
 ## 7. M0 的技术决定（T 组）
 
 见 [`docs/DECISIONS.md`](../DECISIONS.md#m0-技术决定t-组)。

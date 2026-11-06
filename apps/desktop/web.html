@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Tibi 网页版：读你感兴趣的英文文章，顺便把英语学会。数据存在你的浏览器里。" />
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <title>Tibi 网页版</title>
+    <script>
+      try { var t = localStorage.getItem('tibi-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/web/main.tsx"></script>
+  </body>
+</html>

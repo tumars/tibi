@@ -6,7 +6,7 @@ import { pickFile } from '../lib/files';
 import { tl } from '../lib/i18n';
 import { useTagEditor } from '../lib/useTagEditor';
 import { classifyInput, docSource, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
-import { errorInfo, rpc } from '../rpc';
+import { errorInfo, hasLocalCore, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { Empty, Sheet } from './ui';
 
@@ -71,7 +71,7 @@ export function ImportSheet({ open, onClose }: { open: boolean; onClose: () => v
   const camera = useRef<HTMLInputElement>(null); const photos = useRef<HTMLInputElement>(null);
   const fromPhotos = async (files: FileList | null) => {
     if (!files?.length) return;
-    if (!(window as { __TIBI_LOCAL_CORE__?: boolean }).__TIBI_LOCAL_CORE__) { toast(tl('浏览器开发模式不能选文件，请在桌面端里操作')); return; }
+    if (!hasLocalCore()) { toast(tl('浏览器开发模式不能选文件，请在桌面端里操作')); return; }
     const { registerMemFile } = await import('./local/files');
     const paths = await Promise.all([...files].map(registerMemFile));
     for (const r of [camera, photos]) if (r.current) r.current.value = '';

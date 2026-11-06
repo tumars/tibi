@@ -6,7 +6,7 @@ import { Fox } from '../components/Fox';
 import { sampleMeta } from '../components/Samples';
 import { PRESETS, saveProvider } from '../lib/providers';
 import { classifyInput, GENRE_NAMES, isImeKey } from '../lib/util';
-import { errorInfo, rpc } from '../rpc';
+import { errorInfo, isWeb, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
@@ -176,7 +176,7 @@ function ConnectModel({ onFox, onSay, onDone, onCancel, doneLabel, onBack }: { o
   return <>
     <div className="pane">
       <h1>{tl('连接一个模型')}</h1>
-      <p className="oblead">{tl('讲解、总结和语境释义需要模型。查词、标注和复习不需要。Key 只存在这台电脑上。')}</p>
+      <p className="oblead">{isWeb() ? tl('讲解、总结和语境释义需要模型。查词、标注和复习不需要。Key 只存在这个浏览器里。') : tl('讲解、总结和语境释义需要模型。查词、标注和复习不需要。Key 只存在这台电脑上。')}</p>
       <div className="prov">
         <button className={prov === 'deepseek' ? 'on' : ''} onClick={() => setProv('deepseek')}><b>DeepSeek <span className="tag">{tl('推荐')}</span></b><span>{tl('便宜、中文好；快速档 {fast}，深入档 {deep}', { fast: PRESETS.deepseek.fast, deep: PRESETS.deepseek.deep })}</span></button>
         <button className={prov === 'custom' ? 'on' : ''} onClick={() => setProv('custom')}><b>{tl('其他兼容 OpenAI 的服务')}</b><span>{tl('自己填 Base URL 和模型名')}</span></button>

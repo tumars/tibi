@@ -1108,5 +1108,12 @@
   "默认朗读方式": "Default voice",
   "两种朗读到处都有按钮，随时可以换；复习的快捷键、自动播放和全文朗读刚打开时用这里选的": "Both voices have buttons everywhere, so you can switch anytime. Review shortcuts, auto-play and read-aloud start with the one picked here",
   "默认语速": "Default speed",
-  "阅读器里朗读时还可以单独调": "You can also adjust it separately while reading in the reader"
+  "阅读器里朗读时还可以单独调": "You can also adjust it separately while reading in the reader",
+  "网页版": "Web",
+  "连上模型后才能讲解和总结。推荐 DeepSeek：便宜、中文好。Key 只存在这个浏览器里。": "Explanations and summaries need a model. We recommend DeepSeek: cheap and good at Chinese. Your key stays in this browser.",
+  "讲解、总结和语境释义需要模型。查词、标注和复习不需要。Key 只存在这个浏览器里。": "Explanations, summaries and in-context meanings need a model. Lookup, marking and review don't. Your key stays in this browser.",
+  "Key 只存在这个浏览器里": "Your key stays in this browser",
+  "和电脑、手机上的 Tibi 同步，经过你自己的 WebDAV 云盘（坚果云、Nextcloud 等）。网页版经 Tibi 的中转连接，中转不存任何内容": "Sync with Tibi on your computer and phone through your own WebDAV storage (Jianguoyun, Nextcloud, etc.). The web version connects through Tibi's relay, which stores nothing",
+  "存在这个浏览器里。清除网站数据会把它删掉，建议开启同步": "Stored in this browser. Clearing site data deletes it, so turning on sync is recommended",
+  "Tibi 已经在另一个标签页里打开了。同一时间只能开一个，先关掉那个再回来。": "Tibi is already open in another tab. Only one can be open at a time — close that one and come back."
 }

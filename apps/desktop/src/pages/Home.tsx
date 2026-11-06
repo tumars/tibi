@@ -10,11 +10,15 @@ import { Top } from '../components/Shell';
 import { ActionChip, ModelPicker, SlashMenu, useSlashMenu } from '../components/Composer';
 import { parseSlash, type SlashAction } from '../lib/slash';
 import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES, isImeKey } from '../lib/util';
-import { errorInfo, isTauri, rpc, type Result } from '../rpc';
+import { errorInfo, isTauri, isWeb, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
 import { DocCard } from './Library';
 import { tl } from '../lib/i18n';
+import { pickFiles, registerFiles } from '../lib/files';
+
+const IMPORTABLE = /\.(pdf|epub|docx|txt|md|markdown|png|jpe?g|webp|heic|tiff?)$/i;
+const IMAGE = /\.(png|jpe?g|webp|heic|tiff?)$/i;
 
 /**
  * 首页：与原型 docs/prototypes/home.html 对齐（00 §3.5，R13）。
@@ -93,6 +97,8 @@ export function Home() {
     e.preventDefault(); setOver(false);
     const f = e.dataTransfer.files[0];
     if (f && /\.(txt|md)$/i.test(f.name)) { await importSource({ type: 'text', text: await f.text() }); return; }
+    // Web 版：拖进来的文件直接读字节交给页面里的 Core
+    if (f && isWeb()) { await importFiles(await registerFiles([...e.dataTransfer.files].filter(x => IMPORTABLE.test(x.name)))); return; }
     if (f) { if (!isTauri()) toast(tl('浏览器开发模式只能拖入 .txt / .md；PDF、EPUB、DOCX 请在桌面端里拖入或点 +')); return; }   // 桌面端的文件拖入走下面的 Tauri 事件（拿得到路径）
     const t = e.dataTransfer.getData('text'); if (t) setText(t);
   };
@@ -102,25 +108,26 @@ export function Home() {
     let off: (() => void) | undefined;
     void import('@tauri-apps/api/webview').then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent(async ev => {
       if (ev.payload.type !== 'drop') return;
-      const paths = ev.payload.paths.filter(p => /\.(pdf|epub|docx|txt|md|markdown|png|jpe?g|webp|heic|tiff?)$/i.test(p));
+      const paths = ev.payload.paths.filter(p => IMPORTABLE.test(p));
       if (!paths.length) return;
       await rpc.call('system.registerPaths', { paths });
-      const images = paths.filter(p => /\.(png|jpe?g|webp|heic|tiff?)$/i.test(p));
-      if (images.length) await importSource({ type: 'images', paths: images });
-      for (const p of paths.filter(x => !images.includes(x))) await importSource({ type: 'file', path: p });
+      await importFiles(paths);
     })).then(f => { off = f; });
     return () => off?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pickFile = async () => {
-    if (!isTauri()) { toast(tl('浏览器里不能选文件，可以把 .txt / .md 拖进输入框')); return; }
-    const { invoke } = await import('@tauri-apps/api/core');
-    const r = await invoke<{ paths: string[] }>('pick_file', { kinds: ['txt', 'pdf', 'epub', 'docx', 'image'], multiple: true }).catch(e => { toast(String(e), { kind: 'err' }); return undefined; });
-    if (!r?.paths.length) return;
-    const images = r.paths.filter(p => /\.(png|jpe?g|webp|heic|tiff?)$/i.test(p));
+  // 图片合成一篇（OCR），别的文件一个一篇
+  const importFiles = async (paths: string[]) => {
+    const images = paths.filter(p => IMAGE.test(p));
     if (images.length) await importSource({ type: 'images', paths: images });
-    for (const p of r.paths.filter(x => !images.includes(x))) await importSource({ type: 'file', path: p });
+    for (const p of paths.filter(x => !images.includes(x))) await importSource({ type: 'file', path: p });
+  };
+
+  const pickFile = async () => {
+    if (!isTauri() && !isWeb()) { toast(tl('浏览器里不能选文件，可以把 .txt / .md 拖进输入框')); return; }
+    const paths = await pickFiles(['txt', 'pdf', 'epub', 'docx', 'image'], true).catch(e => { toast(String(e), { kind: 'err' }); return []; });
+    if (paths.length) await importFiles(paths);
   };
 
   const reading = docs.filter(d => d.progress > 0 && d.progress < 1);

@@ -7,6 +7,7 @@ import { tl } from '../lib/i18n';
  * - 浏览器里（pnpm web）：WebSocket 连 `pnpm core:dev`（ws://127.0.0.1:3456），协议与 stdio 一致
  * - ?mock=1：内存假数据，页面不依赖 Core 也能渲染（截图、样式调试）
  * - 手机（Tauri 移动端 / mobile-preview）：Core 跑在 WebView 里，直接调（mobile/local/runtime.ts）
+ * - Web 版（web.html）：Core 跑在页面里，数据库在 Worker 里（web/runtime.ts）
  */
 export class RpcError extends Error {
   constructor(message: string, public readonly code: string, public readonly rpcCode: number, public readonly detail?: unknown) { super(message); this.name = 'RpcError'; }
@@ -23,6 +24,15 @@ type Frame = { jsonrpc: '2.0'; id?: string | number | null; method?: string; par
 function toError(e: NonNullable<Frame['error']>) { return new RpcError(e.message, e.data?.code ?? 'internal', e.code, e.data?.detail); }
 
 export const isTauri = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+type Flags = { __TIBI_LOCAL_CORE__?: boolean; __TIBI_WEB__?: boolean; __TIBI_MOBILE_UI__?: boolean };
+const flags = (): Flags => (typeof window === 'undefined' ? {} : window as Flags);
+/** Web 版（12）：Core 跑在这个页面里，没有壳（web/main.tsx 设） */
+export const isWeb = () => !!flags().__TIBI_WEB__;
+/** Core 跑在页面里（手机端、Web 版）：文件经 <input type=file> 选、登记成 mem: 交给 Core */
+export const hasLocalCore = () => !!(flags().__TIBI_LOCAL_CORE__ || flags().__TIBI_WEB__);
+/** 用的是手机壳界面（手机端，或窄屏的 Web 版）：页面比桌面少，设置都在"我"里 */
+export const isMobileUi = () => !!(flags().__TIBI_LOCAL_CORE__ || flags().__TIBI_MOBILE_UI__);
 
 /** Tauri：请求经 Rust 转到 sidecar 的 stdio */
 async function tauriTransport(): Promise<Transport> {
@@ -82,7 +92,7 @@ class Rpc {
   private get t(): Promise<Transport> {
     if (!this.transport) {
       const mock = new URLSearchParams(location.search).get('mock');
-      this.transport = mock ? import('../mock').then(m => m.mockTransport()) : (window as { __TIBI_LOCAL_CORE__?: boolean }).__TIBI_LOCAL_CORE__ ? import('../mobile/local/runtime').then(m => m.localTransport()) : isTauri() ? tauriTransport() : Promise.resolve(wsTransport(import.meta.env.VITE_CORE_WS ?? 'ws://127.0.0.1:3456'));
+      this.transport = mock ? import('../mock').then(m => m.mockTransport()) : isWeb() ? import('../web/runtime').then(m => m.webTransport()) : flags().__TIBI_LOCAL_CORE__ ? import('../mobile/local/runtime').then(m => m.localTransport()) : isTauri() ? tauriTransport() : Promise.resolve(wsTransport(import.meta.env.VITE_CORE_WS ?? 'ws://127.0.0.1:3456'));
       void this.transport.then(tr => { this.kind = tr.kind; if (!this.bound) { this.bound = true; tr.onEvent((e, d) => this.listeners.get(e)?.forEach(fn => fn(d))); } });
     }
     return this.transport;

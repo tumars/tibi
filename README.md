@@ -112,6 +112,7 @@ pnpm dev                          # 或者直接 tauri dev（需要 Rust）
 - [09 应用图标](docs/design/09-app-icon.md)
 - [10 换用 pi SDK](docs/design/10-pi-sdk-migration.md)
 - [11 订阅（RSS）](docs/design/11-rss-reader.md)
+- [12 Web 版](docs/design/12-web.md)
 - 归档：[v1 视觉语言「纸与墨」](docs/design/archive/03-visual-language-v1.md)
 
 ### 调研

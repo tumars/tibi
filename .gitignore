@@ -32,3 +32,7 @@ apps/desktop/src-tauri/gen/apple/
 apps/desktop/src-tauri/gen/schemas/
 apps/desktop/src-tauri/binaries/ocr/*.wasm
 apps/desktop/src-tauri/binaries/ocr/*.cjs
+# Web 版（docs/design/12-web.md）：精简词典和构建产物
+apps/desktop/.web-dict/
+apps/desktop/dist-web/
+.edgeone/

@@ -6,7 +6,7 @@ import { tl } from '../lib/i18n';
 import { Markdown } from '../lib/md';
 import { SpeakButtons } from './Speak';
 import type { WidgetStates } from '../lib/useChat';
-import { errorInfo, rpc } from '../rpc';
+import { errorInfo, isMobileUi, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import './widgets.css';
 
@@ -146,7 +146,7 @@ const hostOf = (url: string) => { try { return new URL(url).host.replace(/^www\.
 /** Tibi 不能改的设置：只把人带过去 */
 function SettingsLinkCard({ b }: { b: Of<'settings_link'> }) {
   // 手机没有设置页，设置都在"我的"里
-  const mobile = !!(window as { __TIBI_LOCAL_CORE__?: boolean }).__TIBI_LOCAL_CORE__;
+  const mobile = isMobileUi();
   return <div className="wg">
     <div>{b.data.reason}</div>
     <div className="wg-acts"><button className="btn sm pri" onClick={() => { location.hash = mobile ? '/me' : `/settings?sec=${encodeURIComponent(b.data.section)}`; }}>{tl('打开设置 · {name}', { name: tl(b.data.label) })}</button></div>
