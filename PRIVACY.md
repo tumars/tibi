@@ -2,6 +2,10 @@
 
 Tibi 是一个本地应用：没有服务器、不需要账号、不收集任何使用数据或崩溃报告。
 
+Mac App Store 版本的数据保存在 macOS 沙盒容器 `~/Library/Containers/app.tibi/Data/Library/Application Support/app.tibi/`，与官网版的应用数据目录分开。商店版通过 Mac App Store 更新，不连接下文所列的 Tibi 更新源或公告源。
+
+首个 Mac App Store 版本仅提供 WebDAV 同步，不提供 iCloud、本地文件夹同步或外部 MCP 接入。商店版连接第三方 AI 模型前会说明数据接收方及发送内容，并征求同意；取消不会保存连接。可在设置中删除模型连接以停止后续发送，已经发送的数据由对应服务商按其政策处理。
+
 ## 数据存在哪里
 
 - **学习数据**（文章、生词、复习记录、对话、记忆、设置）：本机的 SQLite 数据库 `app.db`，在系统的应用数据目录里——macOS `~/Library/Application Support/app.tibi/`，Windows `%APPDATA%\app.tibi\`，Linux `~/.local/share/app.tibi/`。备份文件、OCR 语言包、MCP 令牌也在这里。

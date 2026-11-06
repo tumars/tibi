@@ -90,6 +90,8 @@ impl CoreProcess {
     pub fn start(&self) -> Result<(), String> {
         let mut cmd = self.command()?;
         cmd.arg("--stdio").arg("--db").arg(self.db_path());
+        #[cfg(feature = "app-store")]
+        cmd.arg("--no-mcp");
         if let Some(d) = self.dict_path() {
             cmd.arg("--dict").arg(d);
         }

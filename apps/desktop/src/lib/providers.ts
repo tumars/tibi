@@ -1,5 +1,7 @@
 import type { Provider } from '@tibi/core';
 import { isTauri, rpc } from '../rpc';
+import { tl } from './i18n';
+import { isAppStore } from './update';
 
 export type ProviderDraft = Partial<Provider> & { key?: string };
 
@@ -15,6 +17,19 @@ export async function storeSecret(ref: string, key: string): Promise<boolean> {
 }
 
 export async function saveProvider(d: ProviderDraft): Promise<{ provider: Provider; keyStored: boolean }> {
+  if (isAppStore) {
+    const endpoint = d.base_url || 'https://api.deepseek.com';
+    const consentKey = `tibi.ai-sharing.v1:${endpoint}`;
+    if (localStorage.getItem(consentKey) !== 'yes') {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const accepted = await invoke<boolean>('confirm_ai_sharing', {
+        message: tl('启用 AI 后，Tibi 会将任务需要的文章、句子、问题和学习信息发送给你选择的第三方模型服务：{service}（{url}）。对方按其隐私政策处理数据。你可以在设置中删除连接，停止发送。是否同意？', { service: d.name || 'DeepSeek', url: endpoint }),
+        agree: tl('同意并连接'), cancel: tl('取消'),
+      });
+      if (!accepted) throw new Error(tl('未同意分享，模型连接未保存'));
+      localStorage.setItem(consentKey, 'yes');
+    }
+  }
   const ref = secretRef(d.name ?? 'llm');
   const keyStored = d.key ? await storeSecret(ref, d.key) : false;
   const provider = await rpc.call('providers.upsert', { provider: { id: d.id, kind: d.kind ?? 'llm', name: d.name ?? 'DeepSeek', protocol: d.protocol ?? 'openai_compatible', base_url: d.base_url, auth: 'api_key', tier: d.tier ?? 'fast', model: d.model ?? 'deepseek-flash', is_default: d.is_default ?? true }, secret_ref: d.key ? ref : undefined });

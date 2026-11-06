@@ -12,6 +12,10 @@
 
 ## 已验证
 
+2026-11-06 后续进展：浏览器和桌面控制已恢复；完整沙盒预览 App 已实际通过首次引导、示例阅读和预生成总结、compiler 词典查询、加入生词本、手动备份、系统文件选择器导入文本。预览签名为 Developer ID，不能代替商店签名上传验证。
+
+Apple 后台已创建 `app.tibi` 和 Tibi 应用记录（Apple ID `6831512333`），团队 `8XT8SVL7H6`。Application / Installer 两张商店证书及描述文件已签发、导入本机钥匙串；私钥和证书材料仅保留在用户私有配置目录，不进入仓库。用户确认免费、除欧盟地区首发、精简高级功能。审核联系方式在 App Store Connect 填写，不在仓库记录电话。
+
 - 从现有发行版复制 Bun Core 到独立测试 App，使用 `app.tibi.sandboxprobe` 标识和 Developer ID 签名，启用 App Sandbox、JIT、网络权限。
 - 实际调用 `system.status`、`search.query`（compiler）、`system.backup` 成功；数据库和备份位于测试容器中。
 - 尝试在 Documents 下创建另一个测试数据库返回 `EPERM`，说明沙盒限制确实生效；未修改现有学习数据。

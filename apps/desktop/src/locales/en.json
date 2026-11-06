@@ -1,4 +1,10 @@
 {
+  "启用 AI 后，Tibi 会将任务需要的文章、句子、问题和学习信息发送给你选择的第三方模型服务：{service}（{url}）。对方按其隐私政策处理数据。你可以在设置中删除连接，停止发送。是否同意？": "When AI is enabled, Tibi sends the articles, sentences, questions and learning information needed for each task to your chosen third-party model service: {service} ({url}). The service processes data under its privacy policy. Delete the connection in Settings to stop sharing. Do you agree?",
+  "同意并连接": "Agree and connect",
+  "未同意分享，模型连接未保存": "Sharing was not approved. The model connection was not saved.",
+  "通过你自己的 WebDAV 云盘同步。没有 Tibi 的服务器": "Sync through your own WebDAV storage. Tibi does not operate a sync server.",
+  "隐私政策": "Privacy policy",
+  "查看隐私政策": "View privacy policy",
   "请通过 Mac App Store 更新 Tibi": "Update Tibi through the Mac App Store",
   "Tibi {v0} 可以更新了": "Tibi {v0} is available",
   "去看看": "Take a look",

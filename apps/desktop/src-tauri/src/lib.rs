@@ -121,6 +121,7 @@ async fn save_text_file(app: AppHandle, default_name: String, text: String) -> R
 }
 
 /// MCP 接入配置用（06 §6）：sidecar 可执行文件的路径（安装包里和主程序放在一起）与 app 数据目录
+#[cfg(feature = "direct-distribution")]
 #[tauri::command]
 fn mcp_command(app: AppHandle) -> Result<Value, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
@@ -208,6 +209,14 @@ fn handle_deep_link(app: &AppHandle, urls: &[tauri::Url]) {
             let _ = w.set_focus();
         }
     }
+}
+
+#[cfg(not(feature = "direct-distribution"))]
+#[tauri::command]
+async fn confirm_ai_sharing(app: AppHandle, message: String, agree: String, cancel: String) -> bool {
+    app.dialog().message(message).title("Tibi")
+        .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom(agree, cancel))
+        .blocking_show()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -383,7 +392,7 @@ fn run_desktop() {
     #[cfg(feature = "direct-distribution")]
     let builder = builder.invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command, update::update_check, update::update_install, update::update_mirror_asset]);
     #[cfg(not(feature = "direct-distribution"))]
-    let builder = builder.invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command]);
+    let builder = builder.invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, confirm_ai_sharing]);
     builder.run(tauri::generate_context!())
         .expect("Tibi 启动失败");
 }
