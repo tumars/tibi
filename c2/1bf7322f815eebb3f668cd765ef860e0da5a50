@@ -1,0 +1,24 @@
+docs/design/13-mac-app-store.md
+  s_f18e3ee75ab0a8::t_4baff063ff57a4 3,21-22
+apps/desktop/src-tauri/tauri.appstore.conf.json
+  s_f18e3ee75ab0a8::t_4baff063ff57a4 26
+docs/dev/mac-app-store.md
+  s_f18e3ee75ab0a8::t_0655d314771f3b 18-21,23
+  s_f18e3ee75ab0a8::t_4baff063ff57a4 5,8-9,14-17,22,54,57-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c21bf7322f815eebb3f668cd765ef860e0da5a50",
+  "prompts": {},
+  "sessions": {
+    "s_f18e3ee75ab0a8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ab29-189a-7691-996c-e69e870cbd68",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
