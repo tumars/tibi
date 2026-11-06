@@ -1,0 +1,49 @@
+apps/desktop/src/locales/en.json
+  s_f18e3ee75ab0a8::t_be1f76dc081fa3 2
+docs/CHANGELOG.md
+  s_f18e3ee75ab0a8::t_29abe54a682581 7
+docs/dev/README.md
+  s_f18e3ee75ab0a8::t_29abe54a682581 65-66
+docs/design/13-mac-app-store.md
+  s_f18e3ee75ab0a8::t_29abe54a682581 1-22
+apps/desktop/src/settings/UpdateItems.tsx
+  s_f18e3ee75ab0a8::t_be1f76dc081fa3 4,15
+  s_f18e3ee75ab0a8::t_1d1ff87dbe08dc 16
+apps/desktop/test/update.test.ts
+  s_f18e3ee75ab0a8::t_29abe54a682581 1,40-57
+  s_f18e3ee75ab0a8::t_9b7f29bc1e4d1d 58-59
+apps/desktop/src-tauri/tauri.appstore.conf.json
+  s_f18e3ee75ab0a8::t_be1f76dc081fa3 1-35
+apps/desktop/src-tauri/Entitlements.appstore-core.plist
+  s_f18e3ee75ab0a8::t_be1f76dc081fa3 1-7
+apps/desktop/src-tauri/Cargo.toml
+  s_f18e3ee75ab0a8::t_2c8fcec10b946f 16
+  s_f18e3ee75ab0a8::t_be1f76dc081fa3 15,17,43
+apps/desktop/src-tauri/src/lib.rs
+  s_f18e3ee75ab0a8::t_be1f76dc081fa3 4-6,15,281-283,325,382-387
+apps/desktop/src-tauri/Entitlements.appstore.plist
+  s_f18e3ee75ab0a8::t_be1f76dc081fa3 1-8
+apps/desktop/src/lib/update.ts
+  s_f18e3ee75ab0a8::t_be1f76dc081fa3 10,14,51
+docs/dev/mac-app-store.md
+  s_f18e3ee75ab0a8::t_ae45300d50d512 24
+  s_f18e3ee75ab0a8::t_29abe54a682581 1-9,11-19,25-39,41-43
+  s_f18e3ee75ab0a8::t_05ba205965fba4 10,20-23
+  s_f18e3ee75ab0a8::t_2c8fcec10b946f 40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "dc5f29d9bb25613f9b0de00690f66ceca77be61a",
+  "prompts": {},
+  "sessions": {
+    "s_f18e3ee75ab0a8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ab29-189a-7691-996c-e69e870cbd68",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
