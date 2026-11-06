@@ -23,7 +23,7 @@
     "copyright": "Copyright © 2026 hui zhang",
     "createUpdaterArtifacts": false,
     "macOS": {
-      "bundleVersion": "1",
+      "bundleVersion": "2",
       "entitlements": "Entitlements.appstore.plist"
     },
     "resources": {

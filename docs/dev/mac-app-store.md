@@ -2,15 +2,24 @@
 
 ## 当前状态（2026-11-06）
 
-未上传 App Store Connect，未提交审核，未发布。
+首个包已上传但被 Apple 处理阶段拒绝；修正版 0.1.0 (2) 已准备，尚未提交审核、未发布。
 
 - 独立工作目录 `/Users/zhanghui/Documents/github/tibi-appstore`，分支 `codex/mac-app-store`，基于 `aaf9b34`，没有包含原工作区尚未提交的 Web 版等修改。
-- 本机可用代码签名身份只有 `Developer ID Application: hui zhang (8XT8SVL7H6)`；商店证书和描述文件尚未准备。
-- 原生浏览器控制两次超时；备用 Kimi WebBridge daemon 已启动，但返回 `no extension connected`。等待用户连接浏览器扩展，尚未读取 Apple 后台状态。
-- 屏幕截图确认当前为“ChatGPT is Using Your Mac / Press any key or click to unlock”锁定画面；已请用户恢复桌面，界面操作仍不可用。
+- 商店 Application / Installer 证书及描述文件已准备，本机签名可用。
+- 浏览器控制已恢复并完成商店资料操作；重新上传修正版时电脑再次锁定，待恢复桌面后继续 Transporter。
 - 设计边界及未完成项见 [商店分发设计](../design/13-mac-app-store.md)。
 
 ## 已验证
+
+Apple 于 2026-11-06 16:28（Asia/Singapore）邮件返回 **ITMS-91109**：`Contents/embedded.provisionprofile` 带 `com.apple.quarantine`。Transporter“已交付”不代表构建处理成功。从已交付原件解包，将 CFBundleVersion 提升到 2，移除产物中该属性、重新签名并打包，保存为 `~/Documents/releases/tibi-app-store-0.1.0/Tibi-0.1.0-2.pkg`。再次解包确认无 quarantine，并通过深度严格签名检查；不是从截图构建取包。
+
+两张真实截图（2560×1600）已上传，刷新后仍显示 2 张。审核联系人、电话、邮箱和英文 Notes 已用原生界面保存并刷新核验；无需登录、审核后自动发布设置保持。用户确认后隐私声明已发布。TestFlight 当时仍显示 No Builds，须待修正版处理成功后关联版本。
+
+2026-11-06 16:27（Asia/Singapore）：从本分支源码重建 Bun Core 和桌面壳，分别使用商店 Application / Installer 证书签名，`codesign --verify --deep --strict` 与 `pkgutil --check-signature` 通过。Transporter 已成功交付 **0.1.0 (1)**，Apple ID `6831512333`，此时后台仍在处理，尚未提交审核。交付包保存在 `~/Documents/releases/tibi-app-store-0.1.0/Tibi-0.1.0-1.pkg`。
+
+商店与官网两套 Rust clippy 严格检查、桌面类型检查、1117 条文案检查和 11 项更新/公告测试通过。沙盒重启后仍可读取先前的 2 篇文章和 1 个生词；WebDAV 唯一同步选项已在实际界面确认。正式截图来自同源码的沙盒预览（仅窗口宽度改为 1280，Developer ID 本地测试签名），原始像素为 2560×1600。截图构建会覆盖 target 下的 `.app`，交付的 `.pkg` 为此前保存的商店签名原件，不应以截图构建替换。
+
+后台已保存中文介绍、教育分类、0.1.0 版本号、审核联系方式和无需登录设置；免费定价、148 个非欧盟地区已配置，欧盟 27 国未选，未来新增地区不自动加入。年龄分级问卷结果为 16+。隐私链接已公开并保存；已发布的隐私标签包含可选第三方 AI 的用户内容、称呼、账号标识、搜索和学习活动，与服务账号关联、不用于追踪。
 
 2026-11-06 后续进展：浏览器和桌面控制已恢复；完整沙盒预览 App 已实际通过首次引导、示例阅读和预生成总结、compiler 词典查询、加入生词本、手动备份、系统文件选择器导入文本。预览签名为 Developer ID，不能代替商店签名上传验证。
 
@@ -42,6 +51,8 @@ pnpm --filter @tibi/desktop tauri build \
 
 注意 Tauri CLI 的 `--no-default-features` 必须放在 `--` 之后，传给 Cargo。
 Tauri CLI 会根据配置增删 `Cargo.toml` 中直接声明的 `macos-private-api` dependency feature；不能把它放入 Cargo feature 转发，因为 Tauri 的 manifest 校验只检查直接声明。商店构建后该 feature 被移除，回到官网构建需先运行官网的 Tauri build/dev 使其恢复（或恢复该行），再直接运行 Cargo 检查。商店 release 的实际 Tauri feature 列表已检查，未包含 `macos-private-api`。
-这里的 ad-hoc 签名只用于构建检查，不能上传商店。当前本地构建测试复用了已安装 0.1.0 的 Core/OCR/词典；正式候选包必须从最终源码重新构建 Core。
+这里的 ad-hoc 签名只用于构建检查，不能上传商店。早期测试曾复用已安装 0.1.0 的 Core；正式候选包已从最终源码重建 Core。
 
 最终签名须先为嵌套 Core 使用 `Entitlements.appstore-core.plist`，再为主 App 使用商店 entitlements（加入与描述文件一致的 App ID / Team ID），嵌入 `embedded.provisionprofile`，校验后用 Mac Installer Distribution 证书通过 `productbuild` 制作 `.pkg`。上传前必须完成完整沙盒功能测试。
+
+嵌入从浏览器下载的描述文件后，应在**构建副本**移除该文件的 `com.apple.quarantine` 属性，再签名和打包。不能仅凭清理命令退出码判断成功：使用 `pkgutil --expand-full` 解包最终产物，检查 `xattr -lr` 输出无 quarantine，运行 `codesign --verify --deep --strict` 与 `pkgutil --check-signature`。本次 `xattr -cr` 后属性仍存在，显式 `xattr -d com.apple.quarantine <构建副本描述文件>` 才生效。
