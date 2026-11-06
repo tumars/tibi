@@ -1,0 +1,151 @@
+apps/desktop/src/rpc/client.ts
+  s_f6213555fc0bae::t_2dc5461deb8f01 28-36
+  s_f6213555fc0bae::t_cd32b342753b28 95
+  s_f6213555fc0bae::t_8177162eb1010e 10
+apps/desktop/src/web/dbhost.ts
+  s_f6213555fc0bae::t_03d7f1c873dd21 1-55
+apps/desktop/src/pages/Home.tsx
+  s_f6213555fc0bae::t_f5d7e1440daa40 13,18-21
+  s_f6213555fc0bae::t_07aee3e9e5c143 111,114,120-122,124-130
+  s_f6213555fc0bae::t_99d82968262158 100-101
+apps/desktop/test/web.test.ts
+  s_f6213555fc0bae::t_ebe268c352a4cf 1-141
+.github/workflows/webapp.yml
+  s_f6213555fc0bae::t_ce0e852fb01e26 1-69
+PRIVACY.md
+  s_f6213555fc0bae::t_dddd3bd3877261 33-41
+  s_f6213555fc0bae::t_21c22bfa9a7f2b 3
+packages/core/src/types.ts
+  s_f6213555fc0bae::t_798277888064df 174
+apps/desktop/src/locales/en.json
+  s_f6213555fc0bae::t_d6e20e09b01f3b 1113-1115
+  s_f6213555fc0bae::t_30fefdbdf61223 1117
+  s_f6213555fc0bae::t_67e32740711f88 1116
+  s_f6213555fc0bae::t_74c5701cb14691 1111-1112,1118
+apps/desktop/src/mobile/local/files.ts
+  s_f6213555fc0bae::t_090ba905c053d1 71-73,76,78-79,81-82,86
+apps/desktop/src/lib/providers.ts
+  s_f6213555fc0bae::t_1ba001d3b6cdb0 2,9,11,18-22
+  s_f6213555fc0bae::t_a77a6fc4e8cd2b 35
+  s_f6213555fc0bae::t_6d15f3a575fd65 23-24
+apps/desktop/vite.config.ts
+  s_f6213555fc0bae::t_370815559a9e6d 3-4,6,9-42,46-47,57-58,65-67
+apps/desktop/src/mobile/Library.tsx
+  s_f6213555fc0bae::t_baf1037014dab8 74
+  s_f6213555fc0bae::t_f602bc9f61f2c6 9
+apps/desktop/web/edgeone.json
+  s_f6213555fc0bae::t_dbc05256468118 1-8,10-21
+  s_f6213555fc0bae::t_97ff4f8680670e 9
+apps/desktop/src/web/secrets.ts
+  s_f6213555fc0bae::t_802ab3b8a5190f 1-25
+apps/desktop/web/edge-functions/api/proxy.js
+  s_f6213555fc0bae::t_7a3248820f8b6a 72-73
+  s_f6213555fc0bae::t_03a8ac1c0e0973 1-71,74-82
+apps/desktop/src/settings/ModelItems.tsx
+  s_f6213555fc0bae::t_07d4bbf3a1cc9b 5
+  s_f6213555fc0bae::t_6239b997bd86ab 47
+packages/core/src/platform.ts
+  s_f6213555fc0bae::t_98d173762645db 39
+apps/desktop/src/web/main.tsx
+  s_f6213555fc0bae::t_066fb95facddbf 1-43
+apps/desktop/src/settings/SyncItems.tsx
+  s_f6213555fc0bae::t_ccdb694a5a143f 48
+  s_f6213555fc0bae::t_6ec4ad7b205464 24
+  s_f6213555fc0bae::t_f3462de25530f6 5
+  s_f6213555fc0bae::t_0c6e72944bf460 17-19
+  s_f6213555fc0bae::t_d0f1a115ca7af8 88
+  s_f6213555fc0bae::t_46e88fdab7e2ca 85
+apps/desktop/src/web/db.worker.ts
+  s_f6213555fc0bae::t_7592d33e9bd550 1-99
+apps/desktop/src/lib/deeplink.ts
+  s_f6213555fc0bae::t_921143329fbddd 4
+  s_f6213555fc0bae::t_018dee3aa72df8 3
+apps/desktop/src/pages/Onboarding.tsx
+  s_f6213555fc0bae::t_fd85834d80fd63 179
+  s_f6213555fc0bae::t_b4b68f71b9ae06 9
+apps/desktop/src/web/runtime.ts
+  s_f6213555fc0bae::t_860735c6336d59 1-55
+apps/desktop/src/lib/files.ts
+  s_f6213555fc0bae::t_e4180d3526a415 1,5,16,18-28,30-48
+apps/desktop/src/web/net.ts
+  s_f6213555fc0bae::t_5fddb109798fd5 1-43
+apps/desktop/scripts/web-dict.mjs
+  s_f6213555fc0bae::t_2fd60a3b92baf3 1-66
+apps/desktop/scripts/build-webapp.mjs
+  s_f6213555fc0bae::t_5fd66383b34d44 1-22,24-29
+  s_f6213555fc0bae::t_493db94820b647 23
+apps/desktop/src/pages/Settings.tsx
+  s_f6213555fc0bae::t_e7c299ba4c7b22 141-143
+  s_f6213555fc0bae::t_ae09c17179ff93 148-149
+  s_f6213555fc0bae::t_bf0d383ec8ec51 156
+  s_f6213555fc0bae::t_8eca505e5f1592 19
+apps/desktop/web.html
+  s_f6213555fc0bae::t_71b207a69b7d9f 1-17
+apps/desktop/src/rpc/index.ts
+  s_f6213555fc0bae::t_2bef85633ffb53 1
+apps/desktop/package.json
+  s_f6213555fc0bae::t_975a041e87a89c 29
+  s_f6213555fc0bae::t_a9ed5c4e5abfe6 21-22
+apps/desktop/src/mobile/Me.tsx
+  s_f6213555fc0bae::t_1796be26536417 7
+  s_f6213555fc0bae::t_d38cb5ae503308 88
+  s_f6213555fc0bae::t_4721ce99d0be13 9
+  s_f6213555fc0bae::t_ec6a74fcfb661e 114
+  s_f6213555fc0bae::t_4bd425b17dfe6c 137
+  s_f6213555fc0bae::t_928b8ea36c4d55 94
+apps/desktop/public/web-sw.js
+  s_f6213555fc0bae::t_c9319595ccbb45 1-26
+apps/desktop/src/components/Widgets.tsx
+  s_f6213555fc0bae::t_4d1900e204174a 149
+  s_f6213555fc0bae::t_a1b5a8668b15ec 9
+.gitignore
+  s_f6213555fc0bae::t_18c3f0cd09d55d 38
+  s_f6213555fc0bae::t_3a5111e7f209c3 35-37
+docs/design/12-web.md
+  s_f6213555fc0bae::t_f1742f5357fe76 45-46
+  s_f6213555fc0bae::t_acc608b8cffa67 81
+  s_f6213555fc0bae::t_4e9f031995e0ad 1-2,4-44,47-80,85-94,96
+  s_f6213555fc0bae::t_4849d4cad04ac0 3
+  s_f6213555fc0bae::t_842208923c0be1 82-84
+  s_f6213555fc0bae::t_064740fb4251f6 95
+apps/desktop/src/mobile/local/runtime.ts
+  s_f6213555fc0bae::t_fbef5f31b20d5d 68,71
+  s_f6213555fc0bae::t_9d62a6c7a1e1e9 113
+  s_f6213555fc0bae::t_eb3db5500a8e30 49
+  s_f6213555fc0bae::t_59512e77207f27 118-119
+  s_f6213555fc0bae::t_8d23953f23b4cd 8-10,14-17,20-22,25-29,32,34,38,42-48,50-61,63-66,75,86,94,96,98,110-111
+  s_f6213555fc0bae::t_2f21c0174b0281 23-24
+  s_f6213555fc0bae::t_c689191c05f6b2 18-19
+apps/desktop/src/lib/imageSrc.ts
+  s_f6213555fc0bae::t_55eacdc353ade8 2
+  s_f6213555fc0bae::t_39b238267b0c64 15-17
+  s_f6213555fc0bae::t_3fb484427ba297 6
+docs/dev/README.md
+  s_ef50abc14da0c4::t_35c7a89a0ebbbc 127-141
+pnpm-lock.yaml
+  s_f6213555fc0bae::t_adb4316cfb15cc 32-34,1231-1234,3973-3974
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e548cd99e0cd119f7e01cb571895f56da7d817eb",
+  "prompts": {},
+  "sessions": {
+    "s_ef50abc14da0c4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1aa8e-2723-7c31-8623-9d5009f16b2e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_f6213555fc0bae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0960ef0-7dc2-431a-a8f1-4e9f8803b166",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
