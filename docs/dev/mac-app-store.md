@@ -1,6 +1,38 @@
 # Mac App Store 发布准备
 
-## 当前状态（2026-11-06）
+## 当前状态（2026-11-09）
+
+**0.1.0 (3) 已于 11 月 9 日 00:22（Asia/Singapore）重新提交，App Store Connect 显示 Waiting for Review，尚未审核通过或上架。** Transporter 显示 00:15 已交付且 App 已完成处理；后台构建上传时间为 00:16。构建 3 已关联到版本 0.1.0，加密合规保持标准加密算法、法国不发行，审核 Notes 已补充 ICU 修复说明。审核记录仍为下文同一个提交 ID。
+
+构建 2 于 11 月 7 日 15:22 被拒，Apple 的自动反馈列出 129 个非公开或已弃用 ICU API。对正式 `Tibi-0.1.0-2.pkg` 解包检查确认这些引用位于 `Contents/MacOS/tibi-core`，链接 `/usr/lib/libicucore.A.dylib`。
+
+修复由 `apps/desktop/scripts/appstore-icu.mjs` 实现：构建并打包上游 ICU 78.3，自带实现和数据，改写 Core 依赖到包内 Frameworks，不再调用系统 ICU。脚本必须在最终签名前执行，库也需要独立签名。
+
+### 构建 3 验证（11 月 9 日）
+
+- 基于已交付构建 2 的正式 `.pkg` 解包副本制作，业务代码未变（对应 `e636267` 的商店分支；Bun 1.4.4）。仅提高 `CFBundleVersion` 为 3、增加 ICU 与许可证、改变 Core 动态库依赖，再依次重新签名 dylib、Core 和 App。没有复用本地截图 App。
+- 上游 ICU 78.3 源码 SHA-256：`3a2e7a47604ba702f345878308e6fefeca612ee895cf4a5f222e7955fabfe0c0`。编译为 macOS 13 arm64，静态合并 common、i18n 和 data 为一个自有 dylib；不依赖 Homebrew 或系统 ICU。
+- Core 的 180 个 ICU 导入均由包内库实现；Apple 列出的 129 个符号全部对应包内实现，最终 pkg 解包后复核通过。
+- `appstore-smoke.mjs` 使用实际 Core 验证日期/时区、数字及范围格式、排序、分词、复数、相对时间、列表、语言地区和 Unicode 归一化；实际 RPC 的启动、词典、文章导入/读取、搜索、备份及重启持久化通过，测试数据使用独立临时目录。
+- 独立沙盒预览 `/Users/zhanghui/Applications/Tibi ICU Validation.app` 使用标识 `app.tibi.icuvalidation`，不触碰原学习数据。首次引导、示例《How a Compiler Sees Your Code》阅读/预生成总结、compiler 离线查词、加入生词本均通过。Core 使用新容器内数据库、包内词典，进程映射确认加载包内 ICU。预览用 Developer ID 签名，正式 pkg 使用商店签名。
+- 最终 pkg 的深度严格签名检查和 Installer 证书链检查通过；解包无 `com.apple.quarantine`，Info.plist 为构建 3。实际模型服务、WebDAV、OCR 未在此次修复中完整复测。
+- 已交付并提审文件：`~/Documents/releases/tibi-app-store-0.1.0/Tibi-0.1.0-3.pkg`；SHA-256：`a0bcadbe3de82a1289119d85b20073d0facfed2707ba1b76bf4046abdaf8eb02`。
+
+### 后续构建的 ICU 步骤
+
+在 `apps/desktop` 目录、Tauri 商店构建之后执行：
+
+```sh
+node scripts/appstore-icu.mjs /path/to/Tibi.app
+```
+
+脚本下载并校验固定源码，缓存到 `src-tauri/target/appstore-icu-78.3/`，构建随包库和许可证，并校验所有 ICU 导入都有实现。可通过标准 `HTTPS_PROXY` 环境变量使用本机代理；不把代理地址写进脚本。
+
+对**测试副本**的 dylib 和 Core 使用 Developer ID 签名，Core 暂用 `Entitlements.mac.plist`（仅 JIT）后可运行 `node scripts/appstore-smoke.mjs /path/to/Tibi.app`。这项 RPC 验证不替代完整沙盒 App 验证。
+
+正式签名顺序为 `Contents/Frameworks/libTibiICU.dylib` → `Contents/MacOS/tibi-core`（`Entitlements.appstore-core.plist`）→ App（`Entitlements.appstore.plist`），均使用商店 Application 证书；然后使用 Installer 证书生成 pkg。修改动态库路径会使旧签名失效，不能漏掉重新签名与最终解包检查。
+
+## 上次提交（2026-11-06）
 
 **0.1.0 (2) 已于 2026-11-06 17:19（Asia/Singapore）成功提交 App Review，尚未审核通过或上架。** 页面返回 `1 Item Submitted`，提示审核可能需要最多 48 小时。已设置审核通过后自动发布。
 
