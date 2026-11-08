@@ -1,0 +1,32 @@
+docs/design/13-mac-app-store.md
+  s_75acc629fbba17::t_280b6911a6b893 11
+  s_75acc629fbba17::t_bedb7c8ffb5dba 3,23
+apps/desktop/scripts/appstore-icu.mjs
+  s_75acc629fbba17::t_d0e733ab7a1c6a 28
+  s_75acc629fbba17::t_86a3096c8bc260 1-27,29-59,66
+  s_75acc629fbba17::t_6e9545c282339d 60-65
+apps/desktop/src-tauri/tauri.appstore.conf.json
+  s_75acc629fbba17::t_86a3096c8bc260 26
+docs/dev/mac-app-store.md
+  s_75acc629fbba17::t_b7a67b024c0aa3 9-18,20-33
+  s_75acc629fbba17::t_280b6911a6b893 3-4,6,34-35
+  s_75acc629fbba17::t_bedb7c8ffb5dba 5,7-8,19
+apps/desktop/scripts/appstore-smoke.mjs
+  s_75acc629fbba17::t_9fd60fbf657734 1-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d299dc78dbcb8576af315aaca04e0012a3e7508e",
+  "prompts": {},
+  "sessions": {
+    "s_75acc629fbba17": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1bbdc-9d4f-7ab3-9b00-95ac717ab7e6",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
