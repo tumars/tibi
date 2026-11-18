@@ -20,7 +20,7 @@
 
 - **Read real things**: the blogs, news, docs and books you already want to read, not textbooks.
 - **Stay in the flow**: click a word to see what it means in this sentence; review later.
-- **Your data is yours**: no server, no account, everything stays on your computer; AI runs on your own model key.
+- **Your data is yours**: no account, learning content stays on your computer; AI runs on your own model key. Optional usage analytics is off by default.
 
 ## What it does
 
@@ -74,7 +74,7 @@ Reading, the dictionary and review all work without a model.
 
 ## Privacy
 
-Tibi has no server, no account and no telemetry. It only goes online to:
+Tibi needs no account and keeps learning content on your device. Optional usage analytics is off by default; when enabled, it sends limited feature events without articles, words or conversations. Network access includes:
 
 - fetch a page you import and refresh your feeds;
 - call the model you configured (content goes only to the provider you chose);

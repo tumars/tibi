@@ -11,6 +11,7 @@ import type { SyncStatus } from '../rpc/methods';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
 import { Empty, Ring, Sheet } from './ui';
+import { AnalyticsItem } from '../settings/AnalyticsItem';
 
 type SheetKind = 'dict' | 'words' | 'chats' | 'memory' | 'sync' | 'model' | 'look' | 'remind';
 
@@ -44,6 +45,7 @@ export function Me() {
           <Item k="model" icon={<KeyRound />} color="#c98a1b" label={tl('模型')} right={status?.models.ok ? status.models.fast : tl('未连接')} />
           <Item k="remind" icon={<Bell />} color="#c2452d" label={tl('每日提醒')} />
           <Item k="look" icon={<Moon />} color="#636366" label={tl('外观与语言')} />
+          <AnalyticsItem />
         </div>
       </div>
       <Sheet open={sheet === 'words'} onClose={() => setSheet(undefined)} tall><WordsList /></Sheet>

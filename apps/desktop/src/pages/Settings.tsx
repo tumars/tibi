@@ -15,6 +15,7 @@ import { SyncItems } from '../settings/SyncItems';
 import { UpdateItems } from '../settings/UpdateItems';
 import { AuthorItems, DonateItems } from '../settings/AuthorItems';
 import { FeedbackItems } from '../settings/FeedbackItems';
+import { AnalyticsItem } from '../settings/AnalyticsItem';
 import { useSettingsSearch } from '../settings/search';
 import { errorInfo, isTauri, isWeb, rpc } from '../rpc';
 import { useCore } from '../store/core';
@@ -145,6 +146,7 @@ export function Settings() {
 
 
           <section className="ssec" id="s-data"><h2>{tl('数据')}</h2><div className="group">
+            <AnalyticsItem />
             <div className="item"><div><div className="t">{tl('数据库位置')}</div><div className="mono" style={{ marginTop: 6 }}>{status?.db_path ?? '—'}</div>{isWeb() && <div className="d">{tl('存在这个浏览器里。清除网站数据会把它删掉，建议开启同步')}</div>}</div><div className="ctl">{!isWeb() && <button className="btn sm" onClick={async () => { if (!isTauri() || !status) return toast(tl('浏览器模式不能打开')); const { invoke } = await import('@tauri-apps/api/core'); await invoke('open_path', { path: status.db_path }).catch(e => toast(String(e), { kind: 'err' })); }}>{tl('在文件夹中显示')}</button>}</div></div>
             {!isWeb() && <BackupItems />}
             <ExportSummaryItem />

@@ -19,6 +19,7 @@ export const SETTINGS: { label: string; sec: string; kw: string }[] = [
   { label: 'Tibi 能做的事', sec: 'advanced', kw: '技能 订阅 文章来源 找文章 rss feed skill' },
   { label: '其他 AI 工具', sec: 'advanced', kw: 'mcp claude code codex' },
   { label: '自动备份', sec: 'data', kw: '备份 恢复 backup restore' },
+  { label: '使用统计', sec: 'data', kw: '隐私 统计 数据收集 analytics telemetry privacy usage' },
   { label: '导出学习汇总', sec: 'data', kw: '导出 汇总 export' },
   { label: '检查更新', sec: 'about', kw: '更新 升级 新版本 版本 update upgrade version' },
   { label: '自动检查更新', sec: 'about', kw: '更新 升级 自动 update auto' },

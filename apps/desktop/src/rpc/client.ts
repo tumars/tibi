@@ -1,5 +1,6 @@
 import type { EventName, EventTable, MethodName, Params, Result } from './methods';
 import { tl } from '../lib/i18n';
+import { startUsageAnalytics, trackUsage } from '../lib/analytics';
 
 /**
  * RPC 客户端（06 §1）：
@@ -93,14 +94,27 @@ class Rpc {
     if (!this.transport) {
       const mock = new URLSearchParams(location.search).get('mock');
       this.transport = mock ? import('../mock').then(m => m.mockTransport()) : isWeb() ? import('../web/runtime').then(m => m.webTransport()) : flags().__TIBI_LOCAL_CORE__ ? import('../mobile/local/runtime').then(m => m.localTransport()) : isTauri() ? tauriTransport() : Promise.resolve(wsTransport(import.meta.env.VITE_CORE_WS ?? 'ws://127.0.0.1:3456'));
-      void this.transport.then(tr => { this.kind = tr.kind; if (!this.bound) { this.bound = true; tr.onEvent((e, d) => this.listeners.get(e)?.forEach(fn => fn(d))); } });
+      void this.transport.then(tr => {
+        this.kind = tr.kind;
+        if (!this.bound) {
+          this.bound = true;
+          startUsageAnalytics();
+          tr.onEvent((e, d) => {
+            if (e === 'import.done') { const done = d as EventTable['import.done']; if (done.ok && !done.duplicate) trackUsage('import_succeeded'); }
+            this.listeners.get(e)?.forEach(fn => fn(d));
+          });
+        }
+      });
     }
     return this.transport;
   }
 
   async call<M extends MethodName>(method: M, params: Params<M>): Promise<Result<M>> {
     const tr = await this.t;
-    return (await tr.call(method, params)) as Result<M>;
+    const result = (await tr.call(method, params)) as Result<M>;
+    if (method === 'terms.lookup') trackUsage('word_lookup_used');
+    if (method === 'review.answer') trackUsage('review_answered');
+    return result;
   }
 
   on<E extends EventName>(event: E, fn: (data: EventTable[E]) => void): () => void {
