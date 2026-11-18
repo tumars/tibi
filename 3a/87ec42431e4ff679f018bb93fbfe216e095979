@@ -1,0 +1,49 @@
+apps/desktop/src/locales/en.json
+  s_97aea596cde2b9::t_20f9d7e07c44a0 2
+docs/design/15-usage-analytics.md
+  s_97aea596cde2b9::t_49c08f2f36d663 1-11
+.github/workflows/webapp.yml
+  s_97aea596cde2b9::t_bbeab7551be4d7 64
+apps/desktop/src/settings/AnalyticsItem.tsx
+  s_97aea596cde2b9::t_5c558033fd7cdc 1-12
+PRIVACY.md
+  s_97aea596cde2b9::t_6d58715ab64e8e 3-9,25
+README.en.md
+  s_97aea596cde2b9::t_b134002ac9799e 23,77
+README.md
+  s_97aea596cde2b9::t_7a0df4eeef0df9 75,82
+apps/desktop/package.json
+  s_97aea596cde2b9::t_82ae4506f19077 26
+apps/desktop/src-tauri/tauri.conf.json
+  s_97aea596cde2b9::t_b778c50d6fd5b9 28-29
+apps/desktop/src/lib/analytics.ts
+  s_97aea596cde2b9::t_01532b2d96c91c 1-52
+apps/desktop/src/mobile/Me.tsx
+  s_97aea596cde2b9::t_dcd0c0b92a7cf3 14,48
+apps/desktop/src/pages/Settings.tsx
+  s_97aea596cde2b9::t_add11368f4ef84 18,149
+apps/desktop/src/rpc/client.ts
+  s_97aea596cde2b9::t_d4a40c673cccf6 3,97-107,114-117
+apps/desktop/src/settings/search.ts
+  s_97aea596cde2b9::t_4f54895e6cb7bc 22
+docs/guide/README.md
+  s_97aea596cde2b9::t_1c285c8b5d45bb 135
+pnpm-lock.yaml
+  s_97aea596cde2b9::t_b9c7aac5daf78f 56-58,696-716,1450-1452,1468-1470,1537-1539,1566-1569,1997-1999,2405-2410,3575-3602,4189-4190,4207-4208,4257-4258,4277-4278,4738-4739,5330-5339
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3a87ec42431e4ff679f018bb93fbfe216e095979",
+  "prompts": {},
+  "sessions": {
+    "s_97aea596cde2b9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ecb1-8ea4-76e0-b80c-8f9d667ef5a3",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
