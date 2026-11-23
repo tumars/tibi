@@ -1,0 +1,14 @@
+notice.json
+  h_93af5c22d6d8a7 2-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f8ab1db9926ab2bf928cbd9c1a433a54544495a1",
+  "prompts": {},
+  "humans": {
+    "h_93af5c22d6d8a7": {
+      "author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
