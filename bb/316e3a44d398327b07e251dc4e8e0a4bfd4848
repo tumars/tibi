@@ -1,0 +1,32 @@
+docs/dev/mac-app-store.md
+  s_149fe5e1d24cf7::t_8fa6c276274d3a 8-9
+  s_a50041bc76437f::t_5da11d4ea81f21 3,5-7
+docs/design/13-mac-app-store.md
+  s_a50041bc76437f::t_5da11d4ea81f21 3-7,27
+docs/design/tibi-hosted-ai.md
+  s_a50041bc76437f::t_2a8a50c6435150 1-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "bb316e3a44d398327b07e251dc4e8e0a4bfd4848",
+  "prompts": {},
+  "sessions": {
+    "s_149fe5e1d24cf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1e377-3fce-7d91-b250-796b7b802b7d",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_a50041bc76437f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1efe6-43eb-7e90-b69e-cdd477f96fb5",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
