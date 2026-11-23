@@ -1,0 +1,19 @@
+docs/dev/README.md
+  s_345664764688f5::t_81c95824937355 84-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9af2160e0a0dfa5864a6a262a08987438107a234",
+  "prompts": {},
+  "sessions": {
+    "s_345664764688f5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20727-dfdf-7023-b4d1-e57b92ddff37",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
