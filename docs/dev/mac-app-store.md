@@ -1,8 +1,12 @@
 # Mac App Store 发布准备
 
-## 当前状态（2026-11-09）
+## 当前状态（2026-11-19）
 
-**0.1.0 (3) 已于 11 月 9 日 00:22（Asia/Singapore）重新提交，App Store Connect 显示 Waiting for Review，尚未审核通过或上架。** Transporter 显示 00:15 已交付且 App 已完成处理；后台构建上传时间为 00:16。构建 3 已关联到版本 0.1.0，加密合规保持标准加密算法、法国不发行，审核 Notes 已补充 ICU 修复说明。审核记录仍为下文同一个提交 ID。
+**0.1.0 (3) 已被 App Review 拒绝，提交显示 Unresolved Issues。** Apple 于 11 月 18 日 23:17（Asia/Singapore）通知，依据 3.1.1，部分第三方 API Key 无法通过模型服务商的 App Store 应用内购买获得，Tibi 使用这些 Key 启用付费功能。商店版的模型接入方案待决定，尚未上传新构建或重新提交。[Apple 审核原文](https://appstoreconnect.apple.com/apps/6831512333/distribution/reviewsubmissions/details/484ee6f1-fc40-4660-8899-ce7dea336245)
+
+0.1.0 (3) 于 11 月 9 日 00:22（Asia/Singapore）重新提交，当时 App Store Connect 显示 Waiting for Review。Transporter 显示 00:15 已交付且 App 已完成处理；后台构建上传时间为 00:16。构建 3 已关联到版本 0.1.0，加密合规保持标准加密算法、法国不发行，审核 Notes 已补充 ICU 修复说明。审核记录仍为下文同一个提交 ID。
+
+11 月 16 日通过 App Store Connect 实时复核：构建仍为 0.1.0 (3)，提交状态仍为 **Waiting for Review**，Messages 仅显示上次 ICU 自动反馈。已通过 Apple Developer Support 的「App 审核 → App 审核状态 → 电子邮件」提交进度咨询，说明等待约一周、此前 ICU 问题已修复，请求确认进度、是否需补充资料并协助推进。成功页返回案例 ID **30000017001552**，Apple 将通过邮件回复；这是审核状态咨询，尚未获得加急批准。
 
 构建 2 于 11 月 7 日 15:22 被拒，Apple 的自动反馈列出 129 个非公开或已弃用 ICU API。对正式 `Tibi-0.1.0-2.pkg` 解包检查确认这些引用位于 `Contents/MacOS/tibi-core`，链接 `/usr/lib/libicucore.A.dylib`。
 
