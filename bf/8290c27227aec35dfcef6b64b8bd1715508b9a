@@ -1,0 +1,25 @@
+apps/desktop/package.json
+  s_24521dac640ec8::t_f21058c9f6a6d3 3
+apps/desktop/src-tauri/Cargo.lock
+  s_24521dac640ec8::t_bacc4b74987350 5048
+apps/desktop/src-tauri/Cargo.toml
+  s_24521dac640ec8::t_fa3b91d47b0d13 3
+apps/desktop/src-tauri/tauri.conf.json
+  s_24521dac640ec8::t_aa57d723468352 4,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "bf8290c27227aec35dfcef6b64b8bd1715508b9a",
+  "prompts": {},
+  "sessions": {
+    "s_24521dac640ec8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20718-5ef7-7d41-94d3-0454cd267bd8",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
