@@ -11,6 +11,7 @@
 | 2026-11-16 | 下载、更新与公告统一改用腾讯云 COS 的 `dl.ferecord.com`，移除客户端 GitHub 回退；失败入口改为下载安装包与官网下载页。新增本地直传命令，CI 发布复用同一工具，修正固定下载名的校验和。签名验证与更新前备份保留。COS 已补齐并验证现有 Mac 正式安装包、签名更新包与更新清单；客户端修改尚未发版，官网切换与验收记录见 `dev/tencent-distribution.md`。 |
 | 2026-11-16 | 阅读页右栏增加“生词”：显示整篇文章已标记的生词与学习中词条、释义及熟练度，支持分页、自动刷新和点词查词典；文章筛选补上正文原形匹配，避免遗漏导入后新增的生词。设计见 `design/00-concept-design.md` §3.2，尚未发布。 |
 | 2026-11-16 | 阅读页默认使用随包提供的 Source Serif 4，优化标题、段距、原译文分组、列表与引用，去掉手机单词额外 padding；译文保持桌面 14.5px / 手机 14px。未发布；设计与验证记录见 `research/07-reader-typography.md`。 |
+| 2026-11-06 | 准备 Mac App Store 独立构建：排除私有 API 与自更新器，增加主程序/子进程沙盒权限配置；独立 Bun Core 沙盒冒烟通过，完整应用及商店签名仍待验证，尚未上传或发布。见 `design/13-mac-app-store.md`。 |
 | 2026-11-05 | **Web 版方案**（新增 `design/12-web.md`，T40）：同一份 Core 跑在浏览器里，sqlite-wasm + OPFS、精简词典、EdgeOne 中转 `/api/proxy`，发布到 `app.tibi.ferecord.com`；开始做 P0 |
 | 2026-11-05 | 正式发布首个 Mac 版本 v0.1.0（Apple Silicon，macOS 13+）：Developer ID 签名、Apple 公证、staple、Gatekeeper、DMG 安装冷启动和自动更新签名校验均通过。发行源码 `2be0adc`，验证记录见 `dev/mac-release-0.1.0.md`。 |
 | 2026-11-05 | Mac 首发补齐 Developer ID 签名，Bun hardened runtime 启用 JIT 权限；按实际 sidecar 的 Mach-O 要求将最低系统版本修正为 macOS 13，避免 macOS 12 安装后 Core 无法启动。 |

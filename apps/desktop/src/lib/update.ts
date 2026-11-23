@@ -7,10 +7,11 @@ import { isTauri } from '../rpc';
 const AUTO = 'tibi.update.auto';
 const LAST = 'tibi.update.last';
 const HOUR = 3600_000;
+export const isAppStore = import.meta.env.VITE_DISTRIBUTION === 'app-store';
 
 export type UpdateInfo = { available: false } | { available: true; version: string };
 
-export const autoCheckOn = () => { try { return localStorage.getItem(AUTO) !== '0'; } catch { return true; } };
+export const autoCheckOn = () => { if (isAppStore) return false; try { return localStorage.getItem(AUTO) !== '0'; } catch { return true; } };
 export const setAutoCheck = (on: boolean) => { try { localStorage.setItem(AUTO, on ? '1' : '0'); } catch { /* */ } };
 
 export async function checkUpdate(): Promise<UpdateInfo> {
@@ -47,7 +48,7 @@ export async function installUpdate(onStage: (s: InstallStage) => void, opts: { 
 
 /** 开着自动检查时每天看一次（托盘里常驻也算）；检查失败不打扰，第二天再试。返回停止函数 */
 export function startAutoUpdateCheck(onFound: (version: string) => void): () => void {
-  if (!isTauri()) return () => undefined;
+  if (isAppStore || !isTauri()) return () => undefined;
   const tick = async () => {
     if (!autoCheckOn()) return;
     const today = new Date().toDateString();

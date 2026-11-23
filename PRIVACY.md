@@ -8,6 +8,10 @@ Tibi 是一个本地应用，不需要账号。学习内容保存在本机；使
 
 电脑在“设置 → 数据”，手机在“我”里开关；默认关闭。随时关闭会停止新采集，并清除本机统计标识和待发队列。浏览器 Do Not Track 和 Global Privacy Control 请求被尊重。已发送数据不会自动删除，需要协助时请联系作者。关闭 IP 地理位置解析，但接收服务仍会看到网络连接 IP。详见 [Mixpanel 隐私政策](https://mixpanel.com/legal/privacy-policy/)。统计不可用不影响学习功能。
 
+Mac App Store 版本的数据保存在 macOS 沙盒容器 `~/Library/Containers/app.tibi/Data/Library/Application Support/app.tibi/`，与官网版的应用数据目录分开。商店版通过 Mac App Store 更新，不连接下文所列的 Tibi 更新源或公告源。
+
+首个 Mac App Store 版本仅提供 WebDAV 同步，不提供 iCloud、本地文件夹同步或外部 MCP 接入。商店版连接第三方 AI 模型前会说明数据接收方及发送内容，并征求同意；取消不会保存连接。可在设置中删除模型连接以停止后续发送，已经发送的数据由对应服务商按其政策处理。
+
 ## 数据存在哪里
 
 - **学习数据**（文章、生词、复习记录、对话、记忆、设置）：本机的 SQLite 数据库 `app.db`，在系统的应用数据目录里——macOS `~/Library/Application Support/app.tibi/`，Windows `%APPDATA%\app.tibi\`，Linux `~/.local/share/app.tibi/`。备份文件、OCR 语言包、MCP 令牌也在这里。

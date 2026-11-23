@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { tl } from '../lib/i18n';
 import { storeSecret } from '../lib/providers';
+import { isAppStore } from '../lib/update';
 import { fmtAgo } from '../lib/util';
 import { errorInfo, isTauri, isWeb, rpc } from '../rpc';
 import type { SyncBackendCfg, SyncStatus } from '../rpc/methods';
@@ -15,8 +16,8 @@ const KIND_LABEL: Record<Kind, string> = { icloud: 'iCloud Drive', folder: tl('�
 const PW_REF = 'sync.webdav';
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
 const PLATFORM: Record<string, string> = { macos: 'macOS', windows: 'Windows', linux: 'Linux', ios: 'iPhone', android: 'Android', web: tl('网页版'), test: 'test' };
-// Web 版只有 WebDAV（12 §2）：iCloud 和本地文件夹都要原生壳
-const KINDS: Kind[] = isWeb() ? ['webdav'] : (['icloud', 'folder', 'webdav'] as Kind[]).filter(k => k !== 'icloud' || isMac);
+// Web 版和 App Store 版只有 WebDAV（12 §2、13）
+const KINDS: Kind[] = isWeb() || isAppStore ? ['webdav'] : (['icloud', 'folder', 'webdav'] as Kind[]).filter(k => k !== 'icloud' || isMac);
 
 export function SyncItems() {
   const [st, setSt] = useState<SyncStatus>();
@@ -82,7 +83,7 @@ export function SyncItems() {
       <div className="item"><div><div className="t">{tl('停止同步')}</div><div className="d">{tl('这台电脑上的数据保留，云盘里的文件不删')}</div></div><div className="ctl"><button className="btn sm" onClick={() => void stop()}>{tl('停止')}</button></div></div>
     </>;
   }
-  if (!setup) return <div className="item"><div><div className="t">{tl('同步')}</div><div className="d">{isWeb() ? tl('和电脑、手机上的 Tibi 同步，经过你自己的 WebDAV 云盘（坚果云、Nextcloud 等）。网页版经 Tibi 的中转连接，中转不存任何内容') : tl('和手机、其他电脑同步，经过你自己的 iCloud Drive、WebDAV 云盘或一个共享文件夹。没有 Tibi 的服务器')}</div></div><div className="ctl"><button className="btn sm pri" onClick={() => setSetup(true)}>{tl('开启同步')}</button></div></div>;
+  if (!setup) return <div className="item"><div><div className="t">{tl('同步')}</div><div className="d">{isWeb() ? tl('和电脑、手机上的 Tibi 同步，经过你自己的 WebDAV 云盘（坚果云、Nextcloud 等）。网页版经 Tibi 的中转连接，中转不存任何内容') : isAppStore ? tl('通过你自己的 WebDAV 云盘同步。没有 Tibi 的服务器') : tl('和手机、其他电脑同步，经过你自己的 iCloud Drive、WebDAV 云盘或一个共享文件夹。没有 Tibi 的服务器')}</div></div><div className="ctl"><button className="btn sm pri" onClick={() => setSetup(true)}>{tl('开启同步')}</button></div></div>;
   return <>
     <div className="item"><div><div className="t">{tl('同步')}</div><div className="d">{tl('同步文件不加密，存放在你选的位置')}</div></div><div className="ctl"><div className="seg">
       {KINDS.map(k => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND_LABEL[k]}</button>)}

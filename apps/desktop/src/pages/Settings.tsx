@@ -13,7 +13,8 @@ import { SkillItems } from '../settings/SkillItems';
 import { McpItems } from '../settings/McpItems';
 import { SyncItems } from '../settings/SyncItems';
 import { UpdateItems } from '../settings/UpdateItems';
-import { AuthorItems, DonateItems } from '../settings/AuthorItems';
+import { isAppStore } from '../lib/update';
+import { AuthorItems, DonateItems, openLink } from '../settings/AuthorItems';
 import { FeedbackItems } from '../settings/FeedbackItems';
 import { AnalyticsItem } from '../settings/AnalyticsItem';
 import { useSettingsSearch } from '../settings/search';
@@ -139,8 +140,8 @@ export function Settings() {
               <div className="item"><div><div className="t">{tl('权限模式')}</div><div className="d">{tl('Tibi 改你的数据（熟练度、文章等）前要不要先问。读过网页的任务一律先问')}</div></div><div className="ctl"><div className="seg">{([['ask', tl('每次都问')], ['default', tl('标词自动，其余问')], ['auto', tl('全部自动')]] as const).map(([v, l]) => <button key={v} className={(profile?.assistant_prefs?.permission ?? 'default') === v ? 'on' : ''} onClick={() => patch({ assistant_prefs: { ...(profile?.assistant_prefs ?? { nickname: '你' }), permission: v } })}>{l}</button>)}</div></div></div>
               <SkillItems />
             </div>
-            {/* MCP、备份、软件更新要原生壳，Web 版没有（12 §1） */}
-            {!isWeb() && <><h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('其他 AI 工具')}</h3>
+            {/* MCP、备份、软件更新要原生壳，Web 版没有（12 §1）；App Store 版不含 MCP */}
+            {!isWeb() && !isAppStore && <><h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('其他 AI 工具')}</h3>
               <div className="group"><McpItems /></div></>}
           </section>
 
@@ -156,13 +157,14 @@ export function Settings() {
           <section className="ssec" id="s-about"><h2>{tl('关于')}</h2><div className="about-art"><Mascot id="about" /></div><div className="group">
             <div className="item"><div><div className="t">Tibi {status?.version ?? ''}</div><div className="d">{tl('开源 · MIT 协议 · 本地优先的 AI 英语阅读工具')}</div></div></div>
             {!isWeb() && <UpdateItems />}
+            {isAppStore && <div className="item"><div><div className="t">{tl('隐私政策')}</div></div><div className="ctl"><a className="btn sm" href="https://github.com/tumars/tibi/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer" onClick={e => void openLink(e)}>{tl('查看隐私政策')}</a></div></div>}
             <FeedbackItems />
             <div className="item"><div><div className="t">{tl('致谢')}</div><div className="d">ECDICT · Open English WordNet · Word Atlas · FSRS · pi · Tauri · Charis SIL</div></div></div>
           </div>
             <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('关于作者')}</h3>
             <div className="group"><AuthorItems /></div>
-            <h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('请作者喝咖啡')}</h3>
-            <div className="group"><DonateItems /></div>
+            {!isAppStore && <><h3 style={{ fontSize: 14, margin: '18px 0 8px' }}>{tl('请作者喝咖啡')}</h3>
+            <div className="group"><DonateItems /></div></>}
           </section>
           {searching && total === 0 && <div className="snores">{tl('没有找到「{v0}」', { v0: query.trim() })}</div>}
         </div>
