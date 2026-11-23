@@ -32,7 +32,7 @@ log = "0.4"
 env_logger = "0.11"
 rusqlite = { version = "0.32", features = ["bundled"], optional = true }
 base64 = "0.22"
-# 桌面：只给界面取公告（notice.json，capabilities 里限定两个地址）；手机：网页、模型、WebDAV 都走它
+# 桌面：只给界面取公告（notice.json，capabilities 里限定分发域名）；手机：网页、模型、WebDAV 都走它
 tauri-plugin-http = "2"
 
 # 软件更新只在桌面端（update.rs）；手机走应用商店

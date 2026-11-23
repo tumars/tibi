@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Switch } from '../components/Switch';
 import { tl } from '../lib/i18n';
-import { autoCheckOn, BackupFailed, checkUpdate, installUpdate, mirrorDownloadUrl, RELEASES_URL, setAutoCheck, type InstallStage } from '../lib/update';
+import { autoCheckOn, BackupFailed, checkUpdate, installUpdate, installerDownloadUrl, DOWNLOAD_PAGE_URL, setAutoCheck, type InstallStage } from '../lib/update';
 import { isTauri } from '../rpc';
 import { openLink } from './AuthorItems';
 
-type State = { k: 'idle' } | { k: 'checking' } | { k: 'latest' } | { k: 'found'; version: string } | { k: 'installing'; version: string; stage: InstallStage } | { k: 'backup_failed'; version: string; reason: string } | { k: 'failed'; reason: string; mirror?: string };
+type State = { k: 'idle' } | { k: 'checking' } | { k: 'latest' } | { k: 'found'; version: string } | { k: 'installing'; version: string; stage: InstallStage } | { k: 'backup_failed'; version: string; reason: string } | { k: 'failed'; reason: string; installer?: string };
 
 /** 设置 → 关于：检查、安装更新，自动检查的开关（T31） */
 export function UpdateItems() {
@@ -20,8 +20,8 @@ export function UpdateItems() {
       setS(r.available ? { k: 'found', version: r.version } : { k: 'latest' });
     } catch (e) { await fail(tl('检查更新失败：{v0}', { v0: String(e) })); }
   };
-  // 应用内更新走不通时给手动下载的入口：国内下载链接按这台电脑的系统和芯片来
-  const fail = async (reason: string) => setS({ k: 'failed', reason, mirror: await mirrorDownloadUrl().catch(() => undefined) });
+  // 应用内更新走不通时给手动下载入口，安装包按这台电脑的系统和芯片来
+  const fail = async (reason: string) => setS({ k: 'failed', reason, installer: await installerDownloadUrl().catch(() => undefined) });
   const install = async (version: string, skipBackup = false) => {
     setS({ k: 'installing', version, stage: { stage: 'downloading' } });
     try { await installUpdate(stage => setS({ k: 'installing', version, stage }), { skipBackup }); }
@@ -45,7 +45,7 @@ export function UpdateItems() {
 
   return <>
     <div className="item"><div><div className="t">{tl('检查更新')}</div><div className="d" aria-live="polite">{desc}</div></div><div className="ctl">
-      {s.k === 'failed' && <>{s.mirror && link(s.mirror, tl('国内下载'))}{link(RELEASES_URL, tl('GitHub 下载页'))}</>}
+      {s.k === 'failed' && <>{s.installer && link(s.installer, tl('下载安装包'))}{link(DOWNLOAD_PAGE_URL, tl('官网下载页'))}</>}
       {s.k === 'backup_failed'
         ? <><button className="btn sm" onClick={() => setS({ k: 'found', version: s.version })}>{tl('先不更新')}</button><button className="btn sm" onClick={() => void install(s.version, true)}>{tl('仍要更新')}</button></>
         : s.k === 'found'

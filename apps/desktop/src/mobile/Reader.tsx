@@ -9,11 +9,14 @@ import { DocSource } from '../components/DocSource';
 import { SpeakButtons, useTtsStatus } from '../components/Speak';
 import { ChapterNav } from '../reader/ChapterNav';
 import { SectionView } from '../reader/Section';
+import { TranslationStatus } from '../reader/TranslationStatus';
+import { useTranslation } from '../reader/useTranslation';
 import { useAloud } from '../reader/useAloud';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
 import { toast, useSepiaPaper, useUi } from '../store/ui';
 import { Empty, Sheet, Thread } from './ui';
+import { ModelPanel } from './Me';
 
 const NO_SENTENCES: Sentence[] = [];
 
@@ -26,11 +29,14 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
   const [doc, setDoc] = useState<Document & { sections: { id: string; idx: number; title?: string; progress: number }[] }>();
   const [secId, setSecId] = useState<string>();
   const [content, setContent] = useState<SectionContent>();
+  const { translating, generate: generateTranslation } = useTranslation(content, setContent);
+  const modelOk = useCore(st => !!st.status?.models.ok);
   const [err, setErr] = useState<string>();
   const [tr, setTr] = useState(false); const [gloss, setGloss] = useState(false);
   const [card, setCard] = useState<{ word: string; sentence: Sentence; s: number }>();
   const [tibi, setTibi] = useState<{ key: string; text: string } | 'open'>();
   const [legend, setLegend] = useState(false);
+  const [model, setModel] = useState(false);
   const [overrides, setOverrides] = useState(new Map<string, Status>());
   // 全文朗读：系统朗读和 AI 朗读两个按钮，共用暂停、继续和读到哪一句；换引擎时没在读就直接开始读
   const [aloudEngine, setAloudEngine] = useState<Engine>(() => currentTts().engine);
@@ -54,18 +60,29 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
   }, [id]);
   useEffect(() => {
     if (!secId) return; restored.current = false; let alive = true;
-    const get = () => rpc.call('sections.get', { id: secId, with: ['translations'] }).then(c => { if (alive) setContent(c); }, e => { if (alive) setErr(errorInfo(e).message); });
+    let refresh = 0;
+    const get = () => {
+      const version = ++refresh;
+      return rpc.call('sections.get', { id: secId, with: ['translations'] }).then(c => { if (alive && version === refresh) setContent(c); }, e => { if (alive && version === refresh) setErr(errorInfo(e).message); });
+    };
     void get();
     // 刚导入、还在分词标注时就打开：句子还没有 tokens（词点不了）；标注做完文章会变（data.changed documents），再取一次
     // 标了词也再取：刚标的词加载时还没有记录，不带行间释义
-    const off = rpc.on('data.changed', d => { if ((d.table === 'documents' && d.ids?.includes(id!)) || d.table === 'terms') void get(); });
+    const off = rpc.on('data.changed', d => { if ((d.table === 'documents' && d.ids?.includes(id!)) || (d.table === 'sentences' && d.ids?.includes(secId)) || d.table === 'terms') void get(); });
     return () => { alive = false; off(); };
   }, [secId, id]);
   // 回到上次位置（R16）
   useEffect(() => {
-    if (!content || !doc || restored.current) return; restored.current = true;
+    if (!content || !doc || restored.current) return;
     const sec = doc.sections.find(s => s.id === content.id); const el = scroll.current;
-    if (el && sec && sec.progress > 0.02 && sec.progress < 1) requestAnimationFrame(() => { el.scrollTop = (el.scrollHeight - el.clientHeight) * sec.progress; });
+    let alive = true;
+    // 与桌面一致，字体加载后的换行才是恢复阅读位置的依据。
+    void document.fonts.ready.then(() => requestAnimationFrame(() => {
+      if (!alive) return;
+      restored.current = true;
+      if (el && sec && sec.progress > 0.02 && sec.progress < 1) el.scrollTop = (el.scrollHeight - el.clientHeight) * sec.progress;
+    }));
+    return () => { alive = false; };
   }, [content, doc]);
 
   const save = useMemo(() => throttle((sid: string, p: number, sentence_id: string) => { void rpc.call('sections.progress', { id: sid, sentence_id, progress: p }).catch(() => undefined); }, 1500), []);
@@ -80,14 +97,14 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
   }, [content, save, onImmersive]);
 
   const onWord = useCallback((_ev: React.MouseEvent<HTMLSpanElement>, word: string, _lemma: string, sentence: Sentence, s: number) => setCard({ word, sentence, s }), []);
-  const toggleTr = async () => {
+  const toggleTr = () => {
     if (!content) return;
-    if (!tr && !content.sentences.some(s => s.translation)) {
-      try { await rpc.call('sections.translate', { id: content.id }); toast(tl('正在翻译，好了会显示')); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); return; }
-    }
-    setTr(t => !t);
+    const on = !tr;
+    if (!on || translating || content.sentences.every(s => s.translation)) { setTr(on); return; }
+    if (!modelOk) { toast(tl('要连接模型才能生成译文'), { action: { label: tl('去连接'), run: () => setModel(true) } }); return; }
+    setTr(true);
+    void generateTranslation();
   };
-  useEffect(() => rpc.on('data.changed', d => { if (d.table === 'sentences' && tr && secId) void rpc.call('sections.get', { id: secId, with: ['translations'] }).then(setContent); }), [tr, secId]);
   // 换一章从头读（翻译好了重取同一章不算）
   useEffect(() => { aloud.halt(); aloud.setIdx(0); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [content?.id]);
   const finish = async () => {
@@ -107,15 +124,16 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
       <button className="ib" aria-label={tl('标注说明')} onClick={() => setLegend(true)}><Info size={19} /></button></div>
     <div className="rdprog"><i style={{ width: 0 }} /></div>
     <div className={`screen${gloss ? ' gl' : ''}`} id="s-read" ref={scroll} onScroll={onScroll}>
+      {tr && <TranslationStatus state={content?.translation} onRetry={() => void generateTranslation()} />}
       {doc && content && <>
-        <div className="rd" style={{ paddingBottom: 0 }}>
+        <header className="rd rdhead">
           <div className="meta"><span>{GENRE_NAMES[doc.genre] ?? doc.genre} · {fmtMinutes(doc.minutes)}{doc.level ? ` · ${tl('难度约 {level}', { level: doc.level })}` : ''}</span>
             <DocSource d={doc} />
             {doc.sections.length > 1 && <span>{tl('第 {i} / {n} 章', { i: (sec?.idx ?? 0) + 1, n: doc.sections.length })}</span>}</div>
           {(sec?.idx ?? 0) === 0 && <h1>{doc.title}</h1>}
-        </div>
+        </header>
         <SectionView content={content} mode="all" gloss={gloss} overrides={overrides} selected={card ? { sentence: card.sentence.id, s: card.s } : undefined} translations={tr} onWord={onWord} />
-        <div className="rd" style={{ paddingTop: 0 }}>{sec?.finished_at ? <div className="endc done">
+        <div className="rd rdtail">{sec?.finished_at ? <div className="endc done">
           <h3><CircleCheck size={18} />{next ? tl('这一章读完了') : tl('这篇读完了')}</h3>
           <div className="col">{next
             ? <button className="btn pri" onClick={() => { setSecId(next.id); scroll.current?.scrollTo({ top: 0 }); }}>{tl('下一章')}</button>
@@ -129,7 +147,7 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
       </>}
     </div>
     <div className="rdbar">
-      <button aria-pressed={tr} onClick={() => void toggleTr()}><Languages />{tl('译文')}</button>
+      <button aria-pressed={tr} aria-busy={translating} aria-label={translating ? tl('翻译中…') : tl('译文')} onClick={toggleTr}>{translating ? <LoaderCircle className="translation-spin" /> : <Languages />}{translating ? tl('翻译中…') : tl('译文')}</button>
       <button aria-pressed={gloss} onClick={() => setGloss(g => !g)}><Type />{tl('释义')}</button>
       {(['system', 'kokoro'] as const).map(e => {
         const mine = aloudEngine === e && (aloud.playing || aloud.paused);
@@ -154,6 +172,7 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
         <div className="row"><span className="ex"><span className="w">word</span></span><span>{tl('没标过的词不着色，点开可查词、加入生词本')}</span></div>
       </div>
     </Sheet>
+    <Sheet open={model} onClose={() => setModel(false)} tall><ModelPanel onDone={() => setModel(false)} /></Sheet>
   </>;
 }
 

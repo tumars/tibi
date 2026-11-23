@@ -127,9 +127,9 @@ export const documentsMethods: MethodMap = {
   'sections.translate': method(Type.Object({ id: S.id, sentence_ids: Type.Optional(Type.Array(S.id)) }), async (p, ctx) => {
     const sec = await ctx.db.get<{ document_id: string; title: string }>('SELECT document_id, title FROM sections WHERE id = ? AND deleted_at IS NULL', [p.id]); if (!sec) throw new TibiError('not_found', '找不到这一章');
     if (!ctx.ai) throw new TibiError('model_unavailable', '还没有连接模型');
-    background(`translate:${p.id}:${p.sentence_ids?.join(',') ?? ''}`, () => translateSection(ctx, p.id, p.sentence_ids));
+    background(`translate:${p.id}`, () => translateSection(ctx, p.id, p.sentence_ids));
     return { ok: true as const };
-  }, '整章（或指定句子）译成中文，在后台做；写 sentences.translation，完成后 data.changed(sentences)'),
+  }, '整章（或指定句子）译成中文，在后台做；只补缺失句子；开始、每批、完成或失败时 data.changed(sentences)，sections.get 带进度和失败原因'),
   'documents.analyze': method(Type.Object({ id: S.id }), async (p, ctx) => {
     const d = await requireDoc(ctx, p.id);
     if (d.source_type === 'sample') throw new TibiError('conflict', '内置示例已经带了总结');

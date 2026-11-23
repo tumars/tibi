@@ -6,7 +6,7 @@
   "license": "MIT",
   "packageManager": "pnpm@10.28.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18"
   },
   "scripts": {
     "dev": "pnpm --filter @tibi/desktop dev",
@@ -16,7 +16,10 @@
     "typecheck": "pnpm -r --parallel typecheck",
     "build": "pnpm -r build",
     "ecdict": "pnpm --filter @tibi/core-node ecdict",
-    "clipper:zip": "node extensions/clipper/zip.mjs"
+    "clipper:zip": "node extensions/clipper/zip.mjs",
+    "publish:cos": "node tools/publish-cos.mjs",
+    "admin": "node admin/server.mjs",
+    "test:admin": "node --test admin/*.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",

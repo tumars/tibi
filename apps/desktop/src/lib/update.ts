@@ -19,14 +19,14 @@ export async function checkUpdate(): Promise<UpdateInfo> {
 }
 
 // 这两个下载地址同时写在 capabilities/default.json 的 opener:allow-open-url 里，改这里要一起改
-export const RELEASES_URL = 'https://github.com/tumars/tibi/releases/latest';
-const MIRROR_LATEST = 'https://dl.ferecord.com/latest/';
+export const DOWNLOAD_PAGE_URL = 'https://tibi.ferecord.com/#download';
+const INSTALLER_LATEST = 'https://dl.ferecord.com/latest/';
 
-/** 国内下载这台电脑能用的安装包；文件名由壳按编译目标给（芯片在 WebView 里看不准） */
-export async function mirrorDownloadUrl(): Promise<string | undefined> {
+/** 从腾讯云下载这台电脑能用的安装包；文件名由壳按编译目标给（芯片在 WebView 里看不准） */
+export async function installerDownloadUrl(): Promise<string | undefined> {
   if (!isTauri()) return undefined;
   const { invoke } = await import('@tauri-apps/api/core');
-  return MIRROR_LATEST + await invoke<string>('update_mirror_asset');
+  return INSTALLER_LATEST + await invoke<string>('update_installer_asset');
 }
 
 /** 安装进行到哪一步；下载时 ratio 是 0–1，总大小未知时是 undefined */

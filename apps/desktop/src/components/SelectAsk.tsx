@@ -12,15 +12,17 @@ const WORD = /^[A-Za-z][A-Za-z'’-]*$/;
  * Tibi 用英文讲解时，人常常卡在讲解本身；查词走本地词典，不调模型。
  * root 是回答所在的滚动区；ask 把问题放进输入框，不直接发。
  */
-export function SelectAsk({ root, ask }: { root: React.RefObject<HTMLElement | null>; ask: (text: string) => void }) {
+export function SelectAsk({ root, ask, hidden = false }: { root: React.RefObject<HTMLElement | null>; ask: (text: string) => void; hidden?: boolean }) {
   const [sel, setSel] = useState<{ text: string; x: number; y: number }>();
   const [entry, setEntry] = useState<{ lemma: string; dict?: DictEntry; in_wordbook: boolean }>();
   const pop = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (hidden) { setSel(undefined); setEntry(undefined); } }, [hidden]);
 
   useEffect(() => {
     const el = root.current; if (!el) return;
     const close = () => { setSel(undefined); setEntry(undefined); };
     const up = (e: MouseEvent) => {
+      if (e.button !== 0 || e.ctrlKey) return;
       if (pop.current?.contains(e.target as Node)) return;
       // 点一下取消选区时，选区要到这一轮事件之后才清空
       setTimeout(() => {
@@ -32,11 +34,11 @@ export function SelectAsk({ root, ask }: { root: React.RefObject<HTMLElement | n
         setSel({ text, x: Math.min(Math.max(r.left + r.width / 2, 160), window.innerWidth - 160), y: Math.max(r.top, 60) });
       }, 0);
     };
-    el.addEventListener('mouseup', up); el.addEventListener('scroll', close, { passive: true });
-    return () => { el.removeEventListener('mouseup', up); el.removeEventListener('scroll', close); };
+    el.addEventListener('mouseup', up); el.addEventListener('scroll', close, { passive: true }); el.addEventListener('contextmenu', close);
+    return () => { el.removeEventListener('mouseup', up); el.removeEventListener('scroll', close); el.removeEventListener('contextmenu', close); };
   }, [root]);
 
-  if (!sel) return null;
+  if (!sel || hidden) return null;
   const isWord = WORD.test(sel.text);
   const look = async () => {
     try { const r = await rpc.call('dict.entry', { word: sel.text.toLowerCase() }); setEntry({ lemma: r.lemma, dict: r.entry, in_wordbook: r.in_wordbook }); }

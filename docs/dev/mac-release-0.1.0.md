@@ -4,6 +4,14 @@
 
 ## 当前候选包
 
+### 17:46 安装故障复查
+
+- 用户从 Chrome 下载后出现“已损坏，无法打开”。本机 `/Applications/Tibi.app` 为 ad-hoc 签名，缺少有效资源签名；Gatekeeper 拒绝运行。
+- Release 工作流 `41997945714` 于 16:53 启动，日志明确显示未配置 Apple 签名密钥，并于 17:03 删除、覆盖了已公证的 `Tibi_0.1.0_aarch64.dmg`。同时自动生成的 `latest.json` 也覆盖了人工验证版本。因此下文首发验证只代表覆盖前的包，不能证明当前远端资产有效。
+- Chrome 下载包与被覆盖后的 GitHub 资产 SHA-256 均为 `6fdfc1f135077df15b9a715eb2d5b7819df2b239110ec6ea058dd96967a5c72f`；本机留存公证 DMG 为 `ac56c216676460d00e2d7e6db2fe783c2caa1f65b8c01ce802f98aab3ef99c06`。
+- 已从留存 DMG 恢复本机安装，`codesign --verify --deep --strict` 通过，Gatekeeper 返回 `accepted / Notarized Developer ID`。原应用保留在发行目录下 `replaced-app.DPptip/`，未改动用户数据。DMG 内 App 本身无 stapled ticket，但在线 Gatekeeper 校验通过。
+- 本地工作流新增两项检查：tag 构建缺少 Apple 签名、公证密钥时停止；上传前拒绝覆盖已正式发布的同名 Release。尚需修复远端安装包和更新元数据；本地工作流改动尚未提交、推送。
+
 - 本机留存目录：`/Users/zhanghui/Documents/releases/Tibi/0.1.0/`。
 - 公证前 DMG SHA-256：`4aef4b0df09c7aef81fd2e907c2d51a3563ff0811ec2b6a54bf8ee184fd01bb6`；staple 后文件校验和会变化。
 - 最终公证申请：`785a4d71-2ae1-437f-a6dc-222932d6e829`，2026-11-05 16:06（新加坡时间）创建，16:42 检查确认为 Accepted，日志为 Ready for distribution、issues 为 null。使用 `--no-s3-acceleration` 完成上传；此前两份申请不是最终候选包。

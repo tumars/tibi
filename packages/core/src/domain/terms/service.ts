@@ -97,9 +97,9 @@ export async function markTerm(ctx: Ctx, text: string, status: Status, sentence_
     const added = await addWords(ctx, [{ text: raw, sentence_id, ...(status !== 0 ? { skipLog: true } : {}) }]);
     const term = added.created[0] ?? added.existed[0];
     if (!term) throw new TibiError('not_found', '找不到这个词');
-    if (status === 0) return { term: (await getTerm(ctx.db, term.id))!, undo: added.undo };
-    await applyStatus(ctx, [term.id], status, 'user');
-    return { term: (await getTerm(ctx.db, term.id))!, undo: added.undo };
+    if (status !== 0) await applyStatus(ctx, [term.id], status, 'user');
+    const undo = await recordUndo(ctx.db, ctx, { tool: 'terms.mark', args: { text, status }, undo_payload: { id: term.id } });
+    return { term: (await getTerm(ctx.db, term.id))!, undo };
   }
   const entry = isPhrase ? undefined : await ctx.dict.lookup(lemma);
   let term: TermRow;
@@ -118,6 +118,8 @@ export async function markTerm(ctx: Ctx, text: string, status: Status, sentence_
 registerUndo<{ id: string }>('terms.mark', async (p, ctx) => {
   const t = now();
   await ctx.db.run('UPDATE terms SET deleted_at = ?, in_wordbook = 0, updated_at = ? WHERE id = ?', [t, t, p.id]);
+  await ctx.db.run('UPDATE cards SET deleted_at = ?, updated_at = ? WHERE term_id = ? AND deleted_at IS NULL', [t, t, p.id]);
+  await ctx.db.run('UPDATE term_contexts SET deleted_at = ?, updated_at = ? WHERE term_id = ? AND deleted_at IS NULL', [t, t, p.id]);
   ctx.events.emit('data.changed', { table: 'terms', ids: [p.id] });
 });
 
@@ -175,33 +177,46 @@ registerUndo<{ ids: string[] }>('terms.add', async (p, ctx) => {
 });
 
 /** 标为短语（terms.addPhrase / add_phrase）：选中的几个词成一条 phrase，之后全文自动识别 */
-export async function addPhrase(ctx: Ctx, text: string, sentence_id: string, surface: string, meaning?: string): Promise<{ term: TermRow; undo: Undo }> {
+export async function addPhrase(ctx: Ctx, text: string, sentence_id: string, surface: string, meaning?: string): Promise<{ term: TermRow; undo?: Undo }> {
   const norm = text.toLowerCase().replace(/\s+/g, ' ').trim();
   if (!/\s/.test(norm)) throw new TibiError('invalid_params', '短语至少要两个词');
+  const sentence = await ctx.db.get('SELECT id FROM sentences WHERE id = ? AND deleted_at IS NULL', [sentence_id]);
+  if (!sentence) throw new TibiError('not_found', '找不到这句话');
   const profile = await readProfile(ctx.db);
   let term: TermRow | undefined;
+  let changed = false;
   await ctx.db.transaction(async tx => {
     term = await getTermByText(tx, norm, 'phrase');
-    if (!term) {
-      term = await insertTerm(tx, { kind: 'phrase', text: norm, display: text.trim(), status: 1, status_source: 'user', meaning, in_wordbook: true, seen_at: now() });
-      await tx.run('INSERT INTO term_status_log(id, term_id, status, source, created_at) VALUES (?,?,?,?,?)', [crypto.randomUUID(), term.id, 1, 'user', now()]);
+    // 包括已知 / 忽略条目：重复操作不改状态、不建卡、不产生会删除旧词的撤销。
+    if (term && !term.deleted_at) return;
+    changed = true;
+    const t = now();
+    if (term) {
+      await tx.run('UPDATE terms SET deleted_at = NULL, updated_at = ? WHERE id = ?', [t, term.id]);
+      await setTermStatus(tx, term, 1, 'user', { in_wordbook: true });
+    } else {
+      term = await insertTerm(tx, { kind: 'phrase', text: norm, display: text.trim(), status: 1, status_source: 'user', meaning, in_wordbook: true, seen_at: t });
+      await tx.run('INSERT INTO term_status_log(id, term_id, status, source, created_at) VALUES (?,?,?,?,?)', [uuidv7(), term.id, 1, 'user', t]);
     }
     const s = await tx.get<{ section_id: string }>('SELECT section_id FROM sentences WHERE id = ?', [sentence_id]);
-    if (!s) throw new TibiError('not_found', '找不到这句话');
-    const doc = await tx.get<{ document_id: string }>('SELECT document_id FROM sections WHERE id = ?', [s.section_id]);
+    const doc = await tx.get<{ document_id: string }>('SELECT document_id FROM sections WHERE id = ?', [s!.section_id]);
     if (!(await contextExists(tx, term.id, sentence_id))) await insertContext(tx, { term_id: term.id, source: 'article', sentence_id, document_id: doc?.document_id ?? null, surface, is_primary: !(await hasPrimaryContext(tx, term.id)) });
-    await tx.run('UPDATE terms SET encounter_count = encounter_count + 1, last_seen_at = ?, updated_at = ? WHERE id = ?', [now(), now(), term.id]);
+    await tx.run('UPDATE terms SET encounter_count = encounter_count + 1, last_seen_at = ?, updated_at = ? WHERE id = ?', [t, t, term.id]);
     await ensureCard(tx, term.id, { due: await dueForNewCard(tx, profile.daily_new_cards) });
+    await tx.run('UPDATE cards SET suspended = 0, updated_at = ? WHERE term_id = ?', [t, term.id]);
   });
+  if (!changed) return { term: term! };
   const undo = await recordUndo(ctx.db, ctx, { tool: 'terms.addPhrase', args: { text, sentence_id }, undo_payload: { id: term!.id } });
   ctx.events.emit('data.changed', { table: 'terms', ids: [term!.id] });
-  return { term: term!, undo };
+  return { term: (await getTerm(ctx.db, term!.id))!, undo };
 }
 registerUndo<{ id: string }>('terms.addPhrase', async (p, ctx) => {
   const t = now();
   await ctx.db.run('UPDATE terms SET deleted_at = ?, in_wordbook = 0, updated_at = ? WHERE id = ?', [t, t, p.id]);
   await ctx.db.run('UPDATE term_contexts SET deleted_at = ?, updated_at = ? WHERE term_id = ?', [t, t, p.id]);
   await ctx.db.run('UPDATE cards SET deleted_at = ?, updated_at = ? WHERE term_id = ? AND deleted_at IS NULL', [t, t, p.id]);
+  ctx.events.emit('data.changed', { table: 'terms', ids: [p.id] });
+  ctx.events.emit('data.changed', { table: 'cards', ids: [p.id] });
 });
 
 /** 难词暂停复习 N 天 */

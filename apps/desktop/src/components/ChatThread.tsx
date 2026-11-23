@@ -1,6 +1,6 @@
 import type { Conversation } from '@tibi/core';
 import { ArrowDown, ArrowUp, Check, Copy, Pencil, RotateCcw, Square } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { Markdown } from '../lib/md';
 import { parseSlash, type SlashAction } from '../lib/slash';
@@ -11,9 +11,11 @@ import { ApprovalCard, ProcessCard, Receipts } from './Process';
 import { SelectAsk } from './SelectAsk';
 import { Blocks } from './Widgets';
 import { useChat, type ChatContext } from '../lib/useChat';
-import { errorInfo, isTauri, rpc } from '../rpc';
+import { errorInfo, isMobileUi, isTauri, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
+import { copyText } from '../lib/contextActions';
+import { ObjectMenuButton, useObjectMenu } from './ObjectMenu';
 
 /**
  * 一段对话（00 §3.10）：对话页和阅读器的 Tibi 面板共用。
@@ -21,7 +23,7 @@ import { tl } from '../lib/i18n';
  * pending：外面要发的一句（如首页带来的问题、阅读器里"问 Tibi"），按 key 只发一次。
  */
 export type { ChatContext } from '../lib/useChat';
-export interface Pending { key: string; text: string; context?: ChatContext; skill?: string; model?: string }
+export interface Pending { key: string; text: string; context?: ChatContext; skill?: string; model?: string; /** 未连模型时保留为草稿，连接后也不自动发送 */ draft?: boolean }
 
 interface Queued { id: string; text: string; skill?: string; model?: string }
 
@@ -32,6 +34,11 @@ async function openLink(url: string) {
   await openUrl(url).catch(err => toast(String(err), { kind: 'err' }));
 }
 const queues = new Map<string, Queued[]>();
+// 阅读页未连模型的问题要跨“去连接 → 返回”保留，但不会自动补发。
+const drafts = new Map<string, { text: string; context?: ChatContext }>();
+export function saveReaderDraft(documentId: string, pending: Pending) {
+  drafts.set(`reader:${documentId}`, { text: pending.text, context: pending.context });
+}
 
 /** 复制一条回答：图标变成对勾一会儿，不弹提示 */
 function CopyButton({ text }: { text: string }) {
@@ -46,13 +53,15 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
   /** 去连接模型后回到哪里 */ back: string; onConv?: (c: Conversation) => void;
 }) {
   const nav = useNavigate();
-  const [text, setText] = useState('');
+  const draftId = context?.page === 'reader' && context.document_id ? `reader:${context.document_id}` : conversationId;
+  const [text, setText] = useState(() => drafts.get(draftId)?.text ?? '');
   const [focus, setFocus] = useState(false);
   const [action, setAction] = useState<SlashAction>();   // / 选中的动作，只对下一句生效
   const [model, setModel] = useState<string>();   // 选定的模型：同一段对话里一直生效，换对话回到自动
   const ta = useRef<HTMLTextAreaElement>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const sent = useRef(new Set<string>());
+  const draftContext = useRef(drafts.get(draftId)?.context);
   const { msgs, live, approvals, ready, send: sendRaw, decide, running, cancel, retry, rewind, undoReceipt, cursor, loadOlder, widgetStates, updateWidget, answer } = useChat(conversationId, { skill, context, onConv });
   const [editing, setEditing] = useState<string>();   // 正在改哪句话
   const fill = useCallback((t: string) => { setText(t); ta.current?.focus(); }, []);
@@ -81,17 +90,20 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
   }, []);
   const send = useCallback(async (t: string, ctx?: ChatContext, sk?: string, providerId?: string, quiet = false) => {
     setText(''); toBottom();
-    const ok = await sendRaw(t, ctx, sk, providerId, quiet);
+    const ok = await sendRaw(t, ctx ?? draftContext.current, sk, providerId, quiet);
+    if (ok) { drafts.delete(draftId); draftContext.current = undefined; }
     if (!ok && !quiet) setText(cur => cur || t);   // 没发出去：把话还给输入框（插话失败时改为排队，不还）
     return ok;
-  }, [sendRaw, toBottom]);
+  }, [sendRaw, toBottom, draftId]);
   useEffect(() => { if (follow.current) toBottom(); }, [msgs, live, approvals, toBottom]);
   useEffect(() => { if (approvals.length) toBottom(); }, [approvals.length, toBottom]);
-  useEffect(() => { setModel(undefined); setAction(undefined); toBottom(); }, [conversationId, toBottom]);
+  useEffect(() => { const draft = drafts.get(draftId); setText(draft?.text ?? ''); draftContext.current = draft?.context; setModel(undefined); setAction(undefined); toBottom(); }, [conversationId, draftId, toBottom]);
   useEffect(() => {
     if (!ready || !pending || sent.current.has(pending.key)) return;
-    sent.current.add(pending.key); if (pending.model) setModel(pending.model); void send(pending.text, pending.context, pending.skill, pending.model);
-  }, [ready, pending, send]);
+    sent.current.add(pending.key);
+    if (pending.draft) { drafts.set(draftId, { text: pending.text, context: pending.context }); draftContext.current = pending.context; fill(pending.text); return; }
+    if (pending.model) setModel(pending.model); void send(pending.text, pending.context, pending.skill, pending.model);
+  }, [ready, pending, send, fill, draftId]);
 
   const slash = useSlashMenu(text, focus, a => { setAction(a); setText(''); ta.current?.focus(); });
   const enqueue = (t: string, sk?: string) => { setQueue([...queue, { id: `${Date.now()}`, text: t, skill: sk, model }]); setText(''); setAction(undefined); };
@@ -152,6 +164,27 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
   const goConnect = () => nav(`/welcome?step=3&back=${encodeURIComponent(back)}`);
   const modelError = (e: string) => /连接模型|API Key|model/i.test(e);
   const canSend = !!text.trim() || !!action?.empty;
+  const menu = useObjectMenu<{ text?: string; selection?: string }>(target => [
+    ...(target.selection ? [{ label: tl('复制选中内容'), run: () => void copyText(target.selection!) }] : []),
+    ...(target.text ? [{ label: tl('复制整条回答'), run: () => void copyText(target.text!) }] : []),
+  ], conversationId);
+  const answerMenu = (text: string | undefined, e: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>) => {
+    if ('key' in e && e.key !== 'ContextMenu' && !(e.shiftKey && e.key === 'F10')) return;
+    if ((e.target as Element).closest('input, textarea, button, a, [contenteditable="true"]')) return;
+    const s = window.getSelection();
+    let selection: string | undefined;
+    if (s?.rangeCount && !s.isCollapsed) {
+      const range = s.getRangeAt(0);
+      // 跨回答的选区保留系统复制；右键在选区外时操作实际指向的回答。
+      const inside = e.currentTarget.contains(range.startContainer) && e.currentTarget.contains(range.endContainer);
+      const hit = e.type !== 'contextmenu' || !('clientX' in e) || (!e.clientX && !e.clientY)
+        || Array.from(range.getClientRects()).some(r => e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom);
+      if (!inside && hit) return;
+      if (inside && hit) selection = s.toString();
+      else s.removeAllRanges();
+    }
+    if (text || selection) menu.open({ text, selection }, e);
+  };
 
   return (
     <div className="chatwrap">
@@ -174,8 +207,9 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
           {cursor && <button className="linkbtn loadolder" onClick={older}>{tl('加载更早的消息')}</button>}
           {visible.map((m, i) => m.role === 'user'
             ? <div key={m.id} className={`msg u${editing === m.id ? ' editing' : ''}`}>{m.text}{m.attachment && <div className="msgatt">{m.attachment}</div>}{m.turn_id && m.turn_id !== m.id && visible.slice(0, i).some(p => p.role === 'user' && p.turn_id === m.turn_id) && <div className="msgatt">{tl('回答中补充的')}</div>}{!running && !m.id.startsWith('local-') && <button className="msgedit" aria-label={tl('改这句')} title={tl('改这句')} onClick={() => { setEditing(m.id); fill(m.text ?? ''); }}><Pencil size={12} /></button>}</div>
-            : <div key={m.id} className="msg a"><ProcessCard steps={m.steps ?? []} thinking={m.thinking} thinkMs={m.think_ms} />{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} fill={fill} answer={answer} /> : m.text && <Markdown text={m.text} />}{m.receipts && <Receipts items={m.receipts} undo={id => void undoReceipt(m.id, id)} />}{m.interrupted && <div className="chaterr">{m.interrupted.reason === 'cancel' ? tl('已停止') : m.interrupted.message || tl('出错了')}{m.interrupted.message && modelError(m.interrupted.message) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{i === visible.length - 1 && !running && m.turn_id && <> · <button className="linkbtn" onClick={() => void retry(m.turn_id!)}>{tl('重试')}</button></>}</div>}<div className="prov-line"><span>Tibi</span>{m.skill && <> · <span>{m.skill}</span></>}{m.text && <span className={`msgacts${speaking?.key === `msg:${m.id}` || (i === visible.length - 1 && !running && !live.length) ? ' on' : ''}`}>
+            : <div key={m.id} className="msg a" tabIndex={isMobileUi() ? undefined : 0} onContextMenu={isMobileUi() ? undefined : e => answerMenu(m.text, e)} onKeyDown={isMobileUi() ? undefined : e => answerMenu(m.text, e)}><ProcessCard steps={m.steps ?? []} thinking={m.thinking} thinkMs={m.think_ms} />{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} fill={fill} answer={answer} /> : m.text && <Markdown text={m.text} />}{m.receipts && <Receipts items={m.receipts} undo={id => void undoReceipt(m.id, id)} />}{m.interrupted && <div className="chaterr">{m.interrupted.reason === 'cancel' ? tl('已停止') : m.interrupted.message || tl('出错了')}{m.interrupted.message && modelError(m.interrupted.message) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{i === visible.length - 1 && !running && m.turn_id && <> · <button className="linkbtn" onClick={() => void retry(m.turn_id!)}>{tl('重试')}</button></>}</div>}<div className="prov-line"><span>Tibi</span>{m.skill && <> · <span>{m.skill}</span></>}{m.text && <span className={`msgacts${speaking?.key === `msg:${m.id}` || (i === visible.length - 1 && !running && !live.length) ? ' on' : ''}`}>
               <CopyButton text={m.text} />
+              {!isMobileUi() && <ObjectMenuButton onClick={e => menu.open({ text: m.text }, e)} />}
               <SpeakButtons text={m.reply ?? m.text} id={`msg:${m.id}`} size={13} engines={['system']} />
               {i === visible.length - 1 && !running && !m.interrupted && <button aria-label={tl('重新回答')} title={tl('重新回答')} onClick={() => void regenerate(i)}><RotateCcw size={13} /></button>}
             </span>}</div></div>)}
@@ -198,7 +232,8 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
           {ready && !msgs.length && !live.length && (empty ?? <div className="lbl" style={{ textAlign: 'center', marginTop: 40 }}>{tl('问 Tibi 任何关于英语和你读过的内容的问题')}</div>)}
         </div>
       </div>
-      <SelectAsk root={scroll} ask={fill} />
+      {menu.menu}
+      <SelectAsk root={scroll} ask={fill} hidden={menu.isOpen} />
       <div className="dfoot">{away && <button className="tobottom" aria-label={tl('回到底部')} title={tl('回到底部')} onClick={toBottom}><ArrowDown size={15} /></button>}
         {queue.map(q => <div key={q.id} className="queued">
           <span className="qt">{q.text}</span>
@@ -209,7 +244,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
         {editing && <div className="queued"><span className="qt lbl">{tl('改完发送后，这句之后的内容会作废；已加入生词本的词不会撤回')}</span><button className="linkbtn" onClick={() => { setEditing(undefined); setText(''); }}>{tl('取消')}</button></div>}
         <div className="dcomp">
         {action && <ActionChip action={action} onClear={() => { setAction(undefined); ta.current?.focus(); }} />}
-        <textarea ref={ta} value={text} onChange={e => { setText(e.target.value); slash.textChanged(); }} placeholder={action?.placeholder ?? placeholder} aria-label={tl('提问')}
+        <textarea ref={ta} value={text} onChange={e => { setText(e.target.value); if (drafts.has(draftId)) drafts.set(draftId, { text: e.target.value, context: draftContext.current }); slash.textChanged(); }} placeholder={action?.placeholder ?? placeholder} aria-label={tl('提问')}
           onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
           onKeyDown={e => {
             if (isImeKey(e.nativeEvent) || slash.handleKey(e)) return;

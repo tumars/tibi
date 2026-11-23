@@ -1,14 +1,12 @@
 import type { Conversation } from '@tibi/core';
-import { MoreHorizontal } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import { tl } from '../lib/i18n';
-import { isMacDesktop, popupNativeMenu } from '../lib/macNative';
 import { fmtDate, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
-import { Menu } from './Menu';
+import { ObjectMenuButton, useObjectMenu } from './ObjectMenu';
 import { Modal } from './Modal';
 
 function chatLabel(c: Conversation): string {
@@ -50,21 +48,21 @@ export function RecentChats() {
 }
 
 function RecentRow({ chat, onDelete }: { chat: Conversation; onDelete: () => void }) {
-  const [menu, setMenu] = useState(false);
+  const location = useLocation();
   const [editing, setEditing] = useState(false);
   const label = chatLabel(chat);
+  const menu = useObjectMenu<Conversation>(() => [
+    { label: tl('重命名'), run: () => setEditing(true) },
+    { label: tl('删除'), danger: true, run: onDelete },
+  ], chat);
+  useEffect(() => { menu.close(); }, [location.key, menu.close]);
 
   if (editing) return <RenameInput chat={chat} onDone={() => setEditing(false)} />;
   return (
-    <div className={`rrow${menu ? ' open' : ''}`} onContextMenu={e => {
-      e.preventDefault();
-      if (isMacDesktop) void popupNativeMenu([{ label: tl('重命名'), run: () => setEditing(true) }, { label: tl('删除'), run: onDelete }]);
-      else setMenu(true);
-    }}>
+    <div className={`rrow${menu.isOpen ? ' open' : ''}`} tabIndex={-1} onContextMenu={e => menu.open(chat, e)} onKeyDown={e => menu.onKeyDown(chat, e)}>
       <NavLink to={`/chat/${chat.id}`} title={label} className={({ isActive }) => (isActive ? 'cur' : '')}><span>{label}</span></NavLink>
-      <Menu open={menu} onOpenChange={setMenu} modal={false} compact keepFocus
-        trigger={<button className="ibtn more" aria-label={tl('更多操作')} title={tl('更多操作')}><MoreHorizontal /></button>}
-        items={[{ label: tl('重命名'), run: () => setEditing(true) }, { label: tl('删除'), danger: true, run: onDelete }]} />
+      <ObjectMenuButton className="more" onClick={e => menu.open(chat, e)} />
+      {menu.menu}
     </div>
   );
 }

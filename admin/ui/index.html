@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tibi · 分发管理台</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/"><span class="brand-mark">t.</span><span>Tibi <small>分发管理台</small></span></a>
+    <div class="nav-caption">工作空间</div>
+    <nav aria-label="管理导航">
+      <button class="nav-item selected" data-page="overview"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z"/></svg>概览</button>
+      <button class="nav-item" data-page="storage"><svg viewBox="0 0 24 24"><path d="M3 7V4h6l2 3h10v13H3z"/></svg>文件存储</button>
+      <button class="nav-item" data-page="releases"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5zm-9 9 9 5 9-5M3 16l9 5 9-5"/></svg>版本发布</button>
+      <button class="nav-item" data-page="notices"><svg viewBox="0 0 24 24"><path d="m4 9 15-5v16L4 15zm0 0v6H2V9zm2 7 2 5h3l-2-4"/></svg>公告推送</button>
+    </nav>
+    <div class="sidebar-bottom"><span class="local-dot"></span>在你的电脑上运行<small>腾讯云 COS · 独立分发</small></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>Tibi 工作空间 <span class="slash">/</span> <span id="breadcrumb">概览</span></span>
+      <div class="connection" id="connection"><i></i><span>正在连接</span></div></header>
+    <div class="content">
+      <div class="page-heading"><div><div class="eyebrow">TIBI DISTRIBUTION</div><h1 id="page-title">分发概览</h1><p id="page-description">从这里管理每一次下载、更新与消息。</p></div>
+        <button class="button secondary" id="refresh"><span aria-hidden="true">↻</span> 刷新</button></div>
+      <div class="alert hidden" id="global-error" role="alert"></div>
+      <section id="page-overview" class="page">
+        <div class="metrics">
+          <article class="metric"><span class="metric-label">当前线上版本</span><strong id="metric-version">—</strong><small id="metric-platforms">正在读取更新清单</small></article>
+          <article class="metric"><span class="metric-label">已发布公告</span><strong><span id="metric-notices">—</span><em>条</em></strong><small>通过应用内检查获取</small></article>
+          <article class="metric"><span class="metric-label">分发状态</span><strong class="status-value" id="metric-health">连接中</strong><small id="metric-base">dl.ferecord.com</small></article>
+        </div>
+        <div class="overview-grid">
+          <article class="panel">
+            <div class="panel-heading"><h2>你的分发空间</h2><span class="badge">腾讯云 COS</span></div>
+            <dl class="info-list"><div><dt>存储桶</dt><dd id="bucket">—</dd></div><div><dt>地域</dt><dd id="region">—</dd></div><div><dt>公开域名</dt><dd id="base">—</dd></div><div><dt>本机配置</dt><dd>.env.cos <span class="muted">· 仅服务端读取</span></dd></div></dl>
+            <div class="quick-links"><a id="latest-link" target="_blank" rel="noopener noreferrer">查看更新清单 ↗</a><a id="notice-link" target="_blank" rel="noopener noreferrer">查看线上公告 ↗</a></div>
+          </article>
+          <article class="panel next-panel"><div class="panel-heading"><h2>下一次发布，从这里开始</h2></div>
+            <button class="quick-action" data-page="releases"><span class="action-number">01</span><span><b>发布一个新版本</b><small>检查本机产物，再上线下载和更新</small></span><span>→</span></button>
+            <button class="quick-action" data-page="notices"><span class="action-number">02</span><span><b>给用户发一条消息</b><small>编辑、预览并推送应用内公告</small></span><span>→</span></button>
+            <p class="subtle-note">发布安装包前，请先完成对应平台的签名与安装验证。</p>
+          </article>
+        </div>
+      </section>
+      <section id="page-storage" class="page hidden">
+        <article class="panel">
+          <div class="panel-heading"><div><h2>云端文件</h2><p>发行文件由发布流程维护，普通文件放在 uploads/。</p></div><button class="button" id="show-upload" data-write>上传文件</button></div>
+          <form id="storage-search" class="path-form"><span>目录</span><input id="storage-prefix" aria-label="目录前缀" placeholder="例如 uploads/ 或 v0.1.0/"><button class="button secondary" type="submit">打开目录</button></form>
+          <div class="breadcrumbs" id="storage-breadcrumbs"></div>
+          <div class="table-scroll"><table><thead><tr><th>文件名</th><th>大小</th><th>修改时间</th><th class="align-right">操作</th></tr></thead><tbody id="storage-rows"><tr><td colspan="4" class="empty">正在读取文件</td></tr></tbody></table></div>
+          <div class="table-footer"><span id="storage-summary">—</span><div><button class="text-button" id="storage-first">返回第一页</button><button class="button secondary small" id="storage-next" disabled>下一页 →</button></div></div>
+        </article>
+      </section>
+      <section id="page-releases" class="page hidden">
+        <div class="section-note"><span class="note-icon">↗</span><div><b>先检查，再发布</b><p>使用已完成签名、公证与安装验证的发行目录。检查会校验更新包签名；同版本和更早版本不会覆盖线上。</p></div></div>
+        <article class="panel">
+          <div class="panel-heading"><div><h2>选择本机发行产物</h2><p>目录中需要 latest.json、安装包与对应更新包。</p></div><span class="step-label">步骤 1 / 2</span></div>
+          <form id="release-inspect"><label for="release-directory">发行目录</label><div class="input-action"><input id="release-directory" list="release-directories" placeholder="/Users/你的用户名/Documents/releases/Tibi/0.2.0" required><datalist id="release-directories"></datalist><button class="button" type="submit" id="inspect-button">检查产物</button></div></form>
+          <p class="field-help">可以粘贴绝对路径，或从输入框建议中选择已有目录。日志和其他目录不会进入发布产物。</p>
+        </article>
+        <article class="panel hidden" id="release-preview">
+          <div class="panel-heading"><div><h2 id="release-preview-title">发行预览</h2><p id="release-notes"></p></div><span class="badge success">更新签名已验证</span></div>
+          <div id="release-platforms" class="platform-list"></div>
+          <div class="alert hidden" id="release-blocked"></div>
+          <div class="table-scroll"><table><thead><tr><th>产物</th><th>大小</th><th>SHA-256</th></tr></thead><tbody id="release-files"></tbody></table></div>
+          <div class="publish-footer"><label class="check-label"><input type="checkbox" id="release-validated">安装包已完成签名、公证及安装验证</label><button class="button" id="release-publish" data-write disabled>发布此版本</button></div>
+        </article>
+      </section>
+      <section id="page-notices" class="page hidden">
+        <div class="section-note"><span class="note-icon">i</span><div><b>消息会在客户端下次检查时出现</b><p>客户端每天检查，一般公告每个 ID 只提醒一次；低版本提醒每天一次。需要再次提醒时，使用新的公告 ID。</p></div></div>
+        <div class="notices-layout"><div>
+          <article class="panel"><div class="panel-heading"><div><h2>公告草稿 <span class="badge" id="draft-status">本机</span></h2><p id="notice-comparison">正在读取草稿与线上内容</p></div><button class="button secondary small" id="notice-add">＋ 新增公告</button></div>
+            <div id="notice-cards"></div>
+            <div class="notice-toolbar"><button class="text-button" id="notice-load-remote">载入线上内容</button><div><button class="button secondary" id="notice-save" data-write>保存草稿</button><button class="button" id="notice-publish" data-write>推送到客户端</button></div></div>
+          </article>
+        </div><aside class="notice-preview panel"><div class="panel-heading"><h2>消息预览</h2><select id="preview-language" aria-label="预览语言"><option value="zh">中文</option><option value="en">English</option></select></div><div id="notice-previews"></div><p class="field-help">展示内容与按钮示意，最终显示遵循客户端的平台、版本和已读状态。</p></aside></div>
+      </section>
+      <section class="panel activity-panel">
+        <div class="panel-heading"><div><h2>最近操作</h2><p>任务在后台执行，完成后可在这里查看结果。</p></div><span id="running-status" class="badge">空闲</span></div>
+        <div id="jobs" class="jobs"><div class="empty">还没有操作记录</div></div>
+      </section>
+      <footer class="page-footer"><span>Tibi · 本机分发管理台</span><span>文件与消息发布到你自己的腾讯云</span></footer>
+    </div>
+  </main>
+  <dialog id="confirm-dialog"><form method="dialog">
+    <div class="dialog-icon">↗</div><h2 id="confirm-title"></h2><p id="confirm-description"></p><div class="dialog-actions"><button class="button secondary" value="cancel">取消</button><button class="button" id="confirm-submit" value="confirm">确认</button></div>
+  </form></dialog>
+  <dialog id="upload-dialog"><form id="upload-form">
+    <div class="panel-heading"><h2>上传普通文件</h2><button type="button" id="upload-close" class="icon-button" aria-label="关闭">×</button></div>
+    <label for="upload-file">选择文件</label><input id="upload-file" type="file" required>
+    <label for="upload-key">存储路径</label><input id="upload-key" value="uploads/" required>
+    <p class="field-help">仅限 uploads/，最大 2 GB。同名文件不会覆盖。</p>
+    <progress id="upload-progress" max="100" value="0" class="hidden"></progress><p id="upload-status" class="field-help" aria-live="polite"></p>
+    <div class="dialog-actions"><button class="button" id="upload-submit" type="submit">开始上传</button></div>
+  </form></dialog>
+  <div class="toast hidden" id="toast" role="status"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

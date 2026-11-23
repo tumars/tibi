@@ -47,6 +47,7 @@ export interface MethodTable {
   'terms.favoriteContext': { params: { id: Id; favorite: boolean }; result: Ok };
   'terms.setStatus': { params: { ids: Id[]; status: Status; source?: 'user' | 'page_done' }; result: { changed: number; undo: Undo } };
   'terms.mark': { params: { text: string; status: Status; sentence_id?: Id }; result: { term: Term; previous?: Status; undo: Undo } };
+  'terms.addPhrase': { params: { text: string; sentence_id: Id; surface: string }; result: Term & { undo?: Undo } };
   'terms.remove': { params: { ids: Id[] }; result: Undo };
   'review.start': { params: { resume?: boolean; ahead?: boolean; limit?: number }; result: ReviewSession };
   'review.preview': { params: { card_id: Id }; result: IntervalPreview };

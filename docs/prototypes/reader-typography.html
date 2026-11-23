@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tibi · 阅读排版对比</title>
+<style>
+@font-face { font-family:"Source Serif 4 Preview"; font-style:normal; font-weight:400 700; font-display:swap; src:url("fonts/reading/source-serif-4-latin-normal.woff2") format("woff2"); }
+@font-face { font-family:"Source Serif 4 Preview"; font-style:italic; font-weight:400 700; font-display:swap; src:url("fonts/reading/source-serif-4-latin-italic.woff2") format("woff2"); }
+@font-face { font-family:"Literata Preview"; font-style:normal; font-weight:400 700; font-display:swap; src:url("fonts/reading/literata-latin-normal.woff2") format("woff2"); }
+@font-face { font-family:"Literata Preview"; font-style:italic; font-weight:400 700; font-display:swap; src:url("fonts/reading/literata-latin-italic.woff2") format("woff2"); }
+:root { color-scheme:light; --ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif; --read:Charter,"Bitstream Charter","Charis SIL",Georgia,serif; --accent:#3d52e0; }
+* { box-sizing:border-box; }
+body { margin:0; background:#f6f6f5; color:#18181b; font:13px/1.5 var(--ui); }
+button,select,input { font:inherit; }
+button { cursor:pointer; color:inherit; border:0; background:none; }
+button:focus-visible,select:focus-visible,input:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.research { max-width:1440px; margin:auto; padding:24px 28px; }
+.heading { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+.heading h1 { font-size:19px; font-weight:600; margin:0; letter-spacing:-.02em; }
+.heading p { margin:0; color:#62626b; }
+.controls { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
+.seg { display:inline-flex; padding:3px; background:#eaeae8; border-radius:10px; }
+.seg button { padding:6px 13px; border-radius:7px; color:#55555c; min-height:34px; }
+.seg button[aria-pressed="true"] { background:#fff; color:#18181b; box-shadow:0 0 0 1px #0000000b; font-weight:600; }
+label { display:inline-flex; gap:7px; align-items:center; color:#55555c; }
+select { background:#fff; color:#18181b; border:1px solid #00000018; border-radius:8px; min-height:36px; padding:4px 9px; }
+.notes { display:flex; gap:22px; margin:16px 0 0; color:#62626b; flex-wrap:wrap; }
+.notes b { color:#18181b; font-weight:500; }
+.font-note { color:#62626b; margin:0 0 16px; }
+.workspace { --paper:#fff; --ink:#18181b; --sub:#55555c; --muted:#6b6b74; --line:#00000014; --wash:#3d52e014; --sunken:#f2f2f1; --blue:rgba(110,155,220,.34); --yellow:rgba(226,170,50,.50); --reader-size:20px; background:var(--paper); color:var(--ink); border:1px solid #00000012; border-radius:16px; overflow:hidden; height:780px; display:grid; grid-template-rows:52px minmax(0,1fr); position:relative; }
+.workspace[data-theme="dark"] { color-scheme:dark; --paper:#141416; --ink:#ededee; --sub:#a5a5ad; --muted:#8e8e97; --line:#ffffff18; --wash:#7d8cf01f; --sunken:#1b1b1e; --blue:rgba(110,155,230,.30); --yellow:rgba(230,180,70,.40); --accent:#7d8cf0; }
+.workspace[data-theme="sepia"] { --paper:#f7f1e3; --ink:#18181b; --sub:#55555c; --muted:#62626b; --sunken:#efe7d6; }
+.top { display:flex; align-items:center; gap:12px; padding:0 22px; border-bottom:1px solid var(--line); font-size:13px; color:var(--muted); }
+.top strong { font-weight:500; color:var(--ink); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.top .badge { margin-left:auto; white-space:nowrap; border-radius:6px; padding:3px 9px; background:var(--sunken); font-size:11px; }
+.scroll { overflow:auto; scrollbar-width:thin; }
+.rd { max-width:720px; margin:auto; padding:22px 32px 40px; font:19px/1.75 var(--read); font-kerning:normal; text-rendering:optimizeLegibility; hanging-punctuation:first; }
+.head { max-width:720px; margin:auto; padding:18px 32px 0; font-family:var(--read); }
+.meta { font:12px/1.5 var(--ui); color:var(--muted); display:flex; gap:6px 10px; flex-wrap:wrap; margin-bottom:10px; }
+.meta .tag { background:var(--sunken); border-radius:6px; padding:1px 6px; }
+.head h1 { font-size:32px; line-height:1.22; font-weight:700; letter-spacing:-.018em; text-wrap:balance; margin:0; overflow-wrap:anywhere; }
+.block { display:contents; }
+.rd p { margin:0 0 1em; text-wrap:pretty; }
+.rd h2 { font-size:23px; font-weight:700; line-height:1.35; letter-spacing:-.01em; margin:1.7em 0 .45em; text-wrap:balance; }
+.rd blockquote { margin:1.3em 0; padding:2px 0 2px 20px; border-left:3px solid var(--line); color:var(--sub); font-style:italic; }
+.rd ul { margin:0 0 1em; padding-left:1.4em; }
+.rd li { margin-bottom:.35em; padding-left:.2em; }
+.rd pre { font:13.5px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--sunken); border:1px solid var(--line); border-radius:10px; padding:16px 18px; overflow:auto; margin:1.3em 0; white-space:pre; }
+.rd code { font:.82em ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--sunken); padding:.1em .3em; border-radius:5px; }
+.tr { display:none; font:14.5px/1.75 var(--ui); color:var(--sub); margin:-.45em 0 1.15em; padding-left:12px; border-left:2px solid var(--wash); }
+.translated .tr { display:block; }
+.w { position:relative; border-radius:3px; }
+.marked .s0 { background:linear-gradient(transparent 34%,var(--blue) 34%,var(--blue) 90%,transparent 90%); }
+.marked .s1 { background:linear-gradient(transparent 34%,var(--yellow) 34%,var(--yellow) 90%,transparent 90%); }
+.gloss .w[data-g]::after { content:attr(data-g); position:absolute; left:0; top:-.95em; font:500 10.5px/1 var(--ui); color:var(--muted); white-space:nowrap; }
+.gloss .rd p,.gloss .rd li { line-height:2.2; }
+.reading-end { margin:40px 0 0; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font:12px/1.7 var(--ui); }
+.workspace.mobile { max-width:393px; height:764px; margin:auto; grid-template-rows:56px minmax(0,1fr); border-radius:24px; }
+.mobile .top { padding:0 22px; }
+.mobile .top strong { display:none; }
+.mobile .head { padding:4px 22px 0; }
+.mobile .meta { margin-bottom:8px; }
+.mobile .head h1 { font-size:27px; line-height:1.2; letter-spacing:-.01em; margin-bottom:18px; }
+.mobile .rd { padding:4px 22px 40px; font-family:var(--ui); font-size:13.5px; line-height:1.5; }
+.mobile .rd p { font:19px/1.75 var(--read); margin-bottom:18px; }
+.mobile .rd h2 { font:700 21px/1.5 var(--read); margin:26px 0 12px; }
+.mobile .rd li { font:18px/1.7 var(--read); margin-left:20px; padding-left:0; margin-bottom:0; }
+.mobile .rd ul { margin:0 0 18px; padding:0; }
+.mobile .rd blockquote { font-style:normal; margin:0 0 18px; padding-left:14px; border-left-width:3px; }
+.mobile .tr { font-size:14px; line-height:1.7; margin:-10px 0 18px; border:0; padding:0; }
+.mobile .w { padding:0 1px; }
+.mobile.marked .s0 { background:linear-gradient(transparent 55%,var(--blue) 55%,var(--blue) 92%,transparent 92%); }
+.mobile.marked .s1 { background:linear-gradient(transparent 55%,var(--yellow) 55%,var(--yellow) 92%,transparent 92%); }
+.mobile.gloss .rd p { line-height:2.15; }
+/* 建议版：一个正文列，一组原文与译文，一套随字号变化的节奏。 */
+.optimized { --read:var(--candidate-read); }
+.optimized .head,.optimized .rd { font-optical-sizing:auto; }
+.optimized .head { max-width:704px; padding:46px 32px 0; }
+.optimized .meta { margin-bottom:16px; font-size:12px; }
+.optimized .meta .tag { display:none; }
+.optimized .head h1 { font-size:36px; line-height:1.18; letter-spacing:-.015em; margin:0; }
+.optimized .rd { max-width:704px; padding:30px 32px 76px; font-family:var(--read); font-size:var(--reader-size); line-height:1.7; color:var(--ink); overflow-wrap:break-word; }
+.optimized .block { display:block; margin:0 0 1.25em; }
+.optimized .block p { margin:0; font:inherit; }
+.optimized .block h2 { font-size:1.2em; line-height:1.35; margin:1.9em 0 .6em; }
+.optimized .block blockquote { font:italic 1em/1.7 var(--read); margin:0; border-left:2px solid var(--line); padding:0 0 0 1em; }
+.optimized .tr { font:400 14.5px/1.8 var(--ui); margin:8px 0 0; padding:0; border:0; color:var(--sub); }
+.optimized .rd ul { padding-left:1.2em; margin:0 0 1.25em; }
+.optimized .rd li { font:inherit; margin:0 0 .6em; padding:0 0 0 .15em; }
+.optimized .w { padding:0; }
+.optimized.marked .s0 { background:linear-gradient(transparent 57%,var(--blue) 57%,var(--blue) 91%,transparent 91%); }
+.optimized.marked .s1 { background:linear-gradient(transparent 57%,var(--yellow) 57%,var(--yellow) 91%,transparent 91%); }
+.optimized.gloss .rd p,.optimized.gloss .rd li,.optimized.gloss .rd blockquote { line-height:2.15; }
+.optimized.mobile .head { padding:24px 24px 0; }
+.optimized.mobile .head h1 { font-size:30px; line-height:1.18; }
+.optimized.mobile .rd { padding:28px 24px 60px; font-size:calc(var(--reader-size) - 1px); line-height:1.72; }
+.optimized.mobile .block h2 { font-size:1.18em; margin:1.65em 0 .6em; }
+.optimized.mobile .tr { font-size:14px; }
+.optimized.mobile.gloss .rd p,.optimized.mobile.gloss .rd li { line-height:2.15; }
+.details { margin-top:22px; border-top:1px solid #00000014; padding-top:16px; color:#62626b; display:flex; gap:14px; flex-wrap:wrap; }
+.details a { color:#3d52e0; text-decoration:none; }
+.details a:hover { text-decoration:underline; }
+@media(max-width:680px) { .research { padding:18px 12px; } .heading { gap:6px; } .controls { gap:10px; } .workspace:not(.mobile) .top { padding:0 16px; } .workspace:not(.mobile) .head { padding-left:22px; padding-right:22px; } .workspace:not(.mobile) .rd { padding-left:22px; padding-right:22px; } .top .badge { display:none; } }
+</style>
+<main class="research">
+  <header class="heading"><h1>阅读排版 · 对比稿</h1><p>同一篇内容，切换前后感受文字的节奏。2026.11.16 · 待评审</p></header>
+  <div class="controls" aria-label="对比设置">
+    <div class="seg" id="version"><button data-value="current" aria-pressed="false">当前样式重建</button><button data-value="optimized" aria-pressed="true">优化建议</button></div>
+    <div class="seg" id="device"><button data-value="desktop" aria-pressed="true">桌面</button><button data-value="mobile" aria-pressed="false">手机</button></div>
+    <label>英文正文字体<select id="font"><option value="source" selected>Source Serif 4 · 首选</option><option value="literata">Literata · 书卷感</option><option value="charter">Charter · 当前字体</option></select></label>
+    <label>内容<select id="sample"><option value="tech">技术文章</option><option value="book">小说</option><option value="edges">标题 / 列表 / 引用</option></select></label>
+    <label>纸面<select id="theme"><option value="light">浅色</option><option value="dark">深色</option><option value="sepia">米色</option></select></label>
+    <label><input id="translation" type="checkbox" checked>译文</label>
+    <label><input id="gloss" type="checkbox">行间释义</label>
+    <label><input id="marks" type="checkbox" checked>示例标注</label>
+    <label>建议版字号<select id="size"><option value="19">19 / 手机 18</option><option value="20" selected>20 / 手机 19</option><option value="22">22 / 手机 21</option><option value="26">26 / 手机 25</option></select></label>
+  </div>
+  <p class="font-note" id="font-note" aria-live="polite"></p>
+  <section class="workspace optimized translated marked" id="preview" data-theme="light" aria-label="阅读排版预览">
+    <header class="top"><span>‹ 书架</span><strong id="crumb"></strong><span class="badge" id="badge">建议版 · 非正式应用</span></header>
+    <div class="scroll" id="reading"><header class="head"><div class="meta"><span id="meta"></span><span class="tag">生词 3 · 学习中 2</span></div><h1 id="title" lang="en"></h1></header><article class="rd" id="body" lang="en"></article></div>
+  </section>
+  <div class="notes" id="notes" aria-live="polite"></div>
+  <footer class="details"><span>内容来自项目内置示例；译文、标注为本次排版演示。当前版按源码重建，未连接应用数据。</span><a href="../research/07-reader-typography.md">阅读调研与实施建议 ↗</a></footer>
+</main>
+<script>
+const samples = {
+  tech:{title:'How a Compiler Sees Your Code',meta:'技术 · Tibi 自拟示例',blocks:[
+    ['p','You write code as a story for other people. The compiler reads it as a long, flat string of characters. Everything a compiler does is an attempt to recover the structure that you had in mind, check that it makes sense, and then translate it into something a machine can execute. This article walks through those stages using one tiny function.','你写下的代码，是讲给其他人听的故事。编译器看到的却只是一长串平铺的字符。它尝试还原你设想的结构，检查代码是否合理，再把它转换成机器能够执行的指令。本文将用一个小函数，串起这些过程。'],
+    ['pre','fn area(width: u32, height: u32) -> u32 {\n    let result = width * height;\n    result\n}'],
+    ['h2','Lexing: from characters to tokens','词法分析：从字符到词元'],
+    ['p','The first stage is lexical analysis, usually called lexing. The lexer scans the source text from left to right and groups characters into tokens. A token is the smallest unit that carries meaning: a keyword such as `fn`, an identifier such as `width`, a symbol such as `->`, or a literal number. Whitespace and comments are typically discarded at this point, because they matter to humans but not to the grammar.','第一步是词法分析。词法分析器从左到右扫描源代码，将字符组合成词元。词元是承载意义的最小单位：它可以是关键字、标识符、符号或字面量。空白和注释通常会在这个阶段被丢弃。'],
+    ['p','Lexing sounds trivial, but it has to resolve some ambiguity. When the lexer sees `-` followed by `>`, it must decide whether these are two separate operators or a single arrow. Most lexers follow the rule of the longest match: keep consuming characters as long as the result is still a valid token.','词法分析听起来简单，却需要处理歧义。当减号后面跟着大于号时，它需要判断这是两个运算符，还是一个箭头。大多数词法分析器都遵循最长匹配原则。'],
+    ['h2','Parsing: from tokens to a tree','语法分析：从词元到树'],
+    ['p','A flat list of tokens still has no shape. The parser takes the tokens and checks them against the grammar of the language, building an abstract syntax tree, or AST. In the tree, the function is a node with children for its name, its parameters, its return type and its body.','平铺的词元列表仍然没有结构。语法分析器根据语言的语法检查词元，构建抽象语法树。树中的函数节点，会包含名称、参数、返回类型和函数体等子节点。']
+  ]},
+  book:{title:'Chapter I. Peter Breaks Through',meta:'文学 · Peter and Wendy · J. M. Barrie',blocks:[
+    ['p','All children, except one, grow up. They soon know that they will grow up, and the way Wendy knew was this. One day when she was two years old she was playing in a garden, and she plucked another flower and ran with it to her mother. I suppose she must have looked rather delightful, for Mrs. Darling put her hand to her heart and cried, “Oh, why can’t you remain like this for ever!”','所有的孩子都会长大，只有一个例外。他们很快就知道自己会长大，温迪也是这样。两岁的一天，她在花园里玩耍，摘了一朵花，拿着它向妈妈跑去。她那时的样子一定十分可爱，达林太太把手放在胸前，喊道：“哦，为什么你不能永远这样呢！”'],
+    ['p','This was all that passed between them on the subject, but henceforth Wendy knew that she must grow up. You always know after you are two. Two is the beginning of the end.','关于这个话题，她们就只说过这些。但从那以后，温迪知道了自己终究要长大。过了两岁，你总会明白这一点。两岁，是告别童年的开始。'],
+    ['p','Of course they lived at 14, and until Wendy came her mother was the chief one. She was a lovely lady, with a romantic mind and such a sweet mocking mouth. Her romantic mind was like the tiny boxes, one within the other, that come from the puzzling East, however many you discover there is always one more; and her sweet mocking mouth had one kiss on it that Wendy could never get, though there it was, perfectly conspicuous in the right-hand corner.','他们住在十四号。温迪出生之前，家里最重要的是她的妈妈。她是一位可爱的女士，心里充满浪漫的想象，嘴角总带着甜美而俏皮的笑意。她的心思像一个套着一个的小盒子，无论打开多少，总还有一个。']
+  ]},
+  edges:{title:'A Long Chapter Title About Reading, Learning, and Finding a Comfortable Rhythm on a Small Screen',meta:'排版边界样本 · 本次自拟，非原文',blocks:[
+    ['p','Good typography leaves room for the reader. It gives every paragraph a clear beginning, keeps related ideas together, and lets a difficult word remain part of the sentence.','好的排版为读者留出空间。段落的开始清晰可辨，相关内容相邻，生词也仍是句子的一部分。'],
+    ['h2','A heading that stays close to its paragraph','标题贴近它所统领的段落'],
+    ['ul',['Keep the original text and its translation together.','Let lists follow the same reading size.','Make annotations visible without interrupting the sentence.']],
+    ['blockquote','A comfortable reading page is one you can stop noticing.','舒适的阅读页，是读着读着就让人忘记其存在的页面。'],
+    ['p','Long links should wrap: https://example.org/reading/averylongunbrokenpathsegmentfortypographyreviewwithoutlosingcontent and an inline expression such as `reader.fontSize` should remain legible.','长链接应能换行，行内代码应当保持清晰。'],
+    ['h2','The next section','下一节'],
+    ['p','Try larger text, turn on translations, and compare how the two layouts hold together.','调大字号，打开译文，比较两种版式是否依然协调。']
+  ]}
+};
+const terms={compiler:['编译器','s0'],structure:['结构','s1'],lexical:['词法的','s0'],ambiguity:['歧义','s1'],grow:['长大','s0'],delightful:['可爱的','s1'],romantic:['浪漫的','s0'],paragraph:['段落','s0'],annotations:['标注','s1']};
+const el=id=>document.getElementById(id);
+const fonts={
+  source:{stack:'"Source Serif 4 Preview",Georgia,serif',note:'Source Serif 4：笔形更柔和、整体更克制，我更推荐用作 Tibi 的默认正文。'},
+  literata:{stack:'"Literata Preview",Georgia,serif',note:'Literata：字面饱满、书卷感更强，适合小说和长文，也可以比较深色下的文字密度。'},
+  charter:{stack:'Charter,"Bitstream Charter","Charis SIL",Georgia,serif',note:'Charter：现有字体，字形紧凑、结实，作为同字号与同版式的对照。'}
+};
+let version='optimized',device='desktop';
+function addText(parent,text) {
+  for(const part of text.split(/(`[^`]+`)/)) {
+    if(part.startsWith('`')) { const code=document.createElement('code'); code.textContent=part.slice(1,-1); parent.append(code); continue; }
+    for(const token of part.split(/([A-Za-z]+(?:['’][A-Za-z]+)*)/)) {
+      if(!/^[A-Za-z]/.test(token)) { parent.append(document.createTextNode(token)); continue; }
+      const word=document.createElement('span'); word.className='w'; word.textContent=token;
+      const term=terms[token.toLowerCase()]; if(term) { word.classList.add(term[1]); word.dataset.g=term[0]; } parent.append(word);
+    }
+  }
+}
+function render() {
+  const data=samples[el('sample').value]; el('title').textContent=el('crumb').textContent=data.title; el('meta').textContent=data.meta;
+  el('body').replaceChildren();
+  for(const [tag,text,tr] of data.blocks) {
+    const block=document.createElement('section'); block.className='block';
+    const node=document.createElement(tag);
+    if(tag==='pre') node.textContent=text;
+    else if(tag==='ul') { for(const item of text) { const li=document.createElement('li'); addText(li,item); node.append(li); } }
+    else addText(node,text);
+    block.append(node);
+    if(tr) { const t=document.createElement('div'); t.className='tr'; t.lang='zh-CN'; t.textContent=tr; block.append(t); }
+    el('body').append(block);
+  }
+  const end=document.createElement('footer'); end.className='reading-end'; end.textContent='排版演示到此结束 · 试着切换版本、设备、纸面与字号。'; el('body').append(end);
+  update(); el('reading').scrollTop=0;
+}
+function update() {
+  const p=el('preview'); p.className='workspace'+(version==='optimized'?' optimized':'')+(device==='mobile'?' mobile':'')+(el('translation').checked?' translated':'')+(el('gloss').checked?' gloss':'')+(el('marks').checked?' marked':'');
+  p.dataset.theme=el('theme').value; p.style.setProperty('--reader-size',el('size').value+'px');
+  p.style.setProperty('--candidate-read',fonts[el('font').value].stack);
+  el('font').disabled=version==='current';
+  el('font-note').textContent=(version==='current'?'当前样式重建固定使用 Charter；切到「优化建议」后可对比三款字体。':fonts[el('font').value].note)+' 中文译文继续使用系统字体，桌面 14.5px / 手机 14px。';
+  el('badge').textContent=version==='optimized'?'建议版 · 非正式应用':'当前样式重建';
+  el('notes').replaceChildren();
+  const notes=version==='optimized'?['正文：'+(Number(el('size').value)-(device==='mobile'?1:0))+'px · 行高 '+(device==='mobile'?'1.72':'1.7'),'段落：原文与译文成组，组内紧、组间松','细节：词间距自然，标注收窄到字面下部']:['当前：桌面 19px / 1.75，手机段落 19px / 1.75','译文：固定字号，负边距靠近原文','按当前源码重建；应用外壳与功能在此简化'];
+  for(const text of notes) { const s=document.createElement('span'); s.textContent=text; el('notes').append(s); }
+}
+for(const id of ['version','device']) for(const b of el(id).querySelectorAll('button')) b.onclick=()=>{
+  for(const sibling of el(id).querySelectorAll('button')) sibling.setAttribute('aria-pressed',String(sibling===b));
+  if(id==='version') version=b.dataset.value; else device=b.dataset.value; update();
+};
+el('sample').onchange=render;
+for(const id of ['theme','translation','gloss','marks','size','font']) el(id).onchange=update;
+render();
+</script>
+</html>

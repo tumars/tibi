@@ -7,6 +7,8 @@ import { errorInfo } from '../rpc';
 import { toast } from '../store/ui';
 import { useAloud } from './useAloud';
 import { useTtsStatus } from '../components/Speak';
+import { stopSpeaking } from '../components/Speak';
+import type { ReadRequest } from './ReaderMenu';
 
 /**
  * 全文朗读（00 §3.4，M4）：从当前看到的那句开始，一句一句读，当前句高亮并滚到视野里。
@@ -15,7 +17,7 @@ import { useTtsStatus } from '../components/Speak';
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const GAPS = [0, 1, 2, 3];
 
-export function ReadAloud({ content, scroller, onClose }: { content: SectionContent; scroller: HTMLElement | null; onClose: () => void }) {
+export function ReadAloud({ content, scroller, request, onClose }: { content: SectionContent; scroller: HTMLElement | null; request?: ReadRequest; onClose: () => void }) {
   const [start] = useState(() => firstVisible(content, scroller));
   const [speed, setSpeed] = useState(tts.current().rate || 1);
   const [loop, setLoop] = useState(false);
@@ -24,7 +26,15 @@ export function ReadAloud({ content, scroller, onClose }: { content: SectionCont
   const [pct, setPct] = useState<number>();
   const sents = content.sentences;
   const status = useTtsStatus();
-  const { idx, playing, paused, toggle, jump, goto, halt } = useAloud(sents, { start, speed, gap, loop, engine, onError: e => toast(tl('AI 朗读用不了：{v0}。可以先用系统朗读', { v0: errorInfo(e).message || tl('模型没下载好') }), { kind: 'err' }) });
+  const { idx, playing, paused, toggle, jump, goto, speakOnce, halt } = useAloud(sents, { start, speed, gap, loop, engine, onError: e => toast(tl('朗读失败：{message}', { message: errorInfo(e).message }), { kind: 'err' }) });
+  const playback = useRef({ goto, speakOnce, idx, sents }); playback.current = { goto, speakOnce, idx, sents };
+  useEffect(() => {
+    if (!request || request.sectionId !== content.id) return;
+    const i = playback.current.sents.findIndex(s => s.id === request.sentenceId);
+    stopSpeaking();
+    if (request.text) playback.current.speakOnce(request.text, i >= 0 ? i : playback.current.idx);
+    else if (i >= 0) playback.current.goto(i);
+  }, [request, content.id]);
   // 换成 AI 朗读：没下载过先下载（约 92 MB），按钮上显示进度
   const pick = async (e: tts.Engine) => {
     if (e === 'kokoro' && !tts.kokoroDownloaded()) {
@@ -47,6 +57,7 @@ export function ReadAloud({ content, scroller, onClose }: { content: SectionCont
   useEffect(() => {
     if (!scroller) return;
     const on = (e: MouseEvent) => {
+      if (e.button !== 0 || e.ctrlKey || (e.target as Element).closest('button')) return;
       if (window.getSelection()?.isCollapsed === false) return;
       const sid = (e.target as Element).closest<HTMLElement>('[data-sid]')?.dataset.sid;
       const i = sid ? sents.findIndex(s => s.id === sid) : -1;

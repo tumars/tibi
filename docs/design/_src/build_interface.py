@@ -33,8 +33,9 @@ interface Document extends DocumentSummary { sections: { id: Id; idx: number; ti
 interface SampleInfo { id: string; title: string; author?: string; genre: Genre; source: string; minutes: number; is_default: boolean; document_id?: Id }   // 内置示例；导入过的带 document_id
 interface Token { t: string; l: string; s: number; e: number; status?: Status; phrase_id?: Id; gloss?: string }   // 原文 · lemma · 偏移 · 状态 · 行间释义
 interface Sentence { id: Id; idx: number; paragraph_idx: number; block_type: 'prose' | 'heading' | 'list_item' | 'quote'; text: string; tokens: Token[]; translation?: string }
+interface TranslationState { status: 'running' | 'failed'; completed: number; total: number; error?: string }   // 当前进程中的译文状态，完成后清除
 interface SectionContent { id: Id; document_id: Id; title: string; blocks: ({ type: 'code'; lang?: string; code: string } | { type: 'sentences'; ids: Id[] })[];
-  sentences: Sentence[]; phrases: { id: Id; text: string; sentence_ids: Id[] }[]; counts: { new: number; learning: number }; ai?: Record<string, AiResult> }
+  sentences: Sentence[]; phrases: { id: Id; text: string; sentence_ids: Id[] }[]; counts: { new: number; learning: number }; ai?: Record<string, AiResult>; translation?: TranslationState }
 interface AiResult { task: string; output: unknown; model: string; prompt_version: string; created_at: Ts }
 
 // 词汇
@@ -112,19 +113,19 @@ API = [
     ('documents.reanalyze', '{ id: Id; ai?: boolean }', 'Ok', '在后台按当前词库重新标注，完成后 data.changed(documents)；ai=true 时把 AI 状态置回 deferred'),
     ('documents.analyze', '{ id: Id }', 'Ok', 'M2，在后台做：（重新）生成总结 + 学习建议 + 关键词、短语、长难句（三个子任务并行，各一次固定提示的快速档调用，JSON 输出，写 ai_results）。导入时不自动做，只由阅读器总结面板的"现在生成 / 重新生成"触发；内置示例不适用'),
     ('documents.export', "{ id: Id; format: 'markdown' }", '{ path: string }', '含标注与笔记'),
-    ('sections.get', "{ id: Id; with?: ('translations' | 'ai')[] }", 'SectionContent', '阅读器一次取齐：句子、tokens、词状态、短语、计数'),
+    ('sections.get', "{ id: Id; with?: ('translations' | 'ai')[] }", 'SectionContent', '阅读器一次取齐：句子、tokens、词状态、短语、计数，以及当前进程中的译文进度或失败原因（translation；全部完成后清除）'),
     ('sections.progress', '{ id: Id; sentence_id: Id; progress: number }', 'Ok', '阅读位置；节流后调用'),
     ('sections.finish', '{ id: Id }', 'Ok', '读完：只记进度和事件，不改任何词的状态'),
-    ('sections.translate', "{ id: Id; sentence_ids?: Id[] }", 'Ok', '在后台做；译文开关首次打开时整节批量生成：30 句一批、快速档、JSON 数组输出，写 sentences.translation，完成后发 data.changed(sentences, ids = [section_id])；没连模型 → model_unavailable'),
+    ('sections.translate', "{ id: Id; sentence_ids?: Id[] }", 'Ok', '在后台做；同章不重复启动；只补缺失译文，30 句一批、快速档、等长 JSON 字符串数组输出。开始、每批写回、完成或失败均发 data.changed(sentences, ids = [section_id])；sections.get.translation 返回 running / failed、completed / total 和 error，状态只在内存中，完成后清除。失败保留已写回译文，重试只补剩余句子；空白或不完整结果也视为失败；没连模型 → model_unavailable'),
   ]),
   ('terms', '词汇与生词本', [
     ('terms.lookup', '{ text: string; sentence_id?: Id }', '{ dict?: DictEntry; term?: Term; context_meaning?: string; status_change?: { from: Status; to: Status }; card_created?: boolean }', '词卡：词典 + 本地状态 + 语境释义缓存（内置示例先查预生成结果；否则 M1 由固定的模型调用补，M2 起由讲解技能补）。**写操作**（R5）：带 sentence_id 时，用户标过的生词（status = 0）自动设为 1（source = lookup）并建卡，每日新卡上限（默认 20）之外的排队到后面几天；其他状态不变，没有词条行的词只查不写（没标过的词释义缓存在句子的 ai_results 上）；不带 sentence_id 时只读。不返回 Undo，词卡上可改状态或忽略'),
     ('terms.context_meaning', '{ text: string; sentence_id: Id }', '{ meaning: string; cached: boolean }', 'M1 词卡的语境释义：先查缓存（内置示例的预生成结果、term_contexts.meaning_in_context）；没有就用快速档模型按固定提示现写一条（≤16 字），写回 term_contexts。没连模型 → model_unavailable，离线 → offline。词卡先显示词典释义，再异步补这一行；M2 起由讲解技能接手'),
-    ('terms.list', "{ view?: 'all' | 'due' | 'late' | 'new' | 'leech' | 'stuck' | 'stale' | 'ignored' | 'known' | 'mastered'; status?: Status[]; kind?: 'word' | 'phrase'; document_id?: Id; tags?: string[]; q?: string; sort?: 'due' | 'added' | 'enc' | 'alpha' | 'stage' | 'freq'; cursor?: string; limit?: number }", 'Page<Term> & { counts: Record<string, number> }', 'counts 给左栏视图计数与标签计数；词条不单独打标签，tags 继承来源文章（01 §2）'),
+    ('terms.list', "{ view?: 'all' | 'due' | 'late' | 'new' | 'leech' | 'stuck' | 'stale' | 'ignored' | 'known' | 'mastered'; status?: Status[]; kind?: 'word' | 'phrase'; document_id?: Id; tags?: string[]; q?: string; sort?: 'due' | 'added' | 'enc' | 'alpha' | 'stage' | 'freq'; cursor?: string; limit?: number }", 'Page<Term> & { counts: Record<string, number> }', 'document_id 匹配已登记语境或整篇正文 token 原形（含所有未删除章节），导入后新增生词也能列出；total 为筛选后总数，counts 给全局左栏视图计数与标签计数；词条不单独打标签，tags 继承来源文章（01 §2）'),
     ('terms.get', '{ id: Id } | { text: string }', 'TermDetail', '详情抽屉；contexts 已按 i+1 适合度排序'),
     ('terms.mark', '{ text: string; status: Status; sentence_id?: Id }', '{ term: Term; previous?: Status; undo: Undo }', '按文字标一个词（词卡上点熟练度 / 忽略 / 其实认识）：没有词条时现建——0–4 加入生词本并建卡，5 / 97 / 98 只记状态；可撤销'),
     ('terms.setStatus', "{ ids: Id[]; status: Status; source?: 'user' | 'page_done' }", '{ changed: number; undo: Undo }', '0–5、97 标为已知、98 忽略；5、97、98 会暂停已有卡片，97 不建新卡'),
-    ('terms.addPhrase', '{ text: string; sentence_id: Id; surface: string }', 'Term', '选中多个词标为短语；之后全文自动识别'),
+    ('terms.addPhrase', '{ text: string; sentence_id: Id; surface: string }', 'Term & { undo?: Undo }', '选中多个词收录为短语（见过）；新建 / 恢复可撤销，已有条目只返回原词条，不重复改状态或建卡'),
     ('terms.add', '{ entries: { text: string; meaning?: string }[] }', '{ created: Term[]; undo: Undo }', '生词本"添加"：查词典补音标释义，用词典例句做卡'),
     ('terms.pause', '{ ids: Id[]; days: number }', '{ changed: number; undo: Undo }', '难词暂停复习'),
     ('terms.setCardType', '{ id: Id; card_type?: CardType }', 'CardState', '难词换题型；undefined 恢复默认'),
@@ -295,7 +296,7 @@ CAPS = [
     ('get_term_contexts', '{ term_id: Id; limit?: number; prefer_i1?: boolean }', "{ source: 'article' | 'dictionary' | 'manual'; sentence_id?: Id; document_id?: Id; document_title?: string; sentence: string; surface?: string; unknown_others: number; meaning_in_context?: string }[]", 'read', 'prefer_i1 时只剩一个生词的句子排前面'),
     ('mark_term', '{ term: string; status: Status; sentence_id?: Id }', '{ term_id: Id; previous: Status; undo: Undo }', 'write', '默认权限模式下自动执行；阅读器按钮直接调它，不经模型'),
     ('add_to_wordbook', '{ words: { text: string; meaning?: string; sentence_id?: Id }[] }', '{ created: Id[]; existed: Id[]; undo: Undo }', 'write', '查词典补音标释义，建卡片'),
-    ('add_phrase', '{ text: string; sentence_id: Id; surface: string; meaning?: string }', '{ term_id: Id; undo: Undo }', 'write', ''),
+    ('add_phrase', '{ text: string; sentence_id: Id; surface: string; meaning?: string }', '{ term_id: Id; undo?: Undo }', 'write', '重复收录只返回已有词，不改状态 / 建卡，因此不返回撤销'),
     ('set_context_meaning', '{ term_id: Id; sentence_id: Id; meaning: string; source: SkillId }', '{ ok: true }', 'write', '讲解技能把语境释义写回 term_contexts，下次点词直接用'),
   ]),
   ('复习', [

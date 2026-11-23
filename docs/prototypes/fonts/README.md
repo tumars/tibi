@@ -1,5 +1,7 @@
 # 原型字体说明
 
+阅读排版对比新增的 Source Serif 4 / Literata 字体，文件来源与许可见 [`reading/README.md`](reading/README.md)。Source Serif 4 已另行接入应用阅读页，Literata 仅用于 `reader-typography.html`。
+
 | 文件 | 字体 | 许可 |
 |---|---|---|
 | `AlibabaPuHuiTi-3-55-Regular.subset.woff2` / `65-Medium` | 阿里巴巴普惠体 3.0，**仅保留原型页面实际用到的约 1,250 个字符** | 阿里巴巴官方声明为"全球免费商用"；但 1.0 版声明曾限制未经授权的上传、转载、修改。正式版打包与子集化前需核对 3.0 版许可原文（[fonts.alibabagroup.com](https://fonts.alibabagroup.com)） |

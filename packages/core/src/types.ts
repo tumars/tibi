@@ -41,10 +41,13 @@ export interface Document extends DocumentSummary {
 export interface Token { t: string; l: string; s: number; e: number; status?: Status; phrase_id?: Id; gloss?: string }
 export interface Sentence { id: Id; idx: number; paragraph_idx: number; block_type: BlockType; text: string; tokens: Token[]; translation?: string }
 export type SectionBlock = { type: 'code'; lang?: string; code: string } | { type: 'image'; src: string; alt: string } | { type: 'sentences'; ids: Id[]; block_type: BlockType; paragraph_idx: number };
+/** 当前进程中的译文生成状态；完成后清除，已有译文留在句子上 */
+export interface TranslationState { status: 'running' | 'failed'; completed: number; total: number; error?: string }
 export interface SectionContent {
   id: Id; document_id: Id; title: string; blocks: SectionBlock[];
   sentences: Sentence[]; phrases: { id: Id; text: string; sentence_ids: Id[] }[];
   counts: { new: number; learning: number }; ai?: Record<string, AiResult>;
+  translation?: TranslationState;
 }
 /** documents.samples 的一项：内置示例，导入过的带 document_id */
 export interface SampleInfo { id: string; title: string; author?: string; genre: Genre; source: string; minutes: number; /** 整本书时有：章数（卡片上显示章数而不是总分钟数） */ chapters?: number; is_default: boolean; document_id?: Id }

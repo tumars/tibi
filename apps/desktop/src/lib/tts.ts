@@ -43,14 +43,18 @@ function zhVoice(): SpeechSynthesisVoice | undefined {
   return vs.find(v => /Tingting|婷婷/i.test(v.name)) ?? vs.find(v => /^zh[-_]CN/i.test(v.lang)) ?? vs[0];
 }
 function systemSay(text: string, r: number, zh = false): Promise<void> {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     try {
       const u = new SpeechSynthesisUtterance(text);
       const v = zh ? zhVoice() : speechSynthesis.getVoices().find(x => x.voiceURI === voiceId);
       if (v) { u.voice = v; u.lang = v.lang; } else u.lang = zh ? 'zh-CN' : 'en-US';
-      u.rate = r; u.onend = () => resolve(); u.onerror = () => resolve();
+      u.rate = r; u.onend = () => resolve();
+      u.onerror = e => {
+        if (e.error === 'canceled' || e.error === 'interrupted') resolve();
+        else reject(new Error(tl('系统朗读不可用，请检查系统语音设置')));
+      };
       speechSynthesis.speak(u);
-    } catch { resolve(); }
+    } catch { reject(new Error(tl('系统朗读不可用，请检查系统语音设置'))); }
   });
 }
 
@@ -229,7 +233,6 @@ export async function say(text: string, o: { rate?: number; engine?: Engine; zh?
   } else halt();
   const my = ++seq;
   setStatus('speaking');
-  await systemSay(text, r, o.zh);
-  if (my === seq) setStatus('idle');
-  return my === seq;
+  try { await systemSay(text, r, o.zh); return my === seq; }
+  finally { if (my === seq) setStatus('idle'); }
 }

@@ -4,7 +4,7 @@
 
 ## 1. 第一次打开
 
-1. 从 [Releases](https://github.com/tumars/tibi/releases) 下载 macOS 安装包（目前只有 macOS 版，iOS、Windows、Linux 即将支持），GitHub 打不开时用 [README](../../README.md#安装) 里的国内下载（未签名版本：在 Finder 里右键 → 打开）。
+1. 从[官网](https://tibi.ferecord.com/#download)下载 macOS 安装包，由腾讯云直接提供（目前提供 Apple Silicon 版，macOS 13+；其他平台即将支持）。正式版已签名并公证；自行构建的未签名版本在 Finder 里右键 → 打开。
 2. 引导页问你怎么称呼你、平时常读什么（找文章时用）。Tibi 不测你的水平，也不替你猜哪些是生词：读的时候点不认识的词，标成生词或加进生词本就行。
 3. 读第一篇：选一篇内置示例，或粘贴一个英文网址。
 

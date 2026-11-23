@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Core, Ctx, Dict, SectionContent, Term, TermDetail } from '../../src/index.js';
+import type { Core, Ctx, Dict, SectionContent, Term, TermDetail, Undo } from '../../src/index.js';
 import { documentsMethods } from '../../src/domain/documents/index.js';
 import { termsMethods, termsCapabilities } from '../../src/domain/terms/index.js';
 import { undoMethods } from '../../src/domain/shared/undo.js';
@@ -30,6 +30,83 @@ async function markNew(...words: string[]) {
 }
 
 describe('terms.lookup（R5）', () => {
+  it('已知词重新加入学习后撤销，恢复已知且不留下活动复习卡', async () => {
+    const known = await core.call<{ term: Term }>('terms.mark', { text: 'cat', status: 97 });
+    const r = await core.call<{ undo: Undo }>('terms.setStatus', { ids: [known.term.id], status: 0, source: 'user' });
+    expect(await ctx.db.all('SELECT id FROM cards WHERE deleted_at IS NULL')).toHaveLength(1);
+    await core.call('system.undo', { undo_id: r.undo.undo_id });
+    expect((await core.call<Term>('terms.get', { id: known.term.id })).status).toBe(97);
+    expect(await ctx.db.all('SELECT id FROM cards WHERE deleted_at IS NULL')).toEqual([]);
+    expect((await core.call<{ items: Term[] }>('terms.list', {})).items).toEqual([]);
+  });
+
+  it('移出并撤销生词，恢复原卡的排期和暂停状态，不修改熟练度或复习记录', async () => {
+    const r = await core.call<{ term: Term }>('terms.mark', { text: 'cat', status: 2 });
+    await ctx.db.run('UPDATE cards SET due = 12345, reps = 6, suspended = 1 WHERE term_id = ?', [r.term.id]);
+    const before = await core.call<TermDetail>('terms.get', { id: r.term.id });
+    const undo = await core.call<Undo>('terms.remove', { ids: [r.term.id] });
+    expect((await core.call<{ items: Term[] }>('terms.list', {})).items).toEqual([]);
+    expect(await ctx.db.all('SELECT id FROM cards WHERE deleted_at IS NULL')).toEqual([]);
+    await core.call('system.undo', { undo_id: undo.undo_id });
+    const after = await core.call<TermDetail>('terms.get', { id: r.term.id });
+    expect(after.status).toBe(before.status);
+    expect(after.card).toEqual(before.card);
+    expect(after.reviews).toEqual(before.reviews);
+  });
+
+  it('菜单的只读查词不改生词状态、不建卡，也不创建陌生词', async () => {
+    await markNew('upshot');
+    const before = await ctx.db.all('SELECT * FROM term_status_log');
+    await core.call('terms.lookup', { text: 'upshot' });
+    await core.call('terms.lookup', { text: 'unmarked' });
+    expect((await ctx.db.get<{ status: number }>("SELECT status FROM terms WHERE text = 'upshot'"))?.status).toBe(0);
+    expect(await ctx.db.all('SELECT * FROM cards')).toEqual([]);
+    expect(await ctx.db.all('SELECT * FROM term_status_log')).toEqual(before);
+    expect(await ctx.db.get("SELECT id FROM terms WHERE text = 'unmarked'")).toBeUndefined();
+  });
+
+  it('收录短语返回撤销；重复和已忽略的短语不改状态或建卡', async () => {
+    const params = { text: 'on the mat', sentence_id: sentenceWith('cat').id, surface: 'on the mat' };
+    const added = await core.call<Term & { undo: Undo }>('terms.addPhrase', params);
+    expect(added.status).toBe(1);
+    expect(added.undo.undo_id).toBeTruthy();
+    await core.call('terms.mark', { text: params.text, status: 98 });
+    const cards = await ctx.db.all('SELECT * FROM cards');
+    const term = await ctx.db.get('SELECT * FROM terms WHERE id = ?', [added.id]);
+    const repeated = await core.call<Term & { undo?: Undo }>('terms.addPhrase', params);
+    expect(repeated.status).toBe(98);
+    expect(repeated.undo).toBeUndefined();
+    expect(await ctx.db.all('SELECT * FROM cards')).toEqual(cards);
+    expect(await ctx.db.get('SELECT * FROM terms WHERE id = ?', [added.id])).toEqual(term);
+  });
+
+  it('短语撤销后可重新收录，再撤销不会留下活动词条或复习卡', async () => {
+    const params = { text: 'on the mat', sentence_id: sentenceWith('cat').id, surface: 'on the mat' };
+    const first = await core.call<Term & { undo: Undo }>('terms.addPhrase', params);
+    await core.call('system.undo', { undo_id: first.undo.undo_id });
+    expect((await core.call<{ term?: Term }>('terms.lookup', { text: params.text })).term).toBeUndefined();
+    const restored = await core.call<Term & { undo: Undo }>('terms.addPhrase', params);
+    expect(restored.id).toBe(first.id);
+    expect(restored.status).toBe(1);
+    await core.call('system.undo', { undo_id: restored.undo.undo_id });
+    expect(await ctx.db.all('SELECT * FROM terms WHERE deleted_at IS NULL')).toEqual([]);
+    expect(await ctx.db.all('SELECT * FROM cards WHERE deleted_at IS NULL')).toEqual([]);
+  });
+
+  it('无效句子不能产生短语或复习卡', async () => {
+    await expect(core.call('terms.addPhrase', { text: 'missing sentence', sentence_id: 'gone', surface: 'missing sentence' })).rejects.toThrow('找不到这句话');
+    expect(await ctx.db.all('SELECT * FROM terms')).toEqual([]);
+    expect(await ctx.db.all('SELECT * FROM cards')).toEqual([]);
+  });
+
+  it('新词标记后撤销，恢复未标记状态并移除本次语境和复习卡', async () => {
+    const r = await core.call<{ term: Term; undo: Undo }>('terms.mark', { text: 'cat', status: 0, sentence_id: sentenceWith('cat').id });
+    await core.call('system.undo', { undo_id: r.undo.undo_id });
+    expect((await core.call<{ term?: Term }>('terms.lookup', { text: 'cat' })).term).toBeUndefined();
+    expect(await ctx.db.all('SELECT * FROM cards WHERE deleted_at IS NULL')).toEqual([]);
+    expect(await ctx.db.all('SELECT * FROM term_contexts WHERE deleted_at IS NULL')).toEqual([]);
+  });
+
   it('点用户标的生词：0 → 1，建卡；没标过的词只查不写', async () => {
     await markNew('upshot');
     const s = sentenceWith('upshot');
@@ -103,6 +180,36 @@ describe('terms.lookup（R5）', () => {
 });
 
 describe('terms.setStatus / list / get / 撤销', () => {
+  it('按文章列生词：匹配正文原形，不要求导入时已有语境，支持分页与状态更新', async () => {
+    const added = await core.call<{ created: Term[] }>('terms.add', { entries: [{ text: 'cats' }, { text: 'sit' }, { text: 'upshot' }, { text: 'banana' }] });
+    expect(await ctx.db.all('SELECT id FROM term_contexts WHERE document_id = ?', [section.document_id])).toHaveLength(0);
+    const list = (cursor?: string) => core.call<{ items: Term[]; total: number; cursor?: string }>('terms.list', { document_id: section.document_id, view: 'all', sort: 'alpha', limit: 2, cursor });
+    const first = await list();
+    expect(first.total).toBe(3);
+    expect(first.items.map(t => t.text)).toEqual(['cat', 'sit']); // cat / sat 在正文里；banana 不在
+    const second = await list(first.cursor);
+    expect(second.items.map(t => t.text)).toEqual(['upshot']);
+    expect(second.cursor).toBeUndefined();
+    const cat = added.created.find(t => t.text === 'cat')!;
+    await core.call('terms.setStatus', { ids: [cat.id], status: 5 });
+    expect((await list()).items.map(t => t.text)).toEqual(['sit', 'upshot']);
+    await core.call('terms.remove', { ids: [added.created.find(t => t.text === 'sit')!.id] });
+    expect((await list()).items.map(t => t.text)).toEqual(['upshot']);
+    await ctx.db.run('UPDATE sentences SET deleted_at = 1 WHERE section_id = ?', [section.id]);
+    expect((await list()).total).toBe(0);
+  });
+
+  it('按文章列生词保留短语语境，重复出现只列一条，忽略和已知不显示', async () => {
+    await core.call('terms.mark', { text: 'cat', status: 0, sentence_id: sentenceWith('cat').id });
+    await core.call('terms.mark', { text: 'upshot', status: 97, sentence_id: sentenceWith('upshot').id });
+    await core.call('terms.mark', { text: 'overhead', status: 98, sentence_id: sentenceWith('overhead').id });
+    await core.call('terms.addPhrase', { text: 'on the mat', sentence_id: sentenceWith('cat').id, surface: 'on the mat' });
+    const r = await core.call<{ items: Term[]; total: number }>('terms.list', { document_id: section.document_id, sort: 'alpha' });
+    expect(r.items.map(t => [t.text, t.kind])).toEqual([['cat', 'word'], ['on the mat', 'phrase']]);
+    expect(r.total).toBe(2);
+    expect((await core.call<{ items: Term[] }>('terms.list', { document_id: 'another-document' })).items).toEqual([]);
+  });
+
   it('改状态、视图计数、撤销', async () => {
     await markNew('upshot');
     // 标过之后重新标注，才在文中登记语境（导入时这个词还没有行）

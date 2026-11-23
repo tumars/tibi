@@ -3,13 +3,14 @@ import * as tts from '../src/lib/tts';
 
 /** 假的系统语音：speak 后一直"在读"，finish() 才读完；和浏览器一样 cancel 触发 onerror */
 function fakeSpeech() {
-  let cur: { onend?: () => void; onerror?: () => void } | undefined;
+  let cur: { onend?: () => void; onerror?: (event: { error: string }) => void } | undefined;
   const s = {
     speaking: false, paused: false, getVoices: () => [],
     speak(u: typeof cur) { cur = u; s.speaking = true; },
     pause() { s.paused = true; }, resume() { s.paused = false; },
-    cancel() { const u = cur; cur = undefined; s.speaking = false; s.paused = false; u?.onerror?.(); },
+    cancel() { const u = cur; cur = undefined; s.speaking = false; s.paused = false; u?.onerror?.({ error: 'canceled' }); },
     finish() { const u = cur; cur = undefined; s.speaking = false; u?.onend?.(); },
+    fail() { const u = cur; cur = undefined; s.speaking = false; u?.onerror?.({ error: 'synthesis-unavailable' }); },
   };
   return s;
 }
@@ -72,6 +73,19 @@ describe('tts 暂停', () => {
   });
 
   it('没在出声时暂停不了', () => { expect(tts.pause()).toBe(false); expect(tts.resume()).toBe(false); });
+
+  it('系统语音失败向界面报错，并恢复 idle，不虚报读完', async () => {
+    const p = tts.say('hello');
+    speech.fail();
+    await expect(p).rejects.toThrow('系统朗读不可用');
+    expect(tts.getStatus()).toBe('idle');
+  });
+
+  it('没有系统语音 API 时也返回可读错误', async () => {
+    vi.stubGlobal('SpeechSynthesisUtterance', undefined);
+    await expect(tts.say('hello')).rejects.toThrow('系统朗读不可用');
+    expect(tts.getStatus()).toBe('idle');
+  });
 
   it('Android 上 pause 等于 cancel，不用它', () => {
     vi.stubGlobal('navigator', { userAgent: 'Linux; Android 14' });

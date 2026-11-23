@@ -1,9 +1,9 @@
 # 打 tag（v0.1.0 这样）→ 三平台安装包，放进一个草稿 Release，人工检查后再发布。
-# 签名 / 公证：配了下面这些仓库密钥就自动签，没配就出未签名的包（README 里写了怎么打开）。
+# 签名 / 公证：tag 发布必须配置 macOS 签名密钥；手动验证构建允许未签名。
 #   macOS：APPLE_CERTIFICATE、APPLE_CERTIFICATE_PASSWORD、APPLE_SIGNING_IDENTITY、APPLE_ID、APPLE_PASSWORD、APPLE_TEAM_ID
 #   Windows：暂不签（以后接 Azure Trusted Signing）
 # 软件更新（T31）：配了 TAURI_SIGNING_PRIVATE_KEY 才出更新包和 latest.json。私钥丢了，已安装的版本就再也收不到更新。
-# 国内源：配了变量 CN_MIRROR_BASE_URL 才打进应用，发布后由 mirror-cn.yml 同步。
+# 分发源固定为 dl.ferecord.com（腾讯云 COS）；mirror-cn.yml 是可选的 CI 上传入口。
 name: Release
 # 手动触发（Actions 页面 → Release → Run workflow）只出构建产物、不建 Release，用来在打 tag 之前验证打包；可以勾选跑哪些。
 # 省 Actions 分钟（私有仓库：Linux ×1、Windows ×2、macOS ×10 计）：两个手机冒烟测试默认不跑，手动勾选才跑；打 tag 时也不跑。
@@ -125,7 +125,12 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          if [ -z "$APPLE_CERTIFICATE" ]; then echo "没配签名密钥，出未签名的包"; exit 0; fi
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            for k in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+              if [ -z "${!k}" ]; then echo "::error::正式 macOS 发布缺少 $k，禁止上传未签名安装包"; exit 1; fi
+            done
+          fi
+          if [ -z "$APPLE_CERTIFICATE" ]; then echo "手动验证构建：出未签名的包"; exit 0; fi
           for k in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
             v="${!k}"; [ -n "$v" ] && { echo "$k<<__TIBI_EOF__"; echo "$v"; echo "__TIBI_EOF__"; } >> "$GITHUB_ENV"
           done
@@ -134,25 +139,24 @@ jobs:
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          CN_MIRROR_BASE_URL: ${{ vars.CN_MIRROR_BASE_URL }}
         run: |
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then echo "没配更新签名密钥，不出更新包"; exit 0; fi
           { echo "TAURI_SIGNING_PRIVATE_KEY<<__TIBI_EOF__"; echo "$TAURI_SIGNING_PRIVATE_KEY"; echo "__TIBI_EOF__"; } >> "$GITHUB_ENV"
           echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=" >> "$GITHUB_ENV"
-          args="--config src-tauri/tauri.updater.conf.json"
-          # 配了国内源（mirror-cn.yml）就排在 GitHub 前面；连不上时插件自动查下一个
-          if [ -n "$CN_MIRROR_BASE_URL" ]; then
-            node -e "
-              const fs = require('fs');
-              const conf = './apps/desktop/src-tauri/tauri.conf.json';
-              const base = process.env.CN_MIRROR_BASE_URL.replace(/\/+$/, '');
-              if (!base.startsWith('https://')) throw new Error('CN_MIRROR_BASE_URL 必须是 https');
-              const endpoints = [base + '/latest.json', ...require(conf).plugins.updater.endpoints];
-              fs.writeFileSync('apps/desktop/src-tauri/tauri.updater-cn.conf.json', JSON.stringify({ plugins: { updater: { endpoints } } }));
-            "
-            args="$args --config src-tauri/tauri.updater-cn.conf.json"
+          # 更新源固定在 tauri.conf.json，本机打包和 CI 打包使用相同的腾讯云入口
+          echo "UPDATER_ARGS=--config src-tauri/tauri.updater.conf.json" >> "$GITHUB_ENV"
+      - name: 禁止覆盖已发布的 Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 列表查询失败也停止；不能把网络或认证错误当成 Release 不存在。
+          releases=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases")
+          if jq -e --arg tag "$GITHUB_REF_NAME" '.[] | select(.tag_name == $tag and .draft == false)' <<< "$releases" >/dev/null; then
+            echo "::error::Release $GITHUB_REF_NAME 已发布，禁止自动覆盖；请使用新版本 tag"
+            exit 1
           fi
-          echo "UPDATER_ARGS=$args" >> "$GITHUB_ENV"
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -162,7 +166,7 @@ jobs:
           args: --target ${{ matrix.target }} --config src-tauri/tauri.bundle.conf.json ${{ env.UPDATER_ARGS }}
           tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
           releaseName: Tibi ${{ github.ref_name }}
-          releaseBody: 见 docs/CHANGELOG.md。未签名的 macOS 包第一次打开：右键 → 打开；Windows 提示 SmartScreen 时选"仍要运行"。
+          releaseBody: 见 docs/CHANGELOG.md。macOS 包必须完成签名、公证及安装验证后才能发布；Windows 提示 SmartScreen 时选"仍要运行"。
           releaseDraft: true
           # 不能标预发布：/releases/latest/ 会跳过预发布版本，检查更新就找不到 latest.json
           prerelease: false

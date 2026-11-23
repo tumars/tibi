@@ -22,7 +22,7 @@ pub struct Pending(Mutex<Option<Staged>>);
 
 #[tauri::command]
 pub async fn update_check(app: AppHandle, pending: State<'_, Pending>) -> Result<Value, String> {
-    // 超时只管检查，不管下载：连不上国内源时要尽快试 GitHub，而插件默认不设超时
+    // 超时只管检查，不管下载：分发源不可用时及时返回错误，而插件默认不设超时
     let updater = app.updater_builder().timeout(Duration::from_secs(15)).build().map_err(|e| e.to_string())?;
     let update = updater.check().await.map_err(|e| e.to_string())?;
     let info = match &update {
@@ -33,9 +33,9 @@ pub async fn update_check(app: AppHandle, pending: State<'_, Pending>) -> Result
     Ok(info)
 }
 
-/// 国内源 latest/ 下这台电脑能用的安装包文件名（别名见 .github/scripts/cn-mirror-prep.mjs）
+/// 腾讯云 latest/ 下这台电脑能用的安装包文件名（别名见 .github/scripts/cn-mirror-prep.mjs）
 #[tauri::command]
-pub fn update_mirror_asset() -> &'static str {
+pub fn update_installer_asset() -> &'static str {
     if cfg!(target_os = "macos") {
         if cfg!(target_arch = "aarch64") { "Tibi_aarch64.dmg" } else { "Tibi_x64.dmg" }
     } else if cfg!(windows) {

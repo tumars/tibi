@@ -8,6 +8,7 @@ import { getTermsByTexts } from '../terms/repo.js';
 import { shortGloss } from '../terms/views.js';
 import { getSection, listSentences, getDocument, listSections } from './repo.js';
 import { splitBlocks } from '../text/segment.js';
+import { translationState } from './analyze.js';
 
 /** 这一章每句已有的语境义（句子 id → lemma → 释义）：预生成结果打底，term_contexts 里写回的优先 */
 async function sentenceMeanings(db: Database, section_id: string): Promise<Map<string, Record<string, string>>> {
@@ -81,7 +82,7 @@ export async function sectionContent(db: Database, section_id: string, opts: { t
     ai = {};
     for (const r of await db.all<{ task: string; output: string; model: string; prompt_version: string; created_at: number }>("SELECT task, output, model, prompt_version, created_at FROM ai_results WHERE scope = 'section' AND target_id = ? AND deleted_at IS NULL", [section_id])) ai[r.task] = { task: r.task, output: j.parse(r.output, null), model: r.model, prompt_version: r.prompt_version, created_at: Number(r.created_at) };
   }
-  return { id: sec.id, document_id: sec.document_id, title: sec.title, blocks, sentences, phrases: [...phraseMap.values()], counts, ai };
+  return { id: sec.id, document_id: sec.document_id, title: sec.title, blocks, sentences, phrases: [...phraseMap.values()], counts, ai, translation: translationState(db, section_id) };
 }
 
 /** 两次进度上报隔得超过这么久，算新的一次阅读（中间离开了） */

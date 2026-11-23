@@ -54,8 +54,9 @@ interface Document extends DocumentSummary { sections: { id: Id; idx: number; ti
 interface SampleInfo { id: string; title: string; author?: string; genre: Genre; source: string; minutes: number; is_default: boolean; document_id?: Id }   // 内置示例；导入过的带 document_id
 interface Token { t: string; l: string; s: number; e: number; status?: Status; phrase_id?: Id; gloss?: string }   // 原文 · lemma · 偏移 · 状态 · 行间释义
 interface Sentence { id: Id; idx: number; paragraph_idx: number; block_type: 'prose' | 'heading' | 'list_item' | 'quote'; text: string; tokens: Token[]; translation?: string }
+interface TranslationState { status: 'running' | 'failed'; completed: number; total: number; error?: string }   // 当前进程中的译文状态，完成后清除
 interface SectionContent { id: Id; document_id: Id; title: string; blocks: ({ type: 'code'; lang?: string; code: string } | { type: 'sentences'; ids: Id[] })[];
-  sentences: Sentence[]; phrases: { id: Id; text: string; sentence_ids: Id[] }[]; counts: { new: number; learning: number }; ai?: Record<string, AiResult> }
+  sentences: Sentence[]; phrases: { id: Id; text: string; sentence_ids: Id[] }[]; counts: { new: number; learning: number }; ai?: Record<string, AiResult>; translation?: TranslationState }
 interface AiResult { task: string; output: unknown; model: string; prompt_version: string; created_at: Ts }
 
 // 词汇
@@ -126,20 +127,20 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `documents.import` | `{ source: { type: 'text'; text: string } \| { type: 'url'; url: string } \| { type: 'file'; path: string } \| { type: 'images'; paths: string[] } \| { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' \| 'deeplink' }` | `{ import_id: Id }` | 在后台导入，立即返回；进度走 import.progress，完成走 import.done（载荷含 ok、document_id 或 error）；path 与 url 按 §1 校验；sample 直接写入预生成的 AI 结果，不调模型；deeplink 只在用户确认后才调。`shelve: false`：从订阅里直接读，用同一个阅读器打开但不进书架（11 §5.2） |
+| `documents.import` | `{ source: { type: 'text'; text: string } \| { type: 'url'; url: string } \| { type: 'file'; path: string } \| { type: 'images'; paths: string[] } \| { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' \| 'deeplink' }` | `{ import_id: Id }` | 在后台导入，立即返回；进度走 import.progress，完成走 import.done（载荷含 ok、document_id 或 error）；path 与 url 按 §1 校验；sample 直接写入预生成的 AI 结果，不调模型；deeplink 只在用户确认后才调 |
 | `documents.samples` | `{}` | `SampleInfo[]` | 内置示例（随应用打包，正文与预生成结果在 packages/core/samples/）；技术向那篇 is_default；用 documents.import({ source: { type: 'sample', id } }) 导入，导入时写入预生成的总结、短语、长难句、建议与语境释义，不调模型 |
 | `documents.checkUrl` | `{ url: string }` | `{ ok: boolean; url?: string; host?: string; error?: ErrorCode }` | 按 §1 校验网址，不抓内容；深链确认卡先调它 |
-| `documents.list` | `{ kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' \| 'opened' \| 'added' \| 'progress' \| 'minutes'; archived?: boolean; cursor?: string; limit?: number }` | `Page<DocumentSummary>` | 书架页与首页书架；tags 多选为同时满足。只列 `shelved = 1` 的（书架）；`list_documents` 能力连不在书架里的也列 |
+| `documents.list` | `{ kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' \| 'opened' \| 'added' \| 'progress' \| 'minutes'; archived?: boolean; cursor?: string; limit?: number }` | `Page<DocumentSummary>` | 书架页与首页书架；tags 多选为同时满足 |
 | `documents.get` | `{ id: Id }` | `Document` | 含章节列表与文档级 AI 结果 |
-| `documents.update` | `{ id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean; shelved?: boolean } }` | `Document` | 改 genre 会让相关 ai_results 失效 |
+| `documents.update` | `{ id: Id; patch: { title?: string; genre?: Genre; tags?: string[]; is_favorite?: boolean; is_archived?: boolean } }` | `Document` | 改 genre 会让相关 ai_results 失效 |
 | `documents.delete` | `{ id: Id }` | `Undo` | 软删（documents.deleted_at），书架不再显示，可撤销；原始文件副本一并移入回收区 |
 | `documents.reanalyze` | `{ id: Id; ai?: boolean }` | `Ok` | 在后台按当前词库重新标注，完成后 data.changed(documents)；ai=true 时把 AI 状态置回 deferred |
 | `documents.analyze` | `{ id: Id }` | `Ok` | M2，在后台做：（重新）生成总结 + 学习建议 + 关键词、短语、长难句（三个子任务并行，各一次固定提示的快速档调用，JSON 输出，写 ai_results）。导入时不自动做，只由阅读器总结面板的"现在生成 / 重新生成"触发；内置示例不适用 |
 | `documents.export` | `{ id: Id; format: 'markdown' }` | `{ path: string }` | 含标注与笔记 |
-| `sections.get` | `{ id: Id; with?: ('translations' \| 'ai')[] }` | `SectionContent` | 阅读器一次取齐：句子、tokens、词状态、短语、计数 |
+| `sections.get` | `{ id: Id; with?: ('translations' \| 'ai')[] }` | `SectionContent` | 阅读器一次取齐：句子、tokens、词状态、短语、计数，以及当前进程中的译文进度或失败原因（translation；全部完成后清除） |
 | `sections.progress` | `{ id: Id; sentence_id: Id; progress: number }` | `Ok` | 阅读位置；节流后调用 |
 | `sections.finish` | `{ id: Id }` | `Ok` | 读完：只记进度和事件，不改任何词的状态 |
-| `sections.translate` | `{ id: Id; sentence_ids?: Id[] }` | `Ok` | 在后台做；译文开关首次打开时整节批量生成：30 句一批、快速档、JSON 数组输出，写 sentences.translation，完成后发 data.changed(sentences, ids = [section_id])；没连模型 → model_unavailable |
+| `sections.translate` | `{ id: Id; sentence_ids?: Id[] }` | `Ok` | 在后台做；同章不重复启动；只补缺失译文，30 句一批、快速档、等长 JSON 字符串数组输出。开始、每批写回、完成或失败均发 data.changed(sentences, ids = [section_id])；sections.get.translation 返回 running / failed、completed / total 和 error，状态只在内存中，完成后清除。失败保留已写回译文，重试只补剩余句子；空白或不完整结果也视为失败；没连模型 → model_unavailable |
 
 ### terms · 词汇与生词本
 
@@ -147,11 +148,11 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 |---|---|---|---|
 | `terms.lookup` | `{ text: string; sentence_id?: Id }` | `{ dict?: DictEntry; term?: Term; context_meaning?: string; status_change?: { from: Status; to: Status }; card_created?: boolean }` | 词卡：词典 + 本地状态 + 语境释义缓存（内置示例先查预生成结果；否则 M1 由固定的模型调用补，M2 起由讲解技能补）。**写操作**（R5）：带 sentence_id 时，用户标过的生词（status = 0）自动设为 1（source = lookup）并建卡，每日新卡上限（默认 20）之外的排队到后面几天；其他状态不变，没有词条行的词只查不写（没标过的词释义缓存在句子的 ai_results 上）；不带 sentence_id 时只读。不返回 Undo，词卡上可改状态或忽略 |
 | `terms.context_meaning` | `{ text: string; sentence_id: Id }` | `{ meaning: string; cached: boolean }` | M1 词卡的语境释义：先查缓存（内置示例的预生成结果、term_contexts.meaning_in_context）；没有就用快速档模型按固定提示现写一条（≤16 字），写回 term_contexts。没连模型 → model_unavailable，离线 → offline。词卡先显示词典释义，再异步补这一行；M2 起由讲解技能接手 |
-| `terms.list` | `{ view?: 'all' \| 'due' \| 'late' \| 'new' \| 'leech' \| 'stuck' \| 'stale' \| 'ignored' \| 'known' \| 'mastered'; status?: Status[]; kind?: 'word' \| 'phrase'; document_id?: Id; tags?: string[]; q?: string; sort?: 'due' \| 'added' \| 'enc' \| 'alpha' \| 'stage' \| 'freq'; cursor?: string; limit?: number }` | `Page<Term> & { counts: Record<string, number> }` | counts 给左栏视图计数与标签计数；词条不单独打标签，tags 继承来源文章（01 §2） |
+| `terms.list` | `{ view?: 'all' \| 'due' \| 'late' \| 'new' \| 'leech' \| 'stuck' \| 'stale' \| 'ignored' \| 'known' \| 'mastered'; status?: Status[]; kind?: 'word' \| 'phrase'; document_id?: Id; tags?: string[]; q?: string; sort?: 'due' \| 'added' \| 'enc' \| 'alpha' \| 'stage' \| 'freq'; cursor?: string; limit?: number }` | `Page<Term> & { counts: Record<string, number> }` | document_id 匹配已登记语境或整篇正文 token 原形（含所有未删除章节），导入后新增生词也能列出；total 为筛选后总数，counts 给全局左栏视图计数与标签计数；词条不单独打标签，tags 继承来源文章（01 §2） |
 | `terms.get` | `{ id: Id } \| { text: string }` | `TermDetail` | 详情抽屉；contexts 已按 i+1 适合度排序 |
 | `terms.mark` | `{ text: string; status: Status; sentence_id?: Id }` | `{ term: Term; previous?: Status; undo: Undo }` | 按文字标一个词（词卡上点熟练度 / 忽略 / 其实认识）：没有词条时现建——0–4 加入生词本并建卡，5 / 97 / 98 只记状态；可撤销 |
 | `terms.setStatus` | `{ ids: Id[]; status: Status; source?: 'user' \| 'page_done' }` | `{ changed: number; undo: Undo }` | 0–5、97 标为已知、98 忽略；5、97、98 会暂停已有卡片，97 不建新卡 |
-| `terms.addPhrase` | `{ text: string; sentence_id: Id; surface: string }` | `Term` | 选中多个词标为短语；之后全文自动识别 |
+| `terms.addPhrase` | `{ text: string; sentence_id: Id; surface: string }` | `Term & { undo?: Undo }` | 选中多个词收录为短语（见过）；新建 / 恢复可撤销，已有条目只返回原词条，不重复改状态或建卡 |
 | `terms.add` | `{ entries: { text: string; meaning?: string }[] }` | `{ created: Term[]; undo: Undo }` | 生词本"添加"：查词典补音标释义，用词典例句做卡 |
 | `terms.pause` | `{ ids: Id[]; days: number }` | `{ changed: number; undo: Undo }` | 难词暂停复习 |
 | `terms.setCardType` | `{ id: Id; card_type?: CardType }` | `CardState` | 难词换题型；undefined 恢复默认 |
@@ -188,17 +189,9 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `feeds.list` | `{}` | `FeedView[]`：`{ id; url; site_url?; title; builtin; enabled; folder?; unread; last_ok_at?; error?; error_count }` | 订阅（11）：带未读数和出错原因 |
-| `feeds.discover` | `{ url }` | `{ url; title; site_url?; latest?: { title; published_at? } }[]` | 给网站或订阅地址找可订阅的源：本身是订阅 → 网页里的 `<link rel="alternate">` → 常见路径；找不到报 `invalid_source` |
-| `feeds.add` | `{ url; title?; folder? }` | `FeedView` | 先 discover；网站有多个订阅时报 `conflict`（`data.candidates`）；加完马上抓一次 |
-| `feeds.update` | `{ id; title?; folder?; enabled? }` | `FeedView` | 改名后不再被源里的标题覆盖 |
-| `feeds.remove` | `{ id }` | `{ ok; undo }` | 软删订阅，没保存、没导入的条目一起删；撤销后重新抓 |
-| `feeds.refresh` | `{ feed_ids?; force? }` | `{ feeds; not_modified; new_items; failed }` | 只抓到点的源（force 不管），带 ETag / Last-Modified；同一时间只跑一轮 |
-| `feeds.auto` | `{}` | 同上 | 桌面定时调用（启动后 2 分钟、每 30 分钟）；`feeds.auto_refresh` 关了直接返回 |
-| `feeds.status` | `{}` | `{ unread; refreshing; auto_refresh }` | 侧栏角标 |
-| `feeds.configure` | `{ auto_refresh }` | `{ auto_refresh }` | 本机设置（`feeds.*` 不同步） |
-| `feeds.items` | `{ feed_id?; folder?; filter?: 'unread' \| 'all' \| 'saved'; cursor?; limit? }` | `{ items: FeedItemView[]; next_cursor? }` | 按发布时间倒序；`document_id` 有值表示在书架里 |
-| `feeds.mark` | `{ ids? \| feed_id? \| all?; state: 'seen' \| 'dismissed' \| 'new' }` | `{ count; undo? }` | 已读不会改掉保存过的；不感兴趣可撤销 |
+| `feeds.list` | `{}` | `{ url: string; title: string; builtin: boolean; enabled: boolean }[]` | M5 文章来源：内置 + 自己加的 |
+| `feeds.update` | `{ add?: { url: string; title?: string }; remove?: string; toggle?: { url: string; enabled: boolean } }` | `同 feeds.list` | 加源时先抓一次，确认是 RSS / Atom |
+| `feeds.search` | `{ interests?: string[]; limit?: number }` | `search_feeds 的返回` | 界面直接看候选，不经模型 |
 | `search.query` | `{ q: string; limit?: number }` | `{ documents: { id; title; genre; snippet? }[]; terms: { id; text; display; meaning?; status }[]; conversations: { id; title; kind; last_message_at? }[]; dict?: { lemma: string; entry: DictEntry } }` | M6 全局搜索（⌘K，00 §3.8）：文章标题 + 正文 FTS5 片段、生词本里的词（英文前缀 / 词形 / 中文释义，不含已知和忽略）、对话标题；输入像英文单词又不在生词本里时附词典释义。设置项和跳转在界面本地匹配。只读 |
 | `dict.suggest` | `{ q: string; limit?: number }` | `{ available: boolean; mode: 'prefix' \| 'zh' \| 'similar'; items: DictBrief[] }` | 词典页（00 §3.14）联想：输入正好是词头时排第一，是变形时原形紧跟，其余按词频；有汉字时中文反查；英文查不到时给拼写相近的词。只读，不联网。没装词典时 available = false |
 | `dict.entry` | `{ word: string }` | `{ available: boolean; entry?: DictEntry; lemma: string; via?: string; term?: Term; in_wordbook: boolean; readings: { document_id: Id; title: string; snippet: string }[]; similar: DictBrief[] }` | 词典页词条：词典内容、本地状态、读过的文章里出现这个词及其词形的地方（每篇一条，命中处用 ⟦ ⟧ 标出）。lemma 是进生词本的原形。只读，不改熟练度、不建卡；加入生词本走 terms.add |
@@ -358,8 +351,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 
 | 能力 | 参数 | 返回 | 权限 | 说明 |
 |---|---|---|---|---|
-| `search_feeds` | `{ interests?: string[]; since?: Ts; limit?: number; q?: string; feed_ids?: string[]; unread_only?: boolean }` | `{ items: { item_id; url; title; site; published_at?; excerpt; est_minutes; est_level? }[]; stale?: true }` | 读 | 查订阅库（`feed_items`，11）：书架里已有的、用户丢弃的不返回；数据旧于 2 小时先刷新（最多等 8 秒），没网或超时就用库里的并返回 `stale`。排序：兴趣词 + 新近程度 |
-| `discover_feeds` | `{ url }` | 同 `feeds.discover` | 读 | 给网站地址找订阅地址，不订阅。不对 MCP 开放 |
+| `search_feeds` | `{ interests?: string[]; genres?: Genre[]; since?: Ts; limit?: number }` | `{ url: string; title: string; site: string; published_at?: Ts; excerpt: string; est_minutes: number; est_level?: string }[]` | 读 | 从用户配置的文章来源与内置推荐源拉取候选；文本级别用摘要按词频粗估。M5：内置 Hacker News Best、News in Levels、The Conversation，设置里可关掉或加自己的 RSS / Atom；一小时内用缓存；书架里已有的不再推荐 |
 | `web_search` | `{ q: string; limit?: number }` | `{ url: string; title: string; snippet: string }[]` | 读 | 用设置里选的服务：DeepSeek Search（默认，和模型共用 Key）或 Tavily（自己填 Key），也可关闭；用不了时返回 conflict，技能改用文章来源 |
 
 ### 词汇
@@ -371,7 +363,7 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `get_term_contexts` | `{ term_id: Id; limit?: number; prefer_i1?: boolean }` | `{ source: 'article' \| 'dictionary' \| 'manual'; sentence_id?: Id; document_id?: Id; document_title?: string; sentence: string; surface?: string; unknown_others: number; meaning_in_context?: string }[]` | 读 | prefer_i1 时只剩一个生词的句子排前面 |
 | `mark_term` | `{ term: string; status: Status; sentence_id?: Id }` | `{ term_id: Id; previous: Status; undo: Undo }` | 写 · 可设自动 | 默认权限模式下自动执行；阅读器按钮直接调它，不经模型 |
 | `add_to_wordbook` | `{ words: { text: string; meaning?: string; sentence_id?: Id }[] }` | `{ created: Id[]; existed: Id[]; undo: Undo }` | 写 · 可设自动 | 查词典补音标释义，建卡片 |
-| `add_phrase` | `{ text: string; sentence_id: Id; surface: string; meaning?: string }` | `{ term_id: Id; undo: Undo }` | 写 · 可设自动 |  |
+| `add_phrase` | `{ text: string; sentence_id: Id; surface: string; meaning?: string }` | `{ term_id: Id; undo?: Undo }` | 写 · 可设自动 | 重复收录只返回已有词，不改状态 / 建卡，因此不返回撤销 |
 | `set_context_meaning` | `{ term_id: Id; sentence_id: Id; meaning: string; source: SkillId }` | `{ ok: true }` | 写 · 可设自动 | 讲解技能把语境释义写回 term_contexts，下次点词直接用 |
 
 ### 复习
@@ -420,8 +412,8 @@ type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavail
 | `delete_documents` | `{ ids: Id[] }` | `{ deleted: number; undo: Undo }` | 每次都问 | 软删，最多 50 篇，一次撤销；审批卡写标题。不对 MCP 开放 |
 | `update_memory` | `{ id: Id; content: string }` | `{ memory: Memory; undo: Undo }` | 需确认 | 不对 MCP 开放 |
 | `remove_terms` | `{ ids: Id[] }` | `{ removed: number; undo: Undo }` | 需确认 | 移出生词本，不对 MCP 开放 |
-| `list_feeds` | `{}` | `{ id; title; url; enabled; unread; folder?; error? }[]` | 读 | 不对 MCP 开放 |
-| `manage_feed` | `{ add?: { url; title?; folder? }; remove?: string; toggle?: { id: string; enabled: boolean } }` | `{ status: 'subscribed' \| 'choose' \| 'removed' \| 'updated' \| 'noop'; feed?; candidates? }` | 需确认 | add 给网站地址也行，先 discover；有多个订阅时返回 `choose` 和候选、不加，由模型用 `ask_user` 问。remove / toggle 用 `list_feeds` 的 id（也认地址）。不对 MCP 开放 |
+| `list_feeds` | `{}` | `{ url: string; title: string; enabled: boolean }[]` | 读 | 不对 MCP 开放 |
+| `manage_feed` | `{ add?: { url: string; title?: string }; remove?: string; toggle?: { url: string; enabled: boolean } }` | `Ok` | 需确认 | 不对 MCP 开放 |
 
 ### 调度
 

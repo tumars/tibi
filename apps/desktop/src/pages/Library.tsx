@@ -1,5 +1,5 @@
 import type { DocumentSummary, Kind } from '@tibi/core';
-import { LayoutGrid, List, Plus, Tag, X } from 'lucide-react';
+import { LayoutGrid, List, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Empty } from '../components/Empty';
@@ -7,15 +7,12 @@ import { Modal } from '../components/Modal';
 import { Pager } from '../components/Pager';
 import { Samples } from '../components/Samples';
 import { Top } from '../components/Shell';
+import { ObjectMenuButton, useObjectMenu } from '../components/ObjectMenu';
+import { copyText, openSource } from '../lib/contextActions';
 import { useTagEditor } from '../lib/useTagEditor';
 import { docSource, fmtAgo, fmtMinutes, fmtPct, GENRE_NAMES } from '../lib/util';
 import { rpc } from '../rpc';
 import { tl } from '../lib/i18n';
-
-/** 卡片和列表行右上角的按钮：悬停或键盘聚焦时出现，点它不打开文章 */
-function TagButton({ onClick }: { onClick: () => void }) {
-  return <button className="ibtn doctag" aria-label={tl('编辑标签')} title={tl('编辑标签')} onClick={e => { e.stopPropagation(); onClick(); }} onKeyDown={e => e.stopPropagation()}><Tag /></button>;
-}
 
 function TagModal({ d, onClose }: { d: DocumentSummary; onClose: () => void }) {
   const ed = useTagEditor(d, onClose);
@@ -32,10 +29,26 @@ function TagModal({ d, onClose }: { d: DocumentSummary; onClose: () => void }) {
   );
 }
 
-export function DocCard({ d, onOpen, onTags }: { d: DocumentSummary; onOpen: () => void; onTags?: () => void }) {
+export function DocCard({ d, onOpen, onTags, list = false }: { d: DocumentSummary; onOpen: () => void; onTags?: () => void; list?: boolean }) {
+  const menu = useObjectMenu<DocumentSummary>(doc => [
+    { label: doc.progress > 0 && doc.progress < 1 ? tl('继续阅读') : tl('打开'), run: onOpen },
+    ...(onTags ? [{ label: tl('编辑标签'), run: onTags }] : []),
+    ...(doc.source_url ? [null, { label: tl('打开原文'), run: () => void openSource(doc.source_url!) }, { label: tl('复制原文链接'), run: () => void copyText(doc.source_url!) }] : []),
+  ], d);
   return (
-    <div className="doc" onClick={onOpen} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') onOpen(); }}>
-      {onTags && <TagButton onClick={onTags} />}
+    <div className={list ? 'row object-row' : 'doc'} onClick={e => { if (!e.ctrlKey) onOpen(); }} role="button" aria-label={d.title} tabIndex={0}
+      onContextMenu={e => menu.open(d, e)} onKeyDown={e => {
+        menu.onKeyDown(d, e);
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(); }
+      }}>
+      <ObjectMenuButton className="doctag" onClick={e => menu.open(d, e)} />
+      {list ? <>
+        <span className="t">{d.title}</span>
+        <span className="lbl">{GENRE_NAMES[d.genre] ?? d.genre}{d.tags.length ? ` · ${d.tags.join(' ')}` : ''}</span>
+        <span className="lbl">{fmtMinutes(d.minutes)}</span>
+        <span className="lv" style={{ fontSize: 12.5 }}>{d.level ?? '—'}</span>
+        <span className="lbl">{d.progress >= 1 ? tl('读完了') : fmtAgo(d.opened_at)}</span>
+      </> : <>
       <div className="m"><span>{d.kind === 'book' ? tl('书 · ') : ''}{GENRE_NAMES[d.genre] ?? d.genre}</span><span>·</span><span>{d.progress >= 1 ? tl('读完了') : d.progress > 0 ? tl('读到 {v0}', { v0: fmtPct(d.progress) }) : fmtMinutes(d.minutes)}</span>{docSource(d) && <><span>·</span><span className="src" title={docSource(d)}>{docSource(d)}</span></>}</div>
       <div className="t">{d.title}</div>
       {d.excerpt && <div className="ex">{d.excerpt}</div>}
@@ -44,6 +57,8 @@ export function DocCard({ d, onOpen, onTags }: { d: DocumentSummary; onOpen: () 
         {d.tags.slice(0, 2).map(t => <span key={t} className="tagc">{t}</span>)}
         {d.tags.length > 2 && <span className="tagc sys" title={d.tags.slice(2).join(' ')}>+{d.tags.length - 2}</span>}
       </div>
+      </>}
+      {menu.menu}
     </div>
   );
 }
@@ -104,14 +119,7 @@ export function Library() {
           : grid ? <div className="docs" style={{ marginTop: 16 }}>{items.map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} onTags={() => setEditing(d)} />)}</div>
           : <div className="doclist" style={{ marginTop: 12 }}>
             <div className="row h"><span>{tl('标题')}</span><span>{tl('类型 · 标签')}</span><span>{tl('时长')}</span><span>{tl('级别')}</span><span>{tl('最近打开')}</span></div>
-            {items.map(d => <div key={d.id} className="row" onClick={() => nav(`/read/${d.id}`)}>
-              <span className="t">{d.title}</span>
-              <span className="lbl">{GENRE_NAMES[d.genre] ?? d.genre}{d.tags.length ? ` · ${d.tags.join(' ')}` : ''}</span>
-              <span className="lbl">{fmtMinutes(d.minutes)}</span>
-              <span className="lv" style={{ fontSize: 12.5 }}>{d.level ?? '—'}</span>
-              <span className="lbl">{d.progress >= 1 ? tl('读完了') : fmtAgo(d.opened_at)}</span>
-              <TagButton onClick={() => setEditing(d)} />
-            </div>)}
+            {items.map(d => <DocCard key={d.id} list d={d} onOpen={() => nav(`/read/${d.id}`)} onTags={() => setEditing(d)} />)}
           </div>}
         {items && <Pager page={page} size={PAGE} total={total} onPage={turn} />}
       </div></div>

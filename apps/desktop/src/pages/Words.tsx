@@ -1,11 +1,13 @@
-import type { Status, Term, TermContext, TermDetail } from '@tibi/core';
+import type { Status, Term, TermContext, TermDetail, Undo } from '@tibi/core';
 import { Star, X } from 'lucide-react';
-import { SpeakButtons } from '../components/Speak';
+import { SpeakButtons, speakWith } from '../components/Speak';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Empty } from '../components/Empty';
 import { Menu } from '../components/Menu';
 import { Top } from '../components/Shell';
+import { ObjectMenuButton, useObjectMenu } from '../components/ObjectMenu';
+import { copyText } from '../lib/contextActions';
 import '../components/dict.css';
 import { EXAM_NAMES, INFLECTION_NAMES, parseGloss } from '../lib/dict';
 import { pickFile, saveText } from '../lib/files';
@@ -67,9 +69,34 @@ export function Words() {
   }, [dictWord]);
   const toDict = (w: string) => nav(`/dict?w=${encodeURIComponent(w)}`);
   const open = async (t: Term) => { try { setDetail(await rpc.call('terms.get', { id: t.id })); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
-  const setStatus = async (id: string, s: Status) => {
-    try { await rpc.call('terms.setStatus', { ids: [id], status: s, source: 'user' }); setDetail(d => d && d.id === id ? { ...d, status: s } : d); void load(); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+  const refreshDetail = async (id: string) => {
+    const fresh = await rpc.call('terms.get', { id });
+    setDetail(d => d?.id === id ? fresh : d);
   };
+  const undoAction = (undo: Undo, id: string) => ({ label: tl('撤销'), run: () => void rpc.call('system.undo', { undo_id: undo.undo_id }).then(async () => { await load(); await refreshDetail(id); }).catch(e => toast(errorInfo(e).message, { kind: 'err' })) });
+  const setStatus = async (id: string, s: Status) => {
+    if ((detail?.id === id ? detail : items?.find(t => t.id === id))?.status === s) return;
+    try {
+      const r = await rpc.call('terms.setStatus', { ids: [id], status: s, source: 'user' });
+      toast(tl('已设为{status}', { status: STATUS_NAMES[s] }), { action: undoAction(r.undo, id) });
+      void load(); await refreshDetail(id);
+    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+  };
+  const remove = async (t: Term) => {
+    try {
+      const undo = await rpc.call('terms.remove', { ids: [t.id] });
+      setDetail(d => d?.id === t.id ? undefined : d); void load();
+      toast(tl('已移出生词本：{word}', { word: t.display }), { action: undoAction(undo, t.id) });
+    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+  };
+  const menu = useObjectMenu<Term>(t => [
+    { label: tl('打开详情'), run: () => void open(t) },
+    { label: t.kind === 'phrase' ? tl('朗读短语') : tl('朗读单词'), run: () => void speakWith(t.display, 'system', `term:${t.id}`) },
+    { label: t.kind === 'phrase' ? tl('复制短语') : tl('复制单词'), run: () => void copyText(t.display) }, null,
+    { label: tl('熟练度'), items: ([0, 1, 2, 3, 4, 5, 97, 98] as Status[]).map(s => ({ label: STATUS_NAMES[s]!, checked: t.status === s, enabled: t.status !== s, run: () => void setStatus(t.id, s) })) },
+    ...(view !== 'known' ? [null, { label: tl('移出生词本'), danger: true, run: () => void remove(t) }] : []),
+  ], `${view}:${sub}:${q}`);
+  useEffect(() => { menu.close(); }, [items, menu.close]);
   const favorite = async (c: TermContext) => {
     try { await rpc.call('terms.favoriteContext', { id: c.id, favorite: !c.is_favorite }); setDetail(d => d && { ...d, contexts: d.contexts.map(x => x.id === c.id ? { ...x, is_favorite: !c.is_favorite } : x) }); }
     catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
@@ -116,18 +143,24 @@ export function Words() {
             {items === undefined ? null : items.length === 0 ? <Empty image={q ? undefined : 'empty-words'} quip={q ? undefined : tl('罐子还是空的。')} title={q ? tl('没有找到') : tl('这里还没有词')} text={q ? undefined : tl('读文章时点开的生词会出现在这里。')} /> : (
               <div>
                 <div className="wrow h"><span>{tl('单词')}</span><span>{tl('释义')}</span><span>{tl('熟练度')}</span><span>{tl('遇见')}</span><span>{tl('下次复习')}</span></div>
-                {items.map(t => <div key={t.id} className="wrow" onClick={() => open(t)}>
+                {items.map(t => <div key={t.id} className="wrow object-row" role="button" tabIndex={0} aria-label={t.display}
+                  onClick={e => { if (!e.ctrlKey) void open(t); }} onContextMenu={e => menu.open(t, e)} onKeyDown={e => {
+                    menu.onKeyDown(t, e);
+                    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); void open(t); }
+                  }}>
                   <span className="t">{t.display}</span>
                   <span className="m">{t.meaning || t.short_gloss || ''}</span>
                   <span><span className={`stage s${t.status}`}>{STATUS_NAMES[t.status]}</span></span>
                   <span className="lbl">{t.encounter_count}</span>
                   <span className="lbl">{t.status <= 4 ? dueLabel(t.due) : '—'}</span>
+                  <ObjectMenuButton onClick={e => menu.open(t, e)} />
                 </div>)}
               </div>
             )}
           </div>
         </div>
       </div></div>
+      {menu.menu}
       {detail && (
         <div className="drawer" role="dialog" aria-label={detail.display}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>

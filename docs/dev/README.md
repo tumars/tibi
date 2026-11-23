@@ -48,6 +48,8 @@ TIBI_TEST_OCR=1 pnpm test packages/core-node   # 连带跑 OCR 测试（要下�
 pnpm --filter @tibi/core gen          # 改了 sql/*.sql、skills/*.md 或 samples/ 后重新生成内嵌文件
 pnpm ecdict                        # 下载 ECDICT、词光、Open English WordNet 并生成 data/ecdict/dict.db（不进仓库；开发时壳和 Core 都会找这里；旧的 dict.db 要重跑才有新内容）
 pnpm clipper:zip                   # 打包剪藏插件 extensions/clipper/dist/*.zip
+pnpm admin                         # 本机分发管理台：http://127.0.0.1:4311（存储、版本发布、公告推送）
+pnpm test:admin                    # 管理台接口与发行校验测试（不访问真实 COS）
 ```
 
 Core 的 stdio 协议（06 §1）：每行一条 JSON。壳 → Core 请求 `{jsonrpc, id, method, params}`；Core → 壳 响应 `{jsonrpc, id, result | error}`、事件 `{jsonrpc, method: 'event', params: {event, data}}`、反向请求 `{jsonrpc, id: 'h-n', method: 'secret.get', params: {ref}}`（壳回 `{id, result: {secret}}`）。日志只走 stderr。
@@ -66,7 +68,8 @@ Core 的 stdio 协议（06 §1）：每行一条 JSON。壳 → Core 请求 `{js
 - **CI**（`.github/workflows/ci.yml`，每个 PR 和推到 main；只改 `docs/`、`*.md` 的提交不跑）：内嵌文件是否最新（`pnpm --filter @tibi/core gen` 后无改动）、类型检查、单测、界面构建、界面文案是否都有英文（`i18n:check`）。Rust 壳的检查只在 `src-tauri` 有改动时跑（`dorny/paths-filter`）：Ubuntu 上 `cargo clippy` 与 `--features mobile-preview`，`android`（`cargo check --target aarch64-linux-android`）。`ios`（macOS runner：`cargo check --target aarch64-apple-ios`，两个扩展的 Swift 对 iOS SDK 做 `swiftc -typecheck`）只在手动触发（Actions → CI → Run workflow）勾了 `ios` 时跑。
 - **发布**（`.github/workflows/release.yml`）：推一个 `v0.1.0` 这样的 tag → 先生成一次词典（缓存）→ macOS（Apple 芯片、Intel）、Windows、Linux 四个目标各自打 sidecar + 安装包 → 放进一个**草稿** Release，剪藏插件 zip 也挂上去；人工检查后再发布。tag 必须和 `tauri.conf.json`、`Cargo.toml` 的版本一致。另有 `android` 任务打 APK（aarch64，未签名），也挂到这个 Release。手动触发（Actions → Release → Run workflow，不打 tag）不建 Release，产物留在 Actions 页面，用来在打 tag 之前验证打包；可以勾选跑哪些：桌面安装包、APK（默认都跑），`android_smoke`、`ios_smoke` 两个冒烟测试（默认不跑；打 tag 时也不跑）。每个任务都有超时。（开发阶段曾经推 `m0-scaffold` 就跑全套，2026-11-01 去掉。）
 - **2026-10-31 在 GitHub 上跑通**（开发分支，不建 Release）：CI 的 check、rust、android、ios 全部通过；发布流程的词典、macOS（Apple 芯片、Intel，未签名）、Linux、Windows（`windows-2022`）、Android APK 都打出了包，在 Actions 页面的构建产物里。之前修掉的问题：手机配置列的 `resources/dict.db` 在 CI 里不存在（放空文件占位）、没配签名密钥时空值被当成要签名、`windows-latest` 的 VS 2026 node-gyp 不认、Windows 上 `URL.pathname` 带 `/D:/` 前缀（改用 `fileURLToPath`）。2026-11-01 加了 `android-smoke`、`ios-smoke` 两个冒烟测试后整轮全绿（提交 fbeaf2d：词典、四个桌面目标、APK、Android 模拟器里走完首次引导到点词查词典、iPhone 模拟器里出现欢迎面板）。之后一轮（提交 19ccc04，加了 iOS 扩展）除 Windows 外全过；Windows 那一项没启动，GitHub 提示账号付款失败或超出花费上限（Billing & plans），不是代码问题。还没有真的打过 tag、建过 Release。
-- **签名**：仓库里配了 `APPLE_CERTIFICATE` 等密钥就自动签名、公证 macOS 包；没配就出未签名的包（密钥是空的时候不传给 tauri，否则它会去导入空证书然后失败）。Windows 暂不签。Windows 用 `windows-2022` runner：`windows-latest` 带的 Visual Studio 2026 node-gyp 还认不出来，better-sqlite3 装不上。
+- **签名**：tag 发布必须配置 `APPLE_CERTIFICATE` 等全部 macOS 签名、公证密钥，缺少则停止；只有手动验证构建允许未签名包。上传前检查同名 Release，禁止自动覆盖已正式发布的版本。正式发布前须等待所有构建结束，再检查实际下载包的签名、公证和安装启动。Windows 暂不签。Windows 用 `windows-2022` runner：`windows-latest` 带的 Visual Studio 2026 node-gyp 还认不出来，better-sqlite3 装不上。
+- **分发与公告**（2026-11-16；2026-11-17 接通本机发布）：客户端仅访问 `dl.ferecord.com` 的腾讯云 COS 文件，GitHub 保留源码与 CI。`pnpm publish:cos release <产物目录> <v版本号>`、`pnpm publish:cos notice` 自动加载本项目 `.env.cos` 的专用凭据，本机公告直发及分片上传已验证；两条 COS 工作流复用同一发布工具，作为可选入口。配置、缓存与实际迁移状态见[腾讯云分发](tencent-distribution.md)。
 - **本地出包**：
 
 ```bash

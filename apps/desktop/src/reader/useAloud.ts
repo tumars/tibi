@@ -13,22 +13,24 @@ export function useAloud(sents: Sentence[], o: { start?: number; speed?: number;
   const [playing, setPlaying] = useState(false);
   const [paused, setPaused] = useState(false);
   const run = useRef(0);
+  const once = useRef<string | undefined>(undefined);
 
-  const play = async (from: number) => {
+  const play = async (from: number, text = once.current) => {
     const my = ++run.current; setPlaying(true); setPaused(false);
     for (let i = from; i < sents.length; i++) {
       setIdx(i);
       let done: boolean;
       try {
-        const said = tts.say(sents[i]!.text, { ...(speed ? { rate: speed } : {}), ...(engine ? { engine } : {}) });
+        const said = tts.say(text ?? sents[i]!.text, { ...(speed ? { rate: speed } : {}), ...(engine ? { engine } : {}) });
         // AI 朗读：读这句的时候 Worker 接着合成下一句，句子之间不用干等
         const next = sents[i + 1];
-        if (next && !loop && (engine ?? tts.current().engine) === 'kokoro') tts.prefetch(next.text, speed ? { rate: speed } : {});
+        if (!text && next && !loop && (engine ?? tts.current().engine) === 'kokoro') tts.prefetch(next.text, speed ? { rate: speed } : {});
         done = await said;
       }
       catch (e) { if (my === run.current) { setPlaying(false); o.onError?.(e); } return; }
       if (my !== run.current) return;
       if (!done) { setPlaying(false); setPaused(false); return; }   // 被查词发音之类打断：停在这一句
+      if (text) { once.current = undefined; setPlaying(false); setPaused(false); return; }
       if (gap) await new Promise(r => setTimeout(r, gap * 1000));
       if (my !== run.current) return;
       if (loop) i--;   // 单句循环：停在这一句
@@ -36,7 +38,7 @@ export function useAloud(sents: Sentence[], o: { start?: number; speed?: number;
     setIdx(0); setPlaying(false);
   };
   /** 彻底停下，丢掉暂停的位置（句子序号还在） */
-  const halt = () => { run.current++; tts.stop(); setPlaying(false); setPaused(false); };
+  const halt = () => { run.current++; once.current = undefined; tts.stop(); setPlaying(false); setPaused(false); };
   const toggle = () => {
     if (playing) {
       if (tts.pause()) { setPlaying(false); setPaused(true); } else halt();
@@ -45,13 +47,15 @@ export function useAloud(sents: Sentence[], o: { start?: number; speed?: number;
   };
   const jump = (d: number) => {
     const n = Math.max(0, Math.min(sents.length - 1, idx + d));
+    once.current = undefined;
     if (playing) void play(n); else { if (paused) halt(); setIdx(n); }
   };
   /** 点了某一句：从这句开始读 */
-  const goto = (i: number) => { if (i >= 0 && i < sents.length) void play(i); };
+  const goto = (i: number) => { if (i >= 0 && i < sents.length) { once.current = undefined; void play(i); } };
+  const speakOnce = (text: string, i = idx) => { once.current = text; void play(i, text); };
   // 调了倍速 / 停顿 / 循环：正在读就从当前句重新开始；暂停着就放弃句中的位置，继续时按新设置读
   useEffect(() => { if (playing) void play(idx); else if (paused) halt(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [speed, gap, loop, engine]);
   useEffect(() => () => { run.current++; tts.stop(); }, []);
 
-  return { idx, setIdx, playing, paused, toggle, jump, goto, halt };
+  return { idx, setIdx, playing, paused, toggle, jump, goto, speakOnce, halt };
 }

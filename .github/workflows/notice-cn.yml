@@ -1,7 +1,7 @@
-# 公告（notice.json）推到 main 后同步到国内源；已安装的应用先查国内源，连不上再查 GitHub（raw.githubusercontent.com）。
+# 可选的 CI 公告发布入口；客户端只从腾讯云读取，日常也可 pnpm publish:cos notice 直接发布。
 # 字段见 apps/desktop/src/lib/notice.ts；格式不对 CI 的 test/notice.test.ts 会先拦下。
-# 用 mirror-cn.yml 同一组变量和密钥，没配就跳过。
-name: Notice to CN
+# 用 mirror-cn.yml 同一组密钥，缺少配置时明确失败。
+name: Notice to Tencent COS
 on:
   push:
     branches: [main]
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      BASE_URL: ${{ vars.CN_MIRROR_BASE_URL }}
+      BASE_URL: https://dl.ferecord.com
       BUCKET: ${{ secrets.CN_S3_BUCKET }}
       S3_ENDPOINT: ${{ secrets.CN_S3_ENDPOINT }}
       AWS_ACCESS_KEY_ID: ${{ secrets.CN_S3_ACCESS_KEY_ID }}
@@ -28,23 +28,17 @@ jobs:
       AWS_REQUEST_CHECKSUM_CALCULATION: when_required
       AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
     steps:
-      - name: 配了才同步
-        id: guard
+      - name: 检查发布配置
         run: |
-          for k in BASE_URL BUCKET S3_ENDPOINT AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION; do
-            if [ -z "${!k}" ]; then echo "没配 $k，跳过同步"; exit 0; fi
+          for k in BUCKET S3_ENDPOINT AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION; do
+            if [ -z "${!k}" ]; then echo "::error::缺少 $k，无法发布公告"; exit 1; fi
           done
-          echo "ready=true" >> "$GITHUB_OUTPUT"
-      - if: steps.guard.outputs.ready
-        uses: actions/checkout@v4
-      - name: 是合法的 JSON
-        if: steps.guard.outputs.ready
-        run: node -e "const n = JSON.parse(require('fs').readFileSync('notice.json', 'utf8')).notices; if (!Array.isArray(n)) throw new Error('notice.json 要有 notices 数组')"
-      - name: 上传
-        if: steps.guard.outputs.ready
-        run: |
-          aws configure set default.s3.addressing_style virtual
-          aws s3 --endpoint-url "$S3_ENDPOINT" cp notice.json "s3://$BUCKET/notice.json" --cache-control no-cache --content-type application/json --no-progress
-      - name: 确认能从公开地址取到
-        if: steps.guard.outputs.ready
-        run: diff <(curl -fsS "${BASE_URL%/}/notice.json") notice.json
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 校验公告、发布到腾讯云并验证公开地址
+        run: pnpm publish:cos notice

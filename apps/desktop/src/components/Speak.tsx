@@ -49,7 +49,7 @@ export async function speakWith(text: string, engine: Engine, key = text, onProg
       if (!await done) return;
     }
   } catch (e) {
-    if (my === run) toast(tl('AI 朗读用不了：{v0}。可以先用系统朗读', { v0: errorInfo(e).message || tl('模型没下载好') }), { kind: 'err' });
+    if (my === run) toast(engine === 'system' ? errorInfo(e).message : tl('AI 朗读用不了：{v0}。可以先用系统朗读', { v0: errorInfo(e).message || tl('模型没下载好') }), { kind: 'err' });
   } finally {
     if (my === run) set(undefined);
   }

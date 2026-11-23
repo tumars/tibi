@@ -89,8 +89,8 @@ export const termsMethods: MethodMap = {
   }, '按文字标一个词（词卡上点熟练度）：没有词条时现建——0–4 加入生词本并建卡，5 / 97 / 98 只记状态。生词只来自这类明确的标记'),
 
   'terms.addPhrase': method(Type.Object({ text: Type.String({ minLength: 3 }), sentence_id: S.id, surface: Type.String() }), async (p, ctx) => {
-    const { term } = await addPhrase(ctx, p.text, p.sentence_id, p.surface);
-    return toTerm(ctx.db, ctx.dict, term);
+    const { term, undo } = await addPhrase(ctx, p.text, p.sentence_id, p.surface);
+    return { ...await toTerm(ctx.db, ctx.dict, term), ...(undo ? { undo } : {}) };
   }, '选中多个词标为短语'),
 
   'terms.add': method(Type.Object({ entries: Type.Array(Type.Object({ text: Type.String({ minLength: 1 }), meaning: Type.Optional(Type.String()) }), { minItems: 1 }) }), async (p, ctx) => {

@@ -18,7 +18,7 @@ const HINT: Record<FeedbackKind, string> = {
 async function isArm(): Promise<boolean | undefined> {
   if (!isTauri()) return undefined;
   const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<string>('update_mirror_asset').then(a => a.includes('aarch64'), () => undefined);
+  return invoke<string>('update_installer_asset').then(a => a.includes('aarch64'), () => undefined);
 }
 
 async function open(url: string) {

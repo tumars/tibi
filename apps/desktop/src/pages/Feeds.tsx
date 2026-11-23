@@ -6,10 +6,12 @@ import { Empty } from '../components/Empty';
 import { Modal } from '../components/Modal';
 import { Pager } from '../components/Pager';
 import { Top } from '../components/Shell';
+import { ObjectMenuButton, useObjectMenu } from '../components/ObjectMenu';
+import { copyText, openSource } from '../lib/contextActions';
 import { Switch } from '../components/Switch';
 import { tl } from '../lib/i18n';
 import { fmtAgo, fmtMinutes } from '../lib/util';
-import { errorInfo, isTauri, rpc } from '../rpc';
+import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 
 /**
@@ -102,6 +104,14 @@ export function Feeds() {
       if (r.undo) toast(tl('不再显示这篇'), { action: { label: tl('撤销'), run: () => void rpc.call('system.undo', { undo_id: r.undo!.undo_id }).then(() => loadItems(), e => toast(errorInfo(e).message, { kind: 'err' })) } });
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
+  const menu = useObjectMenu<FeedItemView>(it => [
+    { label: tl('阅读'), enabled: !busy[it.id], run: () => void read(it, true) },
+    { label: it.in_library ? tl('在书架里') : tl('加入书架'), enabled: !it.in_library && !busy[it.id], run: () => void read(it, false) }, null,
+    { label: tl('打开原文'), run: () => void openSource(it.url) },
+    { label: tl('复制原文链接'), run: () => void copyText(it.url) },
+    ...(it.comments_url ? [{ label: tl('看讨论'), run: () => void openSource(it.comments_url!) }] : []),
+    ...(!it.document_id && !busy[it.id] ? [null, { label: tl('不感兴趣'), run: () => void dismiss(it) }] : []),
+  ], `${key}|${page}`);
   const refresh = async () => {
     setRefreshing(true);
     try { const r = await rpc.call('feeds.refresh', { feed_ids: feedId ? [feedId] : undefined, force: true }); await restart(); if (r.failed) toast(tl('{n} 个源没刷新成功，在管理里看原因', { n: r.failed })); }
@@ -140,6 +150,7 @@ export function Feeds() {
   }, []);
   const watch = (el: HTMLElement | null, g: FeedItemView[]) => { if (el && g.some(i => i.state === 'new')) observer.current?.observe(el); };
   const [variant, setVariant] = useState<Record<string, string>>({});   // 分级稿：卡片 → 选中的那一版
+  useEffect(() => { menu.close(); }, [items, variant, menu.close]);
 
   const current = feedId ? feeds.find(f => f.id === feedId) : undefined;
   const folders = [...new Set(feeds.filter(f => f.enabled && f.folder).map(f => f.folder!))];
@@ -182,13 +193,17 @@ export function Feeds() {
               : <Empty image="empty-library" title={filter === 'unread' ? tl('都看过了') : filter === 'saved' ? tl('还没有保存的文章') : tl('这里还没有文章')} text={filter === 'unread' ? tl('新文章来了会出现在这里。也可以看看「全部」。') : undefined} action={filter === 'unread' ? <button className="btn" onClick={() => setFilter('all')}>{tl('看全部')}</button> : undefined} />)
             : <>
               {/* 整张卡片点开就读；收进书架、不感兴趣、原网页放在右下角，悬停才亮 */}
-              {groupLevels(items).map(g => { const it = g.find(i => i.id === variant[g[0]!.id]) ?? g[g.length - 1]!; return <article key={g[0]!.id} data-id={g.map(i => i.id).join(' ')} ref={el => watch(el, g)} className={`fitem${g.some(i => i.state === 'new') ? ' unread' : ''}${busy[it.id] ? ' busy' : ''}`} onClick={() => void read(it, true)}>
+              {groupLevels(items).map(g => { const it = g.find(i => i.id === variant[g[0]!.id]) ?? g[g.length - 1]!; return <article key={g[0]!.id} data-id={g.map(i => i.id).join(' ')} ref={el => watch(el, g)} className={`fitem${g.some(i => i.state === 'new') ? ' unread' : ''}${busy[it.id] ? ' busy' : ''}`}
+                tabIndex={0} aria-label={it.title} onClick={e => { if (!e.ctrlKey) void read(it, true); }} onContextMenu={e => menu.open(it, e)} onKeyDown={e => {
+                  menu.onKeyDown(it, e);
+                  if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); void read(it, true); }
+                }}>
                 <div className="m">
                   <span className="src">{it.feed_title}</span>
                   {it.published_at && <><span>·</span><span>{fmtAgo(it.published_at)}</span></>}
                   {it.author && <><span>·</span><span className="au">{it.author}</span></>}
                 </div>
-                <button className="t" onClick={e => { e.stopPropagation(); void read(it, true); }}>{g.length > 1 ? levelBase(it.title) : it.title}</button>
+                <button className="t" onClick={e => { e.stopPropagation(); if (!e.ctrlKey) void read(it, true); }}>{g.length > 1 ? levelBase(it.title) : it.title}</button>
                 {it.excerpt && <p className="ex">{it.excerpt.replace(LEADING_STAMP, '')}</p>}
                 <div className="f" onClick={e => e.stopPropagation()}>
                   {g.length > 1
@@ -197,6 +212,7 @@ export function Feeds() {
                   {it.est_minutes && <span>{fmtMinutes(it.est_minutes)}</span>}
                   {it.in_library && <span className="tag"><BookmarkCheck />{tl('在书架里')}</span>}
                   <span className="sp" />
+                  <ObjectMenuButton onClick={e => menu.open(it, e)} />
                   {busy[it.id] ? <span className="busy" role="status"><span className="spin" />{busy[it.id]}</span> : <span className="acts">
                     {!it.in_library && <button className="ibtn" title={tl('加入书架')} aria-label={tl('加入书架')} onClick={() => void read(it, false)}><BookmarkPlus /></button>}
                     {!it.document_id && <button className="ibtn" title={tl('不感兴趣')} aria-label={tl('不感兴趣')} onClick={() => void dismiss(it)}><X /></button>}
@@ -208,6 +224,7 @@ export function Feeds() {
             </>}
         </div></div>
       </div>
+      {menu.menu}
       {adding && <AddFeedModal onClose={() => setAdding(false)} onAdded={f => { setAdding(false); void loadFeeds(); go({ feed: f.id }); setFilter('all'); }} />}
     </>
   );
@@ -239,11 +256,7 @@ function FeedLink({ f, cur, onClick }: { f: FeedView; cur: boolean; onClick: () 
 
 /** 在系统浏览器里打开（桌面走壳；浏览器开发模式开新标签） */
 function OpenLink({ url, title }: { url: string; title: string }) {
-  const open = async () => {
-    if (isTauri()) { const { openUrl } = await import('@tauri-apps/plugin-opener'); await openUrl(url).catch(e => toast(errorInfo(e).message, { kind: 'err' })); }
-    else window.open(url, '_blank', 'noopener');
-  };
-  return <button className="ibtn" title={title} aria-label={title} onClick={() => void open()}><ExternalLink /></button>;
+  return <button className="ibtn" title={title} aria-label={title} onClick={() => void openSource(url)}><ExternalLink /></button>;
 }
 
 /** 加订阅：贴网址 → 找订阅地址 → 选一个（可以填分组）→ 订阅 */

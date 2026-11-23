@@ -43,6 +43,28 @@ fn core_status(core: State<'_, Arc<core::CoreProcess>>) -> Value {
     core.status()
 }
 
+// Tauri 的菜单 IPC 持有 WebView 资源表的锁等待 AppKit 菜单退出。
+// AppKit 跟踪菜单时仍处理 WebView 消息，菜单命令可能在这期间再次访问资源表。
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn popup_context_menu(
+    webview: tauri::Webview,
+    rid: tauri::ResourceId,
+    at: Option<tauri::Position>,
+) -> Result<(), String> {
+    use tauri::menu::{ContextMenu, Menu};
+
+    let menu = {
+        let resources = webview.resources_table();
+        resources.get::<Menu<tauri::Wry>>(rid).map_err(|e| e.to_string())?
+    };
+    match at {
+        Some(at) => menu.popup_at(webview.window(), at),
+        None => menu.popup(webview.window()),
+    }
+    .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn core_restart(core: State<'_, Arc<core::CoreProcess>>) -> Result<Value, String> {
     core.restart()?;
@@ -377,7 +399,13 @@ fn run_desktop() {
                 tauri::async_runtime::spawn(async move { register_paths(&app, &paths).await; });
             }
         })
-        .invoke_handler(tauri::generate_handler![core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file, pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command, update::update_check, update::update_install, update::update_mirror_asset])
+        .invoke_handler(tauri::generate_handler![
+            #[cfg(target_os = "macos")]
+            popup_context_menu,
+            core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file,
+            pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command,
+            update::update_check, update::update_install, update::update_installer_asset
+        ])
         .run(tauri::generate_context!())
         .expect("Tibi 启动失败");
 }

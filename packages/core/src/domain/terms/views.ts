@@ -43,7 +43,15 @@ export async function listTerms(db: Database, dict: Dict, opts: ListOpts): Promi
   const v = viewWhere(opts.view ?? 'all', t); conds.push(v.where); params.push(...v.params);
   if (opts.status?.length) { conds.push(`tm.status IN (${opts.status.map(() => '?').join(',')})`); params.push(...opts.status); }
   if (opts.kind) { conds.push('tm.kind = ?'); params.push(opts.kind); }
-  if (opts.document_id) { conds.push('EXISTS (SELECT 1 FROM term_contexts tc WHERE tc.term_id = tm.id AND tc.document_id = ? AND tc.deleted_at IS NULL)'); params.push(opts.document_id); }
+  if (opts.document_id) {
+    // 语境只在遇见时登记；文章导入后在别处加入的生词，也要按正文原形匹配出来。
+    conds.push(`(EXISTS (SELECT 1 FROM term_contexts tc WHERE tc.term_id = tm.id AND tc.document_id = ? AND tc.deleted_at IS NULL)
+      OR (tm.kind = 'word' AND tm.text IN (
+        SELECT json_extract(tk.value, '$.l') FROM sections sec JOIN sentences s ON s.section_id = sec.id, json_each(s.tokens) tk
+        WHERE sec.document_id = ? AND sec.deleted_at IS NULL AND s.deleted_at IS NULL
+      )))`);
+    params.push(opts.document_id, opts.document_id);
+  }
   if (opts.tags?.length) {
     // 词继承来源文章的标签（01 §2）：每个标签都要有一篇来源文章带它
     for (const tag of opts.tags) {

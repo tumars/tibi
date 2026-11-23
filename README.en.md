@@ -5,12 +5,12 @@
 <p align="center"><b>Read English articles you actually care about, and learn the language along the way.</b><br>An English reading app for Chinese-speaking learners: local-first · AI-native · open source</p>
 
 <p align="center">
-<a href="https://github.com/tumars/tibi/releases"><img src="https://img.shields.io/github/v/release/tumars/tibi?include_prereleases&label=download" alt="Download"></a>
+<a href="https://tibi.ferecord.com/#download"><img src="https://img.shields.io/badge/download-Tibi-984425" alt="Download"></a>
 <img src="https://img.shields.io/badge/macOS-13%2B-black?logo=apple" alt="macOS 13+">
 <a href="LICENSE"><img src="https://img.shields.io/github/license/tumars/tibi" alt="MIT"></a>
 </p>
 
-<p align="center"><a href="https://tibi.ferecord.com/">Website</a> · <a href="README.md">中文</a> · English · <a href="docs/guide/README.md">User guide (Chinese)</a> · <a href="https://github.com/tumars/tibi/releases">Download</a></p>
+<p align="center"><a href="https://tibi.ferecord.com/">Website</a> · <a href="README.md">中文</a> · English · <a href="docs/guide/README.md">User guide (Chinese)</a> · <a href="https://tibi.ferecord.com/#download">Download</a></p>
 
 ![Reader: new words are marked for your level; click one to see what it means in this sentence](docs/img/screenshots/reader.jpg)
 
@@ -52,13 +52,13 @@
 
 ## Install
 
-Tibi is currently available for Apple silicon Macs running macOS 13 or later. Download from [Releases](https://github.com/tumars/tibi/releases):
+Tibi is currently available for Apple silicon Macs running macOS 13 or later. Download from the [official website](https://tibi.ferecord.com/#download), with installers hosted on Tencent Cloud:
 
 | Chip | File |
 |---|---|
-| Apple silicon (M series) | `Tibi_x.y.z_aarch64.dmg` |
+| Apple silicon (M series) | [Tibi_aarch64.dmg](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) |
 
-If GitHub is slow, use the mirror: [Apple silicon](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) · [SHA-256 checksums](https://dl.ferecord.com/latest/SHA256SUMS.txt)
+[SHA-256 checksums](https://dl.ferecord.com/latest/SHA256SUMS.txt). Downloads, updates and announcements use Tibi's own distribution domain without contacting GitHub.
 
 Release builds are signed and notarized by Apple and open normally. For your own or unsigned builds, right-click the app in Finder → Open the first time.
 

@@ -8,13 +8,53 @@ import { tl } from './i18n';
  */
 export const isMacDesktop = isTauri() && typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
 
-export interface NativeItem { label: string; run: () => void }
+export interface NativeItem { id?: string; label: string; run?: () => void; enabled?: boolean; checked?: boolean; danger?: boolean; items?: (NativeItem | null)[] }
+export interface NativeMenuHandle { close(): Promise<void>; update(id: string, item: NativeItem): Promise<void> }
+let lastPopup: NativeMenuHandle | undefined;
+let popupId = 0;
 
 /** 弹系统右键菜单 */
-export async function popupNativeMenu(items: NativeItem[]) {
+export async function popupNativeMenu(items: (NativeItem | null)[], at?: { x: number; y: number }): Promise<NativeMenuHandle> {
   const { Menu } = await import('@tauri-apps/api/menu');
-  const menu = await Menu.new({ items: items.map((it, i) => ({ id: `ctx-${i}`, text: it.label, action: it.run })) });
-  await menu.popup();
+  const { LogicalPosition, Position } = await import('@tauri-apps/api/dpi');
+  const { invoke } = await import('@tauri-apps/api/core');
+  await lastPopup?.close();
+  const prefix = `ctx-${++popupId}`;
+  const convert = (list: (NativeItem | null)[], path = prefix): NonNullable<Parameters<typeof Menu.new>[0]>['items'] => list.map((it, i) => {
+    if (!it) return { item: 'Separator' as const };
+    const base = { id: it.id ?? `${path}-${i}`, text: it.label, enabled: it.enabled ?? true };
+    if (it.items) return { ...base, items: convert(it.items, `${path}-${i}`) };
+    return { ...base, ...(it.checked === undefined ? {} : { checked: it.checked }), action: it.run };
+  });
+  const menu = await Menu.new({ items: convert(items) });
+  let closed = false;
+  const handle: NativeMenuHandle = {
+    async close() {
+      if (closed) return;
+      closed = true;
+      if (lastPopup === handle) lastPopup = undefined;
+      await menu.close();
+    },
+    async update(id, value) {
+      if (closed) return;
+      const item = await menu.get(id);
+      if (!item) return;
+      try {
+        await item.setText(value.label);
+        if ('setEnabled' in item) await item.setEnabled(value.enabled ?? true);
+        if (value.checked !== undefined && 'setChecked' in item) await item.setChecked(value.checked);
+      } finally { await item.close(); }
+    },
+  };
+  lastPopup = handle;
+  try {
+    await invoke('popup_context_menu', { rid: menu.rid, at: at ? new Position(new LogicalPosition(at.x, at.y)) : undefined });
+  } catch (e) {
+    await handle.close();
+    throw e;
+  }
+  // 菜单返回后命令事件仍可能在投递，保留资源到卸载或下一次弹出。
+  return handle;
 }
 
 /** 侧栏材质由窗口外观决定：App 单独选了深 / 浅色时，窗口要跟着变，否则侧栏和内容区对不上 */
@@ -107,8 +147,10 @@ async function installMenuBar(go: (to: string) => void) {
 function blockWebviewContextMenu() {
   if (import.meta.env.DEV) return;   // 开发时留着"检查元素"
   document.addEventListener('contextmenu', e => {
+    if (e.defaultPrevented) return;
     const t = e.target as HTMLElement | null;
     if (t?.closest('input, textarea, [contenteditable="true"]')) return;
+    if (t?.closest('[data-reader-body] figure')) return;
     const sel = window.getSelection();
     if (sel && !sel.isCollapsed) return;
     e.preventDefault();

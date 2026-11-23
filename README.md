@@ -5,12 +5,12 @@
 <p align="center"><b>读你感兴趣的英文文章，顺便把英语学会。</b><br>给中文母语学习者的英语阅读学习工具：本地优先 · AI 原生 · 开源</p>
 
 <p align="center">
-<a href="https://github.com/tumars/tibi/releases"><img src="https://img.shields.io/github/v/release/tumars/tibi?include_prereleases&label=%E4%B8%8B%E8%BD%BD" alt="下载"></a>
+<a href="https://tibi.ferecord.com/#download"><img src="https://img.shields.io/badge/download-Tibi-984425" alt="下载"></a>
 <img src="https://img.shields.io/badge/macOS-13%2B-black?logo=apple" alt="macOS 13+">
 <a href="LICENSE"><img src="https://img.shields.io/github/license/tumars/tibi" alt="MIT"></a>
 </p>
 
-<p align="center"><a href="https://tibi.ferecord.com/">官网</a> · 中文 · <a href="README.en.md">English</a> · <a href="docs/guide/README.md">使用指南</a> · <a href="https://github.com/tumars/tibi/releases">下载</a></p>
+<p align="center"><a href="https://tibi.ferecord.com/">官网</a> · 中文 · <a href="README.en.md">English</a> · <a href="docs/guide/README.md">使用指南</a> · <a href="https://tibi.ferecord.com/#download">下载</a></p>
 
 ![阅读器：生词按你的水平标出来，点一下看这句里的意思](docs/img/screenshots/reader.jpg)
 
@@ -50,13 +50,13 @@
 
 ## 安装
 
-目前提供 Apple 芯片的 macOS 版（需要 macOS 13 或更新），在 [Releases](https://github.com/tumars/tibi/releases) 下载：
+目前提供 Apple 芯片的 macOS 版（需要 macOS 13 或更新），在[官网](https://tibi.ferecord.com/#download)下载，安装包由腾讯云提供：
 
 | 芯片 | 文件 |
 |---|---|
-| Apple 芯片（M 系列） | `Tibi_x.y.z_aarch64.dmg` |
+| Apple 芯片（M 系列） | [Tibi_aarch64.dmg](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) |
 
-GitHub 打不开或下载太慢，可以用国内下载：[Apple 芯片](https://dl.ferecord.com/latest/Tibi_aarch64.dmg) · [SHA-256 校验和](https://dl.ferecord.com/latest/SHA256SUMS.txt)
+[SHA-256 校验和](https://dl.ferecord.com/latest/SHA256SUMS.txt)。下载、更新和公告使用自己的分发域名，不需要连接 GitHub。
 
 正式版已签名并经过 Apple 公证，可以直接打开。自己构建的或未签名的版本，第一次打开时在 Finder 里右键 → 打开。
 

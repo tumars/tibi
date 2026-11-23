@@ -1,0 +1,11 @@
+.translation-status { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 10px 22px; background: var(--paper); box-shadow: 0 1px 0 var(--line); color: var(--ink-2); font: 12px/1.5 var(--f-ui); overflow-anchor: none; }
+.translation-status > svg { width: 17px; height: 17px; flex: none; color: var(--accent); }
+.translation-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.translation-copy strong, .translation-copy span { display: block; }
+.translation-copy strong { font-weight: 500; color: var(--ink); }
+.translation-status button { flex: none; }
+/* 手机滚动容器已有 56px + 安全区的顶内边距；沉浸时让提示上移到安全区。 */
+.phone.imm .translation-status { top: -56px; }
+.translation-spin { animation: translation-spin .9s linear infinite; }
+@keyframes translation-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .translation-spin { animation: none; } }

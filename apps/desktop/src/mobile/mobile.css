@@ -1,4 +1,4 @@
-
+@import "../reader/fonts.css";
 /* 手机端独立壳（00 §3.13，M7）：样式取自原型 docs/prototypes/mobile.html，只用于 mobile.html 入口，不和桌面的 styles.css 混用 */
 :root { --bg: #f2f2f7; --surface: #fff; --sunken: #f2f2f7; --fill: rgba(118,118,128,.12); --paper: #fff; --hover: rgba(0,0,0,.05); --line: rgba(60,60,67,.12); --line-2: rgba(60,60,67,.2); --ink: #000; --ink-2: #48484d; --ink-3: #8a8a8e; --accent-deep: #2f3fa8; --accent-fill: #3d52e0; --chev: #c4c4c7; --seg-on: #fff; --accent: #3d52e0; --accent-wash: rgba(61,82,224,.08); --warm: #f5a043; --warm-wash: rgba(245,160,67,.14); --ok: #2f9e5f; --mid: #c98a1b; --hard: #c2452d; --hl-new: #cfe0ff; --hl-1: #f5dd9a; --hl-2: #f8e8b8; --hl-3: #fbf1d4; --hl-4: #e9e9e7;
   --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
@@ -123,23 +123,28 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .rdtop { position: absolute; top: 0; left: 0; right: 0; z-index: 6; }
 #s-read { padding-top: calc(56px + var(--sat)); background: var(--paper); }
 .rdtop.top { background: color-mix(in srgb, var(--paper) 86%, transparent); }
-.rd { padding: 4px 22px 40px; }
-.rd .meta { font-size: 12px; color: var(--ink-3); margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.rd { padding: 28px 24px 40px; font: 19px/1.72 var(--f-article); font-kerning: normal; font-optical-sizing: auto; overflow-wrap: anywhere; }
+.rd.rdhead { padding-top: 24px; padding-bottom: 0; }
+.rd.rdtail { padding-top: 0; font-family: var(--f-ui); font-size: 15px; }
+.rd .meta { font: 12px/1.5 var(--f-ui); color: var(--ink-3); margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .rd .meta .src { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; }
 .rd .meta a.src { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 2px; }
 .rd .meta .lg { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 8px; background: var(--sunken); color: var(--ink-2); font-size: 11.5px; }
 .rd .meta .lg i { width: 9px; height: 9px; border-radius: 2px; }
-.rd h1 { font-family: var(--f-read); font-size: 27px; line-height: 1.2; margin: 0 0 18px; letter-spacing: -.01em; }
-.rd p { font-family: var(--f-read); font-size: 19px; line-height: 1.75; margin: 0 0 18px; }
-.rd .tr { font-family: var(--f-ui); font-size: 14px; color: var(--ink-2); line-height: 1.7; margin: -10px 0 18px; }
+.rd h1 { font-family: inherit; font-size: 30px; line-height: 1.18; margin: 0; letter-spacing: -.015em; text-wrap: balance; }
+.rdblock { margin: 0 0 1.25em; }
+.rdblock.heading { margin-top: 1.95em; margin-bottom: .71em; }
+.rd > .rdblock.heading:first-child { margin-top: .4em; }
+.rd p { margin: 0; text-wrap: pretty; }
+.rd .tr { font: 14px/1.8 var(--f-ui); color: var(--ink-2); margin: 8px 0 0; }
 .rdprog { position: absolute; left: 0; right: 0; top: calc(52px + var(--sat)); height: 2px; background: var(--line); z-index: 7; } .rdprog i { display: block; height: 100%; width: 38%; background: var(--accent); transition: width .2s; }
 .phone.imm .rdprog { top: var(--sat); }
-.w { border-radius: 3px; padding: 0 1px; position: relative; }
-.w.s0 { background: linear-gradient(transparent 55%, var(--hl-new) 55%, var(--hl-new) 92%, transparent 92%); }
-.w.s1 { background: linear-gradient(transparent 55%, var(--hl-1) 55%, var(--hl-1) 92%, transparent 92%); } .w.s2 { background: linear-gradient(transparent 55%, var(--hl-2) 55%, var(--hl-2) 92%, transparent 92%); } .w.s3 { background: linear-gradient(transparent 55%, var(--hl-3) 55%, var(--hl-3) 92%, transparent 92%); }
+.w { border-radius: 3px; position: relative; }
+.w.s0 { background: linear-gradient(transparent 57%, var(--hl-new) 57%, var(--hl-new) 91%, transparent 91%); }
+.w.s1 { background: linear-gradient(transparent 57%, var(--hl-1) 57%, var(--hl-1) 91%, transparent 91%); } .w.s2 { background: linear-gradient(transparent 57%, var(--hl-2) 57%, var(--hl-2) 91%, transparent 91%); } .w.s3 { background: linear-gradient(transparent 57%, var(--hl-3) 57%, var(--hl-3) 91%, transparent 91%); } .w.s4 { background: linear-gradient(transparent 57%, var(--hl-4) 57%, var(--hl-4) 91%, transparent 91%); }
 .w.sel { background-image: none; background-color: var(--accent-wash); box-shadow: 0 0 0 3px var(--accent-wash); color: var(--accent); border-radius: 5px; }
-.gl .w.s0::before, .gl .w.s1::before, .gl .w.s2::before { content: attr(data-g); position: absolute; left: 0; top: -0.95em; font: 500 10.5px/1 var(--f-ui); color: var(--ink-3); white-space: nowrap; }
-.gl .rd p { line-height: 2.15; }
+.rd.gloss .w[data-g]::after { content: attr(data-g); position: absolute; left: 0; top: -0.95em; font: 500 10.5px/1 var(--f-ui); color: var(--ink-3); white-space: nowrap; }
+.rd.gloss p, .rd.gloss li, .rd.gloss .quote { line-height: 2.15; }
 .rdbar { position: absolute; left: 14px; right: 14px; bottom: calc(14px + var(--sab)); z-index: 20; display: flex; align-items: center; gap: 2px; height: 58px; padding: 5px; border-radius: 29px; background: color-mix(in srgb, var(--surface) 78%, transparent); backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6); box-shadow: 0 0 0 .5px var(--line-2); }
 .rdbar button { flex: 1; height: 48px; border-radius: 24px; font-size: 10px; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--ink); }
 .rdbar button svg { width: 20px; height: 20px; } .rdbar button[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent); }
@@ -283,10 +288,9 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .approve { background: var(--surface); border-radius: 18px; padding: 12px 14px; box-shadow: inset 0 0 0 1.5px var(--accent); }
 .approve .h { font-weight: 600; font-size: 14.5px; } .approve .b { font-size: 13.5px; color: var(--ink-2); margin: 4px 0 10px; } .approve .acts { display: flex; gap: 8px; }
 .empty { text-align: center; padding: 60px 24px; color: var(--ink-3); font-size: 14px; } .empty b { display: block; color: var(--ink); font-size: 17px; margin-bottom: 6px; } .empty img { display: block; width: 160px; height: 160px; margin: 0 auto 10px; }
-.rd h2 { font-family: var(--f-read); font-size: 21px; margin: 26px 0 12px; } .rd pre { font-size: 12.5px; background: var(--sunken); padding: 12px; border-radius: 12px; overflow-x: auto; } .rd blockquote { margin: 0 0 18px; padding-left: 14px; box-shadow: inset 3px 0 0 var(--line-2); } .rd li { font-family: var(--f-read); font-size: 18px; line-height: 1.7; margin-left: 20px; }
-.rd ul { margin: 0 0 18px; padding: 0; list-style: disc; }
+.rd h2 { font-family: inherit; font-size: 1.18em; line-height: 1.35; margin: 0; text-wrap: balance; } .rd pre { font: 12.5px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; background: var(--sunken); margin: 1.3em 0; padding: 12px; border-radius: 12px; overflow-x: auto; } .rd blockquote { margin: 0; padding-left: 1em; border-left: 2px solid var(--line-2); color: var(--ink-2); font-style: italic; } .rd li { margin: 0 0 .6em; padding-left: .15em; }
+.rd ul { margin: 0 0 1.25em; padding-left: 1.2em; list-style: disc; }
 .rd code { font-size: .85em; background: var(--sunken); padding: 1px 4px; border-radius: 4px; }
-.rd .tr { margin-top: -10px; }
 .rvbody .ihw { margin-bottom: 6px; }
 .sheet .field { width: 100%; height: 46px; border-radius: 14px; border: 0; background: var(--fill); padding: 0 14px; font-size: 16px; color: var(--ink); outline: none; margin-top: 8px; }
 .sheet textarea.field { height: 110px; padding: 12px 14px; resize: none; }
