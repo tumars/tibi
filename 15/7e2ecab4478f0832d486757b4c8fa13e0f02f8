@@ -1,0 +1,54 @@
+PRIVACY.md
+  h_93af5c22d6d8a7 11-14
+apps/desktop/scripts/appstore-icu.mjs
+  h_93af5c22d6d8a7 1-66
+apps/desktop/scripts/appstore-smoke.mjs
+  h_93af5c22d6d8a7 1-78
+apps/desktop/src-tauri/Cargo.toml
+  h_93af5c22d6d8a7 15-17,43
+apps/desktop/src-tauri/Entitlements.appstore-core.plist
+  h_93af5c22d6d8a7 1-7
+apps/desktop/src-tauri/Entitlements.appstore.plist
+  h_93af5c22d6d8a7 1-9
+apps/desktop/src-tauri/src/core.rs
+  h_93af5c22d6d8a7 93-94
+apps/desktop/src-tauri/src/lib.rs
+  h_93af5c22d6d8a7 4-6,15,146,236-243,312-314,356,413-429
+apps/desktop/src-tauri/tauri.appstore.conf.json
+  h_93af5c22d6d8a7 1-35
+apps/desktop/src/lib/providers.ts
+  h_93af5c22d6d8a7 3-4,28-40
+apps/desktop/src/lib/update.ts
+  h_93af5c22d6d8a7 10,14,51
+apps/desktop/src/locales/en.json
+  h_93af5c22d6d8a7 8-14
+apps/desktop/src/pages/Settings.tsx
+  h_93af5c22d6d8a7 16-17,143-144,160,166-167
+apps/desktop/src/settings/SyncItems.tsx
+  h_93af5c22d6d8a7 4,19-20,86
+apps/desktop/src/settings/UpdateItems.tsx
+  h_93af5c22d6d8a7 4,15-16
+apps/desktop/test/update.test.ts
+  h_93af5c22d6d8a7 1,40-59
+docs/CHANGELOG.md
+  h_93af5c22d6d8a7 14
+docs/design/13-mac-app-store.md
+  h_93af5c22d6d8a7 1-29
+docs/design/tibi-hosted-ai.md
+  h_93af5c22d6d8a7 1-72
+docs/dev/README.md
+  h_93af5c22d6d8a7 67-68
+docs/dev/mac-app-store.md
+  h_93af5c22d6d8a7 1-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "157e2ecab4478f0832d486757b4c8fa13e0f02f8",
+  "prompts": {},
+  "humans": {
+    "h_93af5c22d6d8a7": {
+      "author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
