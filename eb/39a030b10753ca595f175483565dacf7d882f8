@@ -1,0 +1,16 @@
+README.en.md
+  h_93af5c22d6d8a7 102-110
+README.md
+  h_93af5c22d6d8a7 138-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "eb39a030b10753ca595f175483565dacf7d882f8",
+  "prompts": {},
+  "humans": {
+    "h_93af5c22d6d8a7": {
+      "author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
