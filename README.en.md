@@ -99,6 +99,15 @@ Requires Node 22+ and pnpm. See the [developer guide](docs/dev/README.md) (Chine
 
 [ECDICT](https://github.com/skywind3000/ECDICT) (dictionary, MIT) · [Open English WordNet](https://github.com/globalwordnet/english-wordnet) (English senses and synonyms, CC BY 4.0) · [Word Atlas](https://github.com/designfuchen/word-atlas) (examples, collocations, usage notes, CC BY 4.0, by Word Atlas contributors) · [FSRS](https://github.com/open-spaced-repetition/ts-fsrs) (scheduling, MIT) · [Tauri](https://tauri.app/) · [pdf.js](https://mozilla.github.io/pdf.js/) · [Tesseract.js](https://github.com/naptha/tesseract.js) · [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) (voice, Apache-2.0) · [Mozilla Readability](https://github.com/mozilla/readability) · [pi](https://github.com/earendil-works/pi) (agent runtime)
 
+## Support the Author
+
+Tibi is free and open source. If it has helped you, feel free to scan a code to buy the author a coffee and support ongoing development:
+
+<table><tr>
+<td align="center"><img src="apps/desktop/public/donate/wechat.webp" width="200" alt="WeChat Pay payment code"><br>WeChat Pay</td>
+<td align="center"><img src="apps/desktop/public/donate/alipay.webp" width="200" alt="Alipay payment code"><br>Alipay</td>
+</tr></table>
+
 ## License
 
 [MIT](LICENSE)

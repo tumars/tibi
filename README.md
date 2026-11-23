@@ -135,6 +135,15 @@ pnpm dev                          # 或者直接 tauri dev（需要 Rust）
 
 [ECDICT](https://github.com/skywind3000/ECDICT)（词典，MIT）· [Open English WordNet](https://github.com/globalwordnet/english-wordnet)（英文义项与同义词，CC BY 4.0）· [词光 Word Atlas](https://github.com/designfuchen/word-atlas)（例句、搭配、辨析，CC BY 4.0，署名 Word Atlas contributors）· [FSRS](https://github.com/open-spaced-repetition/ts-fsrs)（复习排期，MIT）· [Tauri](https://tauri.app/) · [pdf.js](https://mozilla.github.io/pdf.js/) · [Tesseract.js](https://github.com/naptha/tesseract.js) · [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M)（语音，Apache-2.0）· [Mozilla Readability](https://github.com/mozilla/readability) · [pi](https://github.com/earendil-works/pi)（技能运行时）
 
+## 支持作者
+
+Tibi 免费开源。如果它帮到了你，欢迎扫码请作者喝杯咖啡，支持项目持续维护：
+
+<table><tr>
+<td align="center"><img src="apps/desktop/public/donate/wechat.webp" width="200" alt="微信收款码"><br>微信</td>
+<td align="center"><img src="apps/desktop/public/donate/alipay.webp" width="200" alt="支付宝收款码"><br>支付宝</td>
+</tr></table>
+
 ## 协议
 
 [MIT](LICENSE)
