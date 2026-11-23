@@ -1,0 +1,20 @@
+apps/desktop/package.json
+  h_93af5c22d6d8a7 3
+apps/desktop/src-tauri/Cargo.lock
+  h_93af5c22d6d8a7 5048
+apps/desktop/src-tauri/Cargo.toml
+  h_93af5c22d6d8a7 3
+apps/desktop/src-tauri/tauri.conf.json
+  h_93af5c22d6d8a7 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4bc133f6a3b0d137638d21b3d4856cbcc0748bea",
+  "prompts": {},
+  "humans": {
+    "h_93af5c22d6d8a7": {
+      "author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
