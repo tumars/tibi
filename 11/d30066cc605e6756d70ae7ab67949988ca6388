@@ -1,0 +1,441 @@
+.github/workflows/release.yml
+  s_8246939b31324d::t_687023585c59a6 2,128-133,148-158,169
+  s_68bb7f117ffcb0::t_46246f2a99a4d2 6
+  s_68bb7f117ffcb0::t_ee506bd4dd878c 146-147
+docs/dev/tencent-distribution.md
+  s_68bb7f117ffcb0::t_a2c3796ec3538f 7,23,35,54-76
+  s_68bb7f117ffcb0::t_7babd4a471cf70 1-6,8-22,24-34,37-53,77,80-87,89-91,93,98
+  s_68bb7f117ffcb0::t_dfe00bbacc6725 88,92,94-96,99-102,104-105,109,112
+  s_68bb7f117ffcb0::t_f7806ecf9bbc98 106-108
+  s_68bb7f117ffcb0::t_85102f8a53ff2d 97
+  s_68bb7f117ffcb0::t_1e4be0d2886ddd 103
+  s_68bb7f117ffcb0::t_d52984b7986c1d 110-111
+  s_68bb7f117ffcb0::t_b6078b670fd961 78-79
+  s_68bb7f117ffcb0::t_741b0d21cd8f16 36
+apps/desktop/src/settings/AnalyticsItem.tsx
+  s_97aea596cde2b9::t_c7c125ea77a257 11
+  s_97aea596cde2b9::t_34b427ddb7f103 1-10,12
+docs/design/00-concept-design.md
+  s_05ca8bf69a621d::t_5fb12031cc0bd6 158
+  s_05ca8bf69a621d::t_66d750078c7aa5 160
+  s_25250119a8c27e::t_e67062fc119455 166-167
+  s_25250119a8c27e::t_7e5317a0793d14 164
+  s_694b98cc5fe824::t_8066a73b54d308 120-121,128,148,482
+  s_68bb7f117ffcb0::t_3dc63587ab1108 372
+  s_82dc71639fe9cf::t_6035b2b22903bc 196-198,306
+  s_82dc71639fe9cf::t_27cab207c6bd1c 156
+  s_05ca8bf69a621d::t_095ec6de8ed499 159
+  s_25250119a8c27e::t_4dc7d2e5acfe86 165
+  s_82dc71639fe9cf::t_3f48e46d789ebf 307
+packages/core/src/domain/documents/analyze.ts
+  s_25250119a8c27e::t_0c6f3c616645b0 4,102-108,111-121,132-139
+  s_25250119a8c27e::t_7e5317a0793d14 122,126-131
+apps/desktop/src/reader/TibiPanel.tsx
+  s_82dc71639fe9cf::t_ddc620ae6cf078 8-9,17-18,30
+apps/desktop/src/mobile/Me.tsx
+  s_97aea596cde2b9::t_34b427ddb7f103 14,48
+apps/desktop/src/styles.css
+  s_82dc71639fe9cf::t_acdd2f4689afc1 716,977-983
+  s_05ca8bf69a621d::t_dcd6260f3a17dd 459-466
+  s_694b98cc5fe824::t_111481b059d6f8 2,236-239,241,245-250,258-261,266-267,270-274,278
+  s_82dc71639fe9cf::t_07640ce3534df0 710-715,717-730
+.github/workflows/mirror-cn.yml
+  s_68bb7f117ffcb0::t_46246f2a99a4d2 5
+  s_68bb7f117ffcb0::t_6072da092e0c20 1-3,6,29,39,41-42,44-47,52-53
+docs/dev/README.md
+  s_68bb7f117ffcb0::t_d52984b7986c1d 72
+  s_68bb7f117ffcb0::t_c4a2b91a9a044d 51-52
+  s_8246939b31324d::t_687023585c59a6 71
+README.en.md
+  s_97aea596cde2b9::t_2d0bde373a31fc 77
+  s_97aea596cde2b9::t_4c81eac7a59420 23
+  s_68bb7f117ffcb0::t_3dc63587ab1108 8,13,55,59,61
+docs/design/14-distribution-admin.md
+  s_68bb7f117ffcb0::t_b6078b670fd961 21-28
+  s_68bb7f117ffcb0::t_3325cbd44337e4 1-20
+docs/dev/mac-release-0.1.0.md
+  s_8246939b31324d::t_687023585c59a6 7-14
+admin/server.mjs
+  s_68bb7f117ffcb0::t_ee1c7ae31bc4be 1-37,39-156,158-170,176-179,181-215,217-249
+  s_68bb7f117ffcb0::t_140e2e8f03ca97 38,157,171-175,180,216
+docs/prototypes/fonts/reading/source-serif-4-OFL.txt
+  s_694b98cc5fe824::t_e695976b76f72f 1-93
+docs/prototypes/fonts/reading/literata-OFL.txt
+  s_694b98cc5fe824::t_7de39590789b8a 1-93
+admin/ui/app.js
+  s_68bb7f117ffcb0::t_1ebe65eff3dbcc 1-74,76,78-79,82-306
+  s_68bb7f117ffcb0::t_9820328ac373d4 75,77,80-81
+apps/desktop/src-tauri/capabilities/default.json
+  s_68bb7f117ffcb0::t_ee506bd4dd878c 22,34
+apps/desktop/test/distribution.test.ts
+  s_68bb7f117ffcb0::t_acb6c672bae21b 24
+  s_68bb7f117ffcb0::t_c664209879f94e 27
+  s_68bb7f117ffcb0::t_7babd4a471cf70 1-23,25-26,28-86
+admin/ui/style.css
+  s_68bb7f117ffcb0::t_ef5c95c7a9ec0b 1-11
+docs/guide/README.md
+  s_68bb7f117ffcb0::t_1e4be0d2886ddd 7
+  s_97aea596cde2b9::t_2d0bde373a31fc 135
+docs/design/13-context-menus.md
+  s_2b8dcf73d9b727::t_56dec2569121c8 115
+  s_82dc71639fe9cf::t_9994be2e8cf0f3 151,155-166
+  s_82dc71639fe9cf::t_27cab207c6bd1c 15,98,105,109-110,141,144-149,152-154
+  s_82dc71639fe9cf::t_6d2cf746431fdf 3,117,119,127
+  s_82dc71639fe9cf::t_e875faa5d36f8e 1-2,4-14,16-97,99-104,106-108,111-114,116,118,120-126,128-140
+  s_2b8dcf73d9b727::t_751e29d3da16c5 168-169
+  s_2b8dcf73d9b727::t_82804d8ec0d197 150
+  s_82dc71639fe9cf::t_c86cb1600d1e9c 184-194
+  s_82dc71639fe9cf::t_1798996fc6ad83 142-143
+  s_82dc71639fe9cf::t_8e14fd72b5c958 167,170-183
+apps/desktop/src/lib/macNative.ts
+  s_82dc71639fe9cf::t_dacab6bc9a0daf 44-45
+  s_82dc71639fe9cf::t_52d5b37ec546b1 11
+  s_2b8dcf73d9b727::t_751e29d3da16c5 52-54
+  s_82dc71639fe9cf::t_248dec7679f0ef 12-14,17,21-43,46-49,57,150,153
+  s_2b8dcf73d9b727::t_56dec2569121c8 20,56
+  s_2b8dcf73d9b727::t_82804d8ec0d197 19,50-51,55
+apps/desktop/src/reader/useAloud.ts
+  s_82dc71639fe9cf::t_2eadaeee9e5b6d 50
+  s_82dc71639fe9cf::t_ddc620ae6cf078 16,18,24,27,33,41,54-55,60
+packages/core/src/domain/documents/methods.ts
+  s_25250119a8c27e::t_0c6f3c616645b0 130
+  s_25250119a8c27e::t_d63f7a231f5e0e 132
+apps/desktop/src/reader/useTranslation.ts
+  s_25250119a8c27e::t_0c6f3c616645b0 1-20
+apps/desktop/src/settings/search.ts
+  s_97aea596cde2b9::t_27d499890f933a 22
+apps/desktop/src/components/ObjectMenu.tsx
+  s_82dc71639fe9cf::t_52d5b37ec546b1 1-17,20-44,46-49,51-56
+  s_82dc71639fe9cf::t_6035b2b22903bc 45
+  s_82dc71639fe9cf::t_81bf61286d833c 18-19,50
+apps/desktop/src/mobile/Reader.tsx
+  s_25250119a8c27e::t_d63f7a231f5e0e 19,39,104,175
+  s_694b98cc5fe824::t_111481b059d6f8 129,134,136
+  s_25250119a8c27e::t_e67062fc119455 66
+  s_25250119a8c27e::t_c5fbd18b6a022f 12-13,32-33,63-65,67,71,100,102-103,105-106,127,150
+  s_694b98cc5fe824::t_108700d3b1870e 76,78-85
+packages/core/src/domain/documents/sections.ts
+  s_25250119a8c27e::t_0c6f3c616645b0 11,85
+apps/desktop/package.json
+  s_97aea596cde2b9::t_ade1b2a4c1719e 26
+tools/publish-cos.mjs
+  s_68bb7f117ffcb0::t_f0e12fb4b2b5db 3,10-12
+  s_68bb7f117ffcb0::t_fee8ce5da60abe 1-2,4-6,8-9,13-50,54-62,64-79
+  s_68bb7f117ffcb0::t_7babd4a471cf70 63
+  s_68bb7f117ffcb0::t_ee1c7ae31bc4be 7,51-53
+apps/desktop/src/reader/WordsPanel.tsx
+  s_05ca8bf69a621d::t_dcd6260f3a17dd 1-16,18-53
+  s_05ca8bf69a621d::t_e6898ba06728be 17
+apps/desktop/src/reader/ReaderMenu.tsx
+  s_82dc71639fe9cf::t_07640ce3534df0 12,139
+  s_82dc71639fe9cf::t_c63c91584739fb 1-11,13-21,23-31,34-41,43-44,54-100,103-105,107-110,112-130,132-138,140-145,147-152,155-183,185-187,189-191
+  s_82dc71639fe9cf::t_57a1cb3374dd5b 22,42,101-102,106,111
+  s_82dc71639fe9cf::t_dacab6bc9a0daf 32-33,45-53,146,153-154
+  s_82dc71639fe9cf::t_c5430d8a86f610 131
+  s_82dc71639fe9cf::t_e5652577d12e8f 184
+  s_82dc71639fe9cf::t_670810e6f1bb57 188
+docs/design/15-usage-analytics.md
+  s_97aea596cde2b9::t_2d0bde373a31fc 1-11
+apps/desktop/src/pages/Reader.tsx
+  s_82dc71639fe9cf::t_33b4d9a4c1174d 21,140-142
+  s_25250119a8c27e::t_e67062fc119455 75,78
+  s_694b98cc5fe824::t_8066a73b54d308 212-214,216-217
+  s_694b98cc5fe824::t_108700d3b1870e 96-105
+  s_82dc71639fe9cf::t_ddc620ae6cf078 28,49,52,143,147-153,209,219,236,259-264
+  s_05ca8bf69a621d::t_dcd6260f3a17dd 2,16,46,202,256
+  s_82dc71639fe9cf::t_e5652577d12e8f 254
+  s_694b98cc5fe824::t_111481b059d6f8 211,218,220-221
+  s_25250119a8c27e::t_c5fbd18b6a022f 13-14,50,73,76-77,79-80,82,84,86,210
+  s_82dc71639fe9cf::t_07640ce3534df0 243
+docs/CHANGELOG.md
+  s_82dc71639fe9cf::t_6f363feab992cf 10
+  s_82dc71639fe9cf::t_6d2cf746431fdf 7
+  s_68bb7f117ffcb0::t_c4a2b91a9a044d 9
+  s_05ca8bf69a621d::t_5fb12031cc0bd6 12
+  s_694b98cc5fe824::t_8066a73b54d308 13
+  s_68bb7f117ffcb0::t_e25cb03cb786a4 11
+  s_82dc71639fe9cf::t_27cab207c6bd1c 8
+apps/desktop/src/pages/Feeds.tsx
+  s_82dc71639fe9cf::t_81bf61286d833c 9-10,107-114
+  s_82dc71639fe9cf::t_10c873f260c450 14,206,259
+  s_82dc71639fe9cf::t_72f1147d26ff64 153,196-200,215,227
+apps/desktop/test/tts.test.ts
+  s_82dc71639fe9cf::t_1e25eb6369bdf3 6,11,13,77-88
+  s_82dc71639fe9cf::t_0c0a614f4bb7e9 89
+admin/ui/index.html
+  s_68bb7f117ffcb0::t_ef5c95c7a9ec0b 1-101
+apps/desktop/src/reader/translation.css
+  s_25250119a8c27e::t_74931486e2b5ba 1
+  s_25250119a8c27e::t_0c6f3c616645b0 2-11
+apps/desktop/src/rpc/client.ts
+  s_97aea596cde2b9::t_34b427ddb7f103 3,114-117
+  s_97aea596cde2b9::t_65f6c067893298 97-107
+apps/desktop/src/mobile/mobile.css
+  s_694b98cc5fe824::t_111481b059d6f8 1,126-129,134-139,142-144,146-147,291-292
+package.json
+  s_68bb7f117ffcb0::t_fee8ce5da60abe 19
+  s_68bb7f117ffcb0::t_a2c3796ec3538f 9
+  s_68bb7f117ffcb0::t_ee1c7ae31bc4be 20-22
+apps/desktop/src/lib/update.ts
+  s_68bb7f117ffcb0::t_ee506bd4dd878c 22-23,25-26,29
+apps/desktop/src/settings/UpdateItems.tsx
+  s_68bb7f117ffcb0::t_ee506bd4dd878c 4,8,23-24,48
+apps/desktop/src/pages/Words.tsx
+  s_82dc71639fe9cf::t_81bf61286d833c 97
+  s_82dc71639fe9cf::t_10c873f260c450 76
+  s_82dc71639fe9cf::t_fe9d2f03dc21c8 96
+  s_82dc71639fe9cf::t_f875da2f2d354b 1,3,9-10,72-75,78-90,92-93,98-99,146-150,156,163
+  s_82dc71639fe9cf::t_0688529126e7cd 94-95
+admin/cos-policy.json
+  s_68bb7f117ffcb0::t_061a22e8b545bd 7
+  s_68bb7f117ffcb0::t_9f44ef67715e67 1-6,8-41
+.github/workflows/notice-cn.yml
+  s_68bb7f117ffcb0::t_6072da092e0c20 1,3-4,22,31,33-34,36-44
+apps/desktop/src/reader/TranslationStatus.tsx
+  s_25250119a8c27e::t_0c6f3c616645b0 1-20
+apps/desktop/src/reader/Section.tsx
+  s_82dc71639fe9cf::t_c63c91584739fb 5-6,11,15,30,34,58-72
+  s_694b98cc5fe824::t_111481b059d6f8 53-55
+packages/core/src/domain/terms/methods.ts
+  s_82dc71639fe9cf::t_49f29f233b7c86 92-93
+apps/desktop/src/pages/Library.tsx
+  s_82dc71639fe9cf::t_f875da2f2d354b 2,10-11,32-37,39-51,60-61,122
+apps/desktop/src/locales/en.json
+  s_25250119a8c27e::t_7e5317a0793d14 1119-1122
+  s_82dc71639fe9cf::t_85ba22735c8d64 1123-1158
+  s_82dc71639fe9cf::t_9b34a9ee553098 1159-1160
+  s_82dc71639fe9cf::t_fe9d2f03dc21c8 1161-1166
+  s_05ca8bf69a621d::t_5fb12031cc0bd6 2-6
+  s_68bb7f117ffcb0::t_ee506bd4dd878c 1085-1086
+  s_82dc71639fe9cf::t_f6466226427e9d 1167-1169
+apps/desktop/src/lib/notice-schema.ts
+  s_68bb7f117ffcb0::t_1dd48fc1cfc22e 1-46
+apps/desktop/src/rpc/methods.ts
+  s_82dc71639fe9cf::t_49f29f233b7c86 50
+packages/core/src/domain/terms/views.ts
+  s_05ca8bf69a621d::t_dcd6260f3a17dd 46-54
+apps/desktop/src/assets/fonts/README.md
+  s_694b98cc5fe824::t_5816c0fd4c2a54 1-6
+admin/cos.mjs
+  s_68bb7f117ffcb0::t_96d134093b241d 1-74
+docs/research/07-reader-typography.md
+  s_694b98cc5fe824::t_5816c0fd4c2a54 3,9,17,53,89,95,105
+  s_694b98cc5fe824::t_62bd7579007920 90
+  s_694b98cc5fe824::t_8cc39e14605cf6 108-109
+  s_694b98cc5fe824::t_ef9014f2c4f2c5 1-2,4,6-8,10,13-14,16,18-24,26-31,33-52,54-59,62-68,70,73,75-88
+  s_694b98cc5fe824::t_e8f3be02b7c382 5,32,92-94,96-104,106-107
+  s_694b98cc5fe824::t_dfb7019f1fef14 11-12,15,25,60-61,91
+  s_694b98cc5fe824::t_901bff56c639a6 69,71-72,74,110-131
+packages/core/test/terms/lookup.test.ts
+  s_05ca8bf69a621d::t_5fb12031cc0bd6 183-212
+  s_82dc71639fe9cf::t_c5430d8a86f610 2,57-101
+  s_82dc71639fe9cf::t_7be731724ae3c2 102-109
+  s_82dc71639fe9cf::t_fe9d2f03dc21c8 33-56
+apps/desktop/src-tauri/Cargo.toml
+  s_68bb7f117ffcb0::t_ee506bd4dd878c 35
+packages/core/src/types.ts
+  s_25250119a8c27e::t_0c6f3c616645b0 44-45,50
+docs/DECISIONS.md
+  s_68bb7f117ffcb0::t_3dc63587ab1108 166,174
+  s_68bb7f117ffcb0::t_c4a2b91a9a044d 176
+docs/prototypes/fonts/README.md
+  s_694b98cc5fe824::t_8cc39e14605cf6 4
+  s_694b98cc5fe824::t_5816c0fd4c2a54 3
+apps/desktop/public/licenses/SourceSerif4-OFL.txt
+  s_694b98cc5fe824::t_5816c0fd4c2a54 1-93
+apps/desktop/test/notice-source.test.ts
+  s_68bb7f117ffcb0::t_acb6c672bae21b 1-26,28-39
+  s_68bb7f117ffcb0::t_8d1bb2f63f8aca 27
+apps/desktop/src/lib/notice.ts
+  s_68bb7f117ffcb0::t_1dd48fc1cfc22e 5-6
+  s_68bb7f117ffcb0::t_ee506bd4dd878c 9-10,16-17,46-51
+apps/desktop/src/components/Speak.tsx
+  s_82dc71639fe9cf::t_f875da2f2d354b 52
+apps/desktop/src/reader/ReadAloud.tsx
+  s_82dc71639fe9cf::t_ddc620ae6cf078 10-11,20,31,34-36,60
+  s_82dc71639fe9cf::t_9b34a9ee553098 29
+  s_82dc71639fe9cf::t_9ed5cd7ef38759 30,32-33,37
+docs/prototypes/reader-typography.html
+  s_694b98cc5fe824::t_7642ef24e10008 80,121
+  s_694b98cc5fe824::t_e8f3be02b7c382 7-10,29,76-77,110,118,154-158,189-191,202
+  s_694b98cc5fe824::t_ef9014f2c4f2c5 1-6,11-28,30-75,78-79,81-86,88-97,99-109,111-117,119-120,122-153,159-188,192-201,203-205
+  s_694b98cc5fe824::t_dfb7019f1fef14 87,98
+docs/design/overview.html
+  s_25250119a8c27e::t_d5364feef1391c 462,464,528
+  s_82dc71639fe9cf::t_9af1fccf49c6cf 278
+  s_82dc71639fe9cf::t_ca6bf8b3754e40 529
+apps/desktop/src-tauri/tauri.conf.json
+  s_97aea596cde2b9::t_e5e67e5722974a 28-29
+  s_68bb7f117ffcb0::t_ee506bd4dd878c 64
+docs/prototypes/context-menus.html
+  s_82dc71639fe9cf::t_6aa9594367f0a6 117
+  s_82dc71639fe9cf::t_05a90ab6b9a0bc 1-18,20-93,110-116,118-126
+  s_82dc71639fe9cf::t_ef76bd55aedf82 19
+  s_82dc71639fe9cf::t_5b6dcabc611e13 94-109
+apps/desktop/src/components/SelectAsk.tsx
+  s_82dc71639fe9cf::t_acdd2f4689afc1 15,19,25,37-38,41
+apps/desktop/src-tauri/src/update.rs
+  s_68bb7f117ffcb0::t_ee506bd4dd878c 25,36,38
+apps/desktop/src/pages/Settings.tsx
+  s_97aea596cde2b9::t_34b427ddb7f103 18,149
+apps/desktop/src/components/ChatThread.tsx
+  s_82dc71639fe9cf::t_c5430d8a86f610 37-38,93
+  s_82dc71639fe9cf::t_ddc620ae6cf078 26,103,105
+  s_82dc71639fe9cf::t_acdd2f4689afc1 3,17-18,167-171,173-187,235-236
+  s_82dc71639fe9cf::t_6d2cf746431fdf 14,210,212
+  s_82dc71639fe9cf::t_fe9d2f03dc21c8 172
+  s_82dc71639fe9cf::t_33b4d9a4c1174d 39-41,56-57,64,94,97,100,104,106,247
+apps/desktop/src/settings/FeedbackItems.tsx
+  s_68bb7f117ffcb0::t_46246f2a99a4d2 21
+admin/admin.test.mjs
+  s_68bb7f117ffcb0::t_140e2e8f03ca97 1-6,8-31,33-70,77-153
+  s_68bb7f117ffcb0::t_670b9df2bd8627 7,32,71-76
+  s_68bb7f117ffcb0::t_cc8ce03b444e8a 154-173
+apps/desktop/src/components/RecentChats.tsx
+  s_82dc71639fe9cf::t_6d2cf746431fdf 51,58
+  s_82dc71639fe9cf::t_72f1147d26ff64 9,54-57,62,64-65
+docs/design/03-visual-language.md
+  s_694b98cc5fe824::t_8066a73b54d308 5,15,27-28,30,34
+  s_694b98cc5fe824::t_6bc586cdff2bea 35
+.github/scripts/cn-mirror-prep.mjs
+  s_68bb7f117ffcb0::t_fee8ce5da60abe 1-2,9,11,15,20-22,24,29,31,35-37,45-48
+docs/design/_src/build_interface.py
+  s_82dc71639fe9cf::t_49f29f233b7c86 128
+  s_82dc71639fe9cf::t_e5652577d12e8f 299
+  s_25250119a8c27e::t_7e5317a0793d14 36,38,116,119
+  s_05ca8bf69a621d::t_5fb12031cc0bd6 124
+packages/core/src/domain/terms/service.ts
+  s_82dc71639fe9cf::t_49f29f233b7c86 180,183-184
+  s_82dc71639fe9cf::t_7be731724ae3c2 100-102,121-122,187,190-199,202,204,206,208,211
+  s_82dc71639fe9cf::t_670810e6f1bb57 218-219
+apps/desktop/src/components/ContextMenu.tsx
+  s_82dc71639fe9cf::t_2eadaeee9e5b6d 38
+  s_82dc71639fe9cf::t_dacab6bc9a0daf 25,30
+  s_82dc71639fe9cf::t_52d5b37ec546b1 13,48
+  s_82dc71639fe9cf::t_87f7c0cf05e693 54-56
+  s_82dc71639fe9cf::t_248dec7679f0ef 1-12,14-24,26-29,31-32,40-43,45-47,49-52,59-62
+  s_82dc71639fe9cf::t_acdd2f4689afc1 44,53,58
+  s_82dc71639fe9cf::t_0a438413f11c80 33-37
+  s_82dc71639fe9cf::t_f1dade74cf5d59 39
+  s_82dc71639fe9cf::t_ce07c26823883d 57
+admin/release.mjs
+  s_68bb7f117ffcb0::t_140e2e8f03ca97 62-64
+  s_68bb7f117ffcb0::t_96d134093b241d 1-61,65-73
+docs/prototypes/fonts/reading/README.md
+  s_694b98cc5fe824::t_5816c0fd4c2a54 3
+  s_694b98cc5fe824::t_7f5a39f841c1d4 1-2,4-23
+docs/design/06-interface.md
+  s_25250119a8c27e::t_d5364feef1391c 57,59,140,143
+  s_82dc71639fe9cf::t_9af1fccf49c6cf 366
+  s_82dc71639fe9cf::t_ca6bf8b3754e40 130,133,135,155,192-194,354,415-416
+  s_05ca8bf69a621d::t_d81f43610dc799 151
+apps/desktop/src-tauri/src/lib.rs
+  s_2b8dcf73d9b727::t_56dec2569121c8 46-67,402-408
+apps/desktop/src/reader/fonts.css
+  s_694b98cc5fe824::t_111481b059d6f8 2-4
+  s_694b98cc5fe824::t_5816c0fd4c2a54 1
+PRIVACY.md
+  s_68bb7f117ffcb0::t_3dc63587ab1108 34-35
+  s_97aea596cde2b9::t_c7c125ea77a257 3-9,25
+apps/desktop/src/lib/tts.ts
+  s_82dc71639fe9cf::t_1e25eb6369bdf3 236-237
+  s_82dc71639fe9cf::t_9b34a9ee553098 46,51-55,57
+README.md
+  s_68bb7f117ffcb0::t_3dc63587ab1108 8,13,53,57,59
+  s_97aea596cde2b9::t_c7c125ea77a257 75,82
+apps/desktop/src/lib/analytics.ts
+  s_97aea596cde2b9::t_cb734599fb986e 24
+  s_97aea596cde2b9::t_34b427ddb7f103 3-16,20-22,25-27,29-48,50-51
+  s_97aea596cde2b9::t_c822c090d3b027 17-19,28
+  s_97aea596cde2b9::t_639a9e4ea4eda7 1-2
+  s_97aea596cde2b9::t_65f6c067893298 23,49,52
+apps/desktop/test/context-menu.test.ts
+  s_2b8dcf73d9b727::t_751e29d3da16c5 6,28-30
+  s_2b8dcf73d9b727::t_56dec2569121c8 5,9-17,39
+  s_2b8dcf73d9b727::t_fdb143f7438df2 2-4
+  s_2b8dcf73d9b727::t_6c8a54c4c2da87 7-8
+  s_2b8dcf73d9b727::t_737df53a8f0021 18-20,25-27
+  s_2b8dcf73d9b727::t_869fa071211322 31-33,36-38
+  s_2b8dcf73d9b727::t_940d4994a56a52 40-42
+apps/desktop/src/lib/contextActions.ts
+  s_82dc71639fe9cf::t_52d5b37ec546b1 1-17
+packages/core/test/documents/analyze.test.ts
+  s_25250119a8c27e::t_48de1638720463 1,8,81-155
+apps/desktop/src/reader/contextTarget.ts
+  s_82dc71639fe9cf::t_9b34a9ee553098 28-29,33,35,41-42
+  s_82dc71639fe9cf::t_248dec7679f0ef 1-27,30-32,34,36-40,43-59
+pnpm-lock.yaml
+  s_97aea596cde2b9::t_42b00826e1a0dc 56-58,696-716,1450-1452,1468-1470,1537-1539,1566-1569,1997-1999,2405-2410,3575-3602,4189-4190,4207-4208,4257-4258,4277-4278,4738-4739,5330-5339
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "11d30066cc605e6756d70ae7ab67949988ca6388",
+  "prompts": {},
+  "sessions": {
+    "s_05ca8bf69a621d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1e41c-e8b3-7422-839d-edd066065b30",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_25250119a8c27e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1e329-bf46-7690-b428-3fe7260cda9e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_2b8dcf73d9b727": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1f34a-8f60-7451-aff2-797aad85cf07",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_68bb7f117ffcb0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1e49c-117b-7971-9533-5734a71867fd",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_694b98cc5fe824": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1e337-f50c-71f2-bf12-98aec087c18f",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_8246939b31324d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ab19-1d89-7902-9ee9-ed867d15515d",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_82dc71639fe9cf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1e542-4698-7603-bcf8-8cf2fc56ee79",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_97aea596cde2b9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ecb1-8ea4-76e0-b80c-8f9d667ef5a3",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
