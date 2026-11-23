@@ -1,3 +1,21 @@
 {
-  "notices": []
+  "notices": [
+    {
+      "id": "release-0.1.2-macos",
+      "message": {
+        "zh": "Tibi 0.1.2 已发布：全新阅读排版与文章生词栏、桌面右键菜单，并切换至更稳定的国内更新源。",
+        "en": "Tibi 0.1.2 is out: refined reader typography, article vocabulary panel, context menus, and faster updates."
+      },
+      "platforms": [
+        "macos"
+      ],
+      "below": "0.1.2",
+      "until": "2026-12-23",
+      "url": "tibi://settings?sec=about",
+      "label": {
+        "zh": "去更新",
+        "en": "Update"
+      }
+    }
+  ]
 }
