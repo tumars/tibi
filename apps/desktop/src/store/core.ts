@@ -1,6 +1,7 @@
 import type { Conversation, DocumentSummary } from '@tibi/core';
 import { create } from 'zustand';
-import { errorInfo, rpc, type Result } from '../rpc';
+import { errorInfo, isTauri, rpc, type Result } from '../rpc';
+import { tl } from '../lib/i18n';
 
 /**
  * Core 状态：启动时取一次，事件驱动刷新；连不上时 connected = false，界面显示空状态而不崩。
@@ -22,6 +23,7 @@ interface CoreState {
   recentDocs: DocumentSummary[];
   recentChats: Conversation[];
   refresh(): Promise<void>;
+  retry(): Promise<void>;
   refreshChats(): Promise<void>;
   refreshFeeds(): Promise<void>;
 }
@@ -45,6 +47,18 @@ export const useCore = create<CoreState>((set, get) => ({
       get().refreshChats(),
     ]);
   },
+  async retry() {
+    if (isTauri() && !get().connected) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('core_restart');
+      } catch (e) {
+        set({ connected: false, error: errorInfo(e).message });
+        return;
+      }
+    }
+    await get().refresh();
+  },
   async refreshChats() {
     await rpc.call('chat.list', { limit: 50 }).then(c => set({ recentChats: c }), () => {});
   },
@@ -62,4 +76,6 @@ export function bindCoreEvents() {
   rpc.on('import.done', refresh);
   rpc.on('approval.requested', refresh);
   rpc.on('approval.resolved', refresh);
+  rpc.on('core.exited', d => useCore.setState({ connected: false, error: d.message || tl('Core 断开了') }));
+  rpc.on('core.error', d => useCore.setState({ connected: false, error: d.message || tl('Core 断开了') }));
 }

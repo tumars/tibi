@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseNotices } from '../apps/desktop/src/lib/notice-schema.ts';
+import { verifyMacAppArchive } from '../packages/core-node/scripts/sidecar-verify.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 // 本机使用 Tibi 自己的凭据；CI 已注入的环境变量优先，不读取其他项目配置。
@@ -55,6 +56,17 @@ try {
     if (await (await readPublic('notice.json')).text() !== readFileSync(notice, 'utf8')) throw new Error('线上 notice.json 与本地不一致');
   } else {
     run(process.execPath, [join(root, '.github/scripts/cn-mirror-prep.mjs'), dist, out, base, tag]);
+    const manifest = readFileSync(join(out, 'latest.json'), 'utf8');
+    const parsedManifest = JSON.parse(manifest);
+    // 上传前在 macOS 上校验签名并真正启动 tibi-core 冒烟测试，避免把坏包推到线上。
+    if (process.platform === 'darwin' && process.env.TIBI_SKIP_BUNDLE_VERIFY !== '1') {
+      for (const [platformKey, p] of Object.entries(parsedManifest.platforms ?? {})) {
+        if (!platformKey.startsWith('darwin-')) continue;
+        const file = decodeURIComponent(new URL(p.url).pathname.split('/').pop());
+        if (!file.endsWith('.tar.gz')) continue;
+        await verifyMacAppArchive(join(dist, file), { platformKey });
+      }
+    }
     s3('cp', dist, `${bucket}/${tag}/`, '--recursive', '--exclude', 'latest.json', '--exclude', 'SHA256SUMS.txt');
     s3('cp', join(out, 'SHA256SUMS.txt'), `${bucket}/${tag}/SHA256SUMS.txt`);
     const aliases = readFileSync(join(out, 'aliases.tsv'), 'utf8').trim();
@@ -63,9 +75,8 @@ try {
       s3('cp', `${bucket}/${tag}/${file}`, `${bucket}/latest/${alias}`, '--cache-control', 'no-cache', '--metadata-directive', 'REPLACE');
     }
     s3('cp', join(out, 'SHA256SUMS-latest.txt'), `${bucket}/latest/SHA256SUMS.txt`, '--cache-control', 'no-cache');
-    const manifest = readFileSync(join(out, 'latest.json'), 'utf8');
     // 安装包和更新包都能公开读取后，最后切换更新指针；失败时旧版本仍可用。
-    for (const p of Object.values(JSON.parse(manifest).platforms)) {
+    for (const p of Object.values(parsedManifest.platforms)) {
       const path = new URL(p.url).pathname.split('/').slice(-2).join('/');
       await readPublic(path, 'HEAD');
     }

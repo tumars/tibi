@@ -95,6 +95,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.5"
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}

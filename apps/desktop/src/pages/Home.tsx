@@ -39,7 +39,7 @@ export function Home() {
   const [focus, setFocus] = useState(false);
   const [kind, setKind] = useState<Kind>('all');
   const [model, setModel] = useState<string>();
-  const due = useCore(s => s.due); const connected = useCore(s => s.connected); const status = useCore(s => s.status); const coreDown = useCore(s => !s.connected && !s.status && !!s.error);
+  const due = useCore(s => s.due); const connected = useCore(s => s.connected); const status = useCore(s => s.status); const coreError = useCore(s => s.error); const coreDown = useCore(s => !s.connected && !s.status && !!s.error);
   const goal = useCore(s => s.goal); const wordCount = useCore(s => s.wordCount); const nickname = useCore(s => s.nickname);
   const ta = useRef<HTMLTextAreaElement>(null);
   const [action, setAction] = useState<SlashAction>();   // / 选中的动作，显示在输入框上方
@@ -234,7 +234,7 @@ export function Home() {
           {shelf.length ? <div className="docs">{shelf.slice(0, 8).map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} />)}</div>
             : connected || status ? <Empty title={tl('书架还是空的')} text={tl('粘贴网址或拖入文件就能导入，也可以先读一篇示例。')} action={<Samples />} />
             : import.meta.env.DEV ? <Empty image={coreDown ? 'error-offline' : undefined} title={tl('连不上 Tibi Core')} text={tl('先运行 pnpm core:dev，再刷新。')} />
-            : <Empty image={coreDown ? 'error-offline' : undefined} title={tl('暂时读不到你的数据')} text={tl('你的数据还在本机。可以重试，不行就重启 Tibi。')} action={<button className="btn" onClick={() => { void useCore.getState().refresh(); void load(); }}>{tl('重试')}</button>} />}
+            : <Empty image={coreDown ? 'error-offline' : undefined} title={tl('暂时读不到你的数据')} text={coreError ? `${tl('你的数据还在本机。可以重试，不行就重启 Tibi。')}\n${coreError}` : tl('你的数据还在本机。可以重试，不行就重启 Tibi。')} action={<button className="btn" onClick={() => { void useCore.getState().retry().then(() => load()); }}>{tl('重试')}</button>} />}
         </section>
       </div></div>
 

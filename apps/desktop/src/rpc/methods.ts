@@ -142,5 +142,7 @@ export interface EventTable {
   /** call_id 把开始和结束配成一对；end 带结果摘要、出错原因和耗时 */
   'chat.tool': { conversation_id?: Id; turn_id: TurnId; phase: 'start' | 'end'; tool: string; skill_id: string; status?: 'ok' | 'error' | 'denied'; summary: string; call_id?: string; detail?: string; result?: string; error?: string; duration_ms?: number };
   'sync.update': { state: 'idle' | 'syncing' | 'error'; pushed?: number; pulled?: number; last_synced_at?: number; error?: { code: string; message: string } };
+  'core.exited': { message?: string };
+  'core.error': { message?: string };
 }
 export type EventName = keyof EventTable;

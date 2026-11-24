@@ -47,7 +47,7 @@ globalThis.fetch = async (url, opts) => {
   const sums = join(mocks, 'sums.txt');
   const result = spawnSync(process.execPath, ['--import', preload, 'tools/publish-cos.mjs', 'release', dir, 'v0.2.0'], {
     cwd: root, encoding: 'utf8', timeout: 20_000,
-    env: { ...process.env, PATH: `${mocks}:${process.env.PATH}`, BUCKET: 'test-bucket', S3_ENDPOINT: 'https://cos.example.com', BASE_URL: 'https://dl.ferecord.com', AWS_ACCESS_KEY_ID: 'test', AWS_SECRET_ACCESS_KEY: 'test', AWS_DEFAULT_REGION: 'test-region', CALLS: log, PUBLIC_MANIFEST: manifest, PUBLIC_SUMS: sums, ...extra },
+    env: { ...process.env, PATH: `${mocks}:${process.env.PATH}`, BUCKET: 'test-bucket', S3_ENDPOINT: 'https://cos.example.com', BASE_URL: 'https://dl.ferecord.com', AWS_ACCESS_KEY_ID: 'test', AWS_SECRET_ACCESS_KEY: 'test', AWS_DEFAULT_REGION: 'test-region', TIBI_SKIP_BUNDLE_VERIFY: '1', CALLS: log, PUBLIC_MANIFEST: manifest, PUBLIC_SUMS: sums, ...extra },
   });
   const calls = readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line) as { aws?: string[]; url?: string; method?: string });
   return { result, calls, manifest, sums };
@@ -82,5 +82,13 @@ describe('腾讯云分发', () => {
     const { result, calls } = publish(dir, extra);
     expect(result.status).not.toBe(0);
     expect(calls.some(updatesPointer)).toBe(false);
+  });
+
+  it.skipIf(process.platform !== 'darwin')('macOS 更新包校验失败时在上传前拦截', () => {
+    const { dir } = fixture();
+    const { result, calls } = publish(dir, { TIBI_SKIP_BUNDLE_VERIFY: '0' });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('解压');
+    expect(calls.some(c => c.aws?.includes('cp'))).toBe(false);
   });
 });

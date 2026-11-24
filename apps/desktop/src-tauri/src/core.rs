@@ -11,7 +11,7 @@
 //! 没有就（开发）用 `node ../../packages/core-node/dist/tibi-core.js`。
 
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
@@ -20,12 +20,53 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
+const STDERR_TAIL_LIMIT: usize = 20;
+
+fn core_exited_error(id: u64, reason: &str) -> Value {
+    json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "error": {
+            "code": -32000,
+            "message": reason,
+            "data": { "code": "core_exited" }
+        }
+    })
+}
+
+fn format_exit_reason(tail: &[String]) -> String {
+    let picked = tail
+        .iter()
+        .find(|line| {
+            line.starts_with("TypeError:")
+                || line.starts_with("Error:")
+                || line.starts_with("ReferenceError:")
+                || line.starts_with("SyntaxError:")
+                || line.contains("Error:")
+        })
+        .or_else(|| tail.last());
+    match picked {
+        Some(line) => {
+            let trimmed = line.trim();
+            if trimmed.chars().count() > 240 {
+                let short: String = trimmed.chars().take(240).collect();
+                format!("{short}…")
+            } else {
+                trimmed.to_string()
+            }
+        }
+        None => "Tibi Core 异常退出".to_string(),
+    }
+}
+
 pub struct CoreProcess {
     child: Mutex<Option<Child>>,
     stdin: Mutex<Option<std::process::ChildStdin>>,
     pending: Arc<Mutex<HashMap<u64, mpsc::Sender<Value>>>>,
     seq: AtomicU64,
     started_at: Mutex<Instant>,
+    generation: Arc<AtomicU64>,
+    exit_reason: Arc<Mutex<Option<String>>>,
     app: AppHandle,
 }
 
@@ -37,14 +78,24 @@ impl CoreProcess {
             pending: Arc::new(Mutex::new(HashMap::new())),
             seq: AtomicU64::new(1),
             started_at: Mutex::new(Instant::now()),
+            generation: Arc::new(AtomicU64::new(0)),
+            exit_reason: Arc::new(Mutex::new(None)),
             app,
         }
     }
 
-    fn db_path(&self) -> PathBuf {
+    fn data_dir(&self) -> PathBuf {
         let dir = self.app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from(".tibi"));
         let _ = std::fs::create_dir_all(&dir);
-        dir.join("app.db")
+        dir
+    }
+
+    fn db_path(&self) -> PathBuf {
+        self.data_dir().join("app.db")
+    }
+
+    fn log_path(&self) -> PathBuf {
+        self.data_dir().join("core.log")
     }
 
     fn dict_path(&self) -> Option<PathBuf> {
@@ -88,6 +139,8 @@ impl CoreProcess {
     }
 
     pub fn start(&self) -> Result<(), String> {
+        let gen = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        *self.exit_reason.lock().unwrap() = None;
         let mut cmd = self.command()?;
         cmd.arg("--stdio").arg("--db").arg(self.db_path());
         #[cfg(feature = "app-store")]
@@ -100,20 +153,54 @@ impl CoreProcess {
         if let Ok(r) = self.app.path().resource_dir() {
             cmd.env("TIBI_RESOURCE_DIR", r.join("ocr"));
         }
-        cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::inherit());
+        cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
             cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         }
-        let mut child = cmd.spawn().map_err(|e| format!("启动 Tibi Core 失败：{e}"))?;
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(e) => {
+                let msg = format!("启动 Tibi Core 失败：{e}");
+                *self.exit_reason.lock().unwrap() = Some(msg.clone());
+                return Err(msg);
+            }
+        };
         let stdout = child.stdout.take().ok_or("拿不到 Core 的 stdout")?;
         let stdin = child.stdin.take().ok_or("拿不到 Core 的 stdin")?;
+        let stderr = child.stderr.take().ok_or("拿不到 Core 的 stderr")?;
         *self.stdin.lock().unwrap() = Some(stdin);
         *self.child.lock().unwrap() = Some(child);
         *self.started_at.lock().unwrap() = Instant::now();
 
+        // 捕获 stderr 到应用数据目录 core.log，并保留最后若干行，方便崩溃时立刻告诉界面原因
+        let log_path = self.log_path();
+        let stderr_handle = std::thread::spawn(move || {
+            let mut log_file = std::fs::File::create(&log_path).ok();
+            let mut tail = VecDeque::with_capacity(STDERR_TAIL_LIMIT);
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                let Ok(line) = line else { break };
+                log::warn!("[tibi-core] {line}");
+                if let Some(f) = log_file.as_mut() {
+                    let _ = writeln!(f, "{line}");
+                    let _ = f.flush();
+                }
+                let trimmed = line.trim();
+                if !trimmed.is_empty() {
+                    if tail.len() >= STDERR_TAIL_LIMIT {
+                        tail.pop_front();
+                    }
+                    tail.push_back(trimmed.to_string());
+                }
+            }
+            tail.into_iter().collect::<Vec<_>>()
+        });
+
         let pending = self.pending.clone();
+        let generation = self.generation.clone();
+        let exit_reason = self.exit_reason.clone();
         let app = self.app.clone();
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout);
@@ -140,7 +227,7 @@ impl CoreProcess {
                         let secret = crate::keys::get(r).ok().flatten();
                         let reply = json!({ "jsonrpc": "2.0", "id": id, "result": { "secret": secret } });
                         if let Some(core) = app.try_state::<Arc<CoreProcess>>() {
-                            core.write_line(&reply.to_string());
+                            let _ = core.write_line(&reply.to_string());
                         }
                     }
                     Some(other) => log::warn!("Core 发来不认识的请求：{other}"),
@@ -153,31 +240,59 @@ impl CoreProcess {
                     }
                 }
             }
-            log::warn!("Tibi Core 的 stdout 结束了");
-            let _ = app.emit("core_event", json!({ "event": "core.exited", "data": {} }));
+            let tail = stderr_handle.join().unwrap_or_default();
+            if generation.load(Ordering::SeqCst) != gen {
+                return;
+            }
+            let reason = format_exit_reason(&tail);
+            log::warn!("Tibi Core 已退出：{reason}");
+            *exit_reason.lock().unwrap() = Some(reason.clone());
+            // 立刻唤醒所有等待中的调用，不再干等 60 秒超时
+            for (id, tx) in pending.lock().unwrap().drain() {
+                let _ = tx.send(core_exited_error(id, &reason));
+            }
+            let _ = app.emit("core_event", json!({ "event": "core.exited", "data": { "message": reason } }));
         });
         Ok(())
     }
 
-    fn write_line(&self, line: &str) {
-        if let Some(stdin) = self.stdin.lock().unwrap().as_mut() {
-            let _ = stdin.write_all(line.as_bytes());
-            let _ = stdin.write_all(b"\n");
-            let _ = stdin.flush();
+    fn write_line(&self, line: &str) -> bool {
+        let mut guard = self.stdin.lock().unwrap();
+        let Some(stdin) = guard.as_mut() else {
+            return false;
+        };
+        if stdin.write_all(line.as_bytes()).is_err() || stdin.write_all(b"\n").is_err() || stdin.flush().is_err() {
+            *guard = None;
+            return false;
         }
+        true
     }
 
     /// 发请求并等响应（阻塞，调用方放在 spawn_blocking 里）
     pub fn call(&self, method: &str, params: Value, timeout: Duration) -> Value {
         let id = self.seq.fetch_add(1, Ordering::SeqCst);
+        if let Some(reason) = self.exit_reason.lock().unwrap().clone() {
+            return core_exited_error(id, &reason);
+        }
         let (tx, rx) = mpsc::channel();
         self.pending.lock().unwrap().insert(id, tx);
+        if let Some(reason) = self.exit_reason.lock().unwrap().clone() {
+            self.pending.lock().unwrap().remove(&id);
+            return core_exited_error(id, &reason);
+        }
         let req = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
-        self.write_line(&req.to_string());
+        if !self.write_line(&req.to_string()) {
+            self.pending.lock().unwrap().remove(&id);
+            let reason = self.exit_reason.lock().unwrap().clone().unwrap_or_else(|| "Tibi Core 已退出".to_string());
+            return core_exited_error(id, &reason);
+        }
         match rx.recv_timeout(timeout) {
             Ok(v) => v,
             Err(_) => {
                 self.pending.lock().unwrap().remove(&id);
+                if let Some(reason) = self.exit_reason.lock().unwrap().clone() {
+                    return core_exited_error(id, &reason);
+                }
                 json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32000, "message": "Tibi Core 没有回应", "data": { "code": "busy" } } })
             }
         }
@@ -186,23 +301,45 @@ impl CoreProcess {
     pub fn status(&self) -> Value {
         let pid = self.child.lock().unwrap().as_ref().map(|c| c.id()).unwrap_or(0);
         let uptime = self.started_at.lock().unwrap().elapsed().as_millis() as u64;
-        json!({ "pid": pid, "uptime_ms": uptime })
+        let error = self.exit_reason.lock().unwrap().clone();
+        json!({ "pid": pid, "uptime_ms": uptime, "error": error })
     }
 
     pub fn restart(&self) -> Result<(), String> {
+        self.stop();
+        self.start()
+    }
+
+    pub fn stop(&self) {
+        self.generation.fetch_add(1, Ordering::SeqCst);
         if let Some(mut c) = self.child.lock().unwrap().take() {
             let _ = c.kill();
             let _ = c.wait();
         }
         *self.stdin.lock().unwrap() = None;
-        self.pending.lock().unwrap().clear();
-        self.start()
+        for (id, tx) in self.pending.lock().unwrap().drain() {
+            let _ = tx.send(core_exited_error(id, "Tibi Core 已停止"));
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_exit_reason;
+
+    #[test]
+    fn format_exit_reason_prefers_error_line() {
+        let tail = vec![
+            "TypeError: Q.util.markAsUncloneable is not a function".to_string(),
+            "at new W (/$bunfs/root/tibi-core:1:1)".to_string(),
+            "Bun v1.2.17 (macOS arm64)".to_string(),
+        ];
+        assert_eq!(format_exit_reason(&tail), "TypeError: Q.util.markAsUncloneable is not a function");
     }
 
-    pub fn stop(&self) {
-        if let Some(mut c) = self.child.lock().unwrap().take() {
-            let _ = c.kill();
-            let _ = c.wait();
-        }
+    #[test]
+    fn format_exit_reason_falls_back_to_last_line_or_default() {
+        assert_eq!(format_exit_reason(&["fatal signal".to_string()]), "fatal signal");
+        assert_eq!(format_exit_reason(&[]), "Tibi Core 异常退出");
     }
 }
