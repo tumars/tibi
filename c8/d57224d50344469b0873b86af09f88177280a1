@@ -1,0 +1,19 @@
+apps/desktop/src/pages/Onboarding.tsx
+  s_beebc374e19a83::t_399b61eb160bc4 7,138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c8d57224d50344469b0873b86af09f88177280a1",
+  "prompts": {},
+  "sessions": {
+    "s_beebc374e19a83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20d00-c694-7c62-a95a-9df5119ff229",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
