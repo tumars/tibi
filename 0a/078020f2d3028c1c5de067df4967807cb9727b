@@ -1,0 +1,32 @@
+.github/workflows/release.yml
+  h_93af5c22d6d8a7 98-99
+apps/desktop/src-tauri/src/core.rs
+  h_93af5c22d6d8a7 14,23-61,68-69,81-82,87,90-98,142-143,156,162-169,172,177-200,202-203,230,243-254,259-266,268,274-276,279-282,284-288,293-295,304-305,309,314,319-343
+apps/desktop/src/pages/Home.tsx
+  h_93af5c22d6d8a7 42,237
+apps/desktop/src/rpc/methods.ts
+  h_93af5c22d6d8a7 145-146
+apps/desktop/src/store/core.ts
+  h_93af5c22d6d8a7 3-4,26,50-61,79-80
+apps/desktop/test/distribution.test.ts
+  h_93af5c22d6d8a7 50,86-93
+packages/core-node/scripts/sidecar-verify.mjs
+  h_93af5c22d6d8a7 1-155
+packages/core-node/scripts/sidecar.mjs
+  h_93af5c22d6d8a7 4,7,24-27,34-45
+packages/core-node/test/sidecar-verify.test.ts
+  h_93af5c22d6d8a7 1-42
+tools/publish-cos.mjs
+  h_93af5c22d6d8a7 8,59-69,79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0a078020f2d3028c1c5de067df4967807cb9727b",
+  "prompts": {},
+  "humans": {
+    "h_93af5c22d6d8a7": {
+      "author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
