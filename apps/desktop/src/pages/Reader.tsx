@@ -1,5 +1,6 @@
 import type { Document, SectionContent, Sentence, Status } from '@tibi/core';
-import { ArrowUp, BookA, Bookmark, BookmarkPlus, BookOpenCheck, CircleCheck, Eye, FileText, Info, Languages, LoaderCircle, Sparkles, Type, Volume2 } from 'lucide-react';
+import { ArrowUp, BookmarkPlus, BookOpenCheck, CircleCheck, Eye, Info, Languages, LoaderCircle, Type, Volume2 } from 'lucide-react';
+import { NavDictIcon, NavWordsIcon, SummaryOverviewIcon, TibiAvatar } from '../components/TibiIcons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { DocSource } from '../components/DocSource';
@@ -198,10 +199,10 @@ export function Reader() {
       <Top crumbs={[doc.shelved === false ? { label: tl('订阅'), to: '/feeds' } : { label: tl('书架'), to: '/library' }, { label: doc.title }]} right={<>
         {doc.shelved === false && <button className="pill" title={tl('从订阅里读的文章不在书架里，想留着就加进去')} onClick={() => void shelve()}><BookmarkPlus size={15} />{tl('加入书架')}</button>}
         {doc.sections.length > 1 && <select className="input chapsel" title={content.title} value={content.id} onChange={e => nav(`/read/${id}/${e.target.value}`)} aria-label={tl('章节')}>{doc.sections.map(s => <option key={s.id} value={s.id}>{s.idx + 1}. {s.title || tl('第 {v0} 章', { v0: s.idx + 1 })}</option>)}</select>}
-        <button className={`pill${panel === 'summary' ? ' on' : ''}`} title={tl('总结')} onClick={() => setPanel(panel === 'summary' ? undefined : 'summary')}><FileText size={15} />{tl('总结')}</button>
-        <button className={`pill${panel === 'words' ? ' on' : ''}`} title={tl('生词')} aria-pressed={panel === 'words'} onClick={() => setPanel(panel === 'words' ? undefined : 'words')}><Bookmark size={15} />{tl('生词')}</button>
-        <button className={`pill${panel === 'dict' ? ' on' : ''}`} title={tl('词典')} onClick={() => setPanel(panel === 'dict' ? undefined : 'dict')}><BookA size={15} />{tl('词典')}</button>
-        <button className={`pill${panel === 'tibi' ? ' on' : ''}`} title={tl('问 Tibi')} onClick={() => setPanel(panel === 'tibi' ? undefined : 'tibi')}><Sparkles size={15} />Tibi</button>
+        <button className={`pill${panel === 'summary' ? ' on' : ''}`} title={tl('总结')} onClick={() => setPanel(panel === 'summary' ? undefined : 'summary')}><SummaryOverviewIcon size={15} />{tl('总结')}</button>
+        <button className={`pill${panel === 'words' ? ' on' : ''}`} title={tl('生词')} aria-pressed={panel === 'words'} onClick={() => setPanel(panel === 'words' ? undefined : 'words')}><NavWordsIcon size={15} />{tl('生词')}</button>
+        <button className={`pill${panel === 'dict' ? ' on' : ''}`} title={tl('词典')} onClick={() => setPanel(panel === 'dict' ? undefined : 'dict')}><NavDictIcon size={15} />{tl('词典')}</button>
+        <button className={`pill${panel === 'tibi' ? ' on' : ''}`} title={tl('问 Tibi')} onClick={() => setPanel(panel === 'tibi' ? undefined : 'tibi')}><TibiAvatar size={17} />Tibi</button>
         <button className="ibtn" title={tl('标注说明')} onClick={() => setLegend(true)}><Info /></button>
       </>} />
       <div className={`rdwrap${panel ? ' with-panel' : ''}${resizing ? ' resizing' : ''}`} style={panel ? { '--rpanel': `${panelWidth}px` } as React.CSSProperties : undefined}>

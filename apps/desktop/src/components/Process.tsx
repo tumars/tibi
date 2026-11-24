@@ -2,6 +2,7 @@ import type { Approval, MessageReceipt, MessageStep } from '@tibi/core';
 import { Brain, Check, ChevronDown, ChevronRight, Hand, Minus, Wrench, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { tl } from '../lib/i18n';
+import { TibiAvatar } from './TibiIcons';
 
 const MARK = { ok: <Check size={11} strokeWidth={3} />, error: <X size={11} strokeWidth={3} />, denied: <Minus size={11} strokeWidth={3} /> };
 const NOTE = { ok: '', error: () => tl('（没成功）'), denied: () => tl('（已拒绝）') };
@@ -106,7 +107,7 @@ export function ApprovalCard({ a, decide }: { a: Approval; decide: (a: Approval,
   const [draft, setDraft] = useState<string>();
   const editing = draft !== undefined && a.editable;
   return <div className="approve">
-    <div className="h"><span>{a.title}</span><span className="k">{a.client ? tl('{client} 请求，等你确认', { client: a.client }) : tl('等你确认')}</span></div>
+    <div className="h"><TibiAvatar size={20} /><span>{a.title}</span><span className="k">{a.client ? tl('{client} 请求，等你确认', { client: a.client }) : tl('等你确认')}</span></div>
     <div className="b">
       {editing ? <textarea className="input" rows={3} value={draft} aria-label={tl('修改内容')} onChange={e => setDraft(e.target.value)} /> : a.body}
       <br /><span className="lbl" title={a.tool}>{a.impact}{a.undoable ? tl(' · 可撤销') : ''}</span>

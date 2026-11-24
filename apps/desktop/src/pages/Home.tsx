@@ -7,6 +7,7 @@ import { Fox } from '../components/Fox';
 import { Modal } from '../components/Modal';
 import { openSample, Samples } from '../components/Samples';
 import { Top } from '../components/Shell';
+import { GenreBadge, MetricDueIcon, MetricReadIcon, MetricWordsIcon } from '../components/TibiIcons';
 import { ActionChip, ModelPicker, SlashMenu, useSlashMenu } from '../components/Composer';
 import { parseSlash, type SlashAction } from '../lib/slash';
 import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES, isImeKey } from '../lib/util';
@@ -187,7 +188,10 @@ export function Home() {
         {lead && (
           <section className="lead-wrap">
             <div className="lead" role="button" tabIndex={0} onClick={() => nav(`/read/${lead.id}`)} onKeyDown={e => { if (e.key === 'Enter') nav(`/read/${lead.id}`); }}>
-              <div className="k">{lead.progress > 0 ? tl('继续读') : tl('开始读')} · {lead.book ? tl('书 · 第 {chapter} 章', { chapter: lead.book.chapter }) : GENRE_NAMES[lead.genre] ?? lead.genre}</div>
+              <div className="k">
+                <GenreBadge genre={lead.genre} book={!!lead.book} label={lead.book ? tl('书 · 第 {chapter} 章', { chapter: lead.book.chapter }) : GENRE_NAMES[lead.genre] ?? lead.genre} />
+                <span>{lead.progress > 0 ? tl('继续读') : tl('开始读')}</span>
+              </div>
               <div className="t">{lead.title}</div>
               {lead.excerpt && <p className="x">{lead.excerpt}</p>}
               <div className="m">
@@ -206,18 +210,18 @@ export function Home() {
           <div className="sech"><h2>{tl('今天')}</h2></div>
           <div className="tiles">
             <div className="tile">
-              <span className="k">{tl('待复习')}</span>
+              <div className="tile-head"><span className="k">{tl('待复习')}</span><span className="tile-ic accent"><MetricDueIcon /></span></div>
               <span className="v">{due}<small>{tl('张')}</small></span>
               <span className="d">{due ? tl('约 {v0} 分钟', { v0: Math.max(1, Math.round(due / 3)) }) : tl('今天没有到期的')}</span>
               {due > 0 && <button className="go" onClick={() => nav('/review?run=1')}>{tl('开始')}</button>}
             </div>
             <div className="tile">
-              <span className="k">{tl('今日阅读')}</span>
+              <div className="tile-head"><span className="k">{tl('今日阅读')}</span><span className="tile-ic warm"><MetricReadIcon /></span></div>
               <span className="v">{todayMin}<small>/ {tl('{goal} 分钟', { goal })}</small></span>
               <div className="bar2"><i style={{ width: `${Math.min(100, (todayMin / goal) * 100)}%` }} /></div>
             </div>
             <div className="tile">
-              <span className="k">{tl('生词本')}</span>
+              <div className="tile-head"><span className="k">{tl('生词本')}</span><span className="tile-ic ok"><MetricWordsIcon /></span></div>
               <span className="v">{wordCount.toLocaleString()}<small>{tl('词')}</small></span>
               <span className="d">{tl('已掌握 {v0} · 连续 {v1} 天', { v0: (stats?.mastered ?? 0).toLocaleString(), v1: stats?.streak ?? 0 })}</span>
               <div className="week" title={tl('最近 7 天：读够每日目标的那天点亮，最右边是今天')}>{Array.from({ length: 7 }, (_, i) => { const m = week[i] ?? 0; return <i key={i} className={i === 6 ? 'now' : m >= goal ? 'on' : ''} title={i === 6 ? tl('今天 {m} 分钟', { m }) : tl('{d} 天前 {m} 分钟', { d: 6 - i, m })} />; })}</div>

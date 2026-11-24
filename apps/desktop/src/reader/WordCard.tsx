@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useCore } from '../store/core';
 import { SpeakButtons } from '../components/Speak';
+import { TibiAvatar } from '../components/TibiIcons';
 import { EXAM_NAMES } from '../lib/dict';
 import { STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
@@ -71,11 +72,11 @@ export function WordCard({ word, sentenceId, anchor, right = innerWidth, onClose
       {data?.card_created && <div className="added">{tl('已加入复习')} <button className="linkbtn" style={{ fontSize: 12 }} onClick={() => setS(97)}>{tl('其实认识')}</button></div>}
       {err && <div className="dict" style={{ color: 'var(--hard)' }}>{err}</div>}
       {!data && !err && <div className="dict">{tl('查询中…')}</div>}
-      {ctxm?.state === 'idle' && <button className="ai muted ask" onClick={explain}><span className="tag">{tl('✦ 在这句里')}</span>{tl('点一下，看它在这句里的意思')}</button>}
-      {ctxm?.state === 'ok' &&<div className="ai"><span className="tag">{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
-      {ctxm?.state === 'loading' && <div className="ai muted"><span className="tag">{tl('✦ 在这句里')}</span>{tl('正在看这句话…')}</div>}
-      {ctxm?.state === 'err' && <div className="ai muted"><span className="tag">{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
-      {ctxm?.state === 'nomodel' && <div className="ai muted"><span className="tag">{tl('✦ 在这句里')}</span>{tl('连接模型后显示 ·')} <button className="linkbtn" onClick={() => nav(`/welcome?step=3&back=${encodeURIComponent(location.hash.slice(1) || '/')}`)}>{tl('去连接')}</button></div>}
+      {ctxm?.state === 'idle' && <button className="ai muted ask" onClick={explain}><span className="tag"><TibiAvatar size={15} />{tl('✦ 在这句里')}</span>{tl('点一下，看它在这句里的意思')}</button>}
+      {ctxm?.state === 'ok' && <div className="ai"><span className="tag"><TibiAvatar size={15} />{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
+      {ctxm?.state === 'loading' && <div className="ai muted"><span className="tag"><TibiAvatar size={15} />{tl('✦ 在这句里')}</span>{tl('正在看这句话…')}</div>}
+      {ctxm?.state === 'err' && <div className="ai muted"><span className="tag"><TibiAvatar size={15} />{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
+      {ctxm?.state === 'nomodel' && <div className="ai muted"><span className="tag"><TibiAvatar size={15} />{tl('✦ 在这句里')}</span>{tl('连接模型后显示 ·')} <button className="linkbtn" onClick={() => nav(`/welcome?step=3&back=${encodeURIComponent(location.hash.slice(1) || '/')}`)}>{tl('去连接')}</button></div>}
       {data && <div className="dict">{data.term?.meaning || data.dict?.translation || (data.dict ? '' : tl('词典里没有这个词'))}</div>}
       {/* 和生词本详情同一套标签：考试用中文名，不露 zk / gk 这类缩写 */}
       {data?.dict && (data.dict.exam?.length || data.dict.collins || data.dict.oxford) ? <div className="lbl" style={{ marginTop: 6 }}>{[

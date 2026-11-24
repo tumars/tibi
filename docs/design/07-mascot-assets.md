@@ -57,16 +57,16 @@ Character reference sheet of CHARACTER on a plain light grey (#f2f2f1) backgroun
 | empty-review | 没有到期卡片 | 1024×1024 | 应用已用 |
 | empty-tasks | 运行记录为空 | 1024×1024 | 运行记录页已去掉（T35），应用里的图 2026-11-05 删掉 |
 | empty-words | 生词本为空 | 1024×1024 | 应用已用 |
-| empty-stats | 统计页还没有数据（R17） | 1024×1024 | 待出图；出图前统计空状态仍用 SVG |
+| empty-stats | 统计页还没有数据（R17） | 1024×1024 | 应用已用 |
 | celebrate-review | 复习完成页 | 1024×1024 | 应用已用 |
 | celebrate-streak | 连续学习 7 / 30 / 100 天当天的复习完成页 | 1024×1024 | 应用已用 |
-| onboarding-hello | 预留未用（引导第 1 步 认识一下；引导页用 SVG 小狐狸） | 1024×1024 | 已出 |
-| onboarding-test | 预留未用（校准词汇量，`#step=2`，不在引导主流程） | 1024×1024 | 已出 |
+| onboarding-hello | 对话 / 阅读器 Tibi 面板空状态 | 1024×1024 | 应用已用 |
+| onboarding-test | 词典初始空状态 | 1024×1024 | 应用已用 |
 | onboarding-model | 预留未用（连接模型，`#step=3`，不在引导主流程） | 1024×1024 | 已出 |
-| onboarding-read | 预留未用（引导第 2 步 读第一篇；引导页用 SVG 小狐狸） | 1024×1024 | 已出 |
+| onboarding-read | 总结未生成态 / 复习概览主卡 | 1024×1024 | 应用已用 |
 | error-offline | 原型：首页失败态（模型不可用 / 离线）；应用：首页连不上 Core | 1024×1024 | 应用已用 |
-| error-generic | 原型：首页失败态（出错了）；应用：复习、文章打不开 | 1024×1024 | 应用已用 |
-| sticker-* | 贴纸（6 张：赞、笑、疑问、加油、睡、惊）。`sticker-1` 用在准确率 80% 以上的练习成绩页，其他未用；不放进 AI 的回答 | 512×512 | sticker-1 应用已用，其他已出 |
+| error-generic | 原型：首页失败态（出错了）；应用：复习、文章打不开、缺少词典 | 1024×1024 | 应用已用 |
+| sticker-* | 贴纸（6 张：赞、笑、疑问、加油、睡、惊）。`sticker-1`（≥80%）与 `sticker-4`（<80%）用于练习成绩页；不放进 AI 的回答 | 512×512 | sticker-1 / 3 / 4 已同步应用 |
 | about | 设置 → 关于（仅桌面端，手机端没有关于页） | 1024×1024 | 应用已用 |
 | icon-face | 应用图标上层（Icon Composer），只有正脸 | 1024×1024 | 已出 |
 

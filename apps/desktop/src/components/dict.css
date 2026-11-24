@@ -16,8 +16,9 @@
 .dx-row b { font-family: var(--f-read); font-size: 15px; font-weight: 600; }
 .dx-row span { font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dx-hint { padding: 7px 10px; font-size: 12.5px; color: var(--ink-3); }
-.dx-none { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 72px 20px; text-align: center; color: var(--ink-3); font-size: 13px; }
-.dx-none b { font-size: 15px; font-weight: 600; color: var(--ink); margin-top: 6px; }
+.dx-none { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 56px 20px; text-align: center; color: var(--ink-3); font-size: 13px; }
+.dx-none img { display: block; }
+.dx-none b { font-size: 15px; font-weight: 600; color: var(--ink); margin-top: 4px; }
 .dx-sec { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 8px; font-size: 12px; color: var(--ink-3); }
 .dx-recent .dx-sec { margin-top: 6px; }
 .dx-chips { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -6,9 +6,11 @@ import { Markdown } from '../lib/md';
 import { parseSlash, type SlashAction } from '../lib/slash';
 import { classifyInput, isImeKey } from '../lib/util';
 import { ActionChip, ModelPicker, SlashMenu, useSlashMenu } from './Composer';
+import { Mascot } from './Mascot';
 import { SpeakButtons, stopSpeaking, useSpeaking } from './Speak';
 import { ApprovalCard, ProcessCard, Receipts } from './Process';
 import { SelectAsk } from './SelectAsk';
+import { TibiAvatar } from './TibiIcons';
 import { Blocks } from './Widgets';
 import { useChat, type ChatContext } from '../lib/useChat';
 import { errorInfo, isMobileUi, isTauri, rpc } from '../rpc';
@@ -207,7 +209,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
           {cursor && <button className="linkbtn loadolder" onClick={older}>{tl('加载更早的消息')}</button>}
           {visible.map((m, i) => m.role === 'user'
             ? <div key={m.id} className={`msg u${editing === m.id ? ' editing' : ''}`}>{m.text}{m.attachment && <div className="msgatt">{m.attachment}</div>}{m.turn_id && m.turn_id !== m.id && visible.slice(0, i).some(p => p.role === 'user' && p.turn_id === m.turn_id) && <div className="msgatt">{tl('回答中补充的')}</div>}{!running && !m.id.startsWith('local-') && <button className="msgedit" aria-label={tl('改这句')} title={tl('改这句')} onClick={() => { setEditing(m.id); fill(m.text ?? ''); }}><Pencil size={12} /></button>}</div>
-            : <div key={m.id} className="msg a" tabIndex={isMobileUi() ? undefined : 0} onContextMenu={isMobileUi() ? undefined : e => answerMenu(m.text, e)} onKeyDown={isMobileUi() ? undefined : e => answerMenu(m.text, e)}><ProcessCard steps={m.steps ?? []} thinking={m.thinking} thinkMs={m.think_ms} />{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} fill={fill} answer={answer} /> : m.text && <Markdown text={m.text} />}{m.receipts && <Receipts items={m.receipts} undo={id => void undoReceipt(m.id, id)} />}{m.interrupted && <div className="chaterr">{m.interrupted.reason === 'cancel' ? tl('已停止') : m.interrupted.message || tl('出错了')}{m.interrupted.message && modelError(m.interrupted.message) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{i === visible.length - 1 && !running && m.turn_id && <> · <button className="linkbtn" onClick={() => void retry(m.turn_id!)}>{tl('重试')}</button></>}</div>}<div className="prov-line"><span>Tibi</span>{m.skill && <> · <span>{m.skill}</span></>}{m.text && <span className={`msgacts${speaking?.key === `msg:${m.id}` || (i === visible.length - 1 && !running && !live.length) ? ' on' : ''}`}>
+            : <div key={m.id} className="msg a" tabIndex={isMobileUi() ? undefined : 0} onContextMenu={isMobileUi() ? undefined : e => answerMenu(m.text, e)} onKeyDown={isMobileUi() ? undefined : e => answerMenu(m.text, e)}><ProcessCard steps={m.steps ?? []} thinking={m.thinking} thinkMs={m.think_ms} />{m.blocks ? <Blocks blocks={m.blocks} states={widgetStates} update={updateWidget} fill={fill} answer={answer} /> : m.text && <Markdown text={m.text} />}{m.receipts && <Receipts items={m.receipts} undo={id => void undoReceipt(m.id, id)} />}{m.interrupted && <div className="chaterr">{m.interrupted.reason === 'cancel' ? tl('已停止') : m.interrupted.message || tl('出错了')}{m.interrupted.message && modelError(m.interrupted.message) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{i === visible.length - 1 && !running && m.turn_id && <> · <button className="linkbtn" onClick={() => void retry(m.turn_id!)}>{tl('重试')}</button></>}</div>}<div className="prov-line"><TibiAvatar size={17} /><span>Tibi</span>{m.skill && <> · <span>{m.skill}</span></>}{m.text && <span className={`msgacts${speaking?.key === `msg:${m.id}` || (i === visible.length - 1 && !running && !live.length) ? ' on' : ''}`}>
               <CopyButton text={m.text} />
               {!isMobileUi() && <ObjectMenuButton onClick={e => menu.open({ text: m.text }, e)} />}
               <SpeakButtons text={m.reply ?? m.text} id={`msg:${m.id}`} size={13} engines={['system']} />
@@ -229,7 +231,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
             {l.error && <div className="chaterr">{l.error}{modelError(l.error) && <> · <button className="linkbtn" onClick={goConnect}>{tl('去连接模型')}</button></>}{!running && <> · <button className="linkbtn" onClick={() => void retry(l.id)}>{tl('重试')}</button></>}</div>}
           </div>)}
           {approvals.map(a => <ApprovalCard key={a.id} a={a} decide={decide} />)}
-          {ready && !msgs.length && !live.length && (empty ?? <div className="lbl" style={{ textAlign: 'center', marginTop: 40 }}>{tl('问 Tibi 任何关于英语和你读过的内容的问题')}</div>)}
+          {ready && !msgs.length && !live.length && (empty ?? <div className="chat-empty"><Mascot id="onboarding-hello" /><div className="lbl">{tl('问 Tibi 任何关于英语和你读过的内容的问题')}</div></div>)}
         </div>
       </div>
       {menu.menu}

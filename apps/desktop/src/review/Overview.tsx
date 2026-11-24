@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Bars } from '../components/Charts';
 import { Mascot } from '../components/Mascot';
+import { MetricDueIcon, MetricStreakIcon, MetricWordsIcon, SummaryHardIcon } from '../components/TibiIcons';
 import { locale, tl } from '../lib/i18n';
 import { isImeKey } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
@@ -58,6 +59,7 @@ export function ReviewOverview() {
     <div className="page rvhome">
       {d.open ? (
         <div className="rvhero">
+          <Mascot id="onboarding-read" />
           <div className="m">
             <span className="k">{tl('复习做到一半')}</span>
             <b className="big">{tl('还剩 {n} 张', { n: d.open.left })}</b>
@@ -70,6 +72,7 @@ export function ReviewOverview() {
         </div>
       ) : total > 0 ? (
         <div className="rvhero">
+          <Mascot id="onboarding-read" />
           <div className="m">
             <span className="k">{tl('今天要复习')}</span>
             <b className="big">{total}<small>{tl('张')}</small></b>
@@ -83,7 +86,7 @@ export function ReviewOverview() {
         </div>
       ) : (
         <div className="rvhero calm">
-          {d.today.reviews > 0 && <Mascot id="celebrate-review" />}
+          <Mascot id={d.today.reviews > 0 ? 'celebrate-review' : 'empty-review'} />
           <div className="m">
             <span className="k">{tl('今天')}</span>
             <b className="big">{d.today.reviews > 0 ? tl('今天的复习做完了') : tl('今天没有要复习的')}</b>
@@ -97,10 +100,10 @@ export function ReviewOverview() {
       )}
 
       <div className="tiles four">
-        <div className="tile"><span className="k">{tl('今天已复习')}</span><span className="v">{d.today.reviews}<small>{tl('次')}</small></span><span className="d">{d.today.reviews ? tl('答对 {p}% · {m} 分钟', { p: todayPct, m: Math.max(1, d.today.minutes) }) : tl('还没开始')}</span></div>
-        <div className="tile"><span className="k">{tl('今天新学')}</span><span className="v">{d.today.new_learned}<small>/ {d.daily_new}</small></span><span className="d">{d.new_waiting ? tl('还有 {n} 个新词排队', { n: d.new_waiting }) : tl('没有排队的新词')}</span></div>
-        <div className="tile"><span className="k">{tl('连续学习')}</span><span className="v">{streak}<small>{tl('天')}</small></span><span className="d">{tl('读或复习都算')}</span></div>
-        <button className="tile" onClick={() => nav('/words?view=leech')}><span className="k">{tl('难词')}</span><span className="v">{d.leeches}<small>{tl('词')}</small></span><span className="d">{d.leeches ? tl('忘了 3 次以上 · 去看看 →') : tl('还没有总忘的词')}</span></button>
+        <div className="tile"><div className="tile-head"><span className="k">{tl('今天已复习')}</span><span className="tile-ic accent"><MetricDueIcon /></span></div><span className="v">{d.today.reviews}<small>{tl('次')}</small></span><span className="d">{d.today.reviews ? tl('答对 {p}% · {m} 分钟', { p: todayPct, m: Math.max(1, d.today.minutes) }) : tl('还没开始')}</span></div>
+        <div className="tile"><div className="tile-head"><span className="k">{tl('今天新学')}</span><span className="tile-ic ok"><MetricWordsIcon /></span></div><span className="v">{d.today.new_learned}<small>/ {d.daily_new}</small></span><span className="d">{d.new_waiting ? tl('还有 {n} 个新词排队', { n: d.new_waiting }) : tl('没有排队的新词')}</span></div>
+        <div className="tile"><div className="tile-head"><span className="k">{tl('连续学习')}</span><span className="tile-ic warm"><MetricStreakIcon /></span></div><span className="v">{streak}<small>{tl('天')}</small></span><span className="d">{tl('读或复习都算')}</span></div>
+        <button className="tile" onClick={() => nav('/words?view=leech')}><div className="tile-head"><span className="k">{tl('难词')}</span><span className="tile-ic"><SummaryHardIcon /></span></div><span className="v">{d.leeches}<small>{tl('词')}</small></span><span className="d">{d.leeches ? tl('忘了 3 次以上 · 去看看 →') : tl('还没有总忘的词')}</span></button>
       </div>
 
       <div className="two">
@@ -118,7 +121,7 @@ export function ReviewOverview() {
 
       <section>
         <div className="sech"><h2>{tl('练习')}</h2><span className="lbl">{tl('不计分，不影响复习排期')}</span></div>
-        <div className="pmodes four">{MODES.map(m => <button key={m.key} onClick={() => nav(`/review?tab=practice&mode=${m.key}`)}><b>{m.label}</b><span>{m.desc}</span></button>)}</div>
+        <div className="pmodes four">{MODES.map(m => { const Icon = m.icon; return <button key={m.key} onClick={() => nav(`/review?tab=practice&mode=${m.key}`)}><span className="pmode-ic"><Icon size={17} /></span><b>{m.label}</b><span>{m.desc}</span></button>; })}</div>
       </section>
 
       <div className="rvset lbl">

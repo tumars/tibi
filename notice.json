@@ -1,15 +1,15 @@
 {
   "notices": [
     {
-      "id": "release-0.1.4-macos",
+      "id": "release-0.1.5-macos",
       "message": {
-        "zh": "Tibi 0.1.4 已发布：新增 macOS 顶部菜单栏快捷查词面板（支持 ⌥⇧D 全局呼出、离线词典联想与发音、一键加入生词本/调熟练度、剪贴板查词与网址导入、右键快捷菜单与今日概览）。",
-        "en": "Tibi 0.1.4 is out: adds a macOS menu bar quick-lookup popover (⌥⇧D global shortcut, instant offline dictionary & TTS, one-click wordbook & mastery, clipboard lookup/URL import, and native quick menu)."
+        "zh": "Tibi 0.1.5 已发布：全站视觉质感与插图图标升级——新增定制 Tibi 双色调图标与多场景藏狐插图，重构阅读器总结面板（CEFR 难度标尺、丝绒柔光摘要与建议卡、开放式短语索引），优化浅色与深色模式层次。",
+        "en": "Tibi 0.1.5 is out: refreshed visual craft with custom Tibi duotone icons, expanded mascot illustrations across empty and hero states, a redesigned Reader summary panel (CEFR scale, silk-tinted overview & advice cards, clean phrase index), and calmer borderless hierarchy in light & dark mode."
       },
       "platforms": [
         "macos"
       ],
-      "below": "0.1.4",
+      "below": "0.1.5",
       "until": "2026-12-24",
       "url": "tibi://settings?sec=about",
       "label": {

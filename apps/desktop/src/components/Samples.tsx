@@ -5,6 +5,7 @@ import { GENRE_NAMES } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
+import { GenreBadge } from './TibiIcons';
 
 /** 导入一篇内置示例并在完成后打开；已经导入过的直接打开 */
 export async function openSample(s: SampleInfo, nav: (to: string) => void) {
@@ -38,7 +39,7 @@ export function Samples() {
     <div className="samples">
       {list.map(s => (
         <button key={s.id} className="sample" onClick={() => void openSample(s, nav)}>
-          <span className="g">{tl('{v0} · 示例', { v0: GENRE_NAMES[s.genre] ?? s.genre })}</span>
+          <span className="g"><GenreBadge genre={s.genre} book={!!s.chapters} label={tl('{v0} · 示例', { v0: GENRE_NAMES[s.genre] ?? s.genre })} /></span>
           <span className="t">{s.title}</span>
           <span className="m">{sampleMeta(s)}</span>
         </button>

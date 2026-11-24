@@ -1,7 +1,8 @@
-import { BarChart3, BookA, BookOpen, Bookmark, Home as HomeIcon, PanelLeft, RotateCw, Rss, Search, Settings as SettingsIcon } from 'lucide-react';
+import { PanelLeft, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { OutsideApprovals } from './OutsideApprovals';
+import { NavDictIcon, NavFeedsIcon, NavHomeIcon, NavLibraryIcon, NavReviewIcon, NavSettingsIcon, NavStatsIcon, NavWordsIcon } from './TibiIcons';
 import { useCore } from '../store/core';
 import { SIDE_W, useUi } from '../store/ui';
 import { tl } from '../lib/i18n';
@@ -11,13 +12,13 @@ import { ResizeHandle } from './ResizeHandle';
 import { SearchPalette } from './SearchPalette';
 
 const NAV = [
-  { to: '/', label: tl('首页'), icon: HomeIcon },
-  { to: '/library', label: tl('书架'), icon: BookOpen, count: 'docCount' as const },
-  { to: '/feeds', label: tl('订阅'), icon: Rss, count: 'feedUnread' as const },
-  { to: '/words', label: tl('生词本'), icon: Bookmark, count: 'wordCount' as const },
-  { to: '/dict', label: tl('词典'), icon: BookA },
-  { to: '/review', label: tl('复习'), icon: RotateCw, badge: true },
-  { to: '/stats', label: tl('统计'), icon: BarChart3 },
+  { to: '/', label: tl('首页'), icon: NavHomeIcon },
+  { to: '/library', label: tl('书架'), icon: NavLibraryIcon, count: 'docCount' as const },
+  { to: '/feeds', label: tl('订阅'), icon: NavFeedsIcon, count: 'feedUnread' as const },
+  { to: '/words', label: tl('生词本'), icon: NavWordsIcon, count: 'wordCount' as const },
+  { to: '/dict', label: tl('词典'), icon: NavDictIcon },
+  { to: '/review', label: tl('复习'), icon: NavReviewIcon, badge: true },
+  { to: '/stats', label: tl('统计'), icon: NavStatsIcon },
 ];
 
 export function Shell() {
@@ -71,7 +72,7 @@ export function Shell() {
           <div className="user">
             <span className="av" title={nickname || undefined}>{nickname ? avatarChar(nickname) : tl('你')}</span>
             <span className="hide-c" style={{ flex: 1 }} />
-            <NavLink to="/settings" className="ibtn" title={tl('设置')}><SettingsIcon /></NavLink>
+            <NavLink to="/settings" className="ibtn" title={tl('设置')}><NavSettingsIcon size={17} /></NavLink>
           </div>
         </div>
         {!collapsed && <ResizeHandle className="side-resize" side="right" width={sideWidth} onChange={setSideWidth} onReset={() => setSideWidth(SIDE_W)} onDragging={setResizing} />}

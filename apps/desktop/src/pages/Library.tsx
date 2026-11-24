@@ -7,6 +7,7 @@ import { Modal } from '../components/Modal';
 import { Pager } from '../components/Pager';
 import { Samples } from '../components/Samples';
 import { Top } from '../components/Shell';
+import { GenreBadge } from '../components/TibiIcons';
 import { ObjectMenuButton, useObjectMenu } from '../components/ObjectMenu';
 import { copyText, openSource } from '../lib/contextActions';
 import { useTagEditor } from '../lib/useTagEditor';
@@ -49,7 +50,7 @@ export function DocCard({ d, onOpen, onTags, list = false }: { d: DocumentSummar
         <span className="lv" style={{ fontSize: 12.5 }}>{d.level ?? '—'}</span>
         <span className="lbl">{d.progress >= 1 ? tl('读完了') : fmtAgo(d.opened_at)}</span>
       </> : <>
-      <div className="m"><span>{d.kind === 'book' ? tl('书 · ') : ''}{GENRE_NAMES[d.genre] ?? d.genre}</span><span>·</span><span>{d.progress >= 1 ? tl('读完了') : d.progress > 0 ? tl('读到 {v0}', { v0: fmtPct(d.progress) }) : fmtMinutes(d.minutes)}</span>{docSource(d) && <><span>·</span><span className="src" title={docSource(d)}>{docSource(d)}</span></>}</div>
+      <div className="m"><GenreBadge genre={d.genre} book={d.kind === 'book'} label={`${d.kind === 'book' ? tl('书 · ') : ''}${GENRE_NAMES[d.genre] ?? d.genre}`} /><span>{d.progress >= 1 ? tl('读完了') : d.progress > 0 ? tl('读到 {v0}', { v0: fmtPct(d.progress) }) : fmtMinutes(d.minutes)}</span>{docSource(d) && <><span>·</span><span className="src" title={docSource(d)}>{docSource(d)}</span></>}</div>
       <div className="t">{d.title}</div>
       {d.excerpt && <div className="ex">{d.excerpt}</div>}
       <div className="f">
@@ -57,6 +58,7 @@ export function DocCard({ d, onOpen, onTags, list = false }: { d: DocumentSummar
         {d.tags.slice(0, 2).map(t => <span key={t} className="tagc">{t}</span>)}
         {d.tags.length > 2 && <span className="tagc sys" title={d.tags.slice(2).join(' ')}>+{d.tags.length - 2}</span>}
       </div>
+      {d.progress > 0 && d.progress < 1 && <div className="doc-prog" aria-hidden="true"><i style={{ width: fmtPct(d.progress) }} /></div>}
       </>}
       {menu.menu}
     </div>

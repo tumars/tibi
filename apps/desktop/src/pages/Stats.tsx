@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { AreaChart, Bars, Heatmap, StackBars } from '../components/Charts';
 import { Empty } from '../components/Empty';
 import { Top } from '../components/Shell';
+import { MetricDueIcon, MetricMasteredIcon, MetricReadIcon, MetricStreakIcon, TibiAvatar } from '../components/TibiIcons';
 import { GENRE_NAMES, STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
@@ -59,16 +60,16 @@ export function Stats() {
     <>
       <Top crumbs={[{ label: tl('统计') }]} right={<div className="seg">{([30, 90, 180] as Range[]).map(r => <button key={r} className={range === r ? 'on' : ''} onClick={() => setRange(r)}>{RANGE_LABEL[r]}</button>)}</div>} />
       <div className="scroll"><div className="page stats">
-        {empty ? <Empty title={tl('还没有可以统计的东西')} text={tl('读一篇文章、复习几张卡，这里就会有数据。')} action={<button className="btn pri" onClick={() => nav('/')}>{tl('去首页读一篇')}</button>} /> : <>
+        {empty ? <Empty image="empty-stats" title={tl('还没有可以统计的东西')} text={tl('读一篇文章、复习几张卡，这里就会有数据。')} action={<button className="btn pri" onClick={() => nav('/')}>{tl('去首页读一篇')}</button>} /> : <>
           <div className="tiles four">
-            <button className="tile" onClick={() => jump('st-mastered')}><span className="k">{tl('已掌握')}</span><span className="v">{(sum?.mastered ?? 0).toLocaleString()}<small>{tl('词')}</small></span><span className="d">{tl('{v0}内', { v0: RANGE_LABEL[range] })} {(sum?.mastered_delta ?? 0) >= 0 ? '+' : ''}{sum?.mastered_delta ?? 0}{sum?.prev_delta ? tl(' · 上期 +{prev_delta}', { prev_delta: sum.prev_delta }) : ''}</span></button>
-            <button className="tile" onClick={() => jump('st-daily')}><span className="k">{tl('阅读')}</span><span className="v">{sum?.minutes ?? 0}<small>{tl('分钟')}</small></span><span className="d">{tl('{v0} 词', { v0: (sum?.words ?? 0).toLocaleString() })}</span></button>
-            <button className="tile" onClick={() => jump('st-cal')}><span className="k">{tl('学习天数')}</span><span className="v">{sum?.study_days ?? 0}<small>{tl('天')}</small></span><span className="d">{tl('连续 {v0} 天 · 最长 {v1} 天', { v0: sum?.streak ?? 0, v1: sum?.longest_streak ?? 0 })}</span></button>
-            <button className="tile" onClick={() => jump('st-ret')}><span className="k">{tl('复习')}</span><span className="v">{sum?.reviews ?? 0}<small>{tl('次')}</small></span><span className="d">{tl('记得率 {v0}', { v0: Math.round((sum?.retention ?? 0) * 100) })}%</span></button>
+            <button className="tile" onClick={() => jump('st-mastered')}><div className="tile-head"><span className="k">{tl('已掌握')}</span><span className="tile-ic ok"><MetricMasteredIcon /></span></div><span className="v">{(sum?.mastered ?? 0).toLocaleString()}<small>{tl('词')}</small></span><span className="d">{tl('{v0}内', { v0: RANGE_LABEL[range] })} {(sum?.mastered_delta ?? 0) >= 0 ? '+' : ''}{sum?.mastered_delta ?? 0}{sum?.prev_delta ? tl(' · 上期 +{prev_delta}', { prev_delta: sum.prev_delta }) : ''}</span></button>
+            <button className="tile" onClick={() => jump('st-daily')}><div className="tile-head"><span className="k">{tl('阅读')}</span><span className="tile-ic accent"><MetricReadIcon /></span></div><span className="v">{sum?.minutes ?? 0}<small>{tl('分钟')}</small></span><span className="d">{tl('{v0} 词', { v0: (sum?.words ?? 0).toLocaleString() })}</span></button>
+            <button className="tile" onClick={() => jump('st-cal')}><div className="tile-head"><span className="k">{tl('学习天数')}</span><span className="tile-ic warm"><MetricStreakIcon /></span></div><span className="v">{sum?.study_days ?? 0}<small>{tl('天')}</small></span><span className="d">{tl('连续 {v0} 天 · 最长 {v1} 天', { v0: sum?.streak ?? 0, v1: sum?.longest_streak ?? 0 })}</span></button>
+            <button className="tile" onClick={() => jump('st-ret')}><div className="tile-head"><span className="k">{tl('复习')}</span><span className="tile-ic"><MetricDueIcon /></span></div><span className="v">{sum?.reviews ?? 0}<small>{tl('次')}</small></span><span className="d">{tl('记得率 {v0}', { v0: Math.round((sum?.retention ?? 0) * 100) })}%</span></button>
           </div>
 
           <div className="insight">
-            <div className="ih"><b><span style={{ color: 'var(--accent)' }}>✦</span> {tl('Tibi 的洞察')}</b><span className="sp" />{ins.state === 'ok' && <button className="linkbtn" onClick={() => void loadInsight(true)}>{tl('重新生成')}</button>}</div>
+            <div className="ih"><b><TibiAvatar size={20} />{tl('Tibi 的洞察')}</b><span className="sp" />{ins.state === 'ok' && <button className="linkbtn" onClick={() => void loadInsight(true)}>{tl('重新生成')}</button>}</div>
             {ins.state === 'loading' && <p className="lbl">{tl('正在看你最近的学习数据…')}</p>}
             {ins.state === 'nomodel' && <p className="lbl">{tl('连接模型后，Tibi 会在这里写一段观察和建议。')}<button className="linkbtn" onClick={() => nav('/welcome?step=3&back=%2Fstats')}>{tl('去连接')}</button></p>}
             {ins.state === 'err' && <p className="lbl">{ins.err}</p>}

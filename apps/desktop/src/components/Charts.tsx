@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { locale, tl } from '../lib/i18n';
 
 /**
@@ -9,6 +9,7 @@ const W = 640;
 /** 面积折线：主线实线（强调色），可选第二条虚线（估算） */
 export function AreaChart({ dates, main, dashed, height = 160, fmt = (n: number) => n.toLocaleString() }: { dates: number[]; main: number[]; dashed?: number[]; height?: number; fmt?: (n: number) => string }) {
   const [hover, setHover] = useState<number>();
+  const gradId = useId();
   const H = height, pad = 6;
   const max = Math.max(1, ...main, ...(dashed ?? []));
   // 下界贴近最小的正值让曲线有起伏，但不能高过主线里的值（全是 0 时会画到图外）
@@ -19,10 +20,16 @@ export function AreaChart({ dates, main, dashed, height = 160, fmt = (n: number)
   return (
     <div className="chart" onMouseLeave={() => setHover(undefined)}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: H }} onMouseMove={e => { const r = (e.currentTarget as SVGElement).getBoundingClientRect(); setHover(Math.round(((e.clientX - r.left) / r.width) * (main.length - 1))); }}>
-        <path d={`${line(main)} L${W},${H} L0,${H} Z`} fill="var(--accent-wash)" />
-        <path d={line(main)} fill="none" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.24" />
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
+        <path d={`${line(main)} L${W},${H} L0,${H} Z`} fill={`url(#${gradId})`} />
+        <path d={line(main)} fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         {dashed && <path d={line(dashed)} fill="none" stroke="var(--ink-3)" strokeWidth="1.5" strokeDasharray="5 4" vectorEffect="non-scaling-stroke" />}
-        {hover !== undefined && <line x1={x(hover)} x2={x(hover)} y1="0" y2={H} stroke="var(--line-2)" vectorEffect="non-scaling-stroke" />}
+        {hover !== undefined && <line x1={x(hover)} x2={x(hover)} y1="0" y2={H} stroke="var(--line-2)" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}
       </svg>
       {dates.length > 1 && <div className="xl ends"><span>{new Date(dates[0]!).toLocaleDateString(locale, { month: 'numeric', day: 'numeric' })}</span><span>{tl('今天')}</span></div>}
       {hover !== undefined && main[hover] !== undefined && <div className="tip" style={{ left: `${(x(hover) / W) * 100}%` }}>{new Date(dates[hover]!).toLocaleDateString(locale, { month: 'numeric', day: 'numeric' })} · {fmt(main[hover]!)}{dashed ? tl(' · 估算 {v0}', { v0: fmt(dashed[hover] ?? 0) }) : ''}</div>}

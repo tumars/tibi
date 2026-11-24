@@ -1,6 +1,7 @@
 import { SpeakButtons } from '../components/Speak';
 import { Mascot } from '../components/Mascot';
-import { useEffect, useRef, useState } from 'react';
+import { PracticeConfusableIcon, PracticeDictationIcon, PracticeProduceIcon, PracticeSpellIcon, type IconProps } from '../components/TibiIcons';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { useNavigate } from 'react-router';
 import { speak, isImeKey } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
@@ -15,11 +16,11 @@ import { tl } from '../lib/i18n';
 export type Mode = 'dictation' | 'spell' | 'confusable' | 'produce';
 export type Source = 'recent' | 'mistakes' | 'leech';
 export type Item = Result<'practice.start'>['items'][number];
-export const MODES: { key: Mode; label: string; desc: string }[] = [
-  { key: 'dictation', label: tl('听写原句'), desc: tl('听你读过的句子，写下整句') },
-  { key: 'spell', label: tl('拼写'), desc: tl('看中文释义和字母数，拼出单词') },
-  { key: 'confusable', label: tl('易混词'), desc: tl('在句子里二选一') },
-  { key: 'produce', label: tl('造句'), desc: tl('用目标词写一句，Tibi 批改') },
+export const MODES: { key: Mode; label: string; desc: string; icon: ComponentType<IconProps> }[] = [
+  { key: 'dictation', label: tl('听写原句'), desc: tl('听你读过的句子，写下整句'), icon: PracticeDictationIcon },
+  { key: 'spell', label: tl('拼写'), desc: tl('看中文释义和字母数，拼出单词'), icon: PracticeSpellIcon },
+  { key: 'confusable', label: tl('易混词'), desc: tl('在句子里二选一'), icon: PracticeConfusableIcon },
+  { key: 'produce', label: tl('造句'), desc: tl('用目标词写一句，Tibi 批改'), icon: PracticeProduceIcon },
 ];
 export const SOURCES: { key: Source; label: string }[] = [{ key: 'recent', label: tl('最近的词') }, { key: 'mistakes', label: tl('这周答错的') }, { key: 'leech', label: tl('难词') }];
 
@@ -94,7 +95,7 @@ export function Practice({ initialMode = 'dictation', initialSource = 'recent' }
   const connectModel = () => nav('/welcome?step=3&back=%2Freview%3Ftab%3Dpractice');
 
   if (done) return <div className="rvcard pdone">
-    {done.accuracy >= 80 && <div className="pstk"><Mascot id="sticker-1" /></div>}
+    <div className="pstk"><Mascot id={done.accuracy >= 80 ? 'sticker-1' : 'sticker-4'} /></div>
     <h3>{tl('这一轮练完了')}</h3>
     <p className="big">{Math.round(done.accuracy)}%</p>
     <p className="lbl">{tl('准确率 · 用时 {v0} 秒', { v0: Math.round(done.duration_ms / 1000) })}{mode === 'dictation' && done.best.rounds > 1 ? tl(' · 听写最好 {v0}%', { v0: Math.round(done.best.dictation_accuracy) }) : ''}{skipped ? tl(' · 跳过 {v0} 题', { v0: skipped }) : ''}{tl('。练习不影响复习排期。')}</p>
@@ -102,7 +103,7 @@ export function Practice({ initialMode = 'dictation', initialSource = 'recent' }
   </div>;
 
   if (!run || !item) return <div className="pstart">
-    <div className="pmodes">{MODES.map(m => <button key={m.key} className={mode === m.key ? 'on' : ''} onClick={() => setMode(m.key)}><b>{m.label}</b><span>{m.desc}</span></button>)}</div>
+    <div className="pmodes">{MODES.map(m => { const Icon = m.icon; return <button key={m.key} className={mode === m.key ? 'on' : ''} onClick={() => setMode(m.key)}><span className="pmode-ic"><Icon size={17} /></span><b>{m.label}</b><span>{m.desc}</span></button>; })}</div>
     <div className="psrc"><span className="lbl">{tl('词从哪来')}</span><div className="seg">{SOURCES.map(s => <button key={s.key} className={source === s.key ? 'on' : ''} onClick={() => setSource(s.key)}>{s.label}</button>)}</div></div>
     <button className="btn pri" style={{ height: 44 }} disabled={mode === 'produce' && !modelOk} onClick={start}>{tl('开始 · 5 题')}</button>
     <p className="lbl">{tl('练习不计分，不影响复习排期；成绩单独记录。')}{mode === 'produce' && !modelOk && <>{tl('造句要连接模型才能批改。')}<button className="linkbtn" onClick={connectModel}>{tl('去连接')}</button></>}</p>

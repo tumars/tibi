@@ -190,7 +190,7 @@ export function Feeds() {
               // 抓失败、一篇都没有：不说"都看过了"
               : current?.error && !current.last_ok_at
               ? <Empty image="error-generic" title={tl('还没抓到这个源的文章')} text={tl('刷新没成功，原因在上面。可以过会儿再试，或在管理订阅里换个地址。')} />
-              : <Empty image="empty-library" title={filter === 'unread' ? tl('都看过了') : filter === 'saved' ? tl('还没有保存的文章') : tl('这里还没有文章')} text={filter === 'unread' ? tl('新文章来了会出现在这里。也可以看看「全部」。') : undefined} action={filter === 'unread' ? <button className="btn" onClick={() => setFilter('all')}>{tl('看全部')}</button> : undefined} />)
+              : <Empty image={filter === 'unread' ? 'empty-review' : 'empty-library'} title={filter === 'unread' ? tl('都看过了') : filter === 'saved' ? tl('还没有保存的文章') : tl('这里还没有文章')} text={filter === 'unread' ? tl('新文章来了会出现在这里。也可以看看「全部」。') : undefined} action={filter === 'unread' ? <button className="btn" onClick={() => setFilter('all')}>{tl('看全部')}</button> : undefined} />)
             : <>
               {/* 整张卡片点开就读；收进书架、不感兴趣、原网页放在右下角，悬停才亮 */}
               {groupLevels(items).map(g => { const it = g.find(i => i.id === variant[g[0]!.id]) ?? g[g.length - 1]!; return <article key={g[0]!.id} data-id={g.map(i => i.id).join(' ')} ref={el => watch(el, g)} className={`fitem${g.some(i => i.state === 'new') ? ' unread' : ''}${busy[it.id] ? ' busy' : ''}`}

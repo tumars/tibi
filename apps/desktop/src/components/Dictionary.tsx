@@ -1,5 +1,6 @@
 import type { DictEntryResult, DictSuggestResult } from '@tibi/core';
-import { BookA, Search, Sparkles, X } from 'lucide-react';
+import { Search, Sparkles, X } from 'lucide-react';
+import { Mascot } from './Mascot';
 import { SpeakButtons } from './Speak';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clearRecentLookups, EXAM_NAMES, INFLECTION_NAMES, loadRecentLookups, parseGloss, posShares, rememberLookup } from '../lib/dict';
@@ -91,8 +92,8 @@ export function Dictionary({ initial, compact, onOpenDoc, onOpenTerm, onAsk }: D
         <input ref={input} value={q} onChange={e => onChange(e.target.value)} onKeyDown={onKey} placeholder={tl('输入英文单词、短语或中文')} aria-label={tl('查词')} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
         {q && <button className="ibtn" onClick={clear} aria-label={tl('清空')}><X /></button>}
       </label>
-      {sug && !sug.available ? <div className="dx-none"><BookA size={22} /><b>{tl('这台设备上没有词典')}</b><span>{tl('词典文件没有装好，重新安装 Tibi 可以修复。')}</span></div> : !q.trim() ? (
-        <Start recent={recent} onPick={look} onClear={() => { clearRecentLookups(); setRecent([]); }} />
+      {sug && !sug.available ? <div className="dx-none"><Mascot id="error-generic" size={compact ? 104 : 136} /><b>{tl('这台设备上没有词典')}</b><span>{tl('词典文件没有装好，重新安装 Tibi 可以修复。')}</span></div> : !q.trim() ? (
+        <Start recent={recent} compact={compact} onPick={look} onClear={() => { clearRecentLookups(); setRecent([]); }} />
       ) : (
         <div className="dx-body">
           {showList && <div className="dx-list" ref={list} role="listbox" aria-label={tl('联想')}>
@@ -111,8 +112,8 @@ export function Dictionary({ initial, compact, onOpenDoc, onOpenTerm, onAsk }: D
   );
 }
 
-function Start({ recent, onPick, onClear }: { recent: string[]; onPick: (w: string) => void; onClear: () => void }) {
-  if (!recent.length) return <div className="dx-none"><BookA size={22} /><b>{tl('查一个词')}</b><span>{tl('不用联网。可以输入变形（went）、中文（苹果），拼错了也会提示。')}</span></div>;
+function Start({ recent, compact, onPick, onClear }: { recent: string[]; compact?: boolean; onPick: (w: string) => void; onClear: () => void }) {
+  if (!recent.length) return <div className="dx-none"><Mascot id="onboarding-test" size={compact ? 108 : 148} /><b>{tl('查一个词')}</b><span>{tl('不用联网。可以输入变形（went）、中文（苹果），拼错了也会提示。')}</span></div>;
   return <div className="dx-recent">
     <div className="dx-sec"><span>{tl('最近查过')}</span><button className="linkbtn" onClick={onClear}>{tl('清除')}</button></div>
     <div className="dx-chips">{recent.map(w => <button key={w} onClick={() => onPick(w)}>{w}</button>)}</div>

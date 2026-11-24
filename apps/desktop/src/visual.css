@@ -1,0 +1,643 @@
+/* Tibi 视觉精修层：Apple / Things 3 / Craft / Linear 级克制质感
+ * 核心原则：
+ * 1. 用「极柔面色阶」取代「涂色本边框」：有底色的卡片尽量去边框，白色卡片用 5.5% 极细环 + 1px 微接触阴影。
+ * 2. 渐变只在 OKLab 空间做 1.5%–2.5% 同色系微明度呼吸（绝不退到纯白、绝不做塑料竖向灰渐变）。
+ * 3. 保留首页小狐狸背后自然羽化的无边界氛围柔光。
+ */
+
+:root {
+  --surface-2: #f6f6f4;
+  --surface-3: #efefe9;
+
+  /* 极低彩度 OKLab 丝绒微渐变：两端色温一致，仅 1.5% 明度起伏，如棉纸受柔光 */
+  --wash-indigo: linear-gradient(160deg in oklab, oklch(97.3% 0.011 264) 0%, oklch(95.8% 0.016 264) 100%);
+  --wash-warm: linear-gradient(160deg in oklab, oklch(97.8% 0.014 75) 0%, oklch(96.3% 0.020 72) 100%);
+  --wash-sage: linear-gradient(160deg in oklab, oklch(97.3% 0.013 152) 0%, oklch(95.9% 0.018 152) 100%);
+  --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(245, 160, 67, .12) 0%, rgba(61, 82, 224, .05) 54%, transparent 100%);
+
+  --ok-wash: rgba(47, 138, 76, .085);
+  --mid-wash: rgba(176, 122, 18, .085);
+  --hard-wash: rgba(194, 69, 47, .075);
+
+  /* 极细线条系统：比默认 8%/13% 更轻盈通透 */
+  --hair: rgba(24, 24, 27, .055);
+  --hair-2: rgba(24, 24, 27, .095);
+  --ring-card: 0 0 0 1px rgba(24, 24, 27, .055), 0 1px 2px rgba(24, 24, 27, .03);
+  --ring-card-hover: 0 0 0 1px rgba(24, 24, 27, .095), 0 2px 6px -2px rgba(24, 24, 27, .06);
+  --shadow-float: 0 0 0 1px rgba(24, 24, 27, .07), 0 2px 6px rgba(24, 24, 27, .05), 0 12px 30px -12px rgba(24, 24, 27, .14);
+  --glass-bg: rgba(255, 255, 255, .86);
+
+  /* 低饱和编辑风文章类型徽章 */
+  --c-tech: #edf0fa; --c-tech-ink: #3c4db8;
+  --c-news: #f9efe4; --c-news-ink: #99581d;
+  --c-novel: #ebf4ec; --c-novel-ink: #2e6d44;
+  --c-academic: #f2eef9; --c-academic-ink: #5f459e;
+  --c-blog: #eaf3f4; --c-blog-ink: #2b656e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface-2: #19191d;
+    --surface-3: #202025;
+
+    --wash-indigo: linear-gradient(160deg in oklab, oklch(24.5% 0.026 266) 0%, oklch(21.5% 0.018 266) 100%);
+    --wash-warm: linear-gradient(160deg in oklab, oklch(25.0% 0.024 68) 0%, oklch(21.8% 0.016 68) 100%);
+    --wash-sage: linear-gradient(160deg in oklab, oklch(24.2% 0.022 154) 0%, oklch(21.5% 0.014 154) 100%);
+    --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(247, 171, 85, .11) 0%, rgba(125, 140, 240, .085) 54%, transparent 100%);
+
+    --ok-wash: rgba(108, 194, 138, .12);
+    --mid-wash: rgba(226, 176, 79, .12);
+    --hard-wash: rgba(239, 138, 118, .12);
+
+    --hair: rgba(255, 255, 255, .065);
+    --hair-2: rgba(255, 255, 255, .115);
+    --ring-card: 0 0 0 1px rgba(255, 255, 255, .065), inset 0 1px 0 rgba(255, 255, 255, .03);
+    --ring-card-hover: 0 0 0 1px rgba(255, 255, 255, .12), inset 0 1px 0 rgba(255, 255, 255, .05);
+    --shadow-float: 0 0 0 1px rgba(255, 255, 255, .10), 0 4px 10px rgba(0, 0, 0, .35), 0 16px 36px -12px rgba(0, 0, 0, .55);
+    --glass-bg: rgba(22, 22, 26, .84);
+
+    --c-tech: #1d2134; --c-tech-ink: #9aa7f5;
+    --c-news: #272018; --c-news-ink: #e5ad6e;
+    --c-novel: #18241b; --c-novel-ink: #82c99a;
+    --c-academic: #221d2e; --c-academic-ink: #b9a1eb;
+    --c-blog: #182326; --c-blog-ink: #7ec2cc;
+  }
+}
+
+:root[data-theme="dark"] {
+  --surface-2: #19191d;
+  --surface-3: #202025;
+
+  --wash-indigo: linear-gradient(160deg in oklab, oklch(24.5% 0.026 266) 0%, oklch(21.5% 0.018 266) 100%);
+  --wash-warm: linear-gradient(160deg in oklab, oklch(25.0% 0.024 68) 0%, oklch(21.8% 0.016 68) 100%);
+  --wash-sage: linear-gradient(160deg in oklab, oklch(24.2% 0.022 154) 0%, oklch(21.5% 0.014 154) 100%);
+  --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(247, 171, 85, .11) 0%, rgba(125, 140, 240, .085) 54%, transparent 100%);
+
+  --ok-wash: rgba(108, 194, 138, .12);
+  --mid-wash: rgba(226, 176, 79, .12);
+  --hard-wash: rgba(239, 138, 118, .12);
+
+  --hair: rgba(255, 255, 255, .065);
+  --hair-2: rgba(255, 255, 255, .115);
+  --ring-card: 0 0 0 1px rgba(255, 255, 255, .065), inset 0 1px 0 rgba(255, 255, 255, .03);
+  --ring-card-hover: 0 0 0 1px rgba(255, 255, 255, .12), inset 0 1px 0 rgba(255, 255, 255, .05);
+  --shadow-float: 0 0 0 1px rgba(255, 255, 255, .10), 0 4px 10px rgba(0, 0, 0, .35), 0 16px 36px -12px rgba(0, 0, 0, .55);
+  --glass-bg: rgba(22, 22, 26, .84);
+
+  --c-tech: #1d2134; --c-tech-ink: #9aa7f5;
+  --c-news: #272018; --c-news-ink: #e5ad6e;
+  --c-novel: #18241b; --c-novel-ink: #82c99a;
+  --c-academic: #221d2e; --c-academic-ink: #b9a1eb;
+  --c-blog: #182326; --c-blog-ink: #7ec2cc;
+}
+
+:root[data-paper="sepia"] {
+  --surface-2: #f0e8d6;
+  --surface-3: #e8dec8;
+  --wash-indigo: linear-gradient(160deg in oklab, #ebe9e1 0%, #e5e3db 100%);
+  --wash-warm: linear-gradient(160deg in oklab, #f2e5cb 0%, #eddec0 100%);
+  --wash-sage: linear-gradient(160deg in oklab, #e6ede0 0%, #dfe7d8 100%);
+  --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(245, 160, 67, .12) 0%, rgba(61, 82, 224, .04) 54%, transparent 100%);
+  --hair: rgba(54, 42, 24, .06);
+  --hair-2: rgba(54, 42, 24, .11);
+  --ring-card: 0 0 0 1px rgba(54, 42, 24, .065), 0 1px 2px rgba(54, 42, 24, .03);
+  --ring-card-hover: 0 0 0 1px rgba(54, 42, 24, .12), 0 2px 6px -2px rgba(54, 42, 24, .06);
+  --glass-bg: rgba(247, 241, 227, .9);
+  --c-tech: #e6e8f0; --c-tech-ink: #3c4db8;
+  --c-news: #f1e3ce; --c-news-ink: #9c581c;
+  --c-novel: #e3ebdf; --c-novel-ink: #2f6e45;
+  --c-academic: #eae3ef; --c-academic-ink: #5f459e;
+  --c-blog: #e0eae9; --c-blog-ink: #2b656e;
+}
+
+/* ======================== Tibi 双色调图标与头像 ======================== */
+
+svg .ti-fill { fill: currentColor; fill-opacity: .10; stroke: none; transition: fill-opacity .15s; }
+svg .ti-warm { stroke: currentColor; opacity: .7; transition: opacity .15s; }
+svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; }
+.nav a:hover svg .ti-fill, .pill:hover svg .ti-fill { fill-opacity: .15; }
+.nav a.cur svg .ti-fill, .pill.on svg .ti-fill { fill-opacity: .20; }
+.nav a.cur svg .ti-warm, .pill.on svg .ti-warm { opacity: 1; }
+
+.tibi-av {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 6px;
+  background: var(--warm-wash);
+  box-shadow: none;
+}
+
+/* ======================== 编辑风文章类型标签 ======================== */
+
+.gbadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px 0 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  flex: none;
+  white-space: nowrap;
+}
+.gbadge svg { width: 12px; height: 12px; }
+.gbadge.g-tech { background: var(--c-tech); color: var(--c-tech-ink); }
+.gbadge.g-news { background: var(--c-news); color: var(--c-news-ink); }
+.gbadge.g-novel { background: var(--c-novel); color: var(--c-novel-ink); }
+.gbadge.g-academic { background: var(--c-academic); color: var(--c-academic-ink); }
+.gbadge.g-blog { background: var(--c-blog); color: var(--c-blog-ink); }
+.gbadge.g-general { background: var(--sunken); color: var(--ink-2); }
+
+/* ======================== 全局框架：弱化割裂线条 ======================== */
+
+.main {
+  box-shadow: 0 0 0 1px var(--hair);
+}
+
+.streak {
+  padding: 7px 8px;
+  border-radius: var(--r-m);
+  transition: background .15s;
+}
+.streak:hover { background: var(--hover); }
+
+/* ======================== 首页：保留狐狸柔光，去掉多余线框 ======================== */
+
+.hero { position: relative; }
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -48px -80px -20px;
+  background: var(--wash-hero);
+  pointer-events: none;
+  z-index: 0;
+}
+.hero > * { position: relative; z-index: 1; }
+
+.composer {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--hair-2), 0 2px 6px -2px rgba(24, 24, 27, .05);
+}
+.composer:focus-within {
+  box-shadow: 0 0 0 1.5px var(--accent), 0 0 0 4px var(--accent-wash);
+}
+
+.chip {
+  background: var(--surface-2);
+  box-shadow: none;
+  transition: background .14s, color .14s;
+}
+.chip:hover {
+  background: var(--surface-3);
+  box-shadow: none;
+}
+.chip svg { color: var(--ink-3); }
+.chip:hover svg { color: var(--ink-2); }
+
+/* 继续读主卡：温润哑光石纸，靠色块自身区分边界，零边框无割裂感 */
+.lead {
+  background: var(--surface-2);
+  box-shadow: none;
+  transition: background .15s;
+}
+.lead:hover {
+  background: var(--surface-3);
+  box-shadow: none;
+}
+.lead .k { display: flex; align-items: center; gap: 8px; }
+
+/* KPI 指标卡：无边框温润石纸 + 无框纯净小图标，杜绝“框中套框” */
+.tile {
+  background: var(--surface-2);
+  box-shadow: none;
+  transition: background .14s;
+}
+.tiles button.tile:hover {
+  background: var(--surface-3);
+  box-shadow: none;
+}
+.tile-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tile-ic {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--ink-3);
+  background: transparent;
+  box-shadow: none;
+}
+.tile-ic.accent { color: var(--accent); }
+.tile-ic.warm { color: var(--warm-ink); }
+.tile-ic.ok { color: var(--ok); }
+
+/* ======================== 书架 & 示例卡片：极细环 + 轻接触阴影 ======================== */
+
+.doc {
+  background: var(--surface);
+  box-shadow: var(--ring-card);
+  overflow: hidden;
+  transition: background .14s, box-shadow .14s;
+}
+.doc:hover {
+  background: var(--surface);
+  box-shadow: var(--ring-card-hover);
+}
+.doc .m { align-items: center; }
+.doc-prog {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--hair);
+}
+.doc-prog i { display: block; height: 100%; background: var(--accent); }
+
+.sample {
+  background: var(--surface);
+  box-shadow: var(--ring-card);
+  transition: background .14s, box-shadow .14s;
+}
+.sample:hover {
+  background: var(--surface);
+  box-shadow: var(--ring-card-hover);
+}
+.sample .g { display: flex; align-items: center; gap: 6px; }
+
+/* ======================== 阅读器：总结面板（去线框 + 丝绒微渐变） ======================== */
+
+.rpanel {
+  background: var(--surface);
+  border-left: 1px solid var(--hair);
+}
+.rph {
+  height: 46px;
+  border-bottom: 1px solid var(--hair);
+  background: var(--surface);
+}
+.rph-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.rpb {
+  padding: 16px 18px 24px;
+  gap: 22px;
+}
+.rpf {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px 12px;
+  border-top: 1px solid var(--hair);
+  background: var(--surface);
+}
+
+/* 总结主卡：完全无边框，靠 OKLab 丝绒微渐变自然托出重点 */
+.sum-card {
+  border-radius: 14px;
+  padding: 15px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: none;
+}
+.sum-card.sum-overview { background: var(--wash-indigo); }
+.sum-card.sum-advice { background: var(--wash-warm); }
+.sum-card.sum-empty {
+  background: var(--surface-2);
+  align-items: center;
+  text-align: center;
+  padding: 24px 18px;
+  gap: 8px;
+}
+.sum-card.sum-empty b { font-size: 14px; font-weight: 600; color: var(--ink); }
+.sum-card.sum-empty .muted { max-width: 240px; line-height: 1.6; }
+
+.sum-hd {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: var(--ink-2);
+}
+.sum-hd svg { color: var(--ink-3); }
+.sum-hd .sp { flex: 1; }
+.sum-card.sum-overview .sum-hd { color: var(--ink); }
+.sum-card.sum-advice .sum-hd { color: var(--warm-ink); }
+.sum-card.sum-advice .sum-hd svg { color: var(--warm-ink); }
+
+.sum-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.sum-body { margin: 0; font-size: 13.8px; line-height: 1.78; color: var(--ink); }
+
+/* 文本级别：无框开放式 CEFR 标尺 */
+.sum-section { display: flex; flex-direction: column; gap: 10px; }
+.sum-level-block { display: flex; flex-direction: column; gap: 8px; }
+.cefr-pill {
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: var(--sunken);
+  color: var(--ink);
+}
+.cefr-pill.easy { background: var(--ok-wash); color: var(--ok); }
+.cefr-pill.mid { background: var(--accent-wash); color: var(--accent); }
+.cefr-pill.adv { background: var(--warm-wash); color: var(--warm-ink); }
+
+.cefr-scale { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+.cefr-step { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.cefr-step i { display: block; width: 100%; height: 4px; border-radius: 999px; background: var(--hair-2); }
+.cefr-step span { font-family: var(--f-mono); font-size: 10px; color: var(--ink-3); }
+.cefr-step.past i { background: color-mix(in srgb, var(--accent) 26%, transparent); }
+.cefr-step.cur i { background: var(--accent); }
+.cefr-step.cur span { color: var(--accent); font-weight: 600; }
+.cefr-step.easy.past i { background: color-mix(in srgb, var(--ok) 26%, transparent); }
+.cefr-step.easy.cur i { background: var(--ok); }
+.cefr-step.easy.cur span { color: var(--ok); }
+.cefr-step.adv.past i { background: color-mix(in srgb, var(--warm) 30%, transparent); }
+.cefr-step.adv.cur i { background: var(--warm-ink); }
+.cefr-step.adv.cur span { color: var(--warm-ink); }
+.sum-sub { margin: 0; font-size: 12px; color: var(--ink-3); }
+
+/* 值得学的短语：无外框开放式列表（Apple/Things 3 风格），仅用极淡内分隔线与悬停浅底 */
+.rpb .plist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+.rpb .pitem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 28px 9px 10px;
+  margin: 0 -10px;
+  border-radius: 10px;
+  background: transparent;
+  transition: background .12s;
+}
+.rpb .pitem + .pitem::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  background: var(--hair);
+}
+.rpb .pitem:hover::before, .rpb .pitem:hover + .pitem::before { opacity: 0; }
+.rpb .pitem:hover { background: var(--surface-2); }
+.rpb .pitem b { font-family: var(--f-read); font-size: 14.5px; font-weight: 700; color: var(--ink); white-space: normal; }
+.rpb .pitem span { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+.rpb .pitem .pgo { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-3); opacity: 0; transition: opacity .12s, color .12s; }
+.rpb .pitem:hover .pgo { opacity: 1; color: var(--accent); }
+
+/* 长难句：无外框温润石纸引文块，去掉横切分割线，靠字距与墨色层次区分原译文 */
+.hard-list { display: flex; flex-direction: column; gap: 10px; }
+.hard-card {
+  padding: 13px 15px;
+  border-radius: 13px;
+  background: var(--surface-2);
+  box-shadow: none;
+}
+.hard-card .quote {
+  margin: 0;
+  padding-left: 11px;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  font-family: var(--f-read);
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--ink);
+}
+.hard-card .tr {
+  margin: 10px 0 0;
+  padding-left: 13px;
+  border-top: 0;
+  font-size: 12.8px;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+
+/* 真正悬浮的浮层：通透磨砂 + 紧致物理阴影 */
+.rdbar, .aloud {
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  box-shadow: var(--shadow-float);
+}
+.wc { box-shadow: var(--shadow-float); }
+.wc .ai { background: var(--wash-indigo); box-shadow: none; }
+.wc .ai .tag { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+
+.endc { background: var(--surface-2); box-shadow: none; }
+.endc.done { background: var(--wash-sage); box-shadow: none; }
+
+/* Tibi 面板与生词面板空状态：无边框石纸，让插图主角化 */
+.tibi-empty {
+  margin-top: 20px;
+  padding: 24px 16px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  box-shadow: none;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.tibi-empty img { width: 108px; height: 108px; margin-bottom: 2px; }
+.tibi-empty b { font-size: 14px; color: var(--ink); }
+.tibi-empty p { margin: 0; font-size: 12.8px; color: var(--ink-2); }
+
+.rwords-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 26px 16px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  box-shadow: none;
+}
+.rwords-empty img { width: 108px; height: 108px; }
+.rwords-empty b { font-size: 14px; color: var(--ink); }
+
+.reader-word {
+  padding: 10px 10px;
+  margin: 0 -10px;
+  border-bottom: 1px solid var(--hair);
+  border-radius: 10px;
+  transition: background .12s;
+}
+.reader-word:last-child { border-bottom: 0; }
+.reader-word:hover, .reader-word:focus-visible { background: var(--surface-2); }
+
+/* ======================== 复习与练习 ======================== */
+
+.rvhero { background: var(--wash-indigo); box-shadow: none; }
+.rvhero.calm { background: var(--wash-warm); box-shadow: none; }
+.rvhero > img { width: 92px; height: 92px; margin: -8px 0; }
+
+.rvcard {
+  background: var(--surface);
+  box-shadow: var(--ring-card);
+}
+
+.ropt {
+  background: var(--surface);
+  box-shadow: var(--ring-card);
+  transition: background .12s, box-shadow .12s;
+}
+.ropt:hover:not(:disabled) {
+  background: var(--surface-2);
+  box-shadow: var(--ring-card-hover);
+}
+
+.pmodes button {
+  background: var(--surface);
+  box-shadow: var(--ring-card);
+  gap: 7px;
+  transition: background .14s, box-shadow .14s;
+}
+.pmodes button:hover {
+  background: var(--surface);
+  box-shadow: var(--ring-card-hover);
+}
+.pmodes button.on {
+  background: var(--wash-indigo);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.pmode-ic {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 2px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  box-shadow: none;
+}
+.pmodes button.on .pmode-ic {
+  background: var(--surface);
+  color: var(--accent);
+}
+
+/* 复习完成庆祝时刻的柔光暖晕 */
+.done { position: relative; }
+.done::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  height: 180px;
+  background: radial-gradient(closest-side, rgba(245, 160, 67, .14) 0%, transparent 100%);
+  pointer-events: none;
+}
+.done > * { position: relative; }
+
+/* ======================== 统计页 ======================== */
+
+.insight {
+  background: var(--wash-indigo);
+  box-shadow: none;
+  padding: 18px 20px;
+}
+.insight .ih b { display: inline-flex; align-items: center; gap: 8px; }
+
+.page.stats section {
+  background: var(--surface);
+  box-shadow: var(--ring-card);
+}
+
+/* ======================== 对话、审批与引导页 ======================== */
+
+.prov-line .tibi-av { border-radius: 5px; }
+
+.approve {
+  background: var(--surface);
+  box-shadow: var(--ring-card);
+  border-left: 2.5px solid var(--warm);
+}
+.approve .h .k {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--warm-wash);
+  color: var(--warm-ink);
+}
+
+.ob .left {
+  background: var(--wash-indigo);
+  border-right: 1px solid var(--hair);
+}
+.ob .samples2 button, .ob .prov button {
+  background: var(--surface);
+  box-shadow: var(--ring-card);
+  transition: background .14s, box-shadow .14s;
+}
+.ob .samples2 button:hover, .ob .prov button:hover {
+  box-shadow: var(--ring-card-hover);
+}
+.ob .samples2 button.on, .ob .prov button.on {
+  background: var(--wash-indigo);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+/* ======================== 词典、设置与空态 ======================== */
+
+.group {
+  box-shadow: var(--ring-card);
+}
+.item + .item, .prov + .prov {
+  box-shadow: 0 -1px 0 var(--hair);
+}
+
+.dx-none {
+  padding: 48px 24px;
+  border-radius: 18px;
+  background: var(--surface-2);
+  box-shadow: none;
+  margin-top: 8px;
+}
+.dx-none img { width: 144px; height: 144px; }
+
+.dx-tip {
+  background: var(--wash-warm);
+  box-shadow: none;
+  padding: 12px 15px;
+}
+.dx-tip b { color: var(--warm-ink); font-weight: 600; }
+
+.chat-empty {
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.chat-empty img { width: 124px; height: 124px; }
