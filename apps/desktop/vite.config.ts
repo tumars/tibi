@@ -63,7 +63,7 @@ export default defineConfig({
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
     outDir: webapp ? 'dist-web' : 'dist',
-    // 两个入口：桌面 index.html、手机 mobile.html（00 §3.13，独立的壳；Tauri 移动端的窗口指向 mobile.html）；Web 版单独打 web.html
-    rollupOptions: { input: webapp ? { web: here('./web.html') } : { main: here('./index.html'), mobile: here('./mobile.html') } },
+    // 三个入口：桌面 index.html、macOS 顶栏快捷面板 tray.html、手机 mobile.html（00 §3.13）；Web 版单独打 web.html
+    rollupOptions: { input: webapp ? { web: here('./web.html') } : { main: here('./index.html'), tray: here('./tray.html'), mobile: here('./mobile.html') } },
   },
 });

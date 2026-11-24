@@ -16,12 +16,13 @@ import { Words } from './pages/Words';
 import { isTauri, rpc } from './rpc';
 import { bindCoreEvents, useCore } from './store/core';
 import { toast } from './store/ui';
-import { tl } from './lib/i18n';
+import { lang, tl } from './lib/i18n';
 import { startDesktopReminder, type ReminderTime } from './lib/reminder';
 import { autoCheckOn, startAutoUpdateCheck } from './lib/update';
 import { presentNotice, startNoticeCheck } from './lib/notice';
-import { installMacNative } from './lib/macNative';
+import { installMacNative, isMacDesktop } from './lib/macNative';
 import { openDeepLink } from './lib/deeplink';
+import { DEFAULT_TRAY_HOTKEY } from './tray/classify';
 
 export function App() {
   const nav = useNavigate();
@@ -29,6 +30,43 @@ export function App() {
   // 菜单栏只装一次，导航函数随路由变，所以经 ref 取最新的
   const navRef = useRef(nav); navRef.current = nav;
   useEffect(() => installMacNative(to => navRef.current(to)), []);
+  // 托盘菜单待复习数、文案语言与设置同步
+  const due = useCore(s => s.due);
+  useEffect(() => {
+    if (!isTauri()) return;
+    void import('@tauri-apps/api/core').then(({ invoke }) => invoke('tray_update_summary', { due, lang })).catch(() => undefined);
+  }, [due]);
+  useEffect(() => {
+    if (!isTauri()) return;
+    const syncTraySettings = () => {
+      void rpc.call('settings.get', { keys: ['tray.keep_running', 'tray.hotkey'] }).then(async s => {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const keep = typeof s['tray.keep_running'] === 'boolean' ? s['tray.keep_running'] : isMacDesktop;
+        await invoke('window_set_tray_mode', { keepRunning: keep }).catch(() => undefined);
+        if (isMacDesktop) {
+          const preset = typeof s['tray.hotkey'] === 'string' ? s['tray.hotkey'] : DEFAULT_TRAY_HOTKEY;
+          await invoke('tray_set_hotkey', { preset }).catch(() => undefined);
+        }
+      }, () => undefined);
+    };
+    syncTraySettings();
+    const offSettings = rpc.on('data.changed', d => { if (d.table === 'settings') syncTraySettings(); });
+    let offNav: (() => void) | undefined;
+    void import('@tauri-apps/api/event').then(({ listen }) => listen<{ route?: string | null; ask?: string | null }>('tray_navigate', async e => {
+      const { route, ask } = e.payload ?? {};
+      if (ask) {
+        try {
+          const c = await rpc.call('chat.open', {});
+          navRef.current(`/chat/${c.id}?q=${encodeURIComponent(ask)}`);
+        } catch (err) {
+          toast(err instanceof Error ? err.message : String(err), { kind: 'err' });
+        }
+        return;
+      }
+      if (route) navRef.current(route);
+    })).then(off => { offNav = off; });
+    return () => { offSettings(); offNav?.(); };
+  }, []);
   // 每日提醒（J8）：应用开着（含托盘里）时到点提醒
   useEffect(() => {
     let time: ReminderTime = 'off';

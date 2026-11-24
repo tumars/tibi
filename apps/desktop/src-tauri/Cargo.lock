@@ -5045,12 +5045,13 @@ dependencies = [
 
 [[package]]
 name = "tibi"
-version = "0.1.2"
+version = "0.1.4"
 dependencies = [
  "base64 0.22.1",
  "env_logger",
  "keyring",
  "log",
+ "objc2-app-kit",
  "objc2-foundation",
  "rusqlite",
  "serde",

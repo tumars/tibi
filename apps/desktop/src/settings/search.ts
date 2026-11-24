@@ -6,6 +6,8 @@ export const SETTINGS: { label: string; sec: string; kw: string }[] = [
   { label: '外观', sec: 'general', kw: '深色 浅色 主题 dark light theme appearance' },
   { label: '界面语言', sec: 'general', kw: 'english 英文 中文 language' },
   { label: 'Tibi 怎么称呼你', sec: 'general', kw: '昵称 名字 nickname name' },
+  { label: '关闭窗口时留在菜单栏', sec: 'general', kw: '菜单栏 托盘 后台 menubar tray keep running' },
+  { label: '快速查词快捷键', sec: 'general', kw: '快捷键 全局 查词 菜单栏 hotkey shortcut quick lookup menubar' },
   { label: '权限模式', sec: 'general', kw: '审批 确认 自动 permission' },
   { label: '系统朗读', sec: 'general', kw: '朗读 语音 发音 音色 tts voice' },
   { label: 'AI 朗读', sec: 'general', kw: '朗读 语音 发音 音色 kokoro tts voice' },

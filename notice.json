@@ -1,16 +1,16 @@
 {
   "notices": [
     {
-      "id": "release-0.1.2-macos",
+      "id": "release-0.1.4-macos",
       "message": {
-        "zh": "Tibi 0.1.2 已发布：全新阅读排版与文章生词栏、桌面右键菜单，并切换至更稳定的国内更新源。",
-        "en": "Tibi 0.1.2 is out: refined reader typography, article vocabulary panel, context menus, and faster updates."
+        "zh": "Tibi 0.1.4 已发布：新增 macOS 顶部菜单栏快捷查词面板（支持 ⌥⇧D 全局呼出、离线词典联想与发音、一键加入生词本/调熟练度、剪贴板查词与网址导入、右键快捷菜单与今日概览）。",
+        "en": "Tibi 0.1.4 is out: adds a macOS menu bar quick-lookup popover (⌥⇧D global shortcut, instant offline dictionary & TTS, one-click wordbook & mastery, clipboard lookup/URL import, and native quick menu)."
       },
       "platforms": [
         "macos"
       ],
-      "below": "0.1.2",
-      "until": "2026-12-23",
+      "below": "0.1.4",
+      "until": "2026-12-24",
       "url": "tibi://settings?sec=about",
       "label": {
         "zh": "去更新",

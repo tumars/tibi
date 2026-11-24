@@ -1,6 +1,6 @@
 [package]
 name = "tibi"
-version = "0.1.2"
+version = "0.1.4"
 description = "Tibi（提比）：本地优先、AI 原生的英语阅读学习工具"
 authors = ["Tibi contributors"]
 license = "MIT"
@@ -48,6 +48,8 @@ keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 window-vibrancy = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWindow", "NSButton", "NSControl", "NSView", "NSPasteboard", "NSApplication"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"] }
 
 # Windows / Linux：深链会再起一个进程，交给已经开着的那个（deep-link 特性会转发 URL）
 [target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]

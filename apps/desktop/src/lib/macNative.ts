@@ -57,11 +57,15 @@ export async function popupNativeMenu(items: (NativeItem | null)[], at?: { x: nu
   return handle;
 }
 
-/** 侧栏材质由窗口外观决定：App 单独选了深 / 浅色时，窗口要跟着变，否则侧栏和内容区对不上 */
+/** 侧栏材质由窗口外观决定：App 单独选了深 / 浅色时，窗口和菜单栏面板要跟着变，否则侧栏和内容区对不上 */
 async function syncWindowTheme() {
   const { getCurrentWindow } = await import('@tauri-apps/api/window');
+  const { invoke } = await import('@tauri-apps/api/core');
   const win = getCurrentWindow();
-  const apply = (t: 'auto' | 'light' | 'dark') => win.setTheme(t === 'auto' ? null : t).catch(() => undefined);
+  const apply = (t: 'auto' | 'light' | 'dark') => Promise.all([
+    win.setTheme(t === 'auto' ? null : t).catch(() => undefined),
+    invoke('tray_sync_theme', { theme: t }).catch(() => undefined),
+  ]);
   await apply(useUi.getState().theme);
   let last = useUi.getState().theme;
   useUi.subscribe(s => { if (s.theme !== last) { last = s.theme; void apply(last); } });

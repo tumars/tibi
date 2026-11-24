@@ -5,6 +5,8 @@
 compile_error!("App Store builds require --no-default-features --features app-store");
 
 mod core;
+#[cfg(not(any(mobile, feature = "mobile-preview")))]
+mod hotkey;
 mod keys;
 #[cfg(any(mobile, feature = "mobile-preview"))]
 mod local_db;
@@ -12,6 +14,8 @@ mod local_db;
 mod sync_fs;
 #[cfg(any(mobile, feature = "mobile-preview", test))]
 mod app_group;
+#[cfg(not(any(mobile, feature = "mobile-preview")))]
+mod tray;
 #[cfg(all(feature = "direct-distribution", not(any(mobile, feature = "mobile-preview"))))]
 mod update;
 
@@ -25,8 +29,13 @@ use tauri_plugin_dialog::DialogExt;
 /// pick_file / 拖入 登记过的路径：能力层的 path 只认这里的（06 §1）
 #[derive(Default)]
 struct Allowed(Mutex<HashSet<String>>);
-#[derive(Default)]
 struct TrayMode(Mutex<bool>);
+impl Default for TrayMode {
+    fn default() -> Self {
+        // macOS 上顶栏图标提供快速查词，关主窗口默认留在菜单栏（可在设置中关闭）
+        Self(Mutex::new(cfg!(target_os = "macos")))
+    }
+}
 
 #[tauri::command]
 async fn core_call(core: State<'_, Arc<core::CoreProcess>>, method: String, params: Option<Value>) -> Result<Value, String> {
@@ -320,6 +329,7 @@ fn run_desktop() {
         .plugin(tauri_plugin_http::init())
         .manage(Allowed::default())
         .manage(TrayMode::default())
+        .manage(tray::TrayState::default())
         .setup(|app| {
             // 密钥文件的目录，要在 Core 启动、来取密钥之前设好（keys.rs）
             if let Ok(dir) = app.path().app_data_dir() {
@@ -359,42 +369,16 @@ fn run_desktop() {
                     log::warn!("侧栏材质没加上：{e}");
                 }
             }
-            // 托盘：关窗口后 Core 留在托盘继续跑（可设置）
-            {
-                use tauri::menu::{Menu, MenuItem};
-                use tauri::tray::TrayIconBuilder;
-                let open = MenuItem::with_id(app, "open", "打开 Tibi", true, None::<&str>)?;
-                let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&open, &quit])?;
-                let mut tray = TrayIconBuilder::new().menu(&menu).show_menu_on_left_click(true).on_menu_event(|app, e| match e.id.as_ref() {
-                    "open" => {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
-                    "quit" => {
-                        if let Some(c) = app.try_state::<Arc<core::CoreProcess>>() {
-                            c.stop();
-                        }
-                        app.exit(0);
-                    }
-                    _ => {}
-                });
-                // mac 菜单栏用单色模板图，系统按深浅色着色；其他平台用应用图标
-                #[cfg(target_os = "macos")]
-                {
-                    tray = tray.icon(tauri::image::Image::from_bytes(include_bytes!("../icons/tray-template.png"))?).icon_as_template(true);
-                }
-                #[cfg(not(target_os = "macos"))]
-                if let Some(icon) = app.default_window_icon() {
-                    tray = tray.icon(icon.clone());
-                }
-                let _ = tray.build(app);
+            // 托盘与 macOS 顶栏快捷查词面板
+            if let Err(e) = tray::setup(app) {
+                log::error!("托盘初始化失败：{e}");
             }
             Ok(())
         })
         .on_window_event(|window, event| {
+            if tray::handle_popover_window_event(window, event) {
+                return;
+            }
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let keep = *window.state::<TrayMode>().0.lock().unwrap();
                 if keep {
@@ -417,6 +401,8 @@ fn run_desktop() {
         popup_context_menu,
         core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file,
         pick_folder, window_set_tray_mode, restore_backup, save_text_file, mcp_command,
+        tray::tray_hide, tray::tray_set_pinned, tray::tray_open_main, tray::tray_update_summary,
+        tray::tray_sync_theme, tray::tray_set_hotkey, tray::tray_read_clipboard,
         update::update_check, update::update_install, update::update_installer_asset
     ]);
     #[cfg(not(feature = "direct-distribution"))]
@@ -424,8 +410,28 @@ fn run_desktop() {
         #[cfg(target_os = "macos")]
         popup_context_menu,
         core_call, core_status, core_restart, keyring_set, keyring_delete, open_path, pick_file,
-        pick_folder, window_set_tray_mode, restore_backup, save_text_file, confirm_ai_sharing
+        pick_folder, window_set_tray_mode, restore_backup, save_text_file, confirm_ai_sharing,
+        tray::tray_hide, tray::tray_set_pinned, tray::tray_open_main, tray::tray_update_summary,
+        tray::tray_sync_theme, tray::tray_set_hotkey, tray::tray_read_clipboard
     ]);
-    builder.run(tauri::generate_context!())
-        .expect("Tibi 启动失败");
+    builder
+        .build(tauri::generate_context!())
+        .expect("Tibi 启动失败")
+        .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                let main_visible = app
+                    .get_webview_window("main")
+                    .and_then(|w| w.is_visible().ok())
+                    .unwrap_or(false);
+                if !main_visible {
+                    tray::show_main_window(app, None, None);
+                }
+            }
+            if let tauri::RunEvent::Exit = event {
+                if let Some(c) = app.try_state::<Arc<core::CoreProcess>>() {
+                    c.stop();
+                }
+            }
+        });
 }

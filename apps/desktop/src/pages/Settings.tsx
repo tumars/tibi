@@ -8,6 +8,7 @@ import { Switch } from '../components/Switch';
 import { BackupItems, ExportSummaryItem } from '../settings/DataItems';
 import { MemoryItems } from '../settings/MemoryItems';
 import { ModelItems } from '../settings/ModelItems';
+import { TrayItems } from '../settings/TrayItems';
 import { VoiceItems } from '../settings/VoiceItems';
 import { SkillItems } from '../settings/SkillItems';
 import { McpItems } from '../settings/McpItems';
@@ -114,6 +115,7 @@ export function Settings() {
             <div className="item"><div><div className="t">{tl('外观')}</div></div><div className="ctl"><div className="seg">{(['auto', 'light', 'dark'] as const).map(t => <button key={t} className={theme === t ? 'on' : ''} onClick={() => setTheme(t)}>{{ auto: tl('跟随系统'), light: tl('浅色'), dark: tl('深色') }[t]}</button>)}</div></div></div>
             <div className="item"><div><div className="t">{tl('界面语言')}</div><div className="d">{tl('只换界面上的字，切换后界面会重新载入')}</div></div><div className="ctl"><div className="seg">{([['zh', '中文'], ['en', 'English']] as const).map(([v, l]) => <button key={v} className={lang === v ? 'on' : ''} onClick={() => { if (v !== lang) setLang(v); }}>{l}</button>)}</div></div></div>
             <div className="item"><div><div className="t">{tl('Tibi 怎么称呼你')}</div></div><div className="ctl"><input className="input" style={{ width: 120 }} maxLength={20} placeholder={tl('比如：小孟')} value={(profile?.assistant_prefs?.nickname ?? profile?.display_name ?? '') === '你' ? '' : profile?.assistant_prefs?.nickname ?? profile?.display_name ?? ''} onChange={e => { const v = e.target.value; setProfile(p => p && { ...p, display_name: v, assistant_prefs: { ...p.assistant_prefs, nickname: v } }); }} onBlur={e => { const v = e.target.value.trim(); void patch({ display_name: v, assistant_prefs: { ...(profile?.assistant_prefs ?? { permission: 'default' }), nickname: v || '你' } }).then(() => useCore.getState().refresh()); }} /></div></div>
+            <TrayItems />
             <VoiceItems />
           </div></section>
 
