@@ -80,6 +80,19 @@ export function NavFeedsIcon({ size = 18, ...props }: IconProps) {
   );
 }
 
+/** 电台：耳机 + 暖色声波（17 §2.1） */
+export function NavRadioIcon({ size = 18, ...props }: IconProps) {
+  return (
+    <svg {...base(size, props)}>
+      <path d="M4.2 14.5A2.2 2.2 0 0 1 6.4 12.3h.6v6.2h-.6a2.2 2.2 0 0 1-2.2-2.2v-1.8ZM17 12.3h.6a2.2 2.2 0 0 1 2.2 2.2v1.8a2.2 2.2 0 0 1-2.2 2.2H17v-6.2Z" className="ti-fill" />
+      <path d="M4.2 14.2V12a7.8 7.8 0 0 1 15.6 0v2.2" />
+      <rect x="3.8" y="12.4" width="3.4" height="6.2" rx="1.6" />
+      <rect x="16.8" y="12.4" width="3.4" height="6.2" rx="1.6" />
+      <path d="M10 15.6v-2.2M12 16.8v-4.6M14 15.6v-2.2" className="ti-warm" />
+    </svg>
+  );
+}
+
 /** 生词本：呼应 Tibi 的生词罐子（empty-words） */
 export function NavWordsIcon({ size = 18, ...props }: IconProps) {
   return (

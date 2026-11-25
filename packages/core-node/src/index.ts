@@ -6,3 +6,4 @@ export { createCore } from './create.js';
 export { PiEngine, type PiEngineOptions } from './engine-pi.js';
 export { attachStdio, startWebSocket } from './transport.js';
 export { folderBackend, syncFolder } from './syncfolder.js';
+export { createMediaOps, measureMp3DurationMs, parseMp3FrameHeader, splitMp3ByDuration, splitMp3BySize, splitTextToTimedSegments, stripAsrTags, testAsr } from './media.js';

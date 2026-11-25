@@ -11,7 +11,8 @@ export type SkillId = 'tibi' | 'importer' | 'scout' | 'tutor' | 'coach' | 'insig
 export type Tier = 'fast' | 'deep';
 /** 0 生词 … 5 掌握、97 标为已知、98 忽略。只有用户标过 / 查过的词才有状态 */
 export type Status = 0 | 1 | 2 | 3 | 4 | 5 | 97 | 98;
-export type Kind = 'article' | 'book';
+export type Kind = 'article' | 'book' | 'episode';
+export type FeedKind = 'article' | 'podcast' | 'radio';
 export type Genre = 'tech' | 'news' | 'lit' | 'academic' | 'general';
 export type CardType = 'recognize' | 'choice' | 'cloze';
 export type PracticeMode = 'dictation' | 'spell' | 'confusable' | 'produce';
@@ -20,9 +21,14 @@ export type Page<T> = { items: T[]; total: number; cursor?: string };
 export type Undo = { undo_id: Id; expires_at: Ts };
 export type Ok = { ok: true };
 export type AiStatus = 'none' | 'deferred' | 'running' | 'done' | 'failed';
-export type AiTask = 'summary' | 'phrases' | 'hard_sentences' | 'advice' | 'glossary' | 'characters' | 'recap' | 'background' | 'translate' | 'explain' | 'grade_sentence' | 'context_meanings';
+export type AiTask = 'summary' | 'phrases' | 'hard_sentences' | 'advice' | 'glossary' | 'characters' | 'recap' | 'background' | 'translate' | 'explain' | 'grade_sentence' | 'context_meanings' | 'chapters' | 'pre_vocab' | 'spoken_expressions';
 export type LearningEventType = 'document_imported' | 'section_finished' | 'term_marked' | 'review_session' | 'quiz_done';
 export type BlockType = 'prose' | 'heading' | 'list_item' | 'quote';
+export type TranscriptSource = 'rss_vtt' | 'cloud_asr' | 'local_asr' | 'manual' | 'none';
+
+export interface EpisodeChapter { start_ms: number; title_zh: string; title_en?: string; summary?: string }
+export interface PreVocabItem { text: string; zh: string; start_ms?: number }
+export interface SpokenExpression { text: string; zh: string; start_ms?: number }
 
 // 文档
 export interface DocumentSummary {
@@ -30,16 +36,18 @@ export interface DocumentSummary {
   /** 网址的域名、原文件名或来源类型 */ source: string; source_type: string; /** 来自网址时的原文地址 */ source_url?: string; tags: string[];
   minutes: number; /** 按词频估的文本级别 A2–C2（与用户无关）；没有词频表时没有 */ level?: string; progress: number;
   book?: { chapter: number; chapters: number; chapter_progress: number };
+  /** 电台单集专属信息（kind === 'episode'） */
+  episode?: { media_url?: string; media_path?: string; duration_ms?: number; playback_ms: number; transcript_source?: TranscriptSource };
   status: 'processing' | 'ready' | 'failed'; ai_status: AiStatus;
-  /** 在书架里；从订阅里直接读的是 false（11 §5.2） */ shelved: boolean;
+  /** 在书架里；从订阅/电台里直接读的是 false（11 §5.2、17 §1） */ shelved: boolean;
   excerpt: string; cover_path?: string; added_at: Ts; opened_at?: Ts; finished_at?: Ts;
 }
 export interface Document extends DocumentSummary {
   sections: { id: Id; idx: number; title: string; status: string; progress: number; word_count: number; /** 点过“读完了”的时间 */ finished_at?: Ts }[];
-  ai?: { summary?: AiResult; advice?: AiResult; phrases?: AiResult; hard_sentences?: AiResult; glossary?: AiResult; characters?: AiResult };
+  ai?: { summary?: AiResult; advice?: AiResult; phrases?: AiResult; hard_sentences?: AiResult; glossary?: AiResult; characters?: AiResult; chapters?: AiResult; pre_vocab?: AiResult; spoken_expressions?: AiResult };
 }
 export interface Token { t: string; l: string; s: number; e: number; status?: Status; phrase_id?: Id; gloss?: string }
-export interface Sentence { id: Id; idx: number; paragraph_idx: number; block_type: BlockType; text: string; tokens: Token[]; translation?: string }
+export interface Sentence { id: Id; idx: number; paragraph_idx: number; block_type: BlockType; text: string; tokens: Token[]; translation?: string; start_ms?: number; end_ms?: number; speaker?: string }
 export type SectionBlock = { type: 'code'; lang?: string; code: string } | { type: 'image'; src: string; alt: string } | { type: 'sentences'; ids: Id[]; block_type: BlockType; paragraph_idx: number };
 /** 当前进程中的译文生成状态；完成后清除，已有译文留在句子上 */
 export interface TranslationState { status: 'running' | 'failed'; completed: number; total: number; error?: string }
@@ -162,7 +170,7 @@ export interface Approval {
 // 技能、记忆、配置
 export interface Skill { id: SkillId; title: string; description: string; tools: string[]; model_tier: Tier; extra_instructions?: string; write_permission: 'inherit' | 'ask'; enabled: boolean }
 export interface Memory { id: Id; type: 'profile' | 'semantic' | 'episodic' | 'procedural'; content: string; subject?: string; confidence: number; source: { type: 'user' | 'agent' | 'consolidation'; ref?: string; label: string }; status: 'active' | 'superseded'; created_at: Ts; updated_at: Ts }
-export interface Provider { id: Id; kind: 'llm' | 'vision' | 'image' | 'tts'; name: string; protocol: string; base_url?: string; auth: 'api_key'; tier?: Tier; model: string; has_secret: boolean; is_default: boolean }
+export interface Provider { id: Id; kind: 'llm' | 'vision' | 'image' | 'tts' | 'asr'; name: string; protocol: string; base_url?: string; auth: 'api_key'; tier?: Tier; model: string; has_secret: boolean; is_default: boolean }
 export interface Profile {
   display_name: string; interests: string[];
   daily_goal_minutes: number; daily_new_cards: number; desired_retention: number;

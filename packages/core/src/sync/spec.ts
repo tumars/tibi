@@ -31,12 +31,12 @@ const CARD_SCHEDULE = ['due', 'stability', 'stability_fast', 'difficulty', 'elap
 /** 顺序就是推送和初始导出的顺序：被引用的表在前 */
 export const TABLES: TableSpec[] = [
   { t: 'user_profile', kind: 'put', pk: ['id'] },
-  { t: 'settings', kind: 'put', pk: ['key'], localGlobs: ['tts.*', 'mcp.*', 'backup.*', 'sync.*', 'onboarding.*', 'reminder.*', 'feeds.*'] },   // 深浅色在 localStorage，不在库里
+  { t: 'settings', kind: 'put', pk: ['key'], localGlobs: ['tts.*', 'mcp.*', 'backup.*', 'sync.*', 'onboarding.*', 'reminder.*', 'feeds.*', 'radio.*'] },   // 深浅色在 localStorage，不在库里
   { t: 'skills', kind: 'put', pk: ['id'] },
   { t: 'tags', kind: 'put', pk: ['id'], natural: { cols: ['name'], where: 'deleted_at IS NULL' } },
   // 订阅列表同步；抓取状态各设备自己的。条目（feed_items）P2 再同步（11 §3.3）
   { t: 'feeds', kind: 'put', pk: ['id'], exclude: ['etag', 'last_modified', 'ttl_minutes', 'last_fetched_at', 'last_ok_at', 'error', 'error_count', 'next_fetch_at'], natural: { cols: ['url'], where: 'deleted_at IS NULL' } },
-  { t: 'documents', kind: 'put', pk: ['id'], exclude: ['original_path', 'cover_path'], natural: { cols: ['content_hash'], where: 'deleted_at IS NULL' } },
+  { t: 'documents', kind: 'put', pk: ['id'], exclude: ['original_path', 'cover_path', 'media_path'], natural: { cols: ['content_hash'], where: 'deleted_at IS NULL' } },
   { t: 'sections', kind: 'put', pk: ['id'] },
   { t: 'sentences', kind: 'put', pk: ['id'] },
   { t: 'document_tags', kind: 'put', pk: ['document_id', 'tag_id'] },

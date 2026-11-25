@@ -54,8 +54,8 @@ export default defineConfig({
     watch: { ignored: ['**/src-tauri/**'] },
   },
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
-  // sqlite-wasm 要按原样加载自己的 wasm（Web 版的 db.worker.ts）
-  optimizeDeps: { exclude: ['@sqlite.org/sqlite-wasm'] },
+  // sqlite-wasm 要按原样加载自己的 wasm（Web 版的 db.worker.ts）；@huggingface/transformers 已预打好浏览器 ESM，跳过 dev 预打包免得首次点本地转写时触发热重载
+  optimizeDeps: { exclude: ['@sqlite.org/sqlite-wasm', '@huggingface/transformers'] },
   // 朗读的 Worker（lib/kokoro.worker.ts）要动态加载 kokoro-js、用 import.meta.url，只能打成 ES 模块
   worker: { format: 'es' },
   build: {

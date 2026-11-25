@@ -1,9 +1,9 @@
 import { Type } from '@sinclair/typebox';
 import { now } from '../../db/driver.js';
 import { method, S, type Ctx, type MethodMap } from '../../rpc/define.js';
-import { TibiError, type DocumentSummary, type Genre } from '../../types.js';
+import { TibiError, type DocumentSummary, type Genre, type Kind } from '../../types.js';
 import { recordUndo, registerUndo } from '../shared/undo.js';
-import { ensureAnnotated, runReanalyze, type ImportInput } from './pipeline.js';
+import { ensureAnnotated, ensureEpisodeMedia, runReanalyze, transcribeEpisode, type ImportInput } from './pipeline.js';
 import { analyzeDocument, translateSection } from './analyze.js';
 import { background, isRunning, startImport, type ImportOutcome } from './imports.js';
 import { DOC_COLS, getDocument, listSections, listSentences, setDocumentTags, toDocument, toSummary, type DocumentRow } from './repo.js';
@@ -29,6 +29,8 @@ const sourceSchema = Type.Union([
   Type.Object({ type: Type.Literal('file'), path: Type.String({ minLength: 1 }) }),
   Type.Object({ type: Type.Literal('images'), paths: Type.Array(Type.String()) }),
   Type.Object({ type: Type.Literal('sample'), id: Type.String() }),
+  Type.Object({ type: Type.Literal('podcast_item'), id: Type.String({ minLength: 1 }) }),
+  Type.Object({ type: Type.Literal('audio'), path: Type.String({ minLength: 1 }), transcript_path: Type.Optional(Type.String()), title: Type.Optional(Type.String()) }),
 ]);
 const hintsSchema = Type.Optional(Type.Object({ kind: Type.Optional(S.kind), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())) }));
 
@@ -39,7 +41,17 @@ export async function submitImport(ctx: Ctx, input: ImportInput): Promise<{ impo
     input.source = { type: 'url', url: c.url!, ...(input.source.title?.trim() ? { title: input.source.title.trim() } : {}) };
   }
   if (input.source.type === 'file' && !ctx.platform.isPathAllowed(input.source.path)) throw new TibiError('permission_denied', '这个文件没有经过选择或拖入');
-  const title = input.source.type === 'url' ? checkUrlShape(input.source.url).host ?? '网页' : input.source.type === 'text' ? (input.source.title || '粘贴的文字') : input.source.type === 'file' ? input.source.path.split(/[\\/]/).pop()! : input.source.type === 'sample' ? (getSample(input.source.id)?.title ?? '示例') : '图片';
+  if (input.source.type === 'audio' && !ctx.platform.isPathAllowed(input.source.path)) throw new TibiError('permission_denied', '这个音频文件没有经过选择或拖入');
+  let title = '图片';
+  if (input.source.type === 'url') title = checkUrlShape(input.source.url).host ?? '网页';
+  else if (input.source.type === 'text') title = input.source.title || '粘贴的文字';
+  else if (input.source.type === 'file') title = input.source.path.split(/[\\/]/).pop()!;
+  else if (input.source.type === 'audio') title = input.source.title || input.source.path.split(/[\\/]/).pop()!;
+  else if (input.source.type === 'sample') title = getSample(input.source.id)?.title ?? '示例';
+  else if (input.source.type === 'podcast_item') {
+    const row = await ctx.db.get<{ title: string }>('SELECT title FROM feed_items WHERE id = ?', [input.source.id]);
+    title = row?.title ?? '电台单集';
+  }
   return startImport(ctx, input, title);
 }
 
@@ -49,7 +61,7 @@ async function requireDoc(ctx: Ctx, id: string): Promise<DocumentRow> {
   return d;
 }
 
-export interface ListOpts { kind?: 'article' | 'book'; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; status?: 'unread' | 'reading' | 'done'; cursor?: string; limit?: number; /** all：连从订阅里直接读的（不在书架里）也算 */ shelf?: 'shelved' | 'all' }
+export interface ListOpts { kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; status?: 'unread' | 'reading' | 'done'; cursor?: string; limit?: number; /** all：连从订阅里直接读的（不在书架里）也算 */ shelf?: 'shelved' | 'all' }
 
 export async function listDocuments(ctx: Ctx, opts: ListOpts): Promise<{ items: DocumentSummary[]; total: number; cursor?: string }> {
   const conds = ['d.deleted_at IS NULL', 'd.is_archived = ?']; const params: (string | number)[] = [opts.archived ? 1 : 0];
@@ -135,7 +147,43 @@ export const documentsMethods: MethodMap = {
     if (d.source_type === 'sample') throw new TibiError('conflict', '内置示例已经带了总结');
     await queueAnalysis(ctx, d.id);
     return { ok: true as const };
-  }, '（重新）生成总结、短语、长难句，在后台做；导入时不自动做，用户在总结面板里点"现在生成 / 重新生成"，完成后 data.changed(documents)'),
+  }, '（重新）生成总结、短语、长难句（电台单集为导听、章节、听前词与口语表达），在后台做，完成后 data.changed(documents)'),
+  'documents.playback': method(Type.Object({ id: S.id, playback_ms: Type.Integer({ minimum: 0 }), duration_ms: Type.Optional(Type.Integer({ minimum: 0 })) }), async (p, ctx) => {
+    const d = await requireDoc(ctx, p.id);
+    const t = now();
+    const dur = p.duration_ms && p.duration_ms > 0 ? p.duration_ms : (d.duration_ms ? Number(d.duration_ms) : 0);
+    const prog = dur > 0 ? Math.min(1, Math.max(0, p.playback_ms / dur)) : Number(d.progress);
+    await ctx.db.run(
+      'UPDATE documents SET playback_ms = ?, duration_ms = COALESCE(?, duration_ms), progress = CASE WHEN ? > progress THEN ? ELSE progress END, last_read_at = ?, updated_at = ? WHERE id = ?',
+      [p.playback_ms, p.duration_ms && p.duration_ms > 0 ? p.duration_ms : null, prog, prog, t, t, p.id],
+    );
+    return { ok: true as const };
+  }, '静默保存电台单集播放进度（不写撤销记录，供跨设备续播）'),
+  'documents.ensureMedia': method(Type.Object({ id: S.id }), async (p, ctx) => {
+    await requireDoc(ctx, p.id);
+    return ensureEpisodeMedia(ctx, p.id);
+  }, '确保电台单集音频已缓存在本机，供本地离线转写或离线播放使用'),
+  'documents.transcribe': method(Type.Object({
+    id: S.id,
+    transcript_path: Type.Optional(Type.String({ minLength: 1 })),
+    segments: Type.Optional(Type.Array(Type.Object({
+      text: Type.String(),
+      start_ms: Type.Number({ minimum: 0 }),
+      end_ms: Type.Number({ minimum: 0 }),
+      speaker: Type.Optional(Type.String()),
+    }))),
+    duration_ms: Type.Optional(Type.Integer({ minimum: 0 })),
+    transcript_source: Type.Optional(Type.Union([Type.Literal('local_asr'), Type.Literal('cloud_asr'), Type.Literal('manual')])),
+  }), async (p, ctx) => {
+    await requireDoc(ctx, p.id);
+    return transcribeEpisode(ctx, {
+      document_id: p.id,
+      transcript_path: p.transcript_path,
+      segments: p.segments,
+      duration_ms: p.duration_ms,
+      transcript_source: p.transcript_source,
+    });
+  }, '对已有电台单集运行云端 ASR 转写、写入本地离线转写结果，或导入本地 .vtt/.srt 字幕文件'),
 };
 
 async function queueAnalysis(ctx: Ctx, document_id: string): Promise<boolean> {

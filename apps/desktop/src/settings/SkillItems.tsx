@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Switch } from '../components/Switch';
+import { Badge, InfoTip } from '../components/ui';
 import { storeSecret } from '../lib/providers';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { toast } from '../store/ui';
@@ -24,11 +25,11 @@ export function SkillItems() {
     try { const s = await rpc.call('skills.update', { id, patch: p }); setSkills(l => l.map(x => (x.id === id ? s : x))); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
   return <>
-    <div className="item"><div className="d">{tl('下面这些由模型完成，每项可以单独选快速 / 深入档。导入文章不用模型，这里没有它。')}</div></div>
     {skills.map(s => <div key={s.id} className="item col">
       <button className="skrow" onClick={() => setOpen(open === s.id ? undefined : s.id)} aria-expanded={open === s.id}>
         <span className="t">{s.id === 'tibi' ? tl('和 Tibi 对话') : s.title}</span>
-        <span className="lbl">{s.model_tier === 'deep' ? tl('深入') : tl('快速')}{s.enabled ? '' : tl(' · 已关闭')}</span>
+        <Badge tone={s.model_tier === 'deep' ? 'accent' : 'neutral'}>{s.model_tier === 'deep' ? tl('深入') : tl('快速')}</Badge>
+        {!s.enabled && <Badge tone="warn">{tl('已关闭')}</Badge>}
         <span style={{ flex: 1 }} /><ChevronDown size={14} style={{ transform: open === s.id ? 'rotate(180deg)' : undefined }} />
       </button>
       {open === s.id && <div className="skbody">
@@ -36,13 +37,13 @@ export function SkillItems() {
         <div className="skf"><span>{tl('模型档')}</span><div className="seg">{(['fast', 'deep'] as const).map(t => <button key={t} className={s.model_tier === t ? 'on' : ''} onClick={() => void patch(s.id, { model_tier: t })}>{t === 'fast' ? tl('快速') : tl('深入')}</button>)}</div></div>
         <div className="skf"><span>{tl('写入数据前')}</span><div className="seg"><button className={s.write_permission === 'inherit' ? 'on' : ''} onClick={() => void patch(s.id, { write_permission: 'inherit' })}>{tl('按权限模式')}</button><button className={s.write_permission === 'ask' ? 'on' : ''} onClick={() => void patch(s.id, { write_permission: 'ask' })}>{tl('每次都问')}</button></div></div>
         {s.id !== 'tibi' && <div className="skf"><span>{tl('启用')}</span><Switch label={tl('启用')} checked={s.enabled} onChange={v => void patch(s.id, { enabled: v })} /></div>}
-        <label className="skf col"><span>{tl('附加要求（会加在它的说明后面）')}</span>
+        <label className="skf col"><span className="item-head">{tl('附加指令')}<InfoTip content={tl('将追加至该任务的系统说明末尾。')} /></span>
           <textarea className="input" rows={2} defaultValue={s.extra_instructions ?? ''} placeholder={s.id === 'tutor' ? tl('例如：讲语法时少用术语，多举例') : tl('例如：回答尽量简短')} onBlur={e => { if ((e.target.value || '') !== (s.extra_instructions ?? '')) void patch(s.id, { extra_instructions: e.target.value }); }} /></label>
         {s.id === 'scout' && <WebSearchItem />}
         {s.id === 'scout' && <FeedItems />}
         <div className="skacts">
-          {s.id === 'archivist' && <button className="btn sm pri" onClick={async () => { try { const r = await rpc.call('skills.runNow', { id: 'archivist', input: tl('整理最近的学习事件和对话，更新记忆') }); toast(tl('Tibi 正在整理记忆'), { action: { label: tl('看进度'), run: () => nav(`/chat/${r.conversation_id}`) } }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } }}>{tl('现在整理记忆')}</button>}
-          {s.id === 'insight' && <button className="btn sm" onClick={() => nav('/stats')}>{tl('去统计页看洞察')}</button>}
+          {s.id === 'archivist' && <button className="btn sm pri" onClick={async () => { try { const r = await rpc.call('skills.runNow', { id: 'archivist', input: tl('整理最近的学习事件和对话，更新记忆') }); toast(tl('Tibi 正在整理记忆'), { action: { label: tl('看进度'), run: () => nav(`/chat/${r.conversation_id}`) } }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } }}>{tl('立即整理记忆')}</button>}
+          {s.id === 'insight' && <button className="btn sm" onClick={() => nav('/stats')}>{tl('查看统计洞察')}</button>}
           <button className="btn sm" onClick={async () => { try { await rpc.call('skills.reset', { id: s.id }); load(); toast(tl('已恢复默认')); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } }}>{tl('恢复默认')}</button>
         </div>
       </div>}
@@ -63,23 +64,27 @@ function WebSearchItem() {
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
   if (!cfg) return null;
-  return <div className="skf col"><span>{tl('网页搜索')}</span>
+  const searchTip = cfg.provider === 'deepseek'
+    ? (cfg.deepseek_ready ? tl('复用已连接的 DeepSeek Key，单次约 ¥0.005。') : tl('未连接官方 DeepSeek，当前仅使用订阅源文章。'))
+    : cfg.provider === 'tavily'
+    ? tl('费用由 Tavily 账户结算（含免费额度）。')
+    : tl('仅从订阅源筛选文章，不执行网页搜索。');
+  return <div className="skf col">
+    <span className="item-head">{tl('网页搜索')}<InfoTip content={searchTip} /></span>
     <div className="seg">{([['deepseek', 'DeepSeek'], ['tavily', 'Tavily'], ['off', tl('不搜索')]] as const).map(([id, label]) => <button key={id} className={cfg.provider === id ? 'on' : ''} onClick={() => void choose(id)}>{label}</button>)}</div>
-    {cfg.provider === 'deepseek' && <p className="lbl">{cfg.deepseek_ready ? tl('用已连接的 DeepSeek Key，每次约 ¥0.005。') : tl('还没连接官方 DeepSeek。连接之前只用订阅里的文章。')}</p>}
-    {cfg.provider === 'tavily' && <>
-      <p className="lbl">{tl('费用在你的 Tavily 账户结算（有免费额度）。')}</p>
-      <div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1 }} type="password" value={key} onChange={e => setKey(e.target.value)} placeholder={cfg.tavily_ready ? tl('已保存，留空不改') : 'Tavily API Key'} aria-label="Tavily API Key" autoComplete="off" />
-        <button className="btn sm" disabled={!key.trim()} onClick={() => void saveKey()}>{tl('保存')}</button></div>
-    </>}
-    {cfg.provider === 'off' && <p className="lbl">{tl('只从订阅里找文章，不搜索网页。')}</p>}
+    {cfg.provider === 'deepseek' && !cfg.deepseek_ready && <p className="lbl">{tl('未连接官方 DeepSeek，当前仅使用订阅源。')}</p>}
+    {cfg.provider === 'tavily' && <div style={{ display: 'flex', gap: 8 }}>
+      <input className="input" style={{ flex: 1 }} type="password" value={key} onChange={e => setKey(e.target.value)} placeholder={cfg.tavily_ready ? tl('已保存，留空不改') : 'Tavily API Key'} aria-label="Tavily API Key" autoComplete="off" />
+      <button className="btn sm" disabled={!key.trim()} onClick={() => void saveKey()}>{tl('保存')}</button>
+    </div>}
   </div>;
 }
 
 /** 找文章的候选来自订阅：管理放在侧栏「订阅」页 */
 function FeedItems() {
   const nav = useNavigate();
-  return <div className="skf col"><span>{tl('订阅')}</span>
-    <p className="lbl">{tl('找文章会先从你的订阅里挑。加订阅、开关和删除都在侧栏「订阅」页。')}</p>
-    <div><button className="btn sm" onClick={() => nav('/feeds/manage')}>{tl('去管理订阅')}</button></div>
+  return <div className="skf">
+    <span className="item-head">{tl('订阅源')}<InfoTip content={tl('找文章优先从已启用的订阅源筛选。')} /></span>
+    <button className="btn sm" onClick={() => nav('/feeds/manage')}>{tl('管理订阅')}</button>
   </div>;
 }

@@ -88,7 +88,7 @@ export const S = {
   id: Type.String({ minLength: 1 }),
   ts: Type.Integer({ minimum: 0 }),
   status: Type.Union([0, 1, 2, 3, 4, 5, 97, 98].map(n => Type.Literal(n))),
-  kind: Type.Union([Type.Literal('article'), Type.Literal('book')]),
+  kind: Type.Union([Type.Literal('article'), Type.Literal('book'), Type.Literal('episode')]),
   genre: Type.Union(['tech', 'news', 'lit', 'academic', 'general'].map(s => Type.Literal(s))),
   cardType: Type.Union(['recognize', 'choice', 'cloze'].map(s => Type.Literal(s))),
   rating: Type.Union([1, 2, 3, 4].map(n => Type.Literal(n))),

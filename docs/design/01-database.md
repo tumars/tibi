@@ -100,7 +100,8 @@ learning_events        audio_cache        daily_stats
 | progress | REAL | 全书阅读进度 0–1 |
 | last_section_id | TEXT | 上次阅读的章节 |
 | is_favorite / is_archived | INTEGER | |
-| shelved | INTEGER | 1 = 在书架里（默认）；0 = 从订阅里直接读的，书架和书架计数里不显示（迁移 0008，11 §5.2） |
+| shelved | INTEGER | 1 = 在书架里（默认）；0 = 从订阅或电台直接打开的，书架和书架计数里不显示（迁移 0008，11 §5.2、17 §4） |
+| media_url / media_path / duration_ms / playback_ms / transcript_source | TEXT / INTEGER | 电台单集（`kind = 'episode'`，迁移 `0010_podcasts.sql`，见 [17](17-podcast-radio.md)）：音频源 URL、本机缓存路径（`media_path` 不同步）、总时长与上次播放位置（毫秒）、逐字稿来源（`rss_vtt` / `rss_srt` / `rss_json` / `rss_txt` / `asr_cloud` / `manual` / `none`） |
 | created_at / last_read_at / finished_at | INTEGER | |
 | deleted_at | INTEGER NULL | 软删；书架不显示，撤销时清空 |
 
@@ -133,6 +134,7 @@ learning_events        audio_cache        daily_stats
 | text | TEXT | 句子原文 |
 | tokens | TEXT(JSON) | 分词结果缓存：`[{t:"went", l:"go", s:12, e:16}]`（文本、lemma、偏移） |
 | translation | TEXT | 句子翻译缓存（按需生成；"译文"开关打开时整篇批量生成） |
+| start_ms / end_ms / speaker | INTEGER / TEXT | 电台单集句级时间戳（毫秒）与发言人标识（迁移 `0010_podcasts.sql`，文章/书为 NULL） |
 
 > 设计取舍：分词结果以 JSON 缓存在句子上，而不是建 tokens 大表——渲染时一次读出整篇，写入简单；词频统计等聚合查询由 term_contexts 承担。
 
@@ -442,12 +444,13 @@ learning_events        audio_cache        daily_stats
 | consolidated | INTEGER | 是否已被整合进记忆 |
 | created_at | INTEGER | |
 
-### feeds（订阅，迁移 `0007_feeds.sql`，见 [11](11-rss-reader.md)）
+### feeds（订阅与电台，迁移 `0007_feeds.sql`、`0010_podcasts.sql`，见 [11](11-rss-reader.md)、[17](17-podcast-radio.md)）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | TEXT PK | 内置源用固定 ID（`builtin-hn` 等），两台设备种出来的是同一条 |
+| id | TEXT PK | 内置源用固定 ID（`builtin-hn`、`builtin-pod-6min` 等），两台设备种出来的是同一条 |
 | url | TEXT | 订阅地址；没删的里唯一（同步的自然键） |
-| site_url / title / folder | TEXT | `title_custom = 1` 时不用源里的标题覆盖（改过名、内置源） |
+| kind | TEXT | `'article'`（默认，文章订阅）/ `'podcast'`（播客电台，迁移 0010） |
+| site_url / title / folder / artwork_url / language / description | TEXT | `title_custom = 1` 时不用源里的标题覆盖（改过名、内置源）；后三项用于电台封面与简介（迁移 0010） |
 | builtin / enabled | INTEGER | |
 | etag / last_modified / ttl_minutes / last_fetched_at / last_ok_at / error / error_count / next_fetch_at | | 抓取状态，本机的，不同步 |
 | created_at / updated_at / deleted_at | INTEGER | 软删 |
@@ -463,6 +466,7 @@ learning_events        audio_cache        daily_stats
 | est_level | TEXT | 按摘要词频估的文本级别 |
 | state | TEXT | `new` / `seen` / `saved` / `dismissed` |
 | document_id | TEXT | 导入后指向书架里的文档（按链接回填） |
+| audio_url / audio_mime / audio_bytes / duration_ms / transcript_url / transcript_type / chapters_url / artwork_url / season / episode | TEXT / INTEGER | 电台单集音轨、时长、官方 `<podcast:transcript>` 与 `<podcast:chapters>` 等元数据（迁移 `0010_podcasts.sql`） |
 | seen_at / created_at / updated_at / deleted_at | INTEGER | |
 
 保留期：没保存、没导入的条目超过 60 天或每源超过 300 条就硬删（本机派生数据，P1 不同步；P2 同步时改软删）。

@@ -453,7 +453,7 @@ export function TrayApp() {
               </>
             ) : !snap.recentDoc && (
               <div className="tray-empty-hint">
-                {tl('输入英文单词、变形或中文即可离线查词；也可以粘贴网址导入书架，或按 ⌘↵ 直接问 Tibi。')}
+                {tl('输入单词离线查词，或粘贴网址导入书架。')}
               </div>
             )}
           </>
@@ -462,7 +462,7 @@ export function TrayApp() {
         {intent.kind === 'dict' && (
           <>
             {sug && !sug.available ? (
-              <div className="tray-empty-hint">{tl('这台设备上没有词典')}</div>
+              <div className="tray-empty-hint">{tl('当前设备尚未安装离线词典。')}</div>
             ) : (
               <>
                 {items.length > 1 && locked && (
@@ -473,7 +473,7 @@ export function TrayApp() {
                 )}
                 {!locked && items.length > 0 && (
                   <div className="tray-sugs" role="listbox" aria-label={tl('联想')}>
-                    {sug?.mode === 'similar' && <div className="dx-hint" style={{ padding: '2px 8px 4px' }}>{tl('没有这个词，是不是要找：')}</div>}
+                    {sug?.mode === 'similar' && <div className="dx-hint" style={{ padding: '4px 8px' }}>{tl('未找到该词，相近词条：')}</div>}
                     {items.slice(0, 5).map((it, i) => (
                       <button
                         type="button"
@@ -514,7 +514,7 @@ export function TrayApp() {
           <div className="tray-intent">
             <div className="tray-intent-head">
               <Globe size={16} />
-              <span>{tl('导入这篇网址到书架')}</span>
+              <span>{tl('导入网址')}</span>
             </div>
             <div className="tray-intent-sub">{intent.url}</div>
             {importing && (
@@ -533,7 +533,7 @@ export function TrayApp() {
                 </button>
               )}
               <button type="button" className="btn sm" onClick={() => openMain(`/?import=${encodeURIComponent(intent.url)}`)}>
-                {tl('在主窗口中确认')}
+                {tl('在主窗口确认')}
               </button>
             </div>
           </div>
@@ -646,7 +646,7 @@ function CompactEntry({
     return (
       <div className="tray-entry">
         <div className="tray-word-head"><h1>{word}</h1></div>
-        <div className="lbl">{tl('词典里没有这个词。')}</div>
+        <div className="lbl">{tl('词典未收录该词条。')}</div>
         {data.similar.length > 0 && (
           <div className="tray-chips">
             {data.similar.map(s => (
@@ -676,10 +676,10 @@ function CompactEntry({
         <SpeakButtons text={head} size={14} />
       </div>
 
-      {data.via && <div className="lbl">{tl('“{v}”是变形，下面是原形', { v: data.via })}</div>}
+      {data.via && <div className="lbl">{tl('“{v}”的原形词条', { v: data.via })}</div>}
       {entry?.base && (
         <div className="lbl">
-          {tl('也是这个词的变形：')}
+          {tl('原形：')}
           <button type="button" className="linkbtn" style={{ fontSize: 12 }} onClick={() => onLook(entry.base!)}>{entry.base}</button>
         </div>
       )}

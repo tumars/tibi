@@ -3,9 +3,11 @@ import { Check } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Fox } from '../components/Fox';
+import { KeyGuide } from '../components/KeyGuide';
 import { sampleMeta } from '../components/Samples';
 import { GenreBadge } from '../components/TibiIcons';
-import { PRESETS, saveProvider } from '../lib/providers';
+import { InfoTip } from '../components/ui';
+import { PRESETS, saveProvider, saveSiliconFlowBundle } from '../lib/providers';
 import { classifyInput, GENRE_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, isWeb, rpc } from '../rpc';
 import { useCore } from '../store/core';
@@ -65,8 +67,10 @@ export function Onboarding() {
         </aside>
         <section className="right">
           {step === 1 && <div className="pane">
-            <h1>{tl('先认识一下')}</h1>
-            <p className="oblead">{tl('用来挑文章。可以跳过，之后在设置里改。')}</p>
+            <div className="pane-head">
+              <h1>{tl('先认识一下')}</h1>
+              <InfoTip content={tl('用于推荐阅读材料，可跳过并随时在设置中修改。')} />
+            </div>
             <div className="f"><label className="t" htmlFor="nick">{tl('Tibi 怎么称呼你')}</label><input id="nick" className="input" value={nick} maxLength={20} placeholder={tl('比如：小孟')} onFocus={() => setFox('listening')} onBlur={() => setFox('idle')} onChange={e => { setNick(e.target.value); if (e.target.value.trim()) setSay(tl('{v0}，你好。', { v0: e.target.value.trim() })); }} /></div>
             <div className="f"><span className="t">{tl('你平时常读的材料（可多选）')}</span><div className="opts">{MATS.map(([v, l]) => <button key={v} className={`chip${mats.includes(v) ? ' on' : ''}`} onClick={() => setMats(m => m.includes(v) ? m.filter(x => x !== v) : [...m, v])}>{l}</button>)}</div></div>
           </div>}
@@ -133,8 +137,10 @@ function FirstRead({ onFox, onSay, onOpen, onSkip, onBack }: { onFox: (s: string
 
   return <>
     <div className="pane">
-      <h1>{tl('读第一篇')}</h1>
-      <p className="oblead">{tl('示例自带总结，不连模型也能查词、标注。也可以粘贴网址或一段英文。')}</p>
+      <div className="pane-head">
+        <h1>{tl('读第一篇')}</h1>
+        <InfoTip content={tl('示例文章内置总结，未连接模型亦可体验查词与标注。')} />
+      </div>
       <div className="samples2">{samples.map(s => <button key={s.id} className={pick === s.id ? 'on' : ''} onClick={() => choose(s)}><span className="g"><GenreBadge genre={s.genre} book={!!s.chapters} label={tl('{v0} · 示例', { v0: GENRE_NAMES[s.genre] ?? s.genre })} /></span><span className="t">{s.title}</span><span className="m">{sampleMeta(s)}</span></button>)}</div>
       <div className="or">{tl('或者')}</div>
       <div className="urlrow"><input className="input" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !isImeKey(e.nativeEvent)) importText(); }} placeholder={tl('粘贴网址，或一段英文')} /><button className="btn" onClick={importText} disabled={!text.trim()}>{tl('导入')}</button></div>
@@ -155,37 +161,74 @@ function FirstRead({ onFox, onSay, onOpen, onSkip, onBack }: { onFox: (s: string
 
 /* ---------- 连接模型（?step=3） ---------- */
 function ConnectModel({ onFox, onSay, onDone, onCancel, doneLabel, onBack }: { onFox: (s: string) => void; onSay: (s: string) => void; onDone: () => void; onCancel: () => void; doneLabel: string; onBack?: () => void }) {
-  const [prov, setProv] = useState<'deepseek' | 'custom'>('deepseek');
+  const [prov, setProv] = useState<'deepseek' | 'siliconflow' | 'custom'>('deepseek');
+  const [includeAsr, setIncludeAsr] = useState(true);
   const [key, setKey] = useState('');
   const [base, setBase] = useState('');
   const [fast, setFast] = useState('');
   const [conn, setConn] = useState<{ state: 'run' | 'ok' | 'err'; text: string }>();
-  const p = prov === 'deepseek' ? PRESETS.deepseek : { name: 'Custom', base_url: base, fast, deep: fast };
+  const p = prov === 'deepseek' ? PRESETS.deepseek : prov === 'siliconflow' ? PRESETS.siliconflow : { name: 'Custom', base_url: base, fast, deep: fast };
   const test = async () => {
     if (!key.trim()) { setConn({ state: 'err', text: tl('先填 API Key') }); onFox('surprised'); setTimeout(() => onFox('idle'), 1200); return; }
     if (prov === 'custom' && (!base.trim() || !fast.trim())) { setConn({ state: 'err', text: tl('填上 Base URL 和模型名') }); return; }
     setConn({ state: 'run', text: tl('正在连接…') }); onFox('thinking');
     try {
-      const { provider, keyStored } = await saveProvider({ name: p.name, base_url: p.base_url, model: p.fast, tier: 'fast', is_default: true, key });
-      if (p.deep && p.deep !== p.fast) await saveProvider({ name: p.name, base_url: p.base_url, model: p.deep, tier: 'deep', is_default: true, key });
+      let testId: string;
+      let keyStored: boolean;
+      if (prov === 'siliconflow') {
+        const res = await saveSiliconFlowBundle({ key: key.trim(), includeAsr, isDefaultLlm: true, isDefaultAsr: true });
+        testId = res.fast.id;
+        keyStored = res.keyStored;
+      } else {
+        const { provider, keyStored: stored } = await saveProvider({ name: p.name, base_url: p.base_url, model: p.fast, tier: 'fast', is_default: true, key: key.trim() });
+        if (p.deep && p.deep !== p.fast) await saveProvider({ name: p.name, base_url: p.base_url, model: p.deep, tier: 'deep', is_default: true, reuse_secret_from: provider.id });
+        testId = provider.id;
+        keyStored = stored;
+      }
       if (!keyStored) { setConn({ state: 'err', text: tl('浏览器模式不能写钥匙串。dev 下用环境变量 TIBI_SECRET_<REF>') }); onFox('idle'); return; }
-      const r = await rpc.call('providers.test', { id: provider.id });
+      const r = await rpc.call('providers.test', { id: testId });
       if (r.ok) { setConn({ state: 'ok', text: tl('连接成功 · {v0}{v1}', { v0: r.model ?? p.fast, v1: r.latency_ms ? ` · ${r.latency_ms} ms` : '' }) }); onFox('happy'); onSay(tl('连接成功。')); void useCore.getState().refresh(); }
       else { setConn({ state: 'err', text: tl('连接失败：{v0}', { v0: r.error ?? '' }) }); onFox('idle'); }
     } catch (e) { setConn({ state: 'err', text: errorInfo(e).message }); onFox('idle'); }
   };
   return <>
     <div className="pane">
-      <h1>{tl('连接一个模型')}</h1>
-      <p className="oblead">{isWeb() ? tl('讲解、总结和语境释义需要模型。查词、标注和复习不需要。Key 只存在这个浏览器里。') : tl('讲解、总结和语境释义需要模型。查词、标注和复习不需要。Key 只存在这台电脑上。')}</p>
+      <div className="pane-head">
+        <h1>{tl('连接模型')}</h1>
+        <InfoTip content={isWeb() ? tl('用于文章总结、语境释义与问答；查词、标注与复习可离线使用。API Key 仅保存在当前浏览器。') : tl('用于文章总结、语境释义与问答；查词、标注与复习可离线使用。API Key 仅保存在本机。')} />
+      </div>
       <div className="prov">
-        <button className={prov === 'deepseek' ? 'on' : ''} onClick={() => setProv('deepseek')}><b>DeepSeek <span className="tag">{tl('推荐')}</span></b><span>{tl('便宜、中文好；快速档 {fast}，深入档 {deep}', { fast: PRESETS.deepseek.fast, deep: PRESETS.deepseek.deep })}</span></button>
-        <button className={prov === 'custom' ? 'on' : ''} onClick={() => setProv('custom')}><b>{tl('其他兼容 OpenAI 的服务')}</b><span>{tl('自己填 Base URL 和模型名')}</span></button>
+        <button className={prov === 'deepseek' ? 'on' : ''} onClick={() => { setProv('deepseek'); setConn(undefined); }}>
+          <b>DeepSeek <span className="tag">{tl('推荐')}</span></b>
+          <span>{tl('官方直连、便宜、中文好，支持网页搜索')}</span>
+        </button>
+        <button className={prov === 'siliconflow' ? 'on' : ''} onClick={() => { setProv('siliconflow'); setConn(undefined); }}>
+          <b>{tl('硅基流动')} <span className="tag">{tl('一站式')}</span></b>
+          <span>{tl('国内直连，一把 Key 配齐 DeepSeek 与免费播客转写')}</span>
+        </button>
+        <button className={`full${prov === 'custom' ? ' on' : ''}`} onClick={() => { setProv('custom'); setConn(undefined); }}>
+          <b>{tl('其他兼容 OpenAI 的服务')}</b>
+          <span>{tl('自己填 Base URL 和模型名')}</span>
+        </button>
       </div>
       {prov === 'custom' && <div className="keyrow" style={{ marginBottom: 8 }}><input className="input" value={base} onChange={e => setBase(e.target.value)} placeholder={tl('Base URL，如 https://api.example.com/v1')} /><input className="input" value={fast} onChange={e => setFast(e.target.value)} placeholder={tl('模型名')} /></div>}
       <div className="keyrow"><input className="input" type="password" autoComplete="off" value={key} onChange={e => setKey(e.target.value)} placeholder={tl('sk-…（只存在本机）')} /><button className="btn" onClick={test}>{tl('测试连接')}</button></div>
+      {prov === 'siliconflow' && (
+        <label className="ob-check">
+          <input type="checkbox" checked={includeAsr} onChange={e => setIncludeAsr(e.target.checked)} />
+          <span>{tl('同时开通免费电台语音转写（SenseVoiceSmall，共用此 Key）')}</span>
+        </label>
+      )}
+      {prov !== 'custom' && <KeyGuide kind={prov} compact />}
       <div className={`conn${conn ? ' ' + conn.state : ''}`}>{conn?.state === 'run' && <span className="spin" />}{conn?.state === 'ok' && <Check size={15} strokeWidth={2.5} />}{conn?.text}</div>
       {prov === 'deepseek' && <div className="tiers"><div><span>{tl('快速档 · 讲解、语境释义、日常问答')}</span><span>{PRESETS.deepseek.fast}</span></div><div><span>{tl('深入档 · 长难句、学习洞察、出题')}</span><span>{PRESETS.deepseek.deep}</span></div></div>}
+      {prov === 'siliconflow' && (
+        <div className="tiers">
+          <div><span>{tl('快速档 · 讲解、语境释义、日常问答')}</span><span>{PRESETS.siliconflow.fast}</span></div>
+          <div><span>{tl('深入档 · 长难句、学习洞察、出题')}</span><span>{PRESETS.siliconflow.deep}</span></div>
+          {includeAsr && <div><span>{tl('电台转写 · 无字幕播客免费转逐字稿')}</span><span>{PRESETS.siliconflow.asrModel}</span></div>}
+        </div>
+      )}
     </div>
     <footer className="foot">
       {onBack && <button className="btn" onClick={onBack}>{tl('上一步')}</button>}

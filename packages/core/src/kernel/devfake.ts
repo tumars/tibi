@@ -9,7 +9,10 @@ import type { ResolvedModel } from './agent.js';
 const MODEL = { id: 'dev-fake', name: 'Dev Fake', api: 'openai-completions', provider: 'dev', baseUrl: 'http://dev', input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 100_000, maxTokens: 4000 } as unknown as Model<Api>;
 
 function reply(all: string, last: string): string {
-  if (all.includes('"summary"')) return JSON.stringify({ summary: '（假模型）这篇文章讲了一件事，这里是三句中文总结的占位。', keywords: ['example'], advice: '（假模型）生词不多，可以直接读。' });
+  if (all.includes('"chapters"')) return JSON.stringify({ chapters: [{ start_sec: 0, title_zh: '开场与话题引入', title_en: 'Intro & Setup', summary: '（假模型）主持人介绍本期主题与背景。' }, { start_sec: 45, title_zh: '核心观点展开', title_en: 'Core Discussion', summary: '（假模型）嘉宾拆解关键问题与案例。' }] });
+  if (all.includes('"pre_vocab"')) return JSON.stringify({ pre_vocab: [] });
+  if (all.includes('"spoken_expressions"')) return JSON.stringify({ spoken_expressions: [] });
+  if (all.includes('"summary"')) return JSON.stringify({ summary: '（假模型）这期内容讲清了核心主题与主要观点，这里是中文总结占位。', keywords: ['example'], advice: '（假模型）语速适中，建议先扫一遍导听再尝试盲听。' });
   if (all.includes('"phrases"')) return JSON.stringify({ phrases: [] });
   if (all.includes('"hard_sentences"')) return JSON.stringify({ hard_sentences: [] });
   if (all.includes('JSON 字符串数组')) { try { const arr = JSON.parse(last.slice(last.indexOf('['), last.lastIndexOf(']') + 1)) as string[]; return JSON.stringify(arr.map((_, i) => `（假译文 ${i + 1}）`)); } catch { return '[]'; } }
@@ -24,11 +27,14 @@ function reply(all: string, last: string): string {
 const stream: StreamFn = (model, context, options) => {
   const s = createAssistantMessageEventStream();
   const msgs = (context as unknown as { messages: { role: string; content: unknown }[] }).messages;
-  const all = JSON.stringify(msgs);
+  const textOf = (v: unknown): string => typeof v === 'string' ? v : Array.isArray(v) ? v.map(x => (x as { text?: string }).text ?? '').join('') : '';
+  const sysRaw = (context as unknown as { systemPrompt?: unknown }).systemPrompt;
+  const sys = typeof sysRaw === 'string' ? sysRaw : '';
+  const all = [sys, ...msgs.map(m => textOf(m.content))].join('\n');
   const lastUser = [...msgs].reverse().find(m => m.role === 'user');
   const c = lastUser?.content;
   // 只看用户说的话，去掉界面附上的附件
-  const last = (typeof c === 'string' ? c : Array.isArray(c) ? c.map(x => (x as { text?: string }).text ?? '').join('') : '').replace(/<attachment>[\s\S]*?<\/attachment>/g, '').trim();
+  const last = textOf(c).replace(/<attachment>[\s\S]*?<\/attachment>/g, '').trim();
   // 走通对话卡片和写入："卡片 查词 upshot"、"卡片 辨析 a b"、"卡片 练习"、"卡片 加词 a b"（写入回执）、"卡片 记住 一句话"（审批卡）、"卡片 反问"、"卡片 找文章 网址…"（反问卡）、"卡片 设置"、"卡片 改设置 1.2"、"卡片 改预算 30"（每次都问）
   // 主对话里不常用的工具是按需加载的：像真模型一样先 tool_search 搜出来，下一轮再调
   const tail = msgs[msgs.length - 1] as { role: string; toolName?: string } | undefined;

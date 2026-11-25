@@ -1,5 +1,5 @@
 import type { FeedCandidate, FeedItemView, FeedView } from '@tibi/core';
-import { ArrowLeft, BookmarkCheck, BookmarkPlus, Check, ExternalLink, Plus, RefreshCw, Settings2, X } from 'lucide-react';
+import { BookmarkCheck, BookmarkPlus, Check, ExternalLink, Plus, RefreshCw, Settings2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate, useSearchParams } from 'react-router';
 import { Empty } from '../components/Empty';
@@ -7,6 +7,7 @@ import { Modal } from '../components/Modal';
 import { Pager } from '../components/Pager';
 import { Top } from '../components/Shell';
 import { ObjectMenuButton, useObjectMenu } from '../components/ObjectMenu';
+import { Alert, SettingItem } from '../components/ui';
 import { copyText, openSource } from '../lib/contextActions';
 import { Switch } from '../components/Switch';
 import { tl } from '../lib/i18n';
@@ -40,11 +41,11 @@ export function Feeds() {
   const [busy, setBusy] = useState<Record<string, string>>({});   // 条目 → 导入进度
   const pending = useRef(new Map<string, { item: string; open: boolean }>());   // import_id → 条目
 
-  const loadFeeds = useCallback(() => rpc.call('feeds.list', {}).then(setFeeds, () => setFeeds([])), []);
+  const loadFeeds = useCallback(() => rpc.call('feeds.list', { kind: 'article' }).then(setFeeds, () => setFeeds([])), []);
   const loadItems = useCallback(async () => {
     try {
       if (!page) asOf.current = Date.now();
-      const r = await rpc.call('feeds.items', { feed_id: feedId, folder, filter, ...(page ? { cursor: String(page * PAGE), as_of: asOf.current } : {}), limit: PAGE });
+      const r = await rpc.call('feeds.items', { kind: 'article', feed_id: feedId, folder, filter, ...(page ? { cursor: String(page * PAGE), as_of: asOf.current } : {}), limit: PAGE });
       // 这一页清空了（都标已读、都不感兴趣）就往前翻
       if (r.items.length === 0 && page > 0) { setPg({ key, n: Math.max(0, Math.ceil(r.total / PAGE) - 1) }); return; }
       // 旧版 core 不给 total：按有没有下一页估，至少能往后翻
@@ -114,12 +115,12 @@ export function Feeds() {
   ], `${key}|${page}`);
   const refresh = async () => {
     setRefreshing(true);
-    try { const r = await rpc.call('feeds.refresh', { feed_ids: feedId ? [feedId] : undefined, force: true }); await restart(); if (r.failed) toast(tl('{n} 个源没刷新成功，在管理里看原因', { n: r.failed })); }
+    try { const r = await rpc.call('feeds.refresh', { ...(feedId ? { feed_ids: [feedId] } : { kind: 'article' }), force: true }); await restart(); if (r.failed) toast(tl('{n} 个源没刷新成功，在管理里看原因', { n: r.failed })); }
     catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
     setRefreshing(false);
   };
   const markAll = async () => {
-    try { await rpc.call('feeds.mark', feedId ? { feed_id: feedId, state: 'seen' } : { all: true, state: 'seen' }); await restart(); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    try { await rpc.call('feeds.mark', feedId ? { feed_id: feedId, state: 'seen' } : { kind: 'article', all: true, state: 'seen' }); await restart(); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
 
   // 滚过去（整张卡片从列表上边出去）的未读条目标为已读；卡片被移走（换筛选、离开页面）不算
@@ -183,14 +184,23 @@ export function Feeds() {
           </div>
         </aside>
         <div className="scroll" ref={scroller}><div className="page feedlist">
-          {current?.error && <p className="feederr">{tl('这个源上次没刷新成功：{error}', { error: current.error })}<button className="linkbtn" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? tl('正在刷新') : tl('重试')}</button></p>}
+          {current?.error && (
+            <Alert tone="danger" compact action={<button className="linkbtn" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? tl('正在刷新') : tl('重试')}</button>}>
+              {tl('上次刷新失败：{error}', { error: current.error })}
+            </Alert>
+          )}
           {items === undefined ? null : items.length === 0
             ? (feeds.length === 0 || enabled.length === 0
-              ? <Empty image="empty-library" title={tl('还没有订阅')} text={tl('订阅喜欢的英文博客和杂志，新文章会自动出现在这里。')} action={<button className="btn pri" onClick={() => setAdding(true)}>{tl('加订阅')}</button>} />
-              // 抓失败、一篇都没有：不说"都看过了"
+              ? <Empty image="empty-library" title={tl('暂无文章订阅源。')} action={<button className="btn pri" onClick={() => setAdding(true)}>{tl('添加订阅')}</button>} />
               : current?.error && !current.last_ok_at
-              ? <Empty image="error-generic" title={tl('还没抓到这个源的文章')} text={tl('刷新没成功，原因在上面。可以过会儿再试，或在管理订阅里换个地址。')} />
-              : <Empty image={filter === 'unread' ? 'empty-review' : 'empty-library'} title={filter === 'unread' ? tl('都看过了') : filter === 'saved' ? tl('还没有保存的文章') : tl('这里还没有文章')} text={filter === 'unread' ? tl('新文章来了会出现在这里。也可以看看「全部」。') : undefined} action={filter === 'unread' ? <button className="btn" onClick={() => setFilter('all')}>{tl('看全部')}</button> : undefined} />)
+              ? <Empty image="error-generic" title={tl('尚未获取到该订阅源的文章。')} action={<button className="btn" disabled={refreshing} onClick={() => void refresh()}>{tl('重试')}</button>} />
+              : <Empty
+                  image={filter === 'unread' ? 'empty-review' : 'empty-library'}
+                  title={filter === 'unread' ? tl('当前暂无未读文章。') : filter === 'saved' ? tl('暂无已保存的文章。') : tl('当前订阅源暂无文章。')}
+                  action={filter === 'all'
+                    ? <button className="btn" disabled={refreshing} onClick={() => void refresh()}>{tl('刷新')}</button>
+                    : <button className="btn" onClick={() => setFilter('all')}>{tl('查看全部')}</button>}
+                />)
             : <>
               {/* 整张卡片点开就读；收进书架、不感兴趣、原网页放在右下角，悬停才亮 */}
               {groupLevels(items).map(g => { const it = g.find(i => i.id === variant[g[0]!.id]) ?? g[g.length - 1]!; return <article key={g[0]!.id} data-id={g.map(i => i.id).join(' ')} ref={el => watch(el, g)} className={`fitem${g.some(i => i.state === 'new') ? ' unread' : ''}${busy[it.id] ? ' busy' : ''}`}
@@ -277,19 +287,18 @@ function AddFeedModal({ onClose, onAdded }: { onClose: () => void; onAdded: (f: 
     try { const f = await rpc.call('feeds.add', { url: pick, folder: folder.trim() || undefined }); toast(tl('已订阅 {title}', { title: f.title })); onAdded(f); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); setBusy(false); }
   };
   return (
-    <Modal open onOpenChange={o => { if (!o) onClose(); }} title={tl('加订阅')}
+    <Modal open onOpenChange={o => { if (!o) onClose(); }} title={tl('添加订阅')}
       actions={<><button className="btn" onClick={onClose}>{tl('取消')}</button>
         {found ? <button className="btn pri" disabled={!pick || busy} onClick={() => void add()}>{busy ? tl('订阅中…') : tl('订阅')}</button>
-          : <button className="btn pri" disabled={!url.trim() || busy} onClick={() => void discover()}>{busy ? tl('检查中…') : tl('下一步')}</button>}</>}>
-      <p className="lbl">{tl('贴网站地址或 RSS / Atom 地址，Tibi 会自己找订阅地址。')}</p>
-      <input className="input" autoFocus style={{ width: '100%' }} value={url} onChange={e => { setUrl(e.target.value); setFound(undefined); }} onKeyDown={e => { if (e.key === 'Enter' && url.trim() && !busy && !found) void discover(); }} placeholder="https://example.com/blog" aria-label={tl('网址')} />
+          : <button className="btn pri" disabled={!url.trim() || busy} onClick={() => void discover()}>{busy ? tl('检查中…') : tl('查找订阅源')}</button>}</>}>
+      <input className="input" autoFocus style={{ width: '100%' }} value={url} onChange={e => { setUrl(e.target.value); setFound(undefined); }} onKeyDown={e => { if (e.key === 'Enter' && url.trim() && !busy && !found) void discover(); }} placeholder={tl('网站地址或 RSS / Atom 链接')} aria-label={tl('网址')} />
       {found && <div className="feedcands">
-        {found.length > 1 && <p className="lbl">{tl('这个网站有 {n} 个订阅，选一个：', { n: found.length })}</p>}
+        {found.length > 1 && <p className="lbl">{tl('检测到 {n} 个订阅源，请选择：', { n: found.length })}</p>}
         {found.map(c => <label key={c.url} className={`cand${pick === c.url ? ' on' : ''}`}>
           <input type="radio" name="feedcand" checked={pick === c.url} onChange={() => setPick(c.url)} />
           <span><b>{c.title}</b><span className="lbl fu">{c.url}</span>{c.latest && <span className="lbl">{tl('最近一篇：{title}', { title: c.latest.title })}{c.latest.published_at ? ` · ${fmtAgo(c.latest.published_at)}` : ''}</span>}</span>
         </label>)}
-        <input className="input" style={{ width: '100%' }} value={folder} onChange={e => setFolder(e.target.value)} placeholder={tl('分组（可不填），如 科技')} aria-label={tl('分组')} />
+        <input className="input" style={{ width: '100%' }} value={folder} onChange={e => setFolder(e.target.value)} placeholder={tl('分组（选填），如 科技')} aria-label={tl('分组')} />
       </div>}
     </Modal>
   );
@@ -297,11 +306,10 @@ function AddFeedModal({ onClose, onAdded }: { onClose: () => void; onAdded: (f: 
 
 /** 管理订阅：开关、改名、分组、删除（可撤销），看出错原因；自动刷新开关是本机设置 */
 export function FeedsManage() {
-  const nav = useNavigate();
   const [feeds, setFeeds] = useState<FeedView[]>();
   const [auto, setAuto] = useState<boolean>();
   const [adding, setAdding] = useState(false);
-  const load = useCallback(() => rpc.call('feeds.list', {}).then(setFeeds, () => setFeeds([])), []);
+  const load = useCallback(() => rpc.call('feeds.list', { kind: 'article' }).then(setFeeds, () => setFeeds([])), []);
   useEffect(() => { void load(); rpc.call('feeds.status', {}).then(s => setAuto(s.auto_refresh), () => undefined); return rpc.on('data.changed', d => { if (d.table === 'feeds') void load(); }); }, [load]);
   const update = async (p: { id: string; title?: string; folder?: string; enabled?: boolean }) => {
     try { const f = await rpc.call('feeds.update', p); setFeeds(cur => cur?.map(x => (x.id === f.id ? f : x))); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
@@ -316,23 +324,27 @@ export function FeedsManage() {
 
   return (
     <>
-      <Top crumbs={[{ label: tl('订阅'), to: '/feeds' }, { label: tl('管理') }]} right={<button className="btn sm" onClick={() => setAdding(true)}><Plus />{tl('加订阅')}</button>} />
+      <Top crumbs={[{ label: tl('订阅'), to: '/feeds' }, { label: tl('管理') }]} right={<button className="btn sm" onClick={() => setAdding(true)}><Plus />{tl('添加订阅')}</button>} />
       <div className="scroll"><div className="page feedmanage">
-        <button className="linkbtn back" onClick={() => nav('/feeds')}><ArrowLeft size={14} />{tl('回到订阅')}</button>
-        {auto !== undefined && <div className="item">
-          <div className="d"><b>{tl('自动刷新订阅')}</b><span className="lbl">{tl('Tibi 开着时每 30 分钟看一次有没有新文章（同一个源至少隔 2 小时才抓）。关掉后只在点刷新时抓。只对这台设备生效。')}</span></div>
-          <Switch label={tl('自动刷新订阅')} checked={auto} onChange={v => void setAutoRefresh(v)} />
-        </div>}
-        {feeds?.length === 0 && <Empty image="empty-library" title={tl('还没有订阅')} action={<button className="btn pri" onClick={() => setAdding(true)}>{tl('加订阅')}</button>} />}
+        {auto !== undefined && (
+          <div className="group">
+            <SettingItem
+              title={tl('自动刷新订阅')}
+              tip={tl('应用运行时每 30 分钟检查更新，同一订阅源至少间隔 2 小时；关闭后仅手动刷新。仅对本机生效。')}
+              control={<Switch label={tl('自动刷新订阅')} checked={auto} onChange={v => void setAutoRefresh(v)} />}
+            />
+          </div>
+        )}
+        {feeds?.length === 0 && <Empty image="empty-library" title={tl('暂无文章订阅源。')} action={<button className="btn pri" onClick={() => setAdding(true)}>{tl('添加订阅')}</button>} />}
         <div className="feedrows">{feeds?.map(f => <div key={f.id} className={`feedrow${f.enabled ? '' : ' off'}`}>
           <Switch label={f.title} checked={f.enabled} onChange={v => void update({ id: f.id, enabled: v })} />
           <div className="fmain">
             <input className="input ftitle" defaultValue={f.title} aria-label={tl('名字')} onBlur={e => { const v = e.target.value.trim(); if (v && v !== f.title) void update({ id: f.id, title: v }); }} />
             <span className="lbl fu">{f.url}</span>
-            <span className={`lbl${f.error ? ' bad' : ''}`}>{f.error ? tl('上次没刷新成功：{error}', { error: f.error }) : f.last_ok_at ? tl('{ago}刷新过', { ago: fmtAgo(f.last_ok_at) }) : tl('还没刷新过')}</span>
+            <span className={`lbl${f.error ? ' bad' : ''}`}>{f.error ? tl('上次刷新失败：{error}', { error: f.error }) : f.last_ok_at ? tl('{ago}刷新过', { ago: fmtAgo(f.last_ok_at) }) : tl('尚未刷新')}</span>
           </div>
           <input className="input ffolder" defaultValue={f.folder ?? ''} placeholder={tl('分组')} aria-label={tl('分组')} onBlur={e => { if (e.target.value.trim() !== (f.folder ?? '')) void update({ id: f.id, folder: e.target.value }); }} />
-          <button className="linkbtn" onClick={() => void remove(f)}>{tl('删除')}</button>
+          <button className="linkbtn danger" onClick={() => void remove(f)}>{tl('删除')}</button>
         </div>)}</div>
       </div></div>
       {adding && <AddFeedModal onClose={() => setAdding(false)} onAdded={() => { setAdding(false); void load(); }} />}

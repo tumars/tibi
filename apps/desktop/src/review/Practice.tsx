@@ -1,6 +1,7 @@
 import { SpeakButtons } from '../components/Speak';
 import { Mascot } from '../components/Mascot';
 import { PracticeConfusableIcon, PracticeDictationIcon, PracticeProduceIcon, PracticeSpellIcon, type IconProps } from '../components/TibiIcons';
+import { Alert, InfoTip } from '../components/ui';
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { useNavigate } from 'react-router';
 import { speak, isImeKey } from '../lib/util';
@@ -98,15 +99,22 @@ export function Practice({ initialMode = 'dictation', initialSource = 'recent' }
     <div className="pstk"><Mascot id={done.accuracy >= 80 ? 'sticker-1' : 'sticker-4'} /></div>
     <h3>{tl('这一轮练完了')}</h3>
     <p className="big">{Math.round(done.accuracy)}%</p>
-    <p className="lbl">{tl('准确率 · 用时 {v0} 秒', { v0: Math.round(done.duration_ms / 1000) })}{mode === 'dictation' && done.best.rounds > 1 ? tl(' · 听写最好 {v0}%', { v0: Math.round(done.best.dictation_accuracy) }) : ''}{skipped ? tl(' · 跳过 {v0} 题', { v0: skipped }) : ''}{tl('。练习不影响复习排期。')}</p>
+    <p className="lbl">{tl('准确率 · 用时 {v0} 秒', { v0: Math.round(done.duration_ms / 1000) })}{mode === 'dictation' && done.best.rounds > 1 ? tl(' · 听写最好 {v0}%', { v0: Math.round(done.best.dictation_accuracy) }) : ''}{skipped ? tl(' · 跳过 {v0} 题', { v0: skipped }) : ''}</p>
     <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}><button className="btn pri" onClick={start}>{tl('再来一轮')}</button><button className="btn" onClick={() => setDone(undefined)}>{tl('换个练法')}</button></div>
   </div>;
 
   if (!run || !item) return <div className="pstart">
     <div className="pmodes">{MODES.map(m => { const Icon = m.icon; return <button key={m.key} className={mode === m.key ? 'on' : ''} onClick={() => setMode(m.key)}><span className="pmode-ic"><Icon size={17} /></span><b>{m.label}</b><span>{m.desc}</span></button>; })}</div>
-    <div className="psrc"><span className="lbl">{tl('词从哪来')}</span><div className="seg">{SOURCES.map(s => <button key={s.key} className={source === s.key ? 'on' : ''} onClick={() => setSource(s.key)}>{s.label}</button>)}</div></div>
-    <button className="btn pri" style={{ height: 44 }} disabled={mode === 'produce' && !modelOk} onClick={start}>{tl('开始 · 5 题')}</button>
-    <p className="lbl">{tl('练习不计分，不影响复习排期；成绩单独记录。')}{mode === 'produce' && !modelOk && <>{tl('造句要连接模型才能批改。')}<button className="linkbtn" onClick={connectModel}>{tl('去连接')}</button></>}</p>
+    <div className="psrc">
+      <span className="psrc-label"><span className="lbl">{tl('词从哪来')}</span><InfoTip content={tl('练习不计入记忆评分，不影响原有复习排期，成绩单独记录。')} /></span>
+      <div className="seg">{SOURCES.map(s => <button key={s.key} className={source === s.key ? 'on' : ''} onClick={() => setSource(s.key)}>{s.label}</button>)}</div>
+    </div>
+    {mode === 'produce' && !modelOk && (
+      <Alert tone="warning" compact action={<button className="linkbtn" onClick={connectModel}>{tl('连接模型')}</button>}>
+        {tl('造句批改需先连接语言模型。')}
+      </Alert>
+    )}
+    <button className="btn pri" style={{ height: 44 }} disabled={mode === 'produce' && !modelOk} onClick={start}>{tl('开始练习（5 题）')}</button>
   </div>;
 
   return <div className="rvcard practice">

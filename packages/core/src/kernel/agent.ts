@@ -334,9 +334,29 @@ export async function attachmentFor(db: Database, ui: UiContext | undefined): Pr
   if (!ui) return undefined;
   const text: string[] = []; const label: string[] = [];
   if (ui.document_id) {
-    const d = await db.get<{ title: string }>('SELECT title FROM documents WHERE id = ?', [ui.document_id]);
+    const d = await db.get<{ title: string; kind: string; author: string | null }>('SELECT title, kind, author FROM documents WHERE id = ?', [ui.document_id]);
     const sec = ui.section_id ? await db.get<{ idx: number; title: string }>('SELECT idx, title FROM sections WHERE id = ?', [ui.section_id]) : undefined;
-    if (d) { text.push(`正在读《${d.title}》${sec ? `第 ${sec.idx + 1} 节${sec.title ? `「${sec.title}」` : ''}` : ''}`); label.push(`《${d.title}》`); }
+    if (d) {
+      if (d.kind === 'episode') {
+        let epCtx = `正在听读电台单集《${d.title}》${d.author ? `（${d.author}）` : ''}`;
+        if (ui.sentence_id) {
+          const cur = await db.get<{ idx: number; section_id: string; start_ms: number | null; speaker: string | null }>('SELECT idx, section_id, start_ms, speaker FROM sentences WHERE id = ?', [ui.sentence_id]);
+          if (cur) {
+            if (cur.start_ms != null) {
+              const secTotal = Math.floor(Number(cur.start_ms) / 1000);
+              epCtx += `，当前时间 ${String(Math.floor(secTotal / 60)).padStart(2, '0')}:${String(secTotal % 60).padStart(2, '0')}`;
+            }
+            const around = await db.all<{ text: string; speaker: string | null }>('SELECT text, speaker FROM sentences WHERE section_id = ? AND idx BETWEEN ? AND ? AND deleted_at IS NULL ORDER BY idx', [cur.section_id, Math.max(0, cur.idx - 2), cur.idx + 2]);
+            if (around.length) epCtx += `，上下文对话：${around.map(a => `${a.speaker ? `${a.speaker}: ` : ''}${a.text}`).join(' / ').slice(0, 700)}`;
+          }
+        }
+        text.push(epCtx);
+        label.push(`🎧 《${d.title}》`);
+      } else {
+        text.push(`正在读《${d.title}》${sec ? `第 ${sec.idx + 1} 节${sec.title ? `「${sec.title}」` : ''}` : ''}`);
+        label.push(`《${d.title}》`);
+      }
+    }
   }
   if (ui.selection) {
     const s = ui.selection.length > 600 ? `${ui.selection.slice(0, 600)}…` : ui.selection;

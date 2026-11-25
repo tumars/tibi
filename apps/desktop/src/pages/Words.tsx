@@ -7,6 +7,7 @@ import { Empty } from '../components/Empty';
 import { Menu } from '../components/Menu';
 import { Top } from '../components/Shell';
 import { ObjectMenuButton, useObjectMenu } from '../components/ObjectMenu';
+import { Badge, InfoTip, StageBar } from '../components/ui';
 import { copyText } from '../lib/contextActions';
 import '../components/dict.css';
 import { EXAM_NAMES, INFLECTION_NAMES, parseGloss } from '../lib/dict';
@@ -108,10 +109,10 @@ export function Words() {
   const gloss = detail?.meaning && lines.every(l => detail.meaning!.includes(l.text)) ? [] : lines;
   const favs = detail?.contexts.filter(c => c.is_favorite) ?? [];
   const seen = detail?.contexts.filter(c => !c.is_favorite) ?? [];
-  const ctxRow = (c: TermContext) => <div key={c.id} style={{ display: 'flex', gap: 8, padding: '8px 0', boxShadow: '0 1px 0 var(--line)' }}>
-    <div style={{ flex: 1, fontFamily: 'var(--f-read)', fontSize: 15, lineHeight: 1.6 }}>
+  const ctxRow = (c: TermContext) => <div key={c.id} className="drawer-ctx">
+    <div className="drawer-ctx-body">
       {c.sentence}
-      <div className="lbl" style={{ fontFamily: 'var(--f-ui)' }}>{c.document_title ?? (c.source === 'dictionary' ? tl('词典例句') : tl('手动添加'))}{c.unknown_others === 0 ? tl(' · 复习卡用这句') : c.unknown_others > 0 ? tl(' · 还有 {unknown_others} 个生词', { unknown_others: c.unknown_others }) : ''}</div>
+      <div className="lbl drawer-ctx-meta">{c.document_title ?? (c.source === 'dictionary' ? tl('词典例句') : tl('手动添加'))}{c.unknown_others === 0 ? tl(' · 复习卡用这句') : c.unknown_others > 0 ? tl(' · 还有 {unknown_others} 个生词', { unknown_others: c.unknown_others }) : ''}</div>
     </div>
     <button className="ibtn" onClick={() => void favorite(c)} aria-label={c.is_favorite ? tl('取消收藏') : tl('收藏这句')} title={c.is_favorite ? tl('取消收藏') : tl('收藏这句')} aria-pressed={c.is_favorite}>
       <Star size={16} fill={c.is_favorite ? 'currentColor' : 'none'} style={c.is_favorite ? { color: 'var(--accent)' } : undefined} />
@@ -133,14 +134,26 @@ export function Words() {
         ]} />
       </>} />
       <div className="scroll"><div className="page">
-        <div className="words" style={{ marginTop: 12 }}>
+        <div className="words">
           <div className="views">
-            {VIEWS.map(v => <button key={v.key} className={view === v.key ? 'cur' : ''} onClick={() => setView(v.key)}>{v.label}<span className="n">{counts[v.key] ?? ''}</span></button>)}
-            {view === 'leech' && <div className="lbl" style={{ padding: '10px 10px 0', lineHeight: 1.6 }}>{tl('复习里忘了 3 次以上的词。')}</div>}
+            {VIEWS.map(v => (
+              <div key={v.key} className="view-row">
+                <button className={`view-btn${view === v.key ? ' cur' : ''}`} onClick={() => setView(v.key)}>
+                  {v.label}<span className="n">{counts[v.key] ?? ''}</span>
+                </button>
+                {v.key === 'leech' && <InfoTip content={tl('复习中遗忘 3 次以上的词条。')} />}
+              </div>
+            ))}
           </div>
           <div className="wtable">
-            {view === 'known' && <div className="seg" style={{ marginBottom: 10 }}>{SUB.map(s => <button key={s.key} className={sub === s.key ? 'on' : ''} onClick={() => setSub(s.key)}>{s.label}</button>)}</div>}
-            {items === undefined ? null : items.length === 0 ? <Empty image={q ? undefined : 'empty-words'} quip={q ? undefined : tl('罐子还是空的。')} title={q ? tl('没有找到') : tl('这里还没有词')} text={q ? undefined : tl('读文章时点开的生词会出现在这里。')} /> : (
+            {view === 'known' && <div className="seg sub-seg">{SUB.map(s => <button key={s.key} className={sub === s.key ? 'on' : ''} onClick={() => setSub(s.key)}>{s.label}</button>)}</div>}
+            {items === undefined ? null : items.length === 0 ? (
+              q
+                ? <Empty title={tl('未找到匹配的词条。')} action={<button className="btn" onClick={() => setQ('')}>{tl('清除搜索')}</button>} />
+                : view === 'all'
+                  ? <Empty image="empty-words" title={tl('罐子还是空的，阅读时点选生词即可收录。')} action={<button className="btn pri" onClick={() => nav('/library')}>{tl('前往书架')}</button>} />
+                  : <Empty image="empty-words" title={tl('当前分类暂无词条。')} action={<button className="btn" onClick={() => setView('all')}>{tl('查看全部')}</button>} />
+            ) : (
               <div>
                 <div className="wrow h"><span>{tl('单词')}</span><span>{tl('释义')}</span><span>{tl('熟练度')}</span><span>{tl('遇见')}</span><span>{tl('下次复习')}</span></div>
                 {items.map(t => <div key={t.id} className="wrow object-row" role="button" tabIndex={0} aria-label={t.display}
@@ -163,39 +176,42 @@ export function Words() {
       {menu.menu}
       {detail && (
         <div className="drawer" role="dialog" aria-label={detail.display}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <b style={{ fontFamily: 'var(--f-read)', fontSize: 26 }}>{detail.display}</b>
-            {ipa && <span className="lbl" style={{ fontFamily: 'var(--f-read)', fontStyle: 'italic', fontSize: 14 }}>/{ipa}/</span>}
+          <div className="drawer-head">
+            <b>{detail.display}</b>
+            {ipa && <span className="ipa">/{ipa}/</span>}
             <SpeakButtons text={detail.display} size={16} />
             <span className="sp" />
             <button className="ibtn" onClick={() => setDetail(undefined)} aria-label={tl('关闭')}><X /></button>
           </div>
-          {entry && (entry.collins || entry.oxford || entry.exam.length > 0) ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-            {entry.collins ? <span className="tagc" title={tl('柯林斯星级')}>{'★'.repeat(entry.collins)}</span> : null}
-            {entry.oxford && <span className="tagc">{tl('牛津 3000')}</span>}
-            {entry.exam.map(x => <span key={x} className="tagc">{EXAM_NAMES[x] ?? x}</span>)}
+          {entry && (entry.collins || entry.oxford || entry.exam.length > 0) ? <div className="drawer-tags">
+            {entry.collins ? <Badge title={tl('柯林斯星级')}>{'★'.repeat(entry.collins)}</Badge> : null}
+            {entry.oxford && <Badge>{tl('牛津 3000')}</Badge>}
+            {entry.exam.map(x => <Badge key={x}>{EXAM_NAMES[x] ?? x}</Badge>)}
           </div> : null}
-          {detail.meaning && <div style={{ marginTop: 8, color: 'var(--ink)' }}>{detail.meaning}</div>}
-          {detail.en && <div className="lbl" style={{ marginTop: 4 }}>{detail.en}</div>}
-          {gloss.length > 0 && <div className="dx-gloss" style={{ marginTop: 8, fontSize: 14, color: detail.meaning ? 'var(--ink-2)' : undefined }}>{gloss.map((l, i) => <div key={i}>{l.tag && <em>{l.tag}</em>}<span>{l.text}</span></div>)}</div>}
-          {dict && !entry && !detail.meaning && <div className="lbl" style={{ marginTop: 8 }}>{dict.available ? tl('词典里没有这个词') : tl('没有装词典')}</div>}
-          {entry?.inflections && entry.inflections.length > 0 && <div className="dx-forms" style={{ marginTop: 10 }}>{entry.inflections.map(f => <button key={f.type + f.form} onClick={() => toDict(f.form)}><i>{INFLECTION_NAMES[f.type] ?? f.type}</i>{f.form}</button>)}</div>}
-          <div className="lbl" style={{ marginTop: 10 }}>{tl('熟练度')}</div>
-          <div className="seg" style={{ marginTop: 6, flexWrap: 'wrap' }}>{([0, 1, 2, 3, 4, 5] as Status[]).map(s => <button key={s} className={detail.status === s ? 'on' : ''} onClick={() => setStatus(detail.id, s)}>{STATUS_NAMES[s]}</button>)}</div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          {detail.meaning && <div>{detail.meaning}</div>}
+          {detail.en && <div className="lbl">{detail.en}</div>}
+          {gloss.length > 0 && <div className="dx-gloss" style={{ marginTop: 0, fontSize: 14, color: detail.meaning ? 'var(--ink-2)' : undefined }}>{gloss.map((l, i) => <div key={i}>{l.tag && <em>{l.tag}</em>}<span>{l.text}</span></div>)}</div>}
+          {dict && !entry && !detail.meaning && <div className="lbl">{dict.available ? tl('词典里没有这个词') : tl('没有装词典')}</div>}
+          {entry?.inflections && entry.inflections.length > 0 && <div className="dx-forms">{entry.inflections.map(f => <button key={f.type + f.form} onClick={() => toDict(f.form)}><i>{INFLECTION_NAMES[f.type] ?? f.type}</i>{f.form}</button>)}</div>}
+          <div className="drawer-sec"><span>{tl('熟练度')}</span></div>
+          <StageBar status={detail.status} onSelect={s => void setStatus(detail.id, s)} />
+          <div className="drawer-acts">
             <button className="btn sm" onClick={() => setStatus(detail.id, 97)}>{tl('标为已知')}</button>
             <button className="btn sm" onClick={() => setStatus(detail.id, 98)}>{tl('忽略')}</button>
-            <button className="btn sm" onClick={() => toDict(detail.text)}>{tl('在词典里看')}</button>
-            {detail.lapses >= 3 && <span className="tagc" style={{ color: 'var(--hard)' }}>{tl('难词 · 忘了 {lapses} 次', { lapses: detail.lapses })}</span>}
+            <button className="btn sm" onClick={() => toDict(detail.text)}>{tl('查词典')}</button>
+            {detail.lapses >= 3 && <Badge tone="danger">{tl('难词 · 忘了 {lapses} 次', { lapses: detail.lapses })}</Badge>}
           </div>
           {favs.length > 0 && <>
-            <div className="lbl" style={{ marginTop: 16 }}>{tl('收藏的句子 {length}', { length: favs.length })}</div>
+            <div className="drawer-sec"><span>{tl('收藏的句子 {length}', { length: favs.length })}</span></div>
             {favs.map(ctxRow)}
           </>}
-          <div className="lbl" style={{ marginTop: 16 }}>{tl('遇到过的句子 {length}', { length: seen.length })}<span style={{ marginLeft: 6 }}>{tl('· 只留最近 {n} 句，收藏的一直留着', { n: 10 })}</span></div>
+          <div className="drawer-sec">
+            <span>{tl('遇到过的句子 {length}', { length: seen.length })}</span>
+            <InfoTip content={tl('默认保留最近 {n} 句，已收藏的句子长期保留。', { n: 10 })} />
+          </div>
           {seen.map(ctxRow)}
-          {detail.card && <div className="lbl" style={{ marginTop: 14 }}>{tl('复习 {reps} 次 · 忘了 {lapses} 次 · 下次 {due} · 记得率 {ret}', { reps: detail.card.reps, lapses: detail.card.lapses, due: dueLabel(detail.card.due), ret: detail.retention ? Math.round(detail.retention * 100) + '%' : '—' })}</div>}
-          {detail.history.length > 0 && <div className="lbl" style={{ marginTop: 10 }}>{detail.history.slice(0, 5).map((h, i) => <div key={i}>{fmtAgo(h.at)} → {STATUS_NAMES[h.status]}</div>)}</div>}
+          {detail.card && <div className="lbl">{tl('复习 {reps} 次 · 忘了 {lapses} 次 · 下次 {due} · 记得率 {ret}', { reps: detail.card.reps, lapses: detail.card.lapses, due: dueLabel(detail.card.due), ret: detail.retention ? Math.round(detail.retention * 100) + '%' : '—' })}</div>}
+          {detail.history.length > 0 && <div className="lbl">{detail.history.slice(0, 5).map((h, i) => <div key={i}>{fmtAgo(h.at)} → {STATUS_NAMES[h.status]}</div>)}</div>}
         </div>
       )}
     </>

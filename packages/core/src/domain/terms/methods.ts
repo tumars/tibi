@@ -51,12 +51,15 @@ export const termsMethods: MethodMap = {
     const term = await getTermByText(ctx.db, lemma, isPhrase ? 'phrase' : 'word');
     const cached = await contextMeaning(ctx.db, term?.id, lemma, p.sentence_id);
     if (cached) return { meaning: cached, cached: true };
-    const sent = await ctx.db.get<{ text: string }>('SELECT text FROM sentences WHERE id = ? AND deleted_at IS NULL', [p.sentence_id]);
+    const sent = await ctx.db.get<{ text: string; kind: string | null }>('SELECT s.text, d.kind FROM sentences s JOIN sections sec ON sec.id = s.section_id JOIN documents d ON d.id = sec.document_id WHERE s.id = ? AND s.deleted_at IS NULL', [p.sentence_id]);
     if (!sent) throw new TibiError('not_found', '句子不在了');
     if (!ctx.ai) throw new TibiError('model_unavailable', '还没有连接模型');
+    const system = sent.kind === 'episode'
+      ? `${CONTEXT_MEANING_SYSTEM}这是英文播客口语对话，若为俚语、口语习惯用法或反讽语气请按地道口语意思翻译。`
+      : CONTEXT_MEANING_SYSTEM;
     const r = await ctx.ai.complete({
       tier: 'fast', max_tokens: 60,
-      system: CONTEXT_MEANING_SYSTEM,
+      system,
       prompt: `句子：<<<${sent.text.slice(0, 600)}>>>\n词：${raw}`,
     });
     const meaning = cleanMeaning(r.text);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Switch } from '../components/Switch';
+import { SettingItem } from '../components/ui';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
@@ -29,24 +30,29 @@ export function McpItems() {
   const copy = (t: string) => navigator.clipboard.writeText(t).then(() => toast(tl('已复制')), () => toast(tl('复制失败'), { kind: 'err' }));
   const writes = cfg.tools.filter(t => t.write);
   return <>
-    <div className="item">
-      <div><div className="t">{tl('允许其他 AI 工具使用 Tibi（MCP）')}</div><div className="d">{tl('打开后，Codex、Claude Code 这类工具可以读你的生词、文章和学习数据（例如"把我今天的生词出 10 道题"）。Tibi 要开着。')}</div></div>
-      <div className="ctl"><Switch label={tl('允许其他 AI 工具使用 Tibi')} checked={cfg.enabled} onChange={v => void save({ enabled: v })} /></div>
-    </div>
+    <SettingItem
+      title={tl('允许其他 AI 工具使用 Tibi（MCP）')}
+      tip={tl('开启后，Codex、Claude Code 等工具可在 Tibi 运行时读取生词、文章与学习数据。')}
+      control={<Switch label={tl('允许其他 AI 工具使用 Tibi')} checked={cfg.enabled} onChange={v => void save({ enabled: v })} />}
+    />
     {cfg.enabled && <>
-      <div className="item col">
-        <div className="t">{tl('它们可以写入的')}</div>
-        <div className="d">{tl('读的能力都开着；写入默认都关，逐项打开。打开后仍按权限模式请你确认，审批卡会写明来自哪个工具。')}</div>
+      <SettingItem
+        stacked
+        title={tl('它们可以写入的')}
+        tip={tl('读取权限默认开启；写入权限需逐项启用，执行前仍按权限模式弹出审批。')}
+      >
         <div className="mcpw">{writes.map(t => <label key={t.name} className="mcpt"><Switch label={t.name} checked={cfg.write_tools.includes(t.name)} onChange={v => void save({ write_tools: v ? [...cfg.write_tools, t.name] : cfg.write_tools.filter(x => x !== t.name) })} /><code>{t.name}</code><span className="lbl">{t.description.replace(/（写入.*$/, '')}</span></label>)}</div>
-      </div>
-      <div className="item col">
-        <div className="t">{tl('接入配置')}</div>
-        <div className="d">{tl('Claude Code：在终端里运行')}</div>
+      </SettingItem>
+      <SettingItem
+        stacked
+        title={tl('接入配置')}
+        tip={!isTauri() ? tl('开发模式下请在仓库根目录执行命令。') : undefined}
+      >
+        <div className="d">Claude Code</div>
         <div className="snip"><pre>{claude}</pre><button className="btn sm" onClick={() => void copy(claude)}>{tl('复制')}</button></div>
-        <div className="d">{tl('Codex：加到 ~/.codex/config.toml')}</div>
+        <div className="d">Codex (~/.codex/config.toml)</div>
         <div className="snip"><pre>{codex}</pre><button className="btn sm" onClick={() => void copy(codex)}>{tl('复制')}</button></div>
-        {!isTauri() && <div className="d">{tl('（开发模式：命令要在仓库根目录运行）')}</div>}
-      </div>
+      </SettingItem>
     </>}
   </>;
 }

@@ -1,0 +1,283 @@
+/* Tibi 语义基础组件样式（InfoTip / Alert / Badge / SectionHeader / SettingItem / StageBar / PageFooter） */
+
+/* ==================== InfoTip：① 提示气泡（默认隐藏） ==================== */
+.ui-tip-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-pill);
+  color: var(--ink-3);
+  flex: none;
+  vertical-align: middle;
+  transition: color .14s, background .14s;
+}
+.ui-tip-btn:hover,
+.ui-tip-btn:focus-visible,
+.ui-tip-btn[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--hover);
+}
+.ui-tip-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ui-tip-pop {
+  position: fixed;
+  z-index: 120;
+  max-width: 280px;
+  padding: var(--sp-3);
+  border-radius: var(--r-m);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-family: var(--f-ui);
+  font-size: var(--t-sm);
+  font-weight: 400;
+  line-height: 1.55;
+  box-shadow: var(--shadow-float);
+  pointer-events: auto;
+  animation: uitipin .14s cubic-bezier(.22, .8, .24, 1);
+}
+@keyframes uitipin {
+  from { opacity: 0; transform: translateY(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-tip-pop { animation: none; }
+}
+
+/* ==================== Alert：四态语义提示条 ==================== */
+.ui-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--r-l);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-family: var(--f-ui);
+  font-size: var(--t-sm);
+  line-height: 1.55;
+}
+.ui-alert.compact {
+  align-items: center;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-m);
+}
+.ui-alert-ic {
+  display: grid;
+  place-items: center;
+  flex: none;
+  margin-top: 1px;
+  color: var(--info);
+}
+.ui-alert.compact .ui-alert-ic { margin-top: 0; }
+.ui-alert-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.ui-alert-hd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--t-base);
+  font-weight: 600;
+  color: var(--ink);
+}
+.ui-alert-acts {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  flex: none;
+}
+.ui-alert.tone-info { background: var(--info-wash); }
+.ui-alert.tone-info .ui-alert-ic { color: var(--info); }
+.ui-alert.tone-success { background: var(--ok-wash); }
+.ui-alert.tone-success .ui-alert-ic { color: var(--ok); }
+.ui-alert.tone-warning { background: var(--mid-wash); }
+.ui-alert.tone-warning .ui-alert-ic { color: var(--mid); }
+.ui-alert.tone-danger { background: var(--hard-wash); }
+.ui-alert.tone-danger .ui-alert-ic { color: var(--hard); }
+
+/* ==================== Badge：只读状态与元信息徽标 ==================== */
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: 20px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-xs);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  background: var(--sunken);
+  color: var(--ink-2);
+}
+.ui-badge.md {
+  height: 24px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-s);
+  font-size: var(--t-xs);
+}
+.ui-badge svg { width: 12px; height: 12px; }
+.ui-badge.tone-accent { background: var(--accent-wash); color: var(--accent); }
+.ui-badge.tone-ok { background: var(--ok-wash); color: var(--ok); }
+.ui-badge.tone-warn { background: var(--mid-wash); color: var(--mid); }
+.ui-badge.tone-danger { background: var(--hard-wash); color: var(--hard); }
+.ui-badge.tone-outline { background: transparent; box-shadow: inset 0 0 0 1px var(--hair-2); color: var(--ink-3); }
+
+/* ==================== 语义按钮补充（危险 / 柔和 / 选中胶囊） ==================== */
+.btn.soft {
+  background: var(--accent-wash);
+  color: var(--accent);
+  box-shadow: none;
+}
+.btn.soft:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.btn.danger {
+  color: var(--hard);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hard) 28%, transparent);
+}
+.btn.danger:hover:not(:disabled) {
+  background: var(--hard-wash);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hard) 42%, transparent);
+}
+.linkbtn.danger { color: var(--hard); }
+
+.chip.on {
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-weight: 500;
+  box-shadow: none;
+}
+.chip.on:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+/* ==================== SectionHeader：模块标题行 ==================== */
+.ui-sech {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  flex-wrap: wrap;
+}
+.ui-sech-left {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.ui-sech h2,
+.ui-sech h3 {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+.ui-sech-meta {
+  font-size: var(--t-sm);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.ui-sech-right {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+/* ==================== SettingItem：设置行标题组 ==================== */
+.item-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.item-head .ui-tip-btn {
+  margin-left: -2px;
+}
+.ssec-subhead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: var(--sp-5) 0 var(--sp-2);
+}
+.ssec-subhead h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ==================== StageBar：六档熟练度选择器 ==================== */
+.ui-stages {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--sp-1);
+}
+.ui-stages button {
+  height: 40px;
+  border-radius: var(--r-s);
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-1);
+  transition: background .12s, color .12s;
+}
+.ui-stages button:hover { background: var(--hover); color: var(--ink); }
+.ui-stages button i {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--line);
+}
+.ui-stages button.on {
+  background: var(--sunken);
+  color: var(--ink);
+  font-weight: 600;
+}
+.ui-stages button.fill i { background: var(--hl-1); }
+.ui-stages button[data-s="0"].fill i { background: var(--hl-new); }
+.ui-stages button[data-s="5"].fill i { background: var(--ink); }
+
+/* ==================== PageFooter：页脚统一免责声明 / 更新时间 ==================== */
+.page-foot {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--hair);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+
+/* ==================== 工具类：标准化筛选工具条 ==================== */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  flex-wrap: wrap;
+}
+.page-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}

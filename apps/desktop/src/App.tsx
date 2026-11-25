@@ -5,6 +5,7 @@ import { Toasts } from './components/Toasts';
 import { Chat } from './pages/Chat';
 import { Dict } from './pages/Dict';
 import { Feeds, FeedsManage } from './pages/Feeds';
+import { Radio, RadioManage } from './pages/Radio';
 import { Home } from './pages/Home';
 import { Library } from './pages/Library';
 import { Onboarding, ONBOARDING_KEY } from './pages/Onboarding';
@@ -80,11 +81,13 @@ export function App() {
   useEffect(() => startNoticeCheck(presentNotice, autoCheckOn), []);
   useEffect(() => {
     bindCoreEvents();
-    // 朗读设置（tts.*）
+    // 朗读设置（tts.*）与本地离线转写设置（radio.local_asr.*）
     const loadTts = () => void rpc.call('settings.get', { keys: ['tts.engine', 'tts.voice', 'tts.ai_voice', 'tts.rate'] }).then(s => void import('./lib/tts').then(t => t.configure({ engine: (s['tts.engine'] as 'system' | 'kokoro') ?? 'system', voice: (s['tts.voice'] as string) ?? '', aiVoice: (s['tts.ai_voice'] as string) || undefined, rate: Number(s['tts.rate'] ?? 1) || 1 })), () => undefined);
+    const loadLocalAsr = () => void import('./lib/localAsr').then(m => m.hydrateLocalAsrConfig(true)).catch(() => undefined);
     loadTts();
-    // Tibi 或别的设备改了语速，马上生效
-    const offTts = rpc.on('data.changed', d => { if (d.table === 'settings') loadTts(); });
+    loadLocalAsr();
+    // Tibi 或别的设备改了语速 / 设置，马上生效
+    const offTts = rpc.on('data.changed', d => { if (d.table === 'settings') { loadTts(); loadLocalAsr(); } });
     // 第一次打开（没走过引导、书架是空的）进首次启动引导，其中有连接模型一步；已有文章的老库直接记为走过（00 §3.9）
     void useCore.getState().refresh().then(async () => {
       const st = useCore.getState(); if (!st.connected) return;
@@ -124,6 +127,8 @@ export function App() {
           <Route path="library" element={<Library />} />
           <Route path="feeds" element={<Feeds />} />
           <Route path="feeds/manage" element={<FeedsManage />} />
+          <Route path="radio" element={<Radio />} />
+          <Route path="radio/manage" element={<RadioManage />} />
           <Route path="chat/:id" element={<Chat />} />
           <Route path="read/:id" element={<Reader />} />
           <Route path="read/:id/:section" element={<Reader />} />

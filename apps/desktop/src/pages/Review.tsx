@@ -56,7 +56,7 @@ function ReviewSessionView({ ahead }: { ahead: boolean }) {
 
   useEffect(() => { if (item?.card_type === 'cloze' && phase.kind === 'ask') inputRef.current?.focus(); }, [item, phase]);
 
-  if (err) return <><Top crumbs={crumbs} /><Empty image="error-generic" title={tl('复习还没准备好')} text={err} action={<button className="btn" onClick={() => load()}>{tl('重试')}</button>} /></>;
+  if (err) return <><Top crumbs={crumbs} /><Empty image="error-generic" title={tl('复习暂未就绪。')} detail={err} action={<button className="btn" onClick={() => load()}>{tl('重试')}</button>} /></>;
   if (!session) return <><Top crumbs={crumbs} /><div className="scroll" /></>;
   if (done || !item) {
     const { graded, correctPct, minutes, wrong } = summary();
@@ -64,7 +64,7 @@ function ReviewSessionView({ ahead }: { ahead: boolean }) {
     return <>
       <Top crumbs={crumbs} />
       <div className="scroll"><div className="rv">
-        {session.steps.length === 0 ? <Empty image="empty-review" title={tl('今天没有要复习的')} text={tl('读文章时点开的生词会排进来。')} action={<button className="btn" onClick={() => nav('/library')}>{tl('去读点什么')}</button>} /> : (
+        {session.steps.length === 0 ? <Empty image="empty-review" title={tl('今日暂无待复习词条。')} action={<button className="btn pri" onClick={() => nav('/library')}>{tl('前往书架')}</button>} /> : (
           <div className="done">
             <Mascot id={medal ? 'celebrate-streak' : 'celebrate-review'} />
             <h3>{medal ? tl('连续 {n} 天。Tibi 有点意外。', { n: streak }) : session.kind === 'drill' ? tl('练完了') : graded > 0 ? tl('{n} 张，全翻完了。', { n: graded }) : tl('今天的复习完成了')}</h3>

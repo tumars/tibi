@@ -19,7 +19,7 @@ describe('migrations', () => {
   it('内存库建表并记录版本', async () => {
     const db = await openAppDb(':memory:');
     const v = await db.get<{ user_version: number }>('PRAGMA user_version');
-    expect(v?.user_version).toBe(9);
+    expect(v?.user_version).toBe(10);
     const tables = (await db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%_fts%'")).map(r => r.name).sort();
     for (const t of ['documents', 'sections', 'sentences', 'terms', 'cards', 'review_logs', 'conversations', 'messages', 'skill_audit', 'memories', 'learning_events', 'feeds', 'feed_items']) {
       expect(tables).toContain(t);
@@ -27,7 +27,7 @@ describe('migrations', () => {
     for (const t of ['jobs', 'job_steps', 'usage_records']) expect(tables).not.toContain(t);
     // 再跑一次是幂等的
     const r = await migrate(db, []);
-    expect(r).toEqual({ from: 9, to: 9 });
+    expect(r).toEqual({ from: 10, to: 10 });
     await db.close();
   });
 
@@ -76,9 +76,18 @@ describe('migrations', () => {
   });
   it('0009：内置源只留 Hacker News，其余软删', async () => {
     const db = new Database(await BetterSqliteDriver.open(':memory:'));
-    await migrate(db, MIGRATIONS);
+    await migrate(db, MIGRATIONS.filter(m => m.version <= 9));
     const rows = await db.all<{ id: string; deleted: number }>('SELECT id, deleted_at IS NOT NULL AS deleted FROM feeds WHERE builtin = 1 ORDER BY id');
     expect(rows.map(r => [r.id, r.deleted])).toEqual([['builtin-ars', 1], ['builtin-conversation', 0], ['builtin-go', 1], ['builtin-hn', 0], ['builtin-nil', 0], ['builtin-quanta', 1], ['builtin-rust', 1]]);
+    await db.close();
+  });
+  it('0010：电台表结构扩展与内置英文播客种子', async () => {
+    const db = new Database(await BetterSqliteDriver.open(':memory:'));
+    await migrate(db, MIGRATIONS);
+    const pods = await db.all<{ id: string; kind: string }>("SELECT id, kind FROM feeds WHERE kind = 'podcast' AND deleted_at IS NULL ORDER BY id");
+    expect(pods.map(p => p.id)).toEqual(['builtin-pod-6min', 'builtin-pod-corecursive', 'builtin-pod-darknet', 'builtin-pod-tews', 'builtin-pod-voa']);
+    const cols = await db.all<{ name: string }>('PRAGMA table_info(sentences)');
+    expect(cols.map(c => c.name)).toEqual(expect.arrayContaining(['start_ms', 'end_ms', 'speaker']));
     await db.close();
   });
   it('0009：用户已经订了同一个地址的，不再种内置源', async () => {

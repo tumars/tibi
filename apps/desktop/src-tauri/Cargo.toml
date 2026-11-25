@@ -1,6 +1,6 @@
 [package]
 name = "tibi"
-version = "0.1.5"
+version = "0.2.0"
 description = "Tibi（提比）：本地优先、AI 原生的英语阅读学习工具"
 authors = ["Tibi contributors"]
 license = "MIT"

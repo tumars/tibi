@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Switch } from '../components/Switch';
+import { SettingItem } from '../components/ui';
 import { tl } from '../lib/i18n';
 import { isMacDesktop } from '../lib/macNative';
 import { errorInfo, isTauri, rpc } from '../rpc';
@@ -53,22 +54,16 @@ export function TrayItems() {
 
   return (
     <>
-      <div className="item">
-        <div>
-          <div className="t">{isMacDesktop ? tl('关闭窗口时留在菜单栏') : tl('关闭窗口时留在托盘')}</div>
-          <div className="d">{isMacDesktop ? tl('关闭主窗口后 Tibi 仍在顶部菜单栏运行，可随时快速查词或接收每日提醒') : tl('关闭主窗口后 Tibi 仍在托盘运行，可接收每日提醒')}</div>
-        </div>
-        <div className="ctl">
-          <Switch label={isMacDesktop ? tl('关闭窗口时留在菜单栏') : tl('关闭窗口时留在托盘')} checked={keep} onChange={v => void toggleKeep(v)} />
-        </div>
-      </div>
+      <SettingItem
+        title={isMacDesktop ? tl('关闭窗口时留在菜单栏') : tl('关闭窗口时留在托盘')}
+        tip={isMacDesktop ? tl('关闭主窗口后保留顶部菜单栏常驻，支持随时查词与接收每日提醒。') : tl('关闭主窗口后保留系统托盘常驻，支持接收每日提醒。')}
+        control={<Switch label={isMacDesktop ? tl('关闭窗口时留在菜单栏') : tl('关闭窗口时留在托盘')} checked={keep} onChange={v => void toggleKeep(v)} />}
+      />
       {isMacDesktop && (
-        <div className="item">
-          <div>
-            <div className="t">{tl('快速查词快捷键')}</div>
-            <div className="d">{tl('在任意应用里按快捷键打开顶部菜单栏查词面板')}</div>
-          </div>
-          <div className="ctl">
+        <SettingItem
+          title={tl('快速查词快捷键')}
+          tip={tl('全局快捷键，在任意应用中呼出顶部菜单栏查词面板。')}
+          control={
             <div className="seg">
               {TRAY_HOTKEYS.map(h => (
                 <button key={h.id} disabled={busyHk} className={hotkey === h.id ? 'on' : ''} onClick={() => void pickHotkey(h.id)}>
@@ -76,8 +71,8 @@ export function TrayItems() {
                 </button>
               ))}
             </div>
-          </div>
-        </div>
+          }
+        />
       )}
     </>
   );

@@ -14,9 +14,9 @@ Mac App Store 版本的数据保存在 macOS 沙盒容器 `~/Library/Containers/
 
 ## 数据存在哪里
 
-- **学习数据**（文章、生词、复习记录、对话、记忆、设置）：本机的 SQLite 数据库 `app.db`，在系统的应用数据目录里——macOS `~/Library/Application Support/app.tibi/`，Windows `%APPDATA%\app.tibi\`，Linux `~/.local/share/app.tibi/`。备份文件、OCR 语言包、MCP 令牌也在这里。
+- **学习数据**（文章、电台逐字稿、生词、复习记录、对话、记忆、设置）：本机的 SQLite 数据库 `app.db`，在系统的应用数据目录里——macOS `~/Library/Application Support/app.tibi/`，Windows `%APPDATA%\app.tibi\`，Linux `~/.local/share/app.tibi/`。备份文件、OCR 语言包、MCP 令牌和电台音频本地缓存（`media/podcasts/`，默认上限 2 GB，可在设置 → 数据清空，不同步）也在这里。
 - **模型 API Key 和 WebDAV 密码**：应用数据目录的 `secrets.json`。电脑上只给当前用户读写权限，但**没有加密**：以你的账号运行的其他程序能读到它，整机或数据目录的备份也会带上它。iOS 上别的应用读不到，也没有加密，设备备份可能带上它。Android 上内容经 Android Keystore 加密（别的应用读不到，也不进 Google 云端备份和换机迁移）。不写进数据库，也不会出现在 Tibi 的导出、备份和同步里。
-- **朗读语音模型**（Kokoro，可选）：界面的浏览器缓存。
+- **朗读与本地离线转写模型**（Kokoro / Whisper，可选）：界面的浏览器缓存（可在设置中清理本地转写模型缓存）。
 
 在 **设置 → 数据** 里可以备份和恢复；生词可以在生词本里导出（CSV / Anki）。想彻底清空就退出 Tibi 后删掉上面的数据目录。
 
@@ -28,7 +28,11 @@ Mac App Store 版本的数据保存在 macOS 沙盒容器 `~/Library/Containers/
 |---|---|---|
 | 使用统计（默认关闭，主动开启后） | api-js.mixpanel.com（Mixpanel，美国） | 上述有限功能事件与随机标识，不含学习内容 |
 | 导入网址、剪藏 | 那个网页 | 普通的网页请求 |
-| 订阅（RSS / Atom）：加订阅、点刷新；自动刷新默认开，Tibi 开着时每 30 分钟看一次，同一个源至少隔 2 小时（侧栏「订阅」→ 管理 里可关，只对这台设备生效） | 你订阅的网站（内置的几个源也算，可以关掉或删掉） | 普通的订阅请求，带上次的 ETag / Last-Modified 让对方只在有新文章时才返回内容 |
+| 订阅（RSS / Atom）与电台（播客 RSS）：加订阅、点刷新；自动刷新默认开，Tibi 开着时每 30 分钟看一次，同一个源至少隔 2 小时（侧栏「订阅 / 电台」→ 管理 里可关，只对这台设备生效；只拉元数据，不自动下音频） | 你订阅的网站与播客源（内置源可关闭或删除） | 普通的订阅请求，带上次的 ETag / Last-Modified 让对方只在有更新时才返回内容 |
+| 电台搜播客与解析 Apple Podcasts 链接（仅在你主动搜索或粘贴 Apple Podcasts 链接时） | itunes.apple.com（Apple iTunes Search / Lookup API） | 你输入的搜索词或节目 ID |
+| 电台听读音频与官方字幕（仅在你点开单集听读时） | 该播客节目的音频、官方字幕与章节托管地址 | 普通的流式播放 / 静默缓存下载请求（缓存仅保存在本机 `media/podcasts/`，不同步） |
+| 电台云端语音转写（ASR，可选，仅在你主动配置并触发云端转写时） | 你配置的语音转写服务（如硅基流动 / Groq / OpenAI / Deepgram），用你自己的 API Key | 该单集的音频数据（用于生成逐字稿） |
+| 第一次用本地离线转写（Whisper，可选） | modelscope.cn（魔搭），连不上时 huggingface.co | 仅下载离线语音识别模型（约 41–249 MB，默认 base.en 约 77 MB）；下载后转写全程在本机完成，音频不会上传 |
 | 找文章 | 先查本机的订阅库；数据旧了会顺带刷新一次订阅 | 同上 |
 | 找文章（网页搜索，默认开，可在 设置 → 高级 → 找文章 里换服务或关闭） | 你选的搜索服务：api.deepseek.com（默认，只在连接了官方 DeepSeek 时）或 api.tavily.com（填了 Key 时），都用你自己的 API Key | Tibi 为这次找文章写的搜索词，可能包含你的要求和兴趣 |
 | AI 功能（总结、语境释义、译文、对话、出题、批改、学习洞察） | 你配置的模型服务（如 DeepSeek） | 这次任务需要的内容：文章或句子、你的问题，以及帮 Tibi 讲得更合适的学习信息（水平、目标、相关的记忆和最近的学习记录） |

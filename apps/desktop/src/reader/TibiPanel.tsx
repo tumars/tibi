@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ChatThread, type Pending } from '../components/ChatThread';
 import { Mascot } from '../components/Mascot';
 import { TibiAvatar } from '../components/TibiIcons';
+import { Alert } from '../components/ui';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
@@ -29,10 +30,14 @@ export function TibiPanel({ doc, sectionId, pending, onClose }: { doc: Document;
   return (
     <aside className="rpanel tibi" aria-label="Tibi">
       <div className="rph"><span className="rph-title"><TibiAvatar size={22} />{tl('Tibi · 讲解')}</span><span className="sp" /><button className="ibtn" title={tl('关闭')} onClick={onClose}><X size={16} /></button></div>
-      {pending?.draft && !modelOk && <div className="reader-model-hint">{tl('已保留问题，连接模型后可手动发送')} <button className="linkbtn" onClick={() => nav(`/welcome?step=3&back=${encodeURIComponent(`/read/${doc.id}/${sectionId ?? ''}`)}`)}>{tl('去连接模型')}</button></div>}
+      {pending?.draft && !modelOk && (
+        <Alert tone="warning" compact className="rpanel-alert" action={<button className="linkbtn" onClick={() => nav(`/welcome?step=3&back=${encodeURIComponent(`/read/${doc.id}/${sectionId ?? ''}`)}`)}>{tl('连接模型')}</button>}>
+          {tl('问题已暂存，连接模型后发送。')}
+        </Alert>
+      )}
       {convId && <ChatThread conversationId={convId} skill="tutor" context={{ page: 'reader', document_id: doc.id, section_id: sectionId }} pending={pending}
         placeholder={tl('问这篇文章里的词、句子或语法…')} back={`/read/${doc.id}`}
-        empty={<div className="tibi-empty"><Mascot id="onboarding-hello" /><b>{tl('选中一句话或点开一个词，就能让 Tibi 讲。')}</b><p className="lbl">{tl('也可以直接问：这一段在说什么？这里为什么用过去完成时？')}</p></div>} />}
+        empty={<div className="tibi-empty"><Mascot id="onboarding-hello" /><p>{tl('选中词句或直接输入问题，获取语境与语法讲解。')}</p></div>} />}
     </aside>
   );
 }

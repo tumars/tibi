@@ -60,4 +60,32 @@ describe('画像与设置', () => {
     expect(r2.secret_ref).toBe('deepseek');
     await expect(core.call('providers.delete', { id: fast.id })).rejects.toThrow();
   });
+
+  it('providers.upsert 支持 reuse_secret_from 跨 LLM/ASR 复用同一平台密钥引用，删除按引用计数安全回收', async () => {
+    const { core } = await makeReviewCore();
+    const llm = await core.call<Provider>('providers.upsert', {
+      provider: { kind: 'llm', name: '硅基流动', protocol: 'openai_compatible', base_url: 'https://api.siliconflow.cn/v1', auth: 'api_key', tier: 'fast', model: 'deepseek-ai/DeepSeek-V3.2', is_default: true },
+      secret_ref: 'provider.api-siliconflow-cn.llm',
+    });
+    const asr = await core.call<Provider>('providers.upsert', {
+      provider: { kind: 'asr', name: '硅基流动 SenseVoice', protocol: 'siliconflow_asr', base_url: 'https://api.siliconflow.cn/v1', auth: 'api_key', model: 'FunAudioLLM/SenseVoiceSmall', is_default: true },
+      reuse_secret_from: llm.id,
+    });
+    expect(asr.has_secret).toBe(true);
+
+    // 重复添加同协议同地址的 ASR 应更新而非新增
+    const asrAgain = await core.call<Provider>('providers.upsert', {
+      provider: { kind: 'asr', name: '硅基流动 SenseVoice', protocol: 'siliconflow_asr', base_url: 'https://api.siliconflow.cn/v1', auth: 'api_key', model: 'TeleAI/TeleSpeechASR', is_default: true },
+      reuse_secret_from: llm.id,
+    });
+    expect(asrAgain.id).toBe(asr.id);
+    expect(asrAgain.model).toBe('TeleAI/TeleSpeechASR');
+
+    // 先删 ASR：LLM 还在用同一密钥，不返回孤儿 secret_ref
+    const del1 = await core.call<{ ok: boolean; secret_ref?: string }>('providers.delete', { id: asr.id });
+    expect(del1.secret_ref).toBeUndefined();
+    // 再删 LLM：最后一条，返回 secret_ref 通知壳清理钥匙串
+    const del2 = await core.call<{ ok: boolean; secret_ref?: string }>('providers.delete', { id: llm.id });
+    expect(del2.secret_ref).toBe('provider.api-siliconflow-cn.llm');
+  });
 });

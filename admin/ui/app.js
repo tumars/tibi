@@ -8,10 +8,10 @@ const el = (tag, text, cls) => {
 const state = { page: 'overview', status: null, jobs: [], prefix: '', token: '', next: null,
   notice: null, remote: null, revision: null, dirty: false, release: null, uploading: false };
 const pages = {
-  overview: ['概览', '分发概览', '从这里管理每一次下载、更新与消息。'],
-  storage: ['文件存储', '文件存储', '浏览你的云端文件，让每个下载入口都有迹可循。'],
-  releases: ['版本发布', '发布新版本', '从一份已验证的产物，到用户收到的下一次更新。'],
-  notices: ['公告推送', '和用户说点什么', '写好消息，选择范围，在下一次检查时送达。'],
+  overview: ['概览', '分发概览'],
+  storage: ['文件存储', '文件存储'],
+  releases: ['版本发布', '版本发布'],
+  notices: ['公告推送', '公告推送'],
 };
 const platforms = { macos: 'macOS', windows: 'Windows', linux: 'Linux', android: 'Android', ios: 'iOS' };
 const bytes = n => n >= 1024 ** 3 ? (n / 1024 ** 3).toFixed(2) + ' GB' : n >= 1024 ** 2 ? (n / 1024 ** 2).toFixed(1) + ' MB'
@@ -53,14 +53,14 @@ async function switchPage(page) {
   state.page = page; clearError();
   document.querySelectorAll('.page').forEach(node => node.classList.toggle('hidden', node.id !== 'page-' + page));
   document.querySelectorAll('.nav-item').forEach(node => node.classList.toggle('selected', node.dataset.page === page));
-  [$('#breadcrumb').textContent, $('#page-title').textContent, $('#page-description').textContent] = pages[page];
+  [$('#breadcrumb').textContent, $('#page-title').textContent] = pages[page];
   if (page === 'storage') await loadStorage();
   if (page === 'notices' && !state.notice) await loadNotices();
   if (page === 'releases') await loadLocalReleases();
 }
 async function loadStatus() {
   const data = await api('status'); state.status = data;
-  $('#connection span').textContent = data.connected ? '已连接腾讯云' : '连接需要检查';
+  $('#connection span').textContent = data.connected ? '已连接腾讯云' : '连接异常';
   $('#connection').classList.toggle('offline', !data.connected);
   $('#metric-version').textContent = data.latest ? 'v' + data.latest.version : '—';
   $('#metric-platforms').textContent = data.latest ? Object.keys(data.latest.platforms || {}).map(p => p.replace('darwin-aarch64', 'macOS · Apple Silicon')
@@ -70,6 +70,8 @@ async function loadStatus() {
   $('#metric-base').textContent = new URL(data.base).hostname;
   $('#bucket').textContent = data.bucket; $('#region').textContent = data.region;
   $('#base').textContent = data.base; $('#latest-link').href = data.base + '/latest.json'; $('#notice-link').href = data.base + '/notice.json';
+  const updated = $('#footer-updated');
+  if (updated) updated.textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
   if (data.error) showError(new Error(data.error));
 }
 let storageRequest = 0;
@@ -114,7 +116,16 @@ async function loadStorage() {
     }
     row.append(name, el('td', bytes(file.size)), el('td', date(file.modified)), actions); rows.append(row);
   }
-  if (!data.files.length && !data.dirs.length) { const cell = el('td', '这个目录还没有文件', 'empty'); cell.colSpan = 4; const row = el('tr'); row.append(cell); rows.append(row); }
+  if (!data.files.length && !data.dirs.length) {
+    const cell = el('td', undefined, 'empty'); cell.colSpan = 4;
+    cell.append(el('div', '当前目录暂无文件。'));
+    const act = el('div', undefined, 'empty-act');
+    const btn = el('button', '上传文件', 'button secondary small');
+    btn.type = 'button';
+    btn.onclick = () => $('#show-upload').click();
+    act.append(btn); cell.append(act);
+    const row = el('tr'); row.append(cell); rows.append(row);
+  }
   $('#storage-summary').textContent = '本页 ' + data.dirs.length + ' 个目录 · ' + data.files.length + ' 个文件 · ' + bytes(data.files.reduce((sum, file) => sum + file.size, 0));
   $('#storage-next').disabled = !data.next; $('#storage-first').disabled = !state.token; syncButtons();
 }
@@ -187,7 +198,16 @@ function renderNoticeCards() {
       inputField('英文按钮文案（可选）', fieldText(n.label, 'en'), v => localized(n, 'label', 'en', v)));
     details.append(labels); card.append(details); cards.append(card);
   });
-  if (!state.notice.notices.length) cards.append(el('div', '还没有公告，新增一条消息开始。', 'empty'));
+  if (!state.notice.notices.length) {
+    const empty = el('div', undefined, 'empty');
+    empty.append(el('div', '暂无公告草稿。'));
+    const act = el('div', undefined, 'empty-act');
+    const btn = el('button', '新增公告', 'button secondary small');
+    btn.type = 'button';
+    btn.onclick = () => $('#notice-add').click();
+    act.append(btn); empty.append(act);
+    cards.append(empty);
+  }
   renderNoticesStatus(); renderNoticePreview();
 }
 function renderNoticePreview() {
@@ -195,13 +215,13 @@ function renderNoticePreview() {
   for (const n of state.notice?.notices || []) {
     const card = el('div', undefined, 'notice-bubble'); const header = el('div', undefined, 'bubble-head');
     header.append(el('span', 't.', 'bubble-dot'), el('span', 'Tibi 提比')); card.append(header);
-    card.append(el('div', readable(n.message) || '消息正文会显示在这里', 'bubble-message'));
-    if (n.url) card.append(el('div', (readable(n.label) || ($('#preview-language').value === 'en' ? 'Learn more' : '去看看')) + ' ↗', 'bubble-button'));
+    card.append(el('div', readable(n.message) || '消息正文预览', 'bubble-message'));
+    if (n.url) card.append(el('div', (readable(n.label) || ($('#preview-language').value === 'en' ? 'Learn more' : '查看详情')) + ' ↗', 'bubble-button'));
     const target = n.platforms?.length ? n.platforms.map(p => platforms[p]).join('、') : '全部平台';
     card.append(el('div', target + (n.below ? ' · 低于 ' + n.below + ' · 每天提醒' : ' · 仅提醒一次') + (n.until ? ' · 至 ' + n.until : ''), 'bubble-target'));
     container.append(card);
   }
-  if (!container.children.length) container.append(el('div', '新增公告后在这里预览', 'empty'));
+  if (!container.children.length) container.append(el('div', '新增公告后可在此预览。', 'empty'));
 }
 async function loadNotices() {
   const data = await api('notices'); state.notice = data.data; state.remote = data.remote;
@@ -221,7 +241,7 @@ async function pollJobs() {
     el('span', job.title, 'job-name'), el('span', date(job.started), 'job-date'), el('span', '⌄', 'muted'));
     detail.append(summary, el('pre', job.lines.join('\n') || '正在开始…')); container.append(detail);
   }
-  if (!jobs.length) container.append(el('div', '还没有操作记录', 'empty'));
+  if (!jobs.length) container.append(el('div', '暂无后台任务记录。', 'empty'));
   const running = jobs.find(job => job.status === 'running');
   $('#running-status').textContent = running ? '任务执行中' : '空闲'; $('#running-status').className = 'badge' + (running ? ' running' : '');
   syncButtons();
@@ -265,7 +285,7 @@ $('#release-inspect').onsubmit = safely(async event => {
   event.preventDefault(); $('#inspect-button').disabled = true; $('#inspect-button').textContent = '正在校验…';
   state.release = null; $('#release-preview').classList.add('hidden'); syncButtons();
   try { renderRelease(await api('releases/inspect', { method: 'POST', data: { directory: $('#release-directory').value } })); }
-  finally { $('#inspect-button').disabled = false; $('#inspect-button').textContent = '检查产物'; }
+  finally { $('#inspect-button').disabled = false; $('#inspect-button').textContent = '校验产物'; }
 });
 $('#release-directory').oninput = () => { state.release = null; $('#release-preview').classList.add('hidden'); syncButtons(); };
 $('#release-validated').onchange = syncButtons;
@@ -301,6 +321,41 @@ $('#notice-publish').onclick = safely(async () => {
   await pollJobs(); notify('公告发布已开始');
 });
 window.addEventListener('beforeunload', event => { if (state.dirty || state.uploading) { event.preventDefault(); event.returnValue = ''; } });
+
+/* ① 提示气泡：默认隐藏，悬停/聚焦/点击弹出并贴合视口边界 */
+let pinnedTip = null;
+const tipPop = $('#tip-pop');
+function hideTip() {
+  if (pinnedTip) { pinnedTip.setAttribute('aria-expanded', 'false'); pinnedTip = null; }
+  tipPop?.classList.add('hidden');
+}
+function showTip(trigger, pin = false) {
+  if (!tipPop || !trigger?.dataset?.tip) return;
+  if (pinnedTip && pinnedTip !== trigger) pinnedTip.setAttribute('aria-expanded', 'false');
+  tipPop.textContent = trigger.dataset.tip;
+  tipPop.classList.remove('hidden');
+  const r = trigger.getBoundingClientRect();
+  const pr = tipPop.getBoundingClientRect();
+  const left = Math.max(12, Math.min(window.innerWidth - pr.width - 12, r.left + r.width / 2 - pr.width / 2));
+  const top = r.bottom + 8 + pr.height <= window.innerHeight - 12 ? r.bottom + 8 : Math.max(12, r.top - pr.height - 8);
+  tipPop.style.left = left + 'px';
+  tipPop.style.top = top + 'px';
+  if (pin) { pinnedTip = trigger; trigger.setAttribute('aria-expanded', 'true'); }
+}
+document.querySelectorAll('.tip-btn').forEach(btn => {
+  btn.setAttribute('aria-expanded', 'false');
+  btn.addEventListener('mouseenter', () => { if (!pinnedTip) showTip(btn, false); });
+  btn.addEventListener('mouseleave', () => { if (!pinnedTip) tipPop?.classList.add('hidden'); });
+  btn.addEventListener('focus', () => { if (!pinnedTip) showTip(btn, false); });
+  btn.addEventListener('blur', () => { if (!pinnedTip) tipPop?.classList.add('hidden'); });
+  btn.addEventListener('click', event => {
+    event.stopPropagation();
+    if (pinnedTip === btn) hideTip(); else showTip(btn, true);
+  });
+});
+document.addEventListener('click', event => { if (pinnedTip && !tipPop?.contains(event.target)) hideTip(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && pinnedTip) hideTip(); });
+
 await Promise.all([loadStatus(), pollJobs()]).catch(showError);
 let polling = false;
 setInterval(async () => { if (polling || document.hidden) return; polling = true; try { await pollJobs(); } catch (e) { showError(e); } finally { polling = false; } }, 2000);

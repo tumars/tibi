@@ -1,26 +1,34 @@
 import { now, type Database } from '../../db/driver.js';
+import type { FeedKind } from '../../types.js';
 
-/** 订阅与条目的读写（11 §3） */
+/** 订阅与条目的读写（11 §3、17 §4） */
 
 export type FeedRow = {
   id: string; url: string; site_url: string | null; title: string; title_custom: number; builtin: number; enabled: number; folder: string | null;
+  kind: FeedKind; artwork_url: string | null; language: string | null; description: string | null;
   etag: string | null; last_modified: string | null; ttl_minutes: number | null;
   last_fetched_at: number | null; last_ok_at: number | null; error: string | null; error_count: number; next_fetch_at: number | null;
   created_at: number; updated_at: number; deleted_at: number | null;
 };
 export type ItemState = 'new' | 'seen' | 'saved' | 'dismissed';
 
-/** 界面上的一个订阅 */
-export interface FeedView { id: string; url: string; site_url?: string; title: string; builtin: boolean; enabled: boolean; folder?: string; unread: number; last_ok_at?: number; error?: string; error_count: number }
+/** 界面上的一个订阅（文章源或电台源） */
+export interface FeedView {
+  id: string; url: string; site_url?: string; title: string; builtin: boolean; enabled: boolean; folder?: string;
+  kind: FeedKind; artwork_url?: string; language?: string; description?: string;
+  unread: number; last_ok_at?: number; error?: string; error_count: number;
+}
 
 /** 保留期：60 天、每源 300 条；保存过和导入过的不删 */
 export const KEEP_DAYS = 60;
 const KEEP_PER_FEED = 300;
 
-export async function listFeeds(db: Database): Promise<FeedView[]> {
+export async function listFeeds(db: Database, kind?: FeedKind): Promise<FeedView[]> {
+  const cond = kind ? 'AND f.kind = ?' : '';
   const rows = await db.all<FeedRow & { unread: number }>(
     `SELECT f.*, (SELECT count(*) FROM feed_items i WHERE i.feed_id = f.id AND i.state = 'new' AND i.deleted_at IS NULL) AS unread
-     FROM feeds f WHERE f.deleted_at IS NULL ORDER BY COALESCE(f.folder, '') = '', f.folder, f.builtin DESC, f.title COLLATE NOCASE`);
+     FROM feeds f WHERE f.deleted_at IS NULL ${cond} ORDER BY COALESCE(f.folder, '') = '', f.folder, f.builtin DESC, f.title COLLATE NOCASE`,
+    kind ? [kind] : []);
   return rows.map(toView);
 }
 
@@ -35,7 +43,12 @@ export function netError(e: unknown): string {
 export function toView(r: FeedRow & { unread?: number }): FeedView {
   return {
     id: r.id, url: r.url, ...(r.site_url ? { site_url: r.site_url } : {}), title: r.title, builtin: !!r.builtin, enabled: !!r.enabled,
-    ...(r.folder ? { folder: r.folder } : {}), unread: Number(r.unread ?? 0), ...(r.last_ok_at ? { last_ok_at: r.last_ok_at } : {}),
+    ...(r.folder ? { folder: r.folder } : {}),
+    kind: (r.kind || 'article') as FeedKind,
+    ...(r.artwork_url ? { artwork_url: r.artwork_url } : {}),
+    ...(r.language ? { language: r.language } : {}),
+    ...(r.description ? { description: r.description } : {}),
+    unread: Number(r.unread ?? 0), ...(r.last_ok_at ? { last_ok_at: r.last_ok_at } : {}),
     ...(r.error ? { error: netError(r.error) } : {}), error_count: r.error_count,
   };
 }
@@ -43,8 +56,11 @@ export function toView(r: FeedRow & { unread?: number }): FeedView {
 export const getFeed = (db: Database, id: string) => db.get<FeedRow>('SELECT * FROM feeds WHERE id = ? AND deleted_at IS NULL', [id]);
 export const getFeedByUrl = (db: Database, url: string) => db.get<FeedRow>('SELECT * FROM feeds WHERE url = ? AND deleted_at IS NULL', [url]);
 
-export async function unreadCount(db: Database): Promise<number> {
-  const r = await db.get<{ n: number }>("SELECT count(*) AS n FROM feed_items i JOIN feeds f ON f.id = i.feed_id WHERE i.state = 'new' AND i.deleted_at IS NULL AND f.deleted_at IS NULL AND f.enabled = 1");
+export async function unreadCount(db: Database, kind: FeedKind = 'article'): Promise<number> {
+  const r = await db.get<{ n: number }>(
+    "SELECT count(*) AS n FROM feed_items i JOIN feeds f ON f.id = i.feed_id WHERE i.state = 'new' AND i.deleted_at IS NULL AND f.deleted_at IS NULL AND f.enabled = 1 AND f.kind = ?",
+    [kind],
+  );
   return Number(r?.n ?? 0);
 }
 
@@ -56,14 +72,35 @@ export async function linkImported(db: Database, urls: (string | null | undefine
   const shelved = Number(doc?.shelved ?? 1) === 1;
   const t = now();
   const state = shelved ? "'saved'" : "CASE WHEN state = 'new' THEN 'seen' ELSE state END";
-  const r = await db.run(`UPDATE feed_items SET document_id = ?, state = ${state}, seen_at = COALESCE(seen_at, ?), updated_at = ? WHERE url IN (${list.map(() => '?').join(',')}) AND (document_id IS NULL OR document_id != ? OR state != 'saved') AND deleted_at IS NULL`, [document_id, t, t, ...list, document_id]);
+  const ph = list.map(() => '?').join(',');
+  const r = await db.run(
+    `UPDATE feed_items SET document_id = ?, state = ${state}, seen_at = COALESCE(seen_at, ?), updated_at = ?
+     WHERE (url IN (${ph}) OR audio_url IN (${ph})) AND (document_id IS NULL OR document_id != ? OR state != 'saved') AND deleted_at IS NULL`,
+    [document_id, t, t, ...list, ...list, document_id],
+  );
   return r.changes;
 }
 
-/** 按保留期硬删旧条目（本机派生数据，P1 不同步） */
+/** 按 feed_item.id 回填导入后的文档关联 */
+export async function linkImportedItem(db: Database, item_id: string, document_id: string): Promise<number> {
+  const doc = await db.get<{ shelved: number }>('SELECT shelved FROM documents WHERE id = ?', [document_id]);
+  const shelved = Number(doc?.shelved ?? 1) === 1;
+  const t = now();
+  const state = shelved ? "'saved'" : "CASE WHEN state = 'new' THEN 'seen' ELSE state END";
+  const r = await db.run(
+    `UPDATE feed_items SET document_id = ?, state = ${state}, seen_at = COALESCE(seen_at, ?), updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
+    [document_id, t, t, item_id],
+  );
+  return r.changes;
+}
+
+/** 按保留期硬删旧条目（本机派生数据，P1 不同步；播客条目按单源最多 100 条保留，避免老播客被 60 天截空） */
 export async function prune(db: Database): Promise<number> {
   const keep = "state != 'saved' AND document_id IS NULL";
-  const a = await db.run(`DELETE FROM feed_items WHERE ${keep} AND COALESCE(published_at, created_at) < ?`, [now() - KEEP_DAYS * 86_400_000]);
+  const a = await db.run(
+    `DELETE FROM feed_items WHERE ${keep} AND feed_id IN (SELECT id FROM feeds WHERE kind = 'article') AND COALESCE(published_at, created_at) < ?`,
+    [now() - KEEP_DAYS * 86_400_000],
+  );
   const b = await db.run(`DELETE FROM feed_items WHERE id IN (
     SELECT id FROM (SELECT id, state, document_id, ROW_NUMBER() OVER (PARTITION BY feed_id ORDER BY COALESCE(published_at, created_at) DESC, created_at DESC) AS rn FROM feed_items)
     WHERE rn > ? AND ${keep})`, [KEEP_PER_FEED]);

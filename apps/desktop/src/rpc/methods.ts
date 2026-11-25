@@ -2,21 +2,23 @@
  * 界面用到的方法签名（06 §3 的子集，M0 / M1）。类型只从 @tibi/core 取类型，不引运行时。
  */
 import type {
-  Answer, AnswerResult, MessageBlock, MessageStep, WidgetBlock, Conversation, Document, DocumentSummary, Genre, Id, IntervalPreview, Kind, Memory, Message, Ok, Page, Profile, Provider, Rating, ReviewSession, Skill,
-  DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, TurnId, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval, AskState,
+  Answer, AnswerResult, MessageBlock, MessageStep, WidgetBlock, Conversation, Document, DocumentSummary, FeedKind, Genre, Id, IntervalPreview, Kind, MediaCacheStats, Memory, Message, Ok, Page, PodcastSearchResult, Profile, Provider, Rating, ReviewSession, Skill,
+  DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, TimedSegment, TranscriptSource, TurnId, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval, AskState,
   FeedView, FeedItemView, FeedCandidate, RefreshResult,
 } from '@tibi/core';
 
 export interface WebSearchConfig { provider: 'deepseek' | 'tavily' | 'off'; deepseek_ready: boolean; tavily_ready: boolean }
 
 export interface MethodTable {
-  'system.status': { params: Record<string, never>; result: { version: string; db_path: string; offline: boolean; models: { fast?: string; deep?: string; ok: boolean } } };
+  'system.status': { params: Record<string, never>; result: { version: string; db_path: string; offline: boolean; models: { fast?: string; deep?: string; ok: boolean; asr?: string } } };
   'system.undo': { params: { undo_id: Id }; result: Ok };
   'system.registerPaths': { params: { paths: string[] }; result: Ok };
   'system.backup': { params: { reason?: 'manual' | 'before_reset' | 'before_restore' | 'before_update' }; result: { path: string; size: number; created_at: number } };
   'system.backups': { params: Record<string, never>; result: { auto: boolean; dir_supported: boolean; items: { name: string; path: string; size: number; created_at: number; reason: 'auto' | 'manual' | 'before_reset' | 'before_restore' | 'before_update' }[] } };
+  'system.mediaCache': { params: Record<string, never>; result: MediaCacheStats & { supported: boolean } };
+  'system.clearMediaCache': { params: Record<string, never>; result: { freed_bytes: number } };
   'stats.export_summary': { params: Record<string, never>; result: UsageSummary };
-  'documents.import': { params: { source: { type: 'text'; text: string } | { type: 'url'; url: string; title?: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink'; /** false：从订阅里直接读，不进书架 */ shelve?: boolean }; result: { import_id: Id } };
+  'documents.import': { params: { source: { type: 'text'; text: string } | { type: 'url'; url: string; title?: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string } | { type: 'podcast_item'; id: string } | { type: 'audio'; path: string; transcript_path?: string; title?: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink'; /** false：从订阅/电台里直接读，不进书架 */ shelve?: boolean }; result: { import_id: Id } };
   'documents.samples': { params: Record<string, never>; result: SampleInfo[] };
   'documents.checkUrl': { params: { url: string }; result: { ok: boolean; url?: string; host?: string; error?: string } };
   'documents.list': { params: { kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; status?: 'unread' | 'reading' | 'done'; cursor?: string; limit?: number }; result: Page<DocumentSummary> };
@@ -26,6 +28,9 @@ export interface MethodTable {
   'sections.get': { params: { id: Id; with?: ('translations' | 'ai')[] }; result: SectionContent };
   'sections.translate': { params: { id: Id; sentence_ids?: Id[] }; result: Ok };
   'documents.analyze': { params: { id: Id }; result: Ok };
+  'documents.playback': { params: { id: Id; playback_ms: number; duration_ms?: number }; result: Ok };
+  'documents.ensureMedia': { params: { id: Id }; result: { media_path?: string; media_url?: string; duration_ms?: number } };
+  'documents.transcribe': { params: { id: Id; transcript_path?: string; segments?: TimedSegment[]; duration_ms?: number; transcript_source?: 'local_asr' | 'cloud_asr' | 'manual' }; result: { sentences: number; transcript_source: TranscriptSource } };
   'sections.progress': { params: { id: Id; sentence_id: Id; progress: number }; result: Ok };
   'sections.finish': { params: { id: Id }; result: Ok };
   'terms.lookup': { params: { text: string; sentence_id?: Id }; result: { dict?: DictEntry; term?: Term; context_meaning?: string; status_change?: { from: Status; to: Status }; card_created?: boolean } };
@@ -74,7 +79,7 @@ export interface MethodTable {
   'settings.get': { params: { keys?: string[] }; result: Record<string, unknown> };
   'settings.set': { params: { patch: Record<string, unknown> }; result: Record<string, unknown> };
   'providers.list': { params: Record<string, never>; result: Provider[] };
-  'providers.upsert': { params: { provider: Omit<Provider, 'id' | 'has_secret'> & { id?: Id }; secret_ref?: string }; result: Provider };
+  'providers.upsert': { params: { provider: Omit<Provider, 'id' | 'has_secret'> & { id?: Id }; secret_ref?: string; reuse_secret_from?: Id }; result: Provider };
   'providers.delete': { params: { id: Id }; result: { ok: true; secret_ref?: string } };
   'providers.test': { params: { id: Id }; result: { ok: boolean; model?: string; latency_ms?: number; json_mode?: boolean; error?: string } };
   'chat.list': { params: { limit?: number }; result: Conversation[] };
@@ -84,16 +89,17 @@ export interface MethodTable {
   'skills.runNow': { params: { id: string; input?: string }; result: { conversation_id: Id; submission_id: TurnId } };
   'websearch.config': { params: Record<string, never>; result: WebSearchConfig };
   'websearch.configure': { params: { provider: WebSearchConfig['provider'] }; result: WebSearchConfig };
-  'feeds.list': { params: Record<string, never>; result: FeedView[] };
+  'feeds.list': { params: { kind?: FeedKind }; result: FeedView[] };
   'feeds.discover': { params: { url: string }; result: FeedCandidate[] };
-  'feeds.add': { params: { url: string; title?: string; folder?: string }; result: FeedView };
+  'feeds.add': { params: { url: string; title?: string; folder?: string; kind?: FeedKind }; result: FeedView };
   'feeds.update': { params: { id: Id; title?: string; folder?: string; enabled?: boolean }; result: FeedView };
   'feeds.remove': { params: { id: Id }; result: { ok: true; undo: Undo } };
-  'feeds.refresh': { params: { feed_ids?: Id[]; force?: boolean }; result: RefreshResult };
-  'feeds.status': { params: Record<string, never>; result: { unread: number; refreshing: boolean; auto_refresh: boolean } };
+  'feeds.refresh': { params: { feed_ids?: Id[]; kind?: FeedKind; force?: boolean }; result: RefreshResult };
+  'feeds.status': { params: Record<string, never>; result: { unread: number; radio_unread: number; refreshing: boolean; auto_refresh: boolean } };
   'feeds.configure': { params: { auto_refresh: boolean }; result: { auto_refresh: boolean } };
-  'feeds.items': { params: { feed_id?: Id; folder?: string; filter?: 'unread' | 'all' | 'saved'; cursor?: string; limit?: number; as_of?: number }; result: { items: FeedItemView[]; total: number; next_cursor?: string } };
-  'feeds.mark': { params: { ids?: Id[]; feed_id?: Id; all?: boolean; state: 'seen' | 'dismissed' | 'new' }; result: { count: number; undo?: Undo } };
+  'feeds.items': { params: { kind?: FeedKind; feed_id?: Id; folder?: string; filter?: 'unread' | 'all' | 'saved' | 'transcript'; cursor?: string; limit?: number; as_of?: number }; result: { items: FeedItemView[]; total: number; next_cursor?: string } };
+  'feeds.mark': { params: { ids?: Id[]; feed_id?: Id; kind?: FeedKind; all?: boolean; state: 'seen' | 'dismissed' | 'new' }; result: { count: number; undo?: Undo } };
+  'podcasts.search': { params: { q: string; limit?: number }; result: PodcastSearchResult[] };
   'mcp.config': { params: Record<string, never>; result: { enabled: boolean; write_tools: string[]; tools: { name: string; description: string; write: boolean }[] } };
   'mcp.configure': { params: { enabled?: boolean; write_tools?: string[] }; result: Ok };
   'memory.list': { params: { type?: Memory['type']; q?: string }; result: Memory[] };

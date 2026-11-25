@@ -143,8 +143,6 @@ export function Home() {
   const late = hour >= 23 || hour < 5;
   const foxState = task ? 'reading' : focus ? 'listening' : late ? 'sleeping' : 'idle';
   const greeting = hour < 5 ? tl('夜深了') : hour < 11 ? tl('早上好') : hour < 13 ? tl('中午好') : hour < 18 ? tl('下午好') : tl('晚上好');
-  // 欢迎语第二行只是一句邀请，不报状态：在读的文章、待复习、没读的文章下面的卡片都有，这里再说就重复了（00 §3.5）
-  const welcomeLine = docs.length === 0 ? tl('读过的文章里的生词会自动进入复习') : late ? tl('Tibi 睡了，你随意。') : hour < 5 ? tl('睡前读一小段？') : tl('今天想读点什么？');
 
   return (
     <>
@@ -154,7 +152,6 @@ export function Home() {
           <div className="welcome">
             {!coreDown && <Fox className="hero-fox" size={124} state={foxState} />}
             <h1>{greeting}{nickname ? <><span className="p">{tl('，')}</span><span className="name">{nickname}</span></> : ''}</h1>
-            <div className="sub">{welcomeLine}</div>
           </div>
           <div className={`composer${over ? ' over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={onDrop}>
               {action && <ActionChip action={action} onClear={() => { setAction(undefined); ta.current?.focus(); }} />}
@@ -236,9 +233,9 @@ export function Home() {
             <a className="more" href="#/library">{tl('全部书架 →')}</a>
           </div>
           {shelf.length ? <div className="docs">{shelf.slice(0, 8).map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} />)}</div>
-            : connected || status ? <Empty title={tl('书架还是空的')} text={tl('粘贴网址或拖入文件就能导入，也可以先读一篇示例。')} action={<Samples />} />
-            : import.meta.env.DEV ? <Empty image={coreDown ? 'error-offline' : undefined} title={tl('连不上 Tibi Core')} text={tl('先运行 pnpm core:dev，再刷新。')} />
-            : <Empty image={coreDown ? 'error-offline' : undefined} title={tl('暂时读不到你的数据')} text={coreError ? `${tl('你的数据还在本机。可以重试，不行就重启 Tibi。')}\n${coreError}` : tl('你的数据还在本机。可以重试，不行就重启 Tibi。')} action={<button className="btn" onClick={() => { void useCore.getState().retry().then(() => load()); }}>{tl('重试')}</button>} />}
+            : connected || status ? <Empty title={tl('书架暂无内容，粘贴网址、拖入文件或选择下方示例开始阅读。')} action={<Samples />} />
+            : import.meta.env.DEV ? <Empty image={coreDown ? 'error-offline' : undefined} title={tl('未连接 Tibi Core，请先启动核心服务后刷新。')} />
+            : <Empty image={coreDown ? 'error-offline' : undefined} title={tl('暂时无法读取本地数据，数据仍保存在本机。')} detail={coreError || undefined} action={<button className="btn pri" onClick={() => { void useCore.getState().retry().then(() => load()); }}>{tl('重试')}</button>} />}
         </section>
       </div></div>
 

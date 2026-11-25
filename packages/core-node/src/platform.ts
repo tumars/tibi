@@ -7,6 +7,7 @@ import { TibiError, web, type BackupStore, type FetchedPage, type Platform } fro
 import { linkedomParse } from './html2md.js';
 import { extractFile } from './extract.js';
 import { ocr, setOcrDataDir } from './ocr.js';
+import { createMediaOps } from './media.js';
 import { deviceName, syncFolder } from './syncfolder.js';
 
 /** 桌面运行时的 Platform 实现（05 §8 的网址规则在这里落地） */
@@ -97,10 +98,12 @@ export function nodePlatform(opts: NodePlatformOptions): Platform {
   const allowed = new Set<string>();
   if (opts.db_path && opts.db_path !== ':memory:') setOcrDataDir(dirname(opts.db_path));   // 语言包缓存在 app.db 旁边
   const saveAsset = fileAssets(opts.db_path);
+  const mediaOps = createMediaOps(opts.db_path, opts.app_version);
   return {
     backups: fileBackups(opts.db_path),
     syncFolder, deviceName,
     saveAsset, ...fileAssetDirs(opts.db_path),
+    ...mediaOps,
     extractFile: (path) => extractFile(path, saveAsset),
     ocr: (input, o) => ocr(input, o),
     registerPaths(paths) { for (const p of paths) allowed.add(p); },

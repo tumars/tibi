@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Modal } from '../components/Modal';
+import { SettingItem } from '../components/ui';
 import { diagText, feedbackLink, FEEDBACK_EMAIL, type Diag, type FeedbackKind, type FeedbackVia } from '../lib/feedback';
 import { lang, tl } from '../lib/i18n';
 import { currentPlatform } from '../lib/notice';
@@ -9,9 +10,9 @@ import { recentErrors, toast } from '../store/ui';
 
 const KINDS = [['bug', tl('问题')], ['idea', tl('建议')], ['other', tl('其他')]] as const;
 const HINT: Record<FeedbackKind, string> = {
-  bug: tl('你做了什么、期望看到什么、实际看到什么'),
-  idea: tl('你在读文章、学单词时遇到了什么情况，希望 Tibi 怎么帮你'),
-  other: tl('想说的都可以写'),
+  bug: tl('描述操作步骤、预期结果与实际表现'),
+  idea: tl('描述使用场景与期望改进'),
+  other: tl('输入反馈内容'),
 };
 
 /** Apple 芯片还是 Intel：借检查更新时用的那个命令，它按芯片给安装包名 */
@@ -31,9 +32,11 @@ async function open(url: string) {
 export function FeedbackItems() {
   const [show, setShow] = useState(false);
   return <>
-    <div className="item"><div><div className="t">{tl('反馈与建议')}</div><div className="d">{tl('遇到问题、有想法都可以告诉作者。在这里写好，再从 GitHub 或邮件发出去')}</div></div><div className="ctl">
-      <button className="btn sm" onClick={() => setShow(true)}>{tl('写反馈')}</button>
-    </div></div>
+    <SettingItem
+      title={tl('反馈与建议')}
+      tip={tl('通过 GitHub Issues 或邮件向作者提交问题与建议。')}
+      control={<button className="btn sm" onClick={() => setShow(true)}>{tl('提交反馈')}</button>}
+    />
     {show && <FeedbackDialog onClose={() => setShow(false)} />}
   </>;
 }
@@ -68,8 +71,8 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
   return (
     <Modal open onOpenChange={o => { if (!o) onClose(); }} title={tl('反馈与建议')} actions={<>
       <button className="btn" onClick={onClose}>{tl('取消')}</button>
-      <button className="btn" disabled={empty} onClick={() => void send('mail')}>{tl('发邮件')}</button>
-      <button className="btn pri" disabled={empty} onClick={() => void send('github')}>{tl('在 GitHub 提')}</button>
+      <button className="btn" disabled={empty} onClick={() => void send('mail')}>{tl('发送邮件')}</button>
+      <button className="btn pri" disabled={empty} onClick={() => void send('github')}>{tl('通过 GitHub 提交')}</button>
     </>}>
       <div className="fbk">
         <div className="seg">{KINDS.map(([k, l]) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{l}</button>)}</div>
@@ -79,7 +82,7 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
           {/* 预览的就是发出去的那段 */}
           {withDiag && <pre className="mono">{diagText(diag)}</pre>}
         </>}
-        <p className="fbk-note">{tl('Tibi 不会自己发送任何东西：点按钮后会打开浏览器或邮件客户端，你确认后再发。GitHub 需要登录，没有账号就发邮件')}</p>
+        <p className="fbk-note">{tl('提交后将跳转至浏览器或邮件客户端由你确认发送，Tibi 不会自动上传数据。')}</p>
       </div>
     </Modal>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as tts from '../lib/tts';
 import { speakWith, useSpeaking, useTtsStatus } from '../components/Speak';
+import { SettingItem } from '../components/ui';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
@@ -36,41 +37,48 @@ export function VoiceItems() {
     setEngine(e); tts.configure({ engine: e }); await save({ 'tts.engine': e });
   };
 
-  const aiState = dl.state === 'loading' ? tl('正在下载 {pct}%…', { pct: dl.pct }) : dl.state === 'ready' ? tl('模型已下载') : tl('第一次用要下载约 92 MB');
+  const aiState = dl.state === 'loading' ? tl('正在下载 {pct}%…', { pct: dl.pct }) : dl.state === 'ready' ? tl('模型已下载') : tl('未下载 · 约 92 MB');
+  const sysStatus = sys.length ? undefined : voicesSettled ? tl('未检测到英文系统语音，可改用 AI 朗读') : tl('正在检测系统语音…');
   return <>
-    <div className="item">
-      <div><div className="t">{tl('系统朗读')}</div><div className="d">{tl('用电脑自带的语音，离线可用，马上出声。')}{sys.length ? '' : voicesSettled ? tl('暂未检测到美音或英音系统语音，可以用 AI 朗读') : tl('正在查找系统语音…')}</div></div>
-      <div className="ctl">
+    <SettingItem
+      title={tl('系统朗读')}
+      tip={tl('调用系统自带语音引擎，支持离线即时发声。')}
+      status={sysStatus}
+      control={<>
         <select className="input" value={voice} onChange={async e => { setVoice(e.target.value); tts.configure({ voice: e.target.value }); await save({ 'tts.voice': e.target.value }); }} aria-label={tl('系统朗读的音色')}>
           <option value="">{tl('系统默认')}</option>
           {sys.map(v => <option key={v.id} value={v.id}>{v.label}{v.accent === 'gb' ? tl('（英音）') : tl('（美音）')}</option>)}
         </select>
         <button className="btn sm" onClick={() => void speakWith(SAMPLE, 'system', 'sample:system')}>{tl('试听')}</button>
-      </div>
-    </div>
-    <div className="item">
-      <div><div className="t">{tl('AI 朗读')}</div><div className="d">{tl('本地的 Kokoro，更自然，不联网也能用。{v0}', { v0: aiState })}</div></div>
-      <div className="ctl">
+      </>}
+    />
+    <SettingItem
+      title={tl('AI 朗读')}
+      tip={tl('基于本地 Kokoro 语音模型，支持离线自然朗读。')}
+      status={aiState}
+      control={<>
         <select className="input" value={aiVoice} onChange={async e => { setAiVoice(e.target.value); tts.configure({ aiVoice: e.target.value }); await save({ 'tts.ai_voice': e.target.value }); }} aria-label={tl('AI 朗读的音色')}>
           {tts.KOKORO_VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
         </select>
         {dl.state === 'ready'
           ? <button className="btn sm" onClick={() => void speakWith(SAMPLE, 'kokoro', 'sample:ai')}>{sampling ? tl('生成中…') : tl('试听')}</button>
           : <button className="btn sm" disabled={dl.state === 'loading'} onClick={() => void download()}>{dl.state === 'loading' ? tl('下载中 {pct}%', { pct: dl.pct }) : tl('下载')}</button>}
-      </div>
-    </div>
-    <div className="item">
-      <div><div className="t">{tl('默认朗读方式')}</div><div className="d">{tl('两种朗读到处都有按钮，随时可以换；复习的快捷键、自动播放和全文朗读刚打开时用这里选的')}</div></div>
-      <div className="ctl"><div className="seg">
+      </>}
+    />
+    <SettingItem
+      title={tl('默认朗读方式')}
+      tip={tl('用于复习快捷键、自动发音与全文朗读初始引擎，朗读界面可随时切换。')}
+      control={<div className="seg">
         <button className={engine === 'system' ? 'on' : ''} onClick={() => void setE('system')}>{tl('系统朗读')}</button>
         <button className={engine === 'kokoro' ? 'on' : ''} disabled={dl.state === 'loading'} onClick={() => void setE('kokoro')}>{tl('AI 朗读')}</button>
-      </div></div>
-    </div>
-    <div className="item">
-      <div><div className="t">{tl('默认语速')}</div><div className="d">{tl('阅读器里朗读时还可以单独调')}</div></div>
-      <div className="ctl"><select className="input" value={rate} onChange={async e => { const r = Number(e.target.value); setRate(r); tts.configure({ rate: r }); await save({ 'tts.rate': r }); }} aria-label={tl('默认语速')}>
+      </div>}
+    />
+    <SettingItem
+      title={tl('默认语速')}
+      tip={tl('阅读器全文朗读时可单独调整。')}
+      control={<select className="input" value={rate} onChange={async e => { const r = Number(e.target.value); setRate(r); tts.configure({ rate: r }); await save({ 'tts.rate': r }); }} aria-label={tl('默认语速')}>
         {[0.75, 0.9, 1, 1.1, 1.25].map(r => <option key={r} value={r}>{r}×</option>)}
-      </select></div>
-    </div>
+      </select>}
+    />
   </>;
 }

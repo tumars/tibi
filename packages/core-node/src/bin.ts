@@ -31,7 +31,7 @@ async function main() {
     resolveModel: flag('fake-model') ? async () => devFakeResolver() : undefined,
   });
   if (ws) {
-    startWebSocket(core, Number(ws), arg('token') ?? process.env.TIBI_TOKEN);
+    startWebSocket(core, Number(ws), arg('token') ?? process.env.TIBI_TOKEN, resolve(dirname(dbPath), 'media'));
     console.error(`[tibi-core] ws://127.0.0.1:${ws}  db=${dbPath}  dict=${dictPath ?? '（无）'}  方法 ${core.dispatcher.list().length} 个`);
   }
   if (useStdio) attachStdio(core, host);

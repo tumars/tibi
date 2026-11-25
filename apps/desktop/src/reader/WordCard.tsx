@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router';
 import { useCore } from '../store/core';
 import { SpeakButtons } from '../components/Speak';
 import { TibiAvatar } from '../components/TibiIcons';
+import { StageBar } from '../components/ui';
 import { EXAM_NAMES } from '../lib/dict';
-import { STATUS_NAMES } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
@@ -72,7 +72,7 @@ export function WordCard({ word, sentenceId, anchor, right = innerWidth, onClose
       {data?.card_created && <div className="added">{tl('已加入复习')} <button className="linkbtn" style={{ fontSize: 12 }} onClick={() => setS(97)}>{tl('其实认识')}</button></div>}
       {err && <div className="dict" style={{ color: 'var(--hard)' }}>{err}</div>}
       {!data && !err && <div className="dict">{tl('查询中…')}</div>}
-      {ctxm?.state === 'idle' && <button className="ai muted ask" onClick={explain}><span className="tag"><TibiAvatar size={15} />{tl('✦ 在这句里')}</span>{tl('点一下，看它在这句里的意思')}</button>}
+      {ctxm?.state === 'idle' && <button className="ai muted ask" onClick={explain}><span className="tag"><TibiAvatar size={15} />{tl('✦ 在这句里')}</span>{tl('查看语境释义')}</button>}
       {ctxm?.state === 'ok' && <div className="ai"><span className="tag"><TibiAvatar size={15} />{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
       {ctxm?.state === 'loading' && <div className="ai muted"><span className="tag"><TibiAvatar size={15} />{tl('✦ 在这句里')}</span>{tl('正在看这句话…')}</div>}
       {ctxm?.state === 'err' && <div className="ai muted"><span className="tag"><TibiAvatar size={15} />{tl('✦ 在这句里')}</span>{ctxm.text}</div>}
@@ -84,9 +84,7 @@ export function WordCard({ word, sentenceId, anchor, right = innerWidth, onClose
         ...(data.dict.oxford ? [tl('牛津 3000')] : []),
         ...(data.dict.exam ?? []).map(x => EXAM_NAMES[x] ?? x),
       ].join(' · ')}</div> : null}
-      <div className="stages">
-        {([0, 1, 2, 3, 4, 5] as Status[]).map(s => <button key={s} data-s={s} className={`${status === s ? 'on' : ''}${status !== undefined && status <= 5 && s <= status ? ' fill' : ''}`} onClick={() => setS(s)} title={tl('{s} 键', { s })}><i />{STATUS_NAMES[s]}</button>)}
-      </div>
+      <StageBar status={status} onSelect={s => void setS(s)} showShortcutTitle />
       <div className="row">
         <button className={`btn${status === 98 ? ' pri' : ''}`} onClick={() => setS(98)}>{tl('忽略')}</button>
         <button className="btn" onClick={() => (onAsk ? onAsk(data?.term?.display ?? word, sentenceId) : toast(tl('在阅读器里可以问 Tibi')))}>{tl('问 Tibi')}</button>

@@ -1,0 +1,316 @@
+/* Tibi 全局 Design Token 体系（单一事实来源）
+ * - 色彩与表面：亮色 / 系统暗色 / 显式暗色 / 护眼纸面 四套主题统一收口
+ * - 间距：严格 4px 倍数（--sp-1 = 4px … --sp-12 = 48px）
+ * - 圆角：全局圆角阶梯 + 等距内缩计算（r_inner = r_outer - inset）+ 渐进连续圆角（corner-shape: squircle）
+ * - 组件尺寸与字号：统一控件高度与层级字阶
+ */
+
+:root {
+  /* ==================== 表面与背景 ==================== */
+  --bg: #f6f6f5;
+  --surface: #ffffff;
+  --surface-2: #f6f6f4;
+  --surface-3: #efefe9;
+  --sunken: #f2f2f1;
+  --hover: rgba(0, 0, 0, .04);
+  --glass-bg: rgba(255, 255, 255, .86);
+
+  /* ==================== 线条与阴影 ==================== */
+  --hair: rgba(24, 24, 27, .055);
+  --hair-2: rgba(24, 24, 27, .095);
+  --line: rgba(0, 0, 0, .08);
+  --line-2: rgba(0, 0, 0, .13);
+  --ring-card: 0 0 0 1px rgba(24, 24, 27, .055), 0 1px 2px rgba(24, 24, 27, .03);
+  --ring-card-hover: 0 0 0 1px rgba(24, 24, 27, .095), 0 2px 6px -2px rgba(24, 24, 27, .06);
+  --shadow-float: 0 0 0 1px rgba(24, 24, 27, .07), 0 2px 6px rgba(24, 24, 27, .05), 0 12px 30px -12px rgba(24, 24, 27, .14);
+  --shadow-modal: 0 0 0 1px rgba(24, 24, 27, .09), 0 24px 60px -20px rgba(0, 0, 0, .32);
+
+  /* ==================== 文字层级 ==================== */
+  --ink: #18181b;
+  --ink-2: #55555c;
+  --ink-3: #6b6b74;
+
+  /* ==================== 品牌与强调色 ==================== */
+  --accent: #3d52e0;
+  --accent-deep: #2f3fa8;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(61, 82, 224, .08);
+
+  --warm: #f5a043;
+  --warm-ink: #d9711c;
+  --warm-wash: rgba(245, 160, 67, .14);
+
+  /* ==================== 四态语义色（Info / Success / Warning / Danger） ==================== */
+  --info: var(--accent);
+  --info-wash: var(--accent-wash);
+  --ok: #2f8a4c;
+  --ok-wash: rgba(47, 138, 76, .085);
+  --mid: #b07a12;
+  --mid-wash: rgba(176, 122, 18, .085);
+  --hard: #c2452f;
+  --hard-wash: rgba(194, 69, 47, .075);
+
+  /* ==================== OKLab 丝绒微渐变面 ==================== */
+  --wash-indigo: linear-gradient(160deg in oklab, oklch(97.3% 0.011 264) 0%, oklch(95.8% 0.016 264) 100%);
+  --wash-warm: linear-gradient(160deg in oklab, oklch(97.8% 0.014 75) 0%, oklch(96.3% 0.020 72) 100%);
+  --wash-sage: linear-gradient(160deg in oklab, oklch(97.3% 0.013 152) 0%, oklch(95.9% 0.018 152) 100%);
+  --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(245, 160, 67, .12) 0%, rgba(61, 82, 224, .05) 54%, transparent 100%);
+
+  /* ==================== 阅读标注与内容类型色 ==================== */
+  --hl-new: rgba(110, 155, 220, .34);
+  --hl-1: rgba(226, 170, 50, .50);
+  --hl-2: rgba(226, 170, 50, .36);
+  --hl-3: rgba(226, 170, 50, .23);
+  --hl-4: rgba(226, 170, 50, .12);
+  --pencil: #8d8a83;
+
+  --c-tech: #edf0fa; --c-tech-ink: #3c4db8;
+  --c-news: #f9efe4; --c-news-ink: #99581d;
+  --c-novel: #ebf4ec; --c-novel-ink: #2e6d44;
+  --c-academic: #f2eef9; --c-academic-ink: #5f459e;
+  --c-blog: #eaf3f4; --c-blog-ink: #2b656e;
+
+  /* ==================== 字体 ==================== */
+  --f-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --f-read: Charter, "Bitstream Charter", "Charis SIL", Georgia, serif;
+  --f-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ==================== 字阶 ==================== */
+  --t-xs: 11.5px;
+  --t-sm: 12.5px;
+  --t-base: 13.5px;
+  --t-md: 15px;
+  --t-lg: 17px;
+  --t-xl: 22px;
+
+  /* ==================== 间距阶梯（严格 4px 倍数） ==================== */
+  --sp-0: 0px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 28px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* 语义间距别名（按逻辑嵌套层级递增：元素内 < 卡片内 < 兄弟卡片 < 分区） */
+  --gap-xs: var(--sp-1);
+  --gap-s: var(--sp-2);
+  --gap-m: var(--sp-3);
+  --gap-l: var(--sp-4);
+  --gap-xl: var(--sp-6);
+  --pad-card-sm: var(--sp-4);
+  --pad-card: var(--sp-5);
+  --pad-card-lg: var(--sp-6);
+
+  /* ==================== 圆角体系（全局阶梯 + 等距内缩） ==================== */
+  --r-xs: 4px;
+  --r-s: 8px;
+  --r-m: 12px;
+  --r-l: 16px;
+  --r-xl: 20px;
+  --r-2xl: 24px;
+  --r-pill: 9999px;
+
+  /* 等距内缩（r_inner = r_outer - inset） */
+  --r-in-m-1: calc(var(--r-m) - var(--sp-1));     /* 12px - 4px = 8px */
+  --r-in-l-1: calc(var(--r-l) - var(--sp-1));     /* 16px - 4px = 12px */
+  --r-in-l-2: calc(var(--r-l) - var(--sp-2));     /* 16px - 8px = 8px */
+  --r-in-xl-2: calc(var(--r-xl) - var(--sp-2));   /* 20px - 8px = 12px */
+  --r-in-2xl-4: calc(var(--r-2xl) - var(--sp-4)); /* 24px - 16px = 8px */
+
+  /* ==================== 布局与控件尺寸（4px 倍数） ==================== */
+  --side: 248px;
+  --h-ctl-sm: 28px;
+  --h-ctl: 32px;
+  --h-ctl-lg: 40px;
+  --h-top: 52px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0b0c;
+    --surface: #141416;
+    --surface-2: #19191d;
+    --surface-3: #202025;
+    --sunken: #1b1b1e;
+    --hover: rgba(255, 255, 255, .05);
+    --glass-bg: rgba(22, 22, 26, .84);
+
+    --hair: rgba(255, 255, 255, .065);
+    --hair-2: rgba(255, 255, 255, .115);
+    --line: rgba(255, 255, 255, .09);
+    --line-2: rgba(255, 255, 255, .15);
+    --ring-card: 0 0 0 1px rgba(255, 255, 255, .065), inset 0 1px 0 rgba(255, 255, 255, .03);
+    --ring-card-hover: 0 0 0 1px rgba(255, 255, 255, .12), inset 0 1px 0 rgba(255, 255, 255, .05);
+    --shadow-float: 0 0 0 1px rgba(255, 255, 255, .10), 0 4px 10px rgba(0, 0, 0, .35), 0 16px 36px -12px rgba(0, 0, 0, .55);
+    --shadow-modal: 0 0 0 1px rgba(255, 255, 255, .12), 0 24px 64px -16px rgba(0, 0, 0, .72);
+
+    --ink: #ededee;
+    --ink-2: #a5a5ad;
+    --ink-3: #8e8e97;
+
+    --accent: #7d8cf0;
+    --accent-deep: #4e5cb8;
+    --accent-ink: #0b0b0c;
+    --accent-wash: rgba(125, 140, 240, .12);
+
+    --warm: #f7ab55;
+    --warm-ink: #f7ab55;
+    --warm-wash: rgba(247, 171, 85, .16);
+
+    --ok: #6cc28a;
+    --ok-wash: rgba(108, 194, 138, .12);
+    --mid: #e2b04f;
+    --mid-wash: rgba(226, 176, 79, .12);
+    --hard: #ef8a76;
+    --hard-wash: rgba(239, 138, 118, .12);
+
+    --wash-indigo: linear-gradient(160deg in oklab, oklch(24.5% 0.026 266) 0%, oklch(21.5% 0.018 266) 100%);
+    --wash-warm: linear-gradient(160deg in oklab, oklch(25.0% 0.024 68) 0%, oklch(21.8% 0.016 68) 100%);
+    --wash-sage: linear-gradient(160deg in oklab, oklch(24.2% 0.022 154) 0%, oklch(21.5% 0.014 154) 100%);
+    --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(247, 171, 85, .11) 0%, rgba(125, 140, 240, .085) 54%, transparent 100%);
+
+    --hl-new: rgba(110, 155, 230, .30);
+    --hl-1: rgba(230, 180, 70, .40);
+    --hl-2: rgba(230, 180, 70, .28);
+    --hl-3: rgba(230, 180, 70, .18);
+    --hl-4: rgba(230, 180, 70, .09);
+
+    --c-tech: #1d2134; --c-tech-ink: #9aa7f5;
+    --c-news: #272018; --c-news-ink: #e5ad6e;
+    --c-novel: #18241b; --c-novel-ink: #82c99a;
+    --c-academic: #221d2e; --c-academic-ink: #b9a1eb;
+    --c-blog: #182326; --c-blog-ink: #7ec2cc;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b0b0c;
+  --surface: #141416;
+  --surface-2: #19191d;
+  --surface-3: #202025;
+  --sunken: #1b1b1e;
+  --hover: rgba(255, 255, 255, .05);
+  --glass-bg: rgba(22, 22, 26, .84);
+
+  --hair: rgba(255, 255, 255, .065);
+  --hair-2: rgba(255, 255, 255, .115);
+  --line: rgba(255, 255, 255, .09);
+  --line-2: rgba(255, 255, 255, .15);
+  --ring-card: 0 0 0 1px rgba(255, 255, 255, .065), inset 0 1px 0 rgba(255, 255, 255, .03);
+  --ring-card-hover: 0 0 0 1px rgba(255, 255, 255, .12), inset 0 1px 0 rgba(255, 255, 255, .05);
+  --shadow-float: 0 0 0 1px rgba(255, 255, 255, .10), 0 4px 10px rgba(0, 0, 0, .35), 0 16px 36px -12px rgba(0, 0, 0, .55);
+  --shadow-modal: 0 0 0 1px rgba(255, 255, 255, .12), 0 24px 64px -16px rgba(0, 0, 0, .72);
+
+  --ink: #ededee;
+  --ink-2: #a5a5ad;
+  --ink-3: #8e8e97;
+
+  --accent: #7d8cf0;
+  --accent-deep: #4e5cb8;
+  --accent-ink: #0b0b0c;
+  --accent-wash: rgba(125, 140, 240, .12);
+
+  --warm: #f7ab55;
+  --warm-ink: #f7ab55;
+  --warm-wash: rgba(247, 171, 85, .16);
+
+  --ok: #6cc28a;
+  --ok-wash: rgba(108, 194, 138, .12);
+  --mid: #e2b04f;
+  --mid-wash: rgba(226, 176, 79, .12);
+  --hard: #ef8a76;
+  --hard-wash: rgba(239, 138, 118, .12);
+
+  --wash-indigo: linear-gradient(160deg in oklab, oklch(24.5% 0.026 266) 0%, oklch(21.5% 0.018 266) 100%);
+  --wash-warm: linear-gradient(160deg in oklab, oklch(25.0% 0.024 68) 0%, oklch(21.8% 0.016 68) 100%);
+  --wash-sage: linear-gradient(160deg in oklab, oklch(24.2% 0.022 154) 0%, oklch(21.5% 0.014 154) 100%);
+  --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(247, 171, 85, .11) 0%, rgba(125, 140, 240, .085) 54%, transparent 100%);
+
+  --hl-new: rgba(110, 155, 230, .30);
+  --hl-1: rgba(230, 180, 70, .40);
+  --hl-2: rgba(230, 180, 70, .28);
+  --hl-3: rgba(230, 180, 70, .18);
+  --hl-4: rgba(230, 180, 70, .09);
+
+  --c-tech: #1d2134; --c-tech-ink: #9aa7f5;
+  --c-news: #272018; --c-news-ink: #e5ad6e;
+  --c-novel: #18241b; --c-novel-ink: #82c99a;
+  --c-academic: #221d2e; --c-academic-ink: #b9a1eb;
+  --c-blog: #182326; --c-blog-ink: #7ec2cc;
+  color-scheme: dark;
+}
+
+/* 护眼纸面：位于深色规则之后，保证深色主题下启用护眼模式仍按浅色纸面呈现 */
+:root[data-paper="sepia"] {
+  --bg: #ece5d5;
+  --surface: #f7f1e3;
+  --surface-2: #f0e8d6;
+  --surface-3: #e8dec8;
+  --sunken: #efe7d6;
+  --hover: rgba(0, 0, 0, .04);
+  --glass-bg: rgba(247, 241, 227, .90);
+
+  --hair: rgba(54, 42, 24, .06);
+  --hair-2: rgba(54, 42, 24, .11);
+  --line: rgba(0, 0, 0, .08);
+  --line-2: rgba(0, 0, 0, .13);
+  --ring-card: 0 0 0 1px rgba(54, 42, 24, .065), 0 1px 2px rgba(54, 42, 24, .03);
+  --ring-card-hover: 0 0 0 1px rgba(54, 42, 24, .12), 0 2px 6px -2px rgba(54, 42, 24, .06);
+  --shadow-float: 0 0 0 1px rgba(54, 42, 24, .08), 0 2px 6px rgba(54, 42, 24, .05), 0 12px 30px -12px rgba(54, 42, 24, .14);
+
+  --ink: #18181b;
+  --ink-2: #55555c;
+  --ink-3: #62626b;
+
+  --accent: #3d52e0;
+  --accent-deep: #2f3fa8;
+  --accent-ink: #ffffff;
+  --accent-wash: rgba(61, 82, 224, .08);
+
+  --warm: #f5a043;
+  --warm-ink: #d9711c;
+  --warm-wash: rgba(245, 160, 67, .14);
+
+  --ok: #2f8a4c;
+  --ok-wash: rgba(47, 138, 76, .085);
+  --mid: #b07a12;
+  --mid-wash: rgba(176, 122, 18, .085);
+  --hard: #c2452f;
+  --hard-wash: rgba(194, 69, 47, .075);
+
+  --wash-indigo: linear-gradient(160deg in oklab, #ebe9e1 0%, #e5e3db 100%);
+  --wash-warm: linear-gradient(160deg in oklab, #f2e5cb 0%, #eddec0 100%);
+  --wash-sage: linear-gradient(160deg in oklab, #e6ede0 0%, #dfe7d8 100%);
+  --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(245, 160, 67, .12) 0%, rgba(61, 82, 224, .04) 54%, transparent 100%);
+
+  --hl-new: rgba(110, 155, 220, .34);
+  --hl-1: rgba(226, 170, 50, .50);
+  --hl-2: rgba(226, 170, 50, .36);
+  --hl-3: rgba(226, 170, 50, .23);
+  --hl-4: rgba(226, 170, 50, .12);
+
+  --c-tech: #e6e8f0; --c-tech-ink: #3c4db8;
+  --c-news: #f1e3ce; --c-news-ink: #9c581c;
+  --c-novel: #e3ebdf; --c-novel-ink: #2f6e45;
+  --c-academic: #eae3ef; --c-academic-ink: #5f459e;
+  --c-blog: #e0eae9; --c-blog-ink: #2b656e;
+  color-scheme: light;
+}
+
+/* 渐进增强：支持连续圆角（Squircle）的渲染引擎自动启用，仅作用于圆角矩形，不影响圆形/胶囊控件 */
+@supports (corner-shape: squircle) {
+  .main, .card, .lead, .tile, .doc, .sample, .group, .modal, .drawer, .pal,
+  .wc, .rvcard, .rvhero, .insight, .approve, .sum-card, .hard-card,
+  .composer, .dcomp, .dmenu, .slashmenu, .ctx-menu, .ob, .wg, .endc,
+  .btn, .input, .ibtn, .chip, .tagc, .tibi-av, .gbadge,
+  .ui-alert, .ui-tip-pop, .ui-badge, .pform, .fitem, .epitem, .ep-art,
+  .podres, .dx-in, .dx-none, .dx-tip, .tibi-empty, .rwords-empty, .pmodes button, .ropt {
+    corner-shape: squircle;
+  }
+}

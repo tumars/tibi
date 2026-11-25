@@ -1,4 +1,4 @@
-/* macOS 顶栏快捷查词面板（392×520）：沿用 Tibi v2 token 与「安静的 AI 工作台」视觉语言 */
+/* macOS 顶栏快捷查词面板（392×520）：复用 tokens.css 4px 间距与等距内缩圆角体系 */
 body.tray-body {
   margin: 0;
   background: var(--surface);
@@ -19,8 +19,8 @@ body.tray-body {
 .tray-top {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 10px 9px 10px;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
@@ -30,9 +30,9 @@ body.tray-body {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 8px 0 10px;
+  gap: var(--sp-2);
+  height: var(--h-ctl);
+  padding: 0 var(--sp-2) 0 var(--sp-3);
   border-radius: var(--r-m);
   background: var(--sunken);
   color: var(--ink-3);
@@ -54,9 +54,9 @@ body.tray-body {
 }
 .tray-search input::placeholder { color: var(--ink-3); }
 .tray-search .tray-clear {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-in-m-1);
   display: grid;
   place-items: center;
   color: var(--ink-3);
@@ -64,8 +64,8 @@ body.tray-body {
 .tray-search .tray-clear:hover { background: var(--hover); color: var(--ink); }
 
 .tray-tbtn {
-  width: 28px;
-  height: 28px;
+  width: var(--h-ctl-sm);
+  height: var(--h-ctl-sm);
   border-radius: var(--r-s);
   display: grid;
   place-items: center;
@@ -79,7 +79,7 @@ body.tray-body {
 .tray-scroll {
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 10px 12px 14px;
+  padding: var(--sp-3);
   min-height: 0;
   user-select: text;
 }
@@ -88,9 +88,9 @@ body.tray-body {
 .tray-clip {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  margin-bottom: 10px;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-3);
   border-radius: var(--r-m);
   background: var(--accent-wash);
   border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
@@ -100,7 +100,7 @@ body.tray-body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 .tray-clip-k {
   font-size: 10.5px;
@@ -117,9 +117,9 @@ body.tray-body {
 }
 .tray-clip-v.word { font-family: var(--f-read); font-size: 14.5px; }
 .tray-clip-x {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-in-m-1);
   display: grid;
   place-items: center;
   color: var(--ink-3);
@@ -130,15 +130,15 @@ body.tray-body {
 .tray-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
 }
 .tray-stat {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
-  padding: 9px 10px;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
   border-radius: var(--r-m);
   background: var(--sunken);
   text-align: left;
@@ -154,23 +154,23 @@ body.tray-body {
   color: var(--ink);
   display: flex;
   align-items: baseline;
-  gap: 3px;
+  gap: var(--sp-1);
 }
 .tray-stat .v small { font-size: 11px; font-weight: 400; color: var(--ink-3); }
 .tray-stat.due .v { color: var(--accent); }
 .tray-stat.streak .v { color: var(--warm-ink); }
 .tray-stat-bar {
   width: 100%;
-  height: 3px;
-  border-radius: 99px;
+  height: 4px;
+  border-radius: var(--r-pill);
   background: var(--line);
-  margin-top: 3px;
+  margin-top: var(--sp-1);
   overflow: hidden;
 }
 .tray-stat-bar i {
   display: block;
   height: 100%;
-  border-radius: 99px;
+  border-radius: var(--r-pill);
   background: var(--accent);
 }
 
@@ -179,20 +179,20 @@ body.tray-body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 12px 0 6px;
+  margin: var(--sp-3) 0 var(--sp-2);
   font-size: 11.5px;
   color: var(--ink-3);
 }
-.tray-sec:first-child { margin-top: 2px; }
+.tray-sec:first-child { margin-top: 0; }
 .tray-sec .linkbtn { font-size: 11.5px; }
 
 /* 继续阅读卡片 */
 .tray-doc {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--sp-2);
   width: 100%;
-  padding: 10px 11px;
+  padding: var(--sp-3);
   border-radius: var(--r-m);
   background: var(--sunken);
   text-align: left;
@@ -202,7 +202,7 @@ body.tray-body {
 .tray-doc-head {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--sp-2);
   min-width: 0;
 }
 .tray-doc-head svg { color: var(--ink-3); flex: none; }
@@ -218,21 +218,21 @@ body.tray-body {
 .tray-doc-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   font-size: 11.5px;
   color: var(--ink-3);
 }
 .tray-doc-bar {
   flex: 1;
   height: 4px;
-  border-radius: 99px;
+  border-radius: var(--r-pill);
   background: var(--line);
   overflow: hidden;
 }
 .tray-doc-bar i {
   display: block;
   height: 100%;
-  border-radius: 99px;
+  border-radius: var(--r-pill);
   background: var(--accent);
 }
 
@@ -240,12 +240,12 @@ body.tray-body {
 .tray-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: var(--sp-1);
 }
 .tray-chips button {
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
+  height: 28px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-pill);
   background: var(--sunken);
   font-family: var(--f-read);
   font-size: 13px;
@@ -255,8 +255,8 @@ body.tray-body {
 .tray-chips button:hover { background: var(--accent-wash); color: var(--accent); }
 
 .tray-empty-hint {
-  margin-top: 18px;
-  padding: 14px 12px;
+  margin-top: var(--sp-4);
+  padding: var(--sp-4);
   border-radius: var(--r-m);
   background: var(--sunken);
   text-align: center;
@@ -269,17 +269,17 @@ body.tray-body {
 .tray-sugs {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
+  gap: 2px;
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-2);
   border-bottom: 1px solid var(--line);
 }
 .tray-sug {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--sp-2);
   width: 100%;
-  padding: 5px 8px;
+  padding: var(--sp-1) var(--sp-2);
   border-radius: var(--r-s);
   text-align: left;
   color: var(--ink);
@@ -304,9 +304,9 @@ body.tray-body {
 .tray-sug-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  margin-bottom: 6px;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  margin-bottom: var(--sp-2);
   border-radius: var(--r-s);
   font-size: 11.5px;
   color: var(--ink-3);
@@ -318,13 +318,13 @@ body.tray-body {
 .tray-entry {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 .tray-word-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 7px;
+  gap: var(--sp-2);
 }
 .tray-word-head h1 {
   margin: 0;
@@ -341,26 +341,26 @@ body.tray-body {
   color: var(--ink-2);
 }
 .tray-word-head .spkbtns { align-self: center; }
-.tray-word-head .ibtn { width: 26px; height: 26px; }
+.tray-word-head .ibtn { width: var(--h-ctl-sm); height: var(--h-ctl-sm); }
 
 .tray-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--sp-1);
 }
 
 .tray-gloss {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--ink);
 }
-.tray-gloss > div { display: flex; gap: 6px; }
+.tray-gloss > div { display: flex; gap: var(--sp-2); }
 .tray-gloss em {
   flex: none;
-  min-width: 26px;
+  min-width: 28px;
   font-style: italic;
   font-family: var(--f-read);
   color: var(--ink-3);
@@ -370,15 +370,15 @@ body.tray-body {
 .tray-stages {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 4px;
-  margin-top: 2px;
+  gap: var(--sp-1);
+  margin-top: var(--sp-1);
 }
 .tray-stages button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 5px 2px 4px;
+  gap: var(--sp-1);
+  padding: var(--sp-1) 2px;
   border-radius: var(--r-s);
   font-size: 10.5px;
   color: var(--ink-3);
@@ -386,9 +386,9 @@ body.tray-body {
   transition: background .12s, color .12s;
 }
 .tray-stages button i {
-  width: 18px;
-  height: 3.5px;
-  border-radius: 99px;
+  width: 20px;
+  height: 4px;
+  border-radius: var(--r-pill);
   background: var(--line-2);
 }
 .tray-stages button.fill[data-s="0"] i { background: var(--accent); }
@@ -409,12 +409,12 @@ body.tray-body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  margin-top: 2px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
 }
 
 .tray-tip {
-  padding: 8px 10px;
+  padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-m);
   background: var(--sunken);
   font-size: 12.5px;
@@ -422,7 +422,7 @@ body.tray-body {
   color: var(--ink-2);
 }
 .tray-tip b {
-  margin-right: 6px;
+  margin-right: var(--sp-2);
   font-size: 11px;
   font-weight: 500;
   color: var(--ink-3);
@@ -432,7 +432,7 @@ body.tray-body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 4px 0;
+  padding: var(--sp-1) 0;
 }
 .tray-ex .s {
   font-family: var(--f-read);
@@ -445,13 +445,13 @@ body.tray-body {
 .tray-read {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sp-1);
   width: 100%;
-  padding: 7px 9px;
+  padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-s);
   background: var(--sunken);
   text-align: left;
-  margin-bottom: 5px;
+  margin-bottom: var(--sp-1);
 }
 .tray-read:hover { background: var(--hover); box-shadow: inset 0 0 0 1px var(--line); }
 .tray-read .s {
@@ -463,23 +463,23 @@ body.tray-body {
 .tray-read mark {
   background: var(--hl-1);
   color: inherit;
-  border-radius: 3px;
-  padding: 0 1px;
+  border-radius: var(--r-xs);
+  padding: 0 2px;
 }
 
 /* 智能意图卡（导入网址 / 长英文 / 问 Tibi） */
 .tray-intent {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
   border-radius: var(--r-m);
   background: var(--sunken);
 }
 .tray-intent-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   font-size: 13.5px;
   font-weight: 600;
   color: var(--ink);
@@ -498,24 +498,24 @@ body.tray-body {
 .tray-intent-acts {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 
 /* 底部快捷栏 */
 .tray-foot {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 7px 10px;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
   border-top: 1px solid var(--line);
   background: var(--bg);
 }
 .tray-nav-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 26px;
-  padding: 0 8px;
+  gap: var(--sp-1);
+  height: var(--h-ctl-sm);
+  padding: 0 var(--sp-2);
   border-radius: var(--r-s);
   font-size: 12px;
   color: var(--ink-2);
@@ -527,18 +527,24 @@ body.tray-body {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 
 /* Toast 在窄窗口里的适配 */
 .tray-shell .toasts {
-  bottom: 44px;
-  left: 12px;
-  right: 12px;
+  bottom: 48px;
+  left: var(--sp-3);
+  right: var(--sp-3);
   transform: none;
   align-items: stretch;
 }
 .tray-shell .toast {
   max-width: none;
   justify-content: space-between;
+}
+
+@supports (corner-shape: squircle) {
+  .tray-search, .tray-clip, .tray-stat, .tray-doc, .tray-empty-hint, .tray-tip, .tray-intent, .tray-read, .tray-stages button {
+    corner-shape: squircle;
+  }
 }

@@ -37,7 +37,6 @@ export function WordsPanel({ documentId, onClose, onWord }: { documentId: string
     <aside className="rpanel" aria-label={tl('生词')}>
       <div className="rph"><span className="rph-title"><NavWordsIcon size={15} />{tl('生词')}</span>{data && <span className="sum-count">{data.total}</span>}<span className="sp" /><button className="ibtn" title={tl('关闭')} aria-label={tl('关闭')} onClick={onClose}><X size={16} /></button></div>
       <div className="rpb" aria-busy={loading}>
-        {data && data.items.length > 0 && <p className="muted">{tl('本篇已标记的生词和学习中的词，点词查看释义。')}</p>}
         {data && data.items.length > 0 && <div className="reader-words">{data.items.map(term => (
           <button key={term.id} className="reader-word" onClick={() => onWord(term.text)}>
             <span className="reader-word-head"><b>{term.display}</b><span className={`stage s${term.status}`}>{STATUS_NAMES[term.status]}</span></span>
@@ -45,7 +44,7 @@ export function WordsPanel({ documentId, onClose, onWord }: { documentId: string
             <span className="reader-word-meaning">{term.meaning || term.short_gloss || tl('（没有释义）')}</span>
           </button>
         ))}</div>}
-        {!loading && !err && data?.total === 0 && <div className="rwords-empty"><Mascot id="empty-words" /><b>{tl('本篇还没有生词')}</b><p className="muted">{tl('在正文里点不认识的词，标记熟练度后会显示在这里。')}</p></div>}
+        {!loading && !err && data?.total === 0 && <div className="rwords-empty"><Mascot id="empty-words" /><p>{tl('本篇暂无已标记的生词。')}</p></div>}
         {loading && <p className="muted" role="status">{tl('正在加载生词…')}</p>}
         {err && <section role="alert"><p className="muted">{err}</p><button className="btn sm" onClick={() => setRequest(r => ({ ...r, revision: r.revision + 1 }))}>{tl('重试')}</button></section>}
         {!loading && !err && data?.cursor && <button className="btn sm" onClick={() => setRequest(r => ({ ...r, cursor: data.cursor }))}>{tl('加载更多生词')}</button>}

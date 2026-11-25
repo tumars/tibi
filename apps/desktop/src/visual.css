@@ -1,114 +1,6 @@
-/* Tibi 视觉精修层：Apple / Things 3 / Craft / Linear 级克制质感
- * 核心原则：
- * 1. 用「极柔面色阶」取代「涂色本边框」：有底色的卡片尽量去边框，白色卡片用 5.5% 极细环 + 1px 微接触阴影。
- * 2. 渐变只在 OKLab 空间做 1.5%–2.5% 同色系微明度呼吸（绝不退到纯白、绝不做塑料竖向灰渐变）。
- * 3. 保留首页小狐狸背后自然羽化的无边界氛围柔光。
+/* Tibi 视觉精修层（所有 Token 已统一收口至 tokens.css）
+ * 严格遵循：4px 间距阶梯、全局圆角与等距内缩、统一语义色与去线框柔和面层次
  */
-
-:root {
-  --surface-2: #f6f6f4;
-  --surface-3: #efefe9;
-
-  /* 极低彩度 OKLab 丝绒微渐变：两端色温一致，仅 1.5% 明度起伏，如棉纸受柔光 */
-  --wash-indigo: linear-gradient(160deg in oklab, oklch(97.3% 0.011 264) 0%, oklch(95.8% 0.016 264) 100%);
-  --wash-warm: linear-gradient(160deg in oklab, oklch(97.8% 0.014 75) 0%, oklch(96.3% 0.020 72) 100%);
-  --wash-sage: linear-gradient(160deg in oklab, oklch(97.3% 0.013 152) 0%, oklch(95.9% 0.018 152) 100%);
-  --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(245, 160, 67, .12) 0%, rgba(61, 82, 224, .05) 54%, transparent 100%);
-
-  --ok-wash: rgba(47, 138, 76, .085);
-  --mid-wash: rgba(176, 122, 18, .085);
-  --hard-wash: rgba(194, 69, 47, .075);
-
-  /* 极细线条系统：比默认 8%/13% 更轻盈通透 */
-  --hair: rgba(24, 24, 27, .055);
-  --hair-2: rgba(24, 24, 27, .095);
-  --ring-card: 0 0 0 1px rgba(24, 24, 27, .055), 0 1px 2px rgba(24, 24, 27, .03);
-  --ring-card-hover: 0 0 0 1px rgba(24, 24, 27, .095), 0 2px 6px -2px rgba(24, 24, 27, .06);
-  --shadow-float: 0 0 0 1px rgba(24, 24, 27, .07), 0 2px 6px rgba(24, 24, 27, .05), 0 12px 30px -12px rgba(24, 24, 27, .14);
-  --glass-bg: rgba(255, 255, 255, .86);
-
-  /* 低饱和编辑风文章类型徽章 */
-  --c-tech: #edf0fa; --c-tech-ink: #3c4db8;
-  --c-news: #f9efe4; --c-news-ink: #99581d;
-  --c-novel: #ebf4ec; --c-novel-ink: #2e6d44;
-  --c-academic: #f2eef9; --c-academic-ink: #5f459e;
-  --c-blog: #eaf3f4; --c-blog-ink: #2b656e;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --surface-2: #19191d;
-    --surface-3: #202025;
-
-    --wash-indigo: linear-gradient(160deg in oklab, oklch(24.5% 0.026 266) 0%, oklch(21.5% 0.018 266) 100%);
-    --wash-warm: linear-gradient(160deg in oklab, oklch(25.0% 0.024 68) 0%, oklch(21.8% 0.016 68) 100%);
-    --wash-sage: linear-gradient(160deg in oklab, oklch(24.2% 0.022 154) 0%, oklch(21.5% 0.014 154) 100%);
-    --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(247, 171, 85, .11) 0%, rgba(125, 140, 240, .085) 54%, transparent 100%);
-
-    --ok-wash: rgba(108, 194, 138, .12);
-    --mid-wash: rgba(226, 176, 79, .12);
-    --hard-wash: rgba(239, 138, 118, .12);
-
-    --hair: rgba(255, 255, 255, .065);
-    --hair-2: rgba(255, 255, 255, .115);
-    --ring-card: 0 0 0 1px rgba(255, 255, 255, .065), inset 0 1px 0 rgba(255, 255, 255, .03);
-    --ring-card-hover: 0 0 0 1px rgba(255, 255, 255, .12), inset 0 1px 0 rgba(255, 255, 255, .05);
-    --shadow-float: 0 0 0 1px rgba(255, 255, 255, .10), 0 4px 10px rgba(0, 0, 0, .35), 0 16px 36px -12px rgba(0, 0, 0, .55);
-    --glass-bg: rgba(22, 22, 26, .84);
-
-    --c-tech: #1d2134; --c-tech-ink: #9aa7f5;
-    --c-news: #272018; --c-news-ink: #e5ad6e;
-    --c-novel: #18241b; --c-novel-ink: #82c99a;
-    --c-academic: #221d2e; --c-academic-ink: #b9a1eb;
-    --c-blog: #182326; --c-blog-ink: #7ec2cc;
-  }
-}
-
-:root[data-theme="dark"] {
-  --surface-2: #19191d;
-  --surface-3: #202025;
-
-  --wash-indigo: linear-gradient(160deg in oklab, oklch(24.5% 0.026 266) 0%, oklch(21.5% 0.018 266) 100%);
-  --wash-warm: linear-gradient(160deg in oklab, oklch(25.0% 0.024 68) 0%, oklch(21.8% 0.016 68) 100%);
-  --wash-sage: linear-gradient(160deg in oklab, oklch(24.2% 0.022 154) 0%, oklch(21.5% 0.014 154) 100%);
-  --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(247, 171, 85, .11) 0%, rgba(125, 140, 240, .085) 54%, transparent 100%);
-
-  --ok-wash: rgba(108, 194, 138, .12);
-  --mid-wash: rgba(226, 176, 79, .12);
-  --hard-wash: rgba(239, 138, 118, .12);
-
-  --hair: rgba(255, 255, 255, .065);
-  --hair-2: rgba(255, 255, 255, .115);
-  --ring-card: 0 0 0 1px rgba(255, 255, 255, .065), inset 0 1px 0 rgba(255, 255, 255, .03);
-  --ring-card-hover: 0 0 0 1px rgba(255, 255, 255, .12), inset 0 1px 0 rgba(255, 255, 255, .05);
-  --shadow-float: 0 0 0 1px rgba(255, 255, 255, .10), 0 4px 10px rgba(0, 0, 0, .35), 0 16px 36px -12px rgba(0, 0, 0, .55);
-  --glass-bg: rgba(22, 22, 26, .84);
-
-  --c-tech: #1d2134; --c-tech-ink: #9aa7f5;
-  --c-news: #272018; --c-news-ink: #e5ad6e;
-  --c-novel: #18241b; --c-novel-ink: #82c99a;
-  --c-academic: #221d2e; --c-academic-ink: #b9a1eb;
-  --c-blog: #182326; --c-blog-ink: #7ec2cc;
-}
-
-:root[data-paper="sepia"] {
-  --surface-2: #f0e8d6;
-  --surface-3: #e8dec8;
-  --wash-indigo: linear-gradient(160deg in oklab, #ebe9e1 0%, #e5e3db 100%);
-  --wash-warm: linear-gradient(160deg in oklab, #f2e5cb 0%, #eddec0 100%);
-  --wash-sage: linear-gradient(160deg in oklab, #e6ede0 0%, #dfe7d8 100%);
-  --wash-hero: radial-gradient(closest-side at 72% 46%, rgba(245, 160, 67, .12) 0%, rgba(61, 82, 224, .04) 54%, transparent 100%);
-  --hair: rgba(54, 42, 24, .06);
-  --hair-2: rgba(54, 42, 24, .11);
-  --ring-card: 0 0 0 1px rgba(54, 42, 24, .065), 0 1px 2px rgba(54, 42, 24, .03);
-  --ring-card-hover: 0 0 0 1px rgba(54, 42, 24, .12), 0 2px 6px -2px rgba(54, 42, 24, .06);
-  --glass-bg: rgba(247, 241, 227, .9);
-  --c-tech: #e6e8f0; --c-tech-ink: #3c4db8;
-  --c-news: #f1e3ce; --c-news-ink: #9c581c;
-  --c-novel: #e3ebdf; --c-novel-ink: #2f6e45;
-  --c-academic: #eae3ef; --c-academic-ink: #5f459e;
-  --c-blog: #e0eae9; --c-blog-ink: #2b656e;
-}
 
 /* ======================== Tibi 双色调图标与头像 ======================== */
 
@@ -123,7 +15,7 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
   display: inline-grid;
   place-items: center;
   flex: none;
-  border-radius: 6px;
+  border-radius: var(--r-s);
   background: var(--warm-wash);
   box-shadow: none;
 }
@@ -133,10 +25,10 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 .gbadge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
   height: 20px;
-  padding: 0 7px 0 6px;
-  border-radius: 6px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-xs);
   font-size: 11px;
   font-weight: 500;
   line-height: 1;
@@ -153,12 +45,10 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 
 /* ======================== 全局框架：弱化割裂线条 ======================== */
 
-.main {
-  box-shadow: 0 0 0 1px var(--hair);
-}
+.main { box-shadow: 0 0 0 1px var(--hair); }
 
 .streak {
-  padding: 7px 8px;
+  padding: var(--sp-2);
   border-radius: var(--r-m);
   transition: background .15s;
 }
@@ -197,7 +87,7 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 .chip svg { color: var(--ink-3); }
 .chip:hover svg { color: var(--ink-2); }
 
-/* 继续读主卡：温润哑光石纸，靠色块自身区分边界，零边框无割裂感 */
+/* 继续读主卡：温润哑光石纸，统一对称内边距 */
 .lead {
   background: var(--surface-2);
   box-shadow: none;
@@ -207,9 +97,9 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
   background: var(--surface-3);
   box-shadow: none;
 }
-.lead .k { display: flex; align-items: center; gap: 8px; }
+.lead .k { display: flex; align-items: center; gap: var(--sp-2); }
 
-/* KPI 指标卡：无边框温润石纸 + 无框纯净小图标，杜绝“框中套框” */
+/* KPI 指标卡：无边框温润石纸 + 无框纯净小图标 */
 .tile {
   background: var(--surface-2);
   box-shadow: none;
@@ -219,11 +109,12 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
   background: var(--surface-3);
   box-shadow: none;
 }
-.tile-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tile-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.tile-k-group { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
 .tile-ic {
   width: 24px;
   height: 24px;
-  border-radius: 7px;
+  border-radius: var(--r-s);
   display: grid;
   place-items: center;
   flex: none;
@@ -267,7 +158,7 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
   background: var(--surface);
   box-shadow: var(--ring-card-hover);
 }
-.sample .g { display: flex; align-items: center; gap: 6px; }
+.sample .g { display: flex; align-items: center; gap: var(--sp-2); }
 
 /* ======================== 阅读器：总结面板（去线框 + 丝绒微渐变） ======================== */
 
@@ -276,37 +167,37 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
   border-left: 1px solid var(--hair);
 }
 .rph {
-  height: 46px;
+  height: 48px;
   border-bottom: 1px solid var(--hair);
   background: var(--surface);
 }
 .rph-title {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--sp-2);
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: var(--t-base);
 }
 .rpb {
-  padding: 16px 18px 24px;
-  gap: 22px;
+  padding: var(--sp-4) var(--sp-4) var(--sp-6);
+  gap: var(--sp-5);
 }
 .rpf {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 10px 18px 12px;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
   border-top: 1px solid var(--hair);
   background: var(--surface);
 }
 
-/* 总结主卡：完全无边框，靠 OKLab 丝绒微渐变自然托出重点 */
+/* 总结主卡：完全无边框，等距对称 16px 内边距 */
 .sum-card {
-  border-radius: 14px;
-  padding: 15px 16px;
+  border-radius: var(--r-l);
+  padding: var(--pad-card-sm);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-2);
   box-shadow: none;
 }
 .sum-card.sum-overview { background: var(--wash-indigo); }
@@ -315,16 +206,15 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
   background: var(--surface-2);
   align-items: center;
   text-align: center;
-  padding: 24px 18px;
-  gap: 8px;
+  padding: var(--sp-6) var(--sp-4);
+  gap: var(--sp-3);
 }
-.sum-card.sum-empty b { font-size: 14px; font-weight: 600; color: var(--ink); }
 .sum-card.sum-empty .muted { max-width: 240px; line-height: 1.6; }
 
 .sum-hd {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--sp-2);
   margin: 0;
   font-size: 12px;
   font-weight: 600;
@@ -343,17 +233,17 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
-.sum-body { margin: 0; font-size: 13.8px; line-height: 1.78; color: var(--ink); }
+.sum-body { margin: 0; font-size: 13.8px; line-height: 1.75; color: var(--ink); }
 
 /* 文本级别：无框开放式 CEFR 标尺 */
-.sum-section { display: flex; flex-direction: column; gap: 10px; }
-.sum-level-block { display: flex; flex-direction: column; gap: 8px; }
+.sum-section { display: flex; flex-direction: column; gap: var(--sp-3); }
+.sum-level-block { display: flex; flex-direction: column; gap: var(--sp-2); }
 .cefr-pill {
   font-family: var(--f-mono);
-  font-size: 11.5px;
+  font-size: var(--t-xs);
   font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 5px;
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-xs);
   background: var(--sunken);
   color: var(--ink);
 }
@@ -361,9 +251,9 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 .cefr-pill.mid { background: var(--accent-wash); color: var(--accent); }
 .cefr-pill.adv { background: var(--warm-wash); color: var(--warm-ink); }
 
-.cefr-scale { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
-.cefr-step { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.cefr-step i { display: block; width: 100%; height: 4px; border-radius: 999px; background: var(--hair-2); }
+.cefr-scale { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-1); }
+.cefr-step { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); }
+.cefr-step i { display: block; width: 100%; height: 4px; border-radius: var(--r-pill); background: var(--hair-2); }
 .cefr-step span { font-family: var(--f-mono); font-size: 10px; color: var(--ink-3); }
 .cefr-step.past i { background: color-mix(in srgb, var(--accent) 26%, transparent); }
 .cefr-step.cur i { background: var(--accent); }
@@ -374,13 +264,12 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 .cefr-step.adv.past i { background: color-mix(in srgb, var(--warm) 30%, transparent); }
 .cefr-step.adv.cur i { background: var(--warm-ink); }
 .cefr-step.adv.cur span { color: var(--warm-ink); }
-.sum-sub { margin: 0; font-size: 12px; color: var(--ink-3); }
 
-/* 值得学的短语：无外框开放式列表（Apple/Things 3 风格），仅用极淡内分隔线与悬停浅底 */
+/* 值得学的短语：无外框开放式列表 */
 .rpb .plist {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sp-1);
   background: transparent;
   box-shadow: none;
   border-radius: 0;
@@ -391,39 +280,39 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 9px 28px 9px 10px;
-  margin: 0 -10px;
-  border-radius: 10px;
+  padding: var(--sp-2) var(--sp-7) var(--sp-2) var(--sp-3);
+  margin: 0 calc(-1 * var(--sp-3));
+  border-radius: var(--r-m);
   background: transparent;
   transition: background .12s;
 }
 .rpb .pitem + .pitem::before {
   content: "";
   position: absolute;
-  top: -1px;
-  left: 10px;
-  right: 10px;
+  top: -2px;
+  left: var(--sp-3);
+  right: var(--sp-3);
   height: 1px;
   background: var(--hair);
 }
 .rpb .pitem:hover::before, .rpb .pitem:hover + .pitem::before { opacity: 0; }
 .rpb .pitem:hover { background: var(--surface-2); }
 .rpb .pitem b { font-family: var(--f-read); font-size: 14.5px; font-weight: 700; color: var(--ink); white-space: normal; }
-.rpb .pitem span { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
-.rpb .pitem .pgo { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-3); opacity: 0; transition: opacity .12s, color .12s; }
+.rpb .pitem span { font-size: var(--t-sm); line-height: 1.5; color: var(--ink-2); }
+.rpb .pitem .pgo { position: absolute; right: var(--sp-3); top: 50%; transform: translateY(-50%); color: var(--ink-3); opacity: 0; transition: opacity .12s, color .12s; }
 .rpb .pitem:hover .pgo { opacity: 1; color: var(--accent); }
 
-/* 长难句：无外框温润石纸引文块，去掉横切分割线，靠字距与墨色层次区分原译文 */
-.hard-list { display: flex; flex-direction: column; gap: 10px; }
+/* 长难句：无外框温润石纸引文块，对称 16px 内边距 */
+.hard-list { display: flex; flex-direction: column; gap: var(--sp-3); }
 .hard-card {
-  padding: 13px 15px;
-  border-radius: 13px;
+  padding: var(--pad-card-sm);
+  border-radius: var(--r-m);
   background: var(--surface-2);
   box-shadow: none;
 }
 .hard-card .quote {
   margin: 0;
-  padding-left: 11px;
+  padding-left: var(--sp-3);
   border-left: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
   font-family: var(--f-read);
   font-size: 14.5px;
@@ -431,10 +320,10 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
   color: var(--ink);
 }
 .hard-card .tr {
-  margin: 10px 0 0;
-  padding-left: 13px;
+  margin: var(--sp-2) 0 0;
+  padding-left: var(--sp-3);
   border-top: 0;
-  font-size: 12.8px;
+  font-size: var(--t-sm);
   line-height: 1.65;
   color: var(--ink-2);
 }
@@ -448,47 +337,36 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 }
 .wc { box-shadow: var(--shadow-float); }
 .wc .ai { background: var(--wash-indigo); box-shadow: none; }
-.wc .ai .tag { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+.wc .ai .tag { display: inline-flex; align-items: center; gap: var(--sp-1); margin-bottom: var(--sp-1); }
 
 .endc { background: var(--surface-2); box-shadow: none; }
 .endc.done { background: var(--wash-sage); box-shadow: none; }
 
-/* Tibi 面板与生词面板空状态：无边框石纸，让插图主角化 */
-.tibi-empty {
-  margin-top: 20px;
-  padding: 24px 16px;
-  border-radius: 16px;
-  background: var(--surface-2);
-  box-shadow: none;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.tibi-empty img { width: 108px; height: 108px; margin-bottom: 2px; }
-.tibi-empty b { font-size: 14px; color: var(--ink); }
-.tibi-empty p { margin: 0; font-size: 12.8px; color: var(--ink-2); }
-
+/* Tibi 面板与生词面板空状态：统一一句话 + 对称内边距 */
+.tibi-empty,
 .rwords-empty {
+  margin-top: var(--sp-5);
+  padding: var(--sp-6) var(--sp-4);
+  border-radius: var(--r-l);
+  background: var(--surface-2);
+  box-shadow: none;
+  text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
-  gap: 6px;
-  padding: 26px 16px;
-  border-radius: 16px;
-  background: var(--surface-2);
-  box-shadow: none;
+  gap: var(--sp-3);
 }
+.rwords-empty { margin-top: 0; }
+.tibi-empty img,
 .rwords-empty img { width: 108px; height: 108px; }
-.rwords-empty b { font-size: 14px; color: var(--ink); }
+.tibi-empty p,
+.rwords-empty p { margin: 0; font-size: var(--t-base); color: var(--ink-2); line-height: 1.6; }
 
 .reader-word {
-  padding: 10px 10px;
-  margin: 0 -10px;
+  padding: var(--sp-3);
+  margin: 0 calc(-1 * var(--sp-3));
   border-bottom: 1px solid var(--hair);
-  border-radius: 10px;
+  border-radius: var(--r-m);
   transition: background .12s;
 }
 .reader-word:last-child { border-bottom: 0; }
@@ -498,7 +376,7 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 
 .rvhero { background: var(--wash-indigo); box-shadow: none; }
 .rvhero.calm { background: var(--wash-warm); box-shadow: none; }
-.rvhero > img { width: 92px; height: 92px; margin: -8px 0; }
+.rvhero > img { width: 92px; height: 92px; margin: calc(-1 * var(--sp-2)) 0; }
 
 .rvcard {
   background: var(--surface);
@@ -518,7 +396,7 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 .pmodes button {
   background: var(--surface);
   box-shadow: var(--ring-card);
-  gap: 7px;
+  gap: var(--sp-2);
   transition: background .14s, box-shadow .14s;
 }
 .pmodes button:hover {
@@ -532,10 +410,10 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 .pmode-ic {
   width: 32px;
   height: 32px;
-  border-radius: 9px;
+  border-radius: var(--r-s);
   display: grid;
   place-items: center;
-  margin-bottom: 2px;
+  margin-bottom: var(--sp-1);
   background: var(--surface-2);
   color: var(--ink-2);
   box-shadow: none;
@@ -565,9 +443,9 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 .insight {
   background: var(--wash-indigo);
   box-shadow: none;
-  padding: 18px 20px;
+  padding: var(--pad-card);
 }
-.insight .ih b { display: inline-flex; align-items: center; gap: 8px; }
+.insight .ih b { display: inline-flex; align-items: center; gap: var(--sp-2); }
 
 .page.stats section {
   background: var(--surface);
@@ -576,7 +454,7 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 
 /* ======================== 对话、审批与引导页 ======================== */
 
-.prov-line .tibi-av { border-radius: 5px; }
+.prov-line .tibi-av { border-radius: var(--r-xs); }
 
 .approve {
   background: var(--surface);
@@ -584,8 +462,8 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
   border-left: 2.5px solid var(--warm);
 }
 .approve .h .k {
-  padding: 2px 7px;
-  border-radius: 999px;
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-pill);
   background: var(--warm-wash);
   color: var(--warm-ink);
 }
@@ -609,35 +487,31 @@ svg .ti-warm-fill { fill: currentColor; opacity: .72; transition: opacity .15s; 
 
 /* ======================== 词典、设置与空态 ======================== */
 
-.group {
-  box-shadow: var(--ring-card);
-}
-.item + .item, .prov + .prov {
-  box-shadow: 0 -1px 0 var(--hair);
-}
+.group { box-shadow: var(--ring-card); }
+.item + .item, .prov + .prov { box-shadow: 0 -1px 0 var(--hair); }
 
 .dx-none {
-  padding: 48px 24px;
-  border-radius: 18px;
+  padding: var(--sp-12) var(--sp-6);
+  border-radius: var(--r-l);
   background: var(--surface-2);
   box-shadow: none;
-  margin-top: 8px;
+  margin-top: var(--sp-2);
 }
-.dx-none img { width: 144px; height: 144px; }
+.dx-none img { width: 136px; height: 136px; }
 
 .dx-tip {
   background: var(--wash-warm);
   box-shadow: none;
-  padding: 12px 15px;
+  padding: var(--sp-3) var(--sp-4);
 }
 .dx-tip b { color: var(--warm-ink); font-weight: 600; }
 
 .chat-empty {
-  margin-top: 48px;
+  margin-top: var(--sp-12);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-3);
   text-align: center;
 }
 .chat-empty img { width: 124px; height: 124px; }

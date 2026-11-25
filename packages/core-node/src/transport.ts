@@ -1,3 +1,6 @@
+import { createReadStream, statSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { extname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { Core, CoreEventName, RpcRequest } from '@tibi/core';
@@ -59,8 +62,38 @@ export function attachStdio(core: Core, host?: HostBridge) {
   rl.on('close', () => { off(); process.exit(0); });
 }
 
-export function startWebSocket(core: Core, port: number, token?: string): WebSocketServer {
-  const wss = new WebSocketServer({ port, host: '127.0.0.1' });
+const MEDIA_MIME: Record<string, string> = { '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.ogg': 'audio/ogg', '.opus': 'audio/opus', '.wav': 'audio/wav' };
+
+export function startWebSocket(core: Core, port: number, token?: string, mediaDir?: string): WebSocketServer {
+  const server = createServer((req, res) => {
+    if (mediaDir && req.url?.startsWith('/media/podcasts/')) {
+      const name = decodeURIComponent(req.url.slice('/media/podcasts/'.length).split('?')[0] ?? '');
+      if (!/^[\w-][\w.-]*$/.test(name)) { res.writeHead(400); res.end(); return; }
+      const file = join(mediaDir, 'podcasts', name);
+      let st;
+      try { st = statSync(file); } catch { res.writeHead(404); res.end(); return; }
+      if (!st.isFile()) { res.writeHead(404); res.end(); return; }
+      const mime = MEDIA_MIME[extname(name).toLowerCase()] ?? 'application/octet-stream';
+      const range = req.headers.range;
+      res.setHeader('accept-ranges', 'bytes');
+      res.setHeader('access-control-allow-origin', '*');
+      if (range) {
+        const m = range.match(/bytes=(\d*)-(\d*)/);
+        const start = m?.[1] ? Number(m[1]) : 0;
+        const end = m?.[2] ? Math.min(st.size - 1, Number(m[2])) : st.size - 1;
+        if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= st.size) { res.writeHead(416); res.end(); return; }
+        res.writeHead(206, { 'content-type': mime, 'content-length': end - start + 1, 'content-range': `bytes ${start}-${end}/${st.size}` });
+        createReadStream(file, { start, end }).pipe(res);
+        return;
+      }
+      res.writeHead(200, { 'content-type': mime, 'content-length': st.size });
+      createReadStream(file).pipe(res);
+      return;
+    }
+    res.writeHead(404); res.end();
+  });
+  const wss = new WebSocketServer({ server });
+  server.listen(port, '127.0.0.1');
   const clients = new Set<WebSocket>();
   wss.on('connection', (ws, req) => {
     if (token) {
@@ -81,5 +114,6 @@ export function startWebSocket(core: Core, port: number, token?: string): WebSoc
     const frame = JSON.stringify({ jsonrpc: '2.0', method: 'event', params: { event, data } });
     for (const c of clients) if (c.readyState === c.OPEN) c.send(frame);
   });
+  wss.on('close', () => server.close());
   return wss;
 }

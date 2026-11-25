@@ -17,10 +17,13 @@ export const SETTINGS: { label: string; sec: string; kw: string }[] = [
   { label: '目标记得率', sec: 'learning', kw: 'fsrs 记得率 retention 复习' },
   { label: '出识别题', sec: 'learning', kw: '识别 题型 recognize' },
   { label: '暂停记住新的事', sec: 'memory', kw: '记忆 memory 隐私' },
-  { label: '模型', sec: 'model', kw: 'api key deepseek 模型 连接 model provider openai' },
+  { label: '模型', sec: 'model', kw: 'api key deepseek siliconflow 硅基流动 一站式 模型 连接 model provider openai' },
+  { label: '本地离线转写（Whisper）', sec: 'model', kw: '电台 播客 离线 本地 免费 转写 whisper modelscope 魔搭 asr local offline' },
+  { label: '语音转写（云端 ASR）', sec: 'model', kw: '电台 播客 转写 字幕 whisper groq deepgram siliconflow 硅基流动 sensevoice asr podcast radio' },
   { label: 'Tibi 能做的事', sec: 'advanced', kw: '技能 订阅 文章来源 找文章 rss feed skill' },
   { label: '其他 AI 工具', sec: 'advanced', kw: 'mcp claude code codex' },
   { label: '自动备份', sec: 'data', kw: '备份 恢复 backup restore' },
+  { label: '电台音频缓存', sec: 'data', kw: '电台 播客 缓存 音频 磁盘 podcast radio cache audio' },
   { label: '使用统计', sec: 'data', kw: '隐私 统计 数据收集 analytics telemetry privacy usage' },
   { label: '导出学习汇总', sec: 'data', kw: '导出 汇总 export' },
   { label: '检查更新', sec: 'about', kw: '更新 升级 新版本 版本 update upgrade version' },
@@ -33,11 +36,12 @@ export const SETTINGS: { label: string; sec: string; kw: string }[] = [
 const ROWS = '.item, .prov, .pform';
 const HIGHLIGHT = 'settings-search';
 
-/** 这一项的文字（含按钮、选项上的字，"深色"才能找到"外观"）加上它的关键词 */
+/** 这一项的文字（含按钮、选项、折叠进 ① 提示气泡的说明）加上它的关键词 */
 function hits(el: Element, q: string) {
   const title = (el.matches('h2, h3') ? el : el.querySelector('.t'))?.textContent?.trim();
   const s = SETTINGS.find(x => tl(x.label) === title);
-  return `${el.textContent} ${s ? `${s.label} ${s.kw}` : ''}`.toLowerCase().includes(q);
+  const tip = el.getAttribute('data-tip-text') ?? '';
+  return `${el.textContent} ${tip} ${s ? `${s.label} ${s.kw}` : ''}`.toLowerCase().includes(q);
 }
 
 function collectRanges(el: Element, q: string, out: Range[]) {
@@ -61,7 +65,8 @@ function applySettingsSearch(root: Element, q: string) {
     let n = 0;
     sec.querySelectorAll<HTMLElement>('.group').forEach(group => {
       const prev = group.previousElementSibling as HTMLElement | null;
-      const h3 = prev?.tagName === 'H3' ? prev : null;
+      const subhead = prev && (prev.tagName === 'H3' || prev.classList.contains('ssec-subhead')) ? prev : null;
+      const h3 = subhead ? (subhead.tagName === 'H3' ? subhead : subhead.querySelector('h3')) : null;
       const headHit = secHit || (!!q && !!h3 && hits(h3, q));
       let m = 0;
       group.querySelectorAll<HTMLElement>(ROWS).forEach(row => {
@@ -70,7 +75,7 @@ function applySettingsSearch(root: Element, q: string) {
         if (hit) { m++; if (q) collectRanges(row, q, ranges); }
       });
       group.hidden = !!q && m === 0;
-      if (h3) { h3.hidden = group.hidden; if (q && m) collectRanges(h3, q, ranges); }
+      if (subhead) { subhead.hidden = group.hidden; if (q && m && h3) collectRanges(h3, q, ranges); }
       n += m;
     });
     sec.hidden = !!q && n === 0;

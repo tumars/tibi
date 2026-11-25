@@ -2,32 +2,64 @@ import { j, now, type Database } from '../../db/driver.js';
 import { uuidv7 } from '../../ids.js';
 import { normalizeForHash, sha256Hex } from '../../hash.js';
 import type { Ctx } from '../../rpc/define.js';
-import { TibiError, type Genre, type Kind, type Status, type Token } from '../../types.js';
+import type { TimedSegment } from '../../platform.js';
+import { TibiError, type Genre, type Kind, type Status, type Token, type TranscriptSource } from '../../types.js';
 import { alreadyDone, recordUndo } from '../shared/undo.js';
 import { annotateSentences } from '../text/annotate.js';
 import { cleanTitle, dropLeadingTitle } from '../text/title.js';
 import { levelOfRatio } from '../text/level.js';
 import { countWords, isTextBlock, segmentMarkdown, splitSentences, type Segmented } from '../text/segment.js';
+import { groupTranscriptParagraphs, mergeTimedSegments, parseJsonChapters, parseTranscript } from '../text/transcript.js';
 import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, upsertForm } from '../terms/repo.js';
+import { prefersLocalAsr, resolveAsrConfig } from '../profile/methods.js';
 import { getSample, sampleUri, writeSampleAi } from './samples.js';
-import { linkImported } from '../feeds/repo.js';
-import { getDocument, getDocumentByHash, insertDocument, insertSection, insertSentence, listSections, listSentences, setDocumentTags, TOKENIZER_VERSION, WPM } from './repo.js';
+import { linkImported, linkImportedItem } from '../feeds/repo.js';
+import { putAiResult } from './analyze.js';
+import { background } from './imports.js';
+import { getDocument, getDocumentByHash, getDocumentByMediaUrl, insertDocument, insertSection, insertSentence, listSections, listSentences, setDocumentTags, TOKENIZER_VERSION, WPM } from './repo.js';
 
 /**
- * 导入流水线（00 §3.1、05 §4.3：固定流水线，不是模型驱动的技能，R10）。
- * fetch → segment → save → annotate → difficulty → event，然后在后台做总结（summary | phrases | hard_sentences）。
- * 在后台跑（imports.ts），不存检查点：应用中途退出时这次导入就没了，文章还没入库，用户重新导入即可。
+ * 导入流水线（00 §3.1、05 §4.3、17 §5.2：固定流水线，不是模型驱动的技能，R10）。
+ * 支持文章、书、图片 OCR、内置示例、播客单集（官方字幕流式 + 静默缓存 / 云端 BYOK ASR / 纯听兜底）与本地音频。
  */
 
-export type ImportSource = { type: 'text'; text: string; title?: string; generated?: boolean } | { type: 'url'; url: string; /** 网页抓不到标题时用（订阅条目自带的标题） */ title?: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string };
-export interface ImportInput { source: ImportSource; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink' | 'mcp' | 'share' | 'chat'; /** false：从订阅里直接读，不进书架（默认进） */ shelve?: boolean }
+export type ImportSource =
+  | { type: 'text'; text: string; title?: string; generated?: boolean }
+  | { type: 'url'; url: string; /** 网页抓不到标题时用（订阅条目自带的标题） */ title?: string }
+  | { type: 'file'; path: string }
+  | { type: 'images'; paths: string[] }
+  | { type: 'sample'; id: string }
+  | { type: 'podcast_item'; id: string }
+  | { type: 'audio'; path: string; transcript_path?: string; title?: string };
+
+export interface ImportInput {
+  source: ImportSource;
+  hints?: { kind?: Kind; genre?: Genre; tags?: string[] };
+  origin?: 'user' | 'deeplink' | 'mcp' | 'share' | 'chat';
+  /** false：从订阅/电台里直接读，不进书架（默认进） */
+  shelve?: boolean;
+}
 
 /** 一次导入：id 用来对应进度事件；progress 是界面上的一行说明 */
 export interface ImportRun { id: string; signal?: AbortSignal; progress(label: string): void }
 
-interface Fetched { title: string; author?: string; markdown: string; source_type: string; source_uri?: string; published_at?: number; lang?: string; kind?: Kind; genre?: Genre }
+const AUDIO_EXTS = ['mp3', 'm4a', 'wav', 'ogg', 'aac', 'opus'];
+const MAX_AUDIO_BYTES = 300 * 1024 * 1024; // 单集下载上限 300 MB
+const DEFAULT_CACHE_LIMIT = 2 * 1024 * 1024 * 1024; // 本地音频缓存上限 2 GB
 
-/** 第一步：拿到干净的 Markdown */
+interface Fetched {
+  title: string; author?: string; markdown: string; source_type: string; source_uri?: string; published_at?: number; lang?: string; kind?: Kind; genre?: Genre;
+  cover_path?: string;
+  /** 电台单集专属字段 */
+  media_url?: string; media_path?: string; duration_ms?: number; transcript_source?: TranscriptSource;
+  timed_segments?: TimedSegment[];
+  chapters_url?: string;
+  need_silent_cache?: boolean;
+}
+
+function isAudioExt(ext: string) { return AUDIO_EXTS.includes(ext.toLowerCase()); }
+
+/** 第一步：拿到干净的 Markdown（或带时间戳的电台逐字稿） */
 async function fetchStep(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<Fetched> {
   const s = input.source;
   if (s.type === 'text') {
@@ -44,14 +76,20 @@ async function fetchStep(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<
     const art = await ctx.platform.extractReadable(page.body, page.final_url);
     if (countWords(art.markdown) < 30) throw new TibiError('invalid_source', '这个页面抓不到正文。可以复制正文后粘贴');
     const cleaned = cleanTitle(art.title, { site: art.site_name, h1: art.h1, host: new URL(page.final_url).hostname });
-    // 页面没有像样的标题（空的、只是网址）：用调用方给的标题（订阅条目），再退到页面的 h1、正文第一行
     const title = cleaned && !/^https?:\/\/\S+$/i.test(cleaned) ? cleaned : s.title?.trim() || art.h1?.trim() || titleFromMarkdown(art.markdown);
     return { title, author: art.byline, markdown: dropLeadingTitle(art.markdown, title), source_type: 'url', source_uri: page.final_url, published_at: art.published_at, lang: art.lang };
+  }
+  if (s.type === 'podcast_item') {
+    return fetchPodcastItem(job, ctx, s.id);
+  }
+  if (s.type === 'audio') {
+    return fetchLocalAudio(job, ctx, s.path, s.transcript_path, s.title);
   }
   if (s.type === 'file') {
     if (!ctx.platform.isPathAllowed(s.path)) throw new TibiError('permission_denied', '这个文件没有经过选择或拖入');
     const ext = s.path.toLowerCase().split('.').pop() ?? '';
     const name = s.path.split(/[\\/]/).pop()!.replace(/\.[^.]+$/, '');
+    if (isAudioExt(ext)) return fetchLocalAudio(job, ctx, s.path, undefined, name);
     if (['epub', 'pdf', 'docx'].includes(ext)) {
       if (!ctx.platform.extractFile) throw new TibiError('invalid_source', `这里不能读 .${ext} 文件`);
       job.progress(ext === 'epub' ? '正在拆开这本书' : `正在读取 ${ext.toUpperCase()}`);
@@ -66,7 +104,7 @@ async function fetchStep(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<
       return { title: f.title || (/^#\s/.test(f.markdown.trimStart()) ? titleFromMarkdown(f.markdown) : name), author: f.author, markdown: f.markdown, source_type: 'file', source_uri: name, kind: f.kind };
     }
     if (!ctx.platform.readFile) throw new TibiError('invalid_source', '这里不能读文件');
-    if (!['txt', 'md', 'markdown'].includes(ext)) throw new TibiError('invalid_source', `还不支持 .${ext} 文件。支持 EPUB、PDF、DOCX、TXT 和 Markdown`);
+    if (!['txt', 'md', 'markdown'].includes(ext)) throw new TibiError('invalid_source', `还不支持 .${ext} 文件。支持 EPUB、PDF、DOCX、TXT、Markdown 以及 MP3 / M4A / WAV 音频`);
     const text = new TextDecoder('utf-8').decode(await ctx.platform.readFile(s.path)).trim();
     if (!text) throw new TibiError('invalid_source', '文件是空的');
     return { title: /^#\s/.test(text) ? titleFromMarkdown(text) : name, markdown: text, source_type: 'file', source_uri: name };
@@ -88,6 +126,141 @@ async function fetchStep(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<
   return { title: sample.title, author: sample.author, markdown, source_type: 'sample', source_uri: sampleUri(sample.id), genre: sample.genre, kind: sample.kind };
 }
 
+/** 播客单集导入：Tier 0 官方字幕（流式 + 静默缓存）> Tier 2 云端 BYOK ASR > 纯听兜底 */
+async function fetchPodcastItem(job: ImportRun, ctx: Ctx, itemId: string): Promise<Fetched> {
+  const row = await ctx.db.get<{
+    id: string; feed_id: string; feed_title: string; feed_artwork: string | null;
+    url: string; title: string; author: string | null; published_at: number | null; excerpt: string; content_md: string | null;
+    audio_url: string | null; audio_mime: string | null; duration_ms: number | null;
+    transcript_url: string | null; transcript_type: string | null; chapters_url: string | null; artwork_url: string | null;
+  }>(
+    `SELECT i.id, i.feed_id, f.title AS feed_title, f.artwork_url AS feed_artwork,
+       i.url, i.title, i.author, i.published_at, i.excerpt, i.content_md,
+       i.audio_url, i.audio_mime, i.duration_ms, i.transcript_url, i.transcript_type, i.chapters_url, i.artwork_url
+     FROM feed_items i JOIN feeds f ON f.id = i.feed_id WHERE i.id = ? AND i.deleted_at IS NULL`,
+    [itemId],
+  );
+  if (!row) throw new TibiError('not_found', '找不到这期单集');
+  if (!row.audio_url) throw new TibiError('invalid_source', '这期条目没有音频地址');
+
+  const cover_path = row.artwork_url || row.feed_artwork || undefined;
+  const author = row.author || row.feed_title;
+  const base: Omit<Fetched, 'markdown'> = {
+    title: row.title,
+    author,
+    kind: 'episode',
+    source_type: 'podcast',
+    source_uri: row.url,
+    published_at: row.published_at != null ? Number(row.published_at) : undefined,
+    cover_path,
+    media_url: row.audio_url,
+    duration_ms: row.duration_ms != null ? Number(row.duration_ms) : undefined,
+    chapters_url: row.chapters_url ?? undefined,
+  };
+
+  // Tier 0：优先拉取官方 <podcast:transcript>（免费秒开）
+  if (row.transcript_url) {
+    job.progress('正在拉取官方逐字稿');
+    try {
+      const page = await ctx.platform.fetchUrl(row.transcript_url, { timeout_ms: 15_000, signal: job.signal });
+      if (page.status < 400 && page.body.trim()) {
+        const segs = parseTranscript(page.body, page.content_type || row.transcript_type || '');
+        if (segs.length) {
+          const md = buildTranscriptMarkdown(segs);
+          return { ...base, markdown: md, timed_segments: segs, transcript_source: 'rss_vtt', need_silent_cache: true };
+        }
+      }
+    } catch { /* 官方字幕拉取失败，优雅降级到 ASR 或纯听 */ }
+  }
+
+  // Tier 2：若未优先使用本地离线转写且已配置云端 BYOK ASR，下载并转写
+  const asrCfg = (await prefersLocalAsr(ctx)) ? undefined : await resolveAsrConfig(ctx);
+  if (asrCfg && ctx.platform.downloadMedia && ctx.platform.transcribeAudio) {
+    job.progress('正在下载音频准备转写');
+    const cacheKey = await sha256Hex(row.audio_url).then(h => h.slice(0, 24));
+    const dl = await ctx.platform.downloadMedia(row.audio_url, cacheKey, {
+      maxBytes: MAX_AUDIO_BYTES, signal: job.signal,
+      onProgress: (loaded, total) => {
+        const pct = total ? ` ${Math.min(99, Math.round((loaded / total) * 100))}%` : ` ${(loaded / (1 << 20)).toFixed(1)} MB`;
+        job.progress(`正在下载音频${pct}`);
+      },
+    });
+    job.progress('正在 AI 转写逐字稿');
+    const tr = await ctx.platform.transcribeAudio(
+      { path: dl.path, url: row.audio_url, mime: dl.mime || row.audio_mime || undefined },
+      { config: asrCfg, signal: job.signal, onProgress: label => job.progress(label) },
+    );
+    const segs = mergeTimedSegments(tr.segments);
+    if (segs.length) {
+      const md = buildTranscriptMarkdown(segs);
+      return {
+        ...base, markdown: md, media_path: dl.path, duration_ms: base.duration_ms ?? tr.duration_ms,
+        timed_segments: segs, transcript_source: 'cloud_asr', need_silent_cache: false,
+      };
+    }
+  }
+
+  // 兜底：纯听模式（保留 Show Notes 作为简介正文，流式播放 + 后台静默缓存，随时可补转写或导入字幕）
+  const notes = (row.content_md || row.excerpt || row.title).trim();
+  return { ...base, markdown: notes, transcript_source: 'none', need_silent_cache: true };
+}
+
+/** 本地音频文件导入（.mp3 / .m4a / .wav / .ogg），可选附带 .vtt/.srt 字幕 */
+async function fetchLocalAudio(job: ImportRun, ctx: Ctx, path: string, transcriptPath?: string, title?: string): Promise<Fetched> {
+  if (!ctx.platform.isPathAllowed(path)) throw new TibiError('permission_denied', '这个音频文件没有经过选择或拖入');
+  if (transcriptPath && !ctx.platform.isPathAllowed(transcriptPath)) throw new TibiError('permission_denied', '字幕文件没有经过选择或拖入');
+  const fileName = path.split(/[\\/]/).pop() ?? 'audio';
+  const cleanName = title?.trim() || fileName.replace(/\.[^.]+$/, '');
+  const key = await sha256Hex(`${path}:${Date.now()}`).then(h => h.slice(0, 24));
+  let mediaPath = path;
+  let mime = 'audio/mpeg';
+  if (ctx.platform.copyMedia) {
+    job.progress('正在整理音频文件');
+    const copied = await ctx.platform.copyMedia(path, key);
+    mediaPath = copied.path; mime = copied.mime;
+  }
+
+  // 若用户同时选了字幕文件
+  if (transcriptPath && ctx.platform.readFile) {
+    job.progress('正在解析字幕');
+    const raw = new TextDecoder('utf-8').decode(await ctx.platform.readFile(transcriptPath));
+    const segs = parseTranscript(raw, transcriptPath);
+    if (segs.length) {
+      return {
+        title: cleanName, kind: 'episode', source_type: 'audio', source_uri: fileName,
+        media_path: mediaPath, markdown: buildTranscriptMarkdown(segs), timed_segments: segs, transcript_source: 'manual',
+      };
+    }
+  }
+
+  // 否则若未优先使用本地离线转写，尝试云端 BYOK ASR
+  const asrCfg = (await prefersLocalAsr(ctx)) ? undefined : await resolveAsrConfig(ctx);
+  if (asrCfg && ctx.platform.transcribeAudio) {
+    job.progress('正在 AI 转写逐字稿');
+    const tr = await ctx.platform.transcribeAudio(
+      { path: mediaPath, mime },
+      { config: asrCfg, signal: job.signal, onProgress: label => job.progress(label) },
+    );
+    const segs = mergeTimedSegments(tr.segments);
+    if (segs.length) {
+      return {
+        title: cleanName, kind: 'episode', source_type: 'audio', source_uri: fileName,
+        media_path: mediaPath, duration_ms: tr.duration_ms, markdown: buildTranscriptMarkdown(segs), timed_segments: segs, transcript_source: 'cloud_asr',
+      };
+    }
+  }
+
+  return {
+    title: cleanName, kind: 'episode', source_type: 'audio', source_uri: fileName,
+    media_path: mediaPath, markdown: `Audio file: ${cleanName}`, transcript_source: 'none',
+  };
+}
+
+function buildTranscriptMarkdown(segments: TimedSegment[]): string {
+  const paras = groupTranscriptParagraphs(segments);
+  return paras.map(p => p.sentences.map(s => s.text).join(' ')).join('\n\n');
+}
+
 function titleFromMarkdown(md: string): string {
   const h = md.match(/^#\s+(.+)$/m)?.[1]?.trim();
   if (h) return h;
@@ -100,8 +273,8 @@ export function guessGenre(md: string, source_uri?: string): Genre {
   const host = source_uri ? (() => { try { return new URL(source_uri).hostname; } catch { return ''; } })() : '';
   if (/arxiv\.org|\.edu\b|acm\.org|ieee\.org|springer|nature\.com|sciencedirect/i.test(host) || /\b(abstract|we propose|et al\.)\b/i.test(md.slice(0, 3000))) return 'academic';
   const code = (md.match(/```/g) ?? []).length / 2 + (md.match(/`[^`]+`/g) ?? []).length;
-  if (code >= 1 || /github\.com|stackoverflow|docs\.|developer\.|rust-lang|python\.org/i.test(host)) return 'tech';
-  if (/bbc\.|nytimes|reuters|theguardian|cnn\.|apnews|bloomberg|economist|wsj\.|ft\.com/i.test(host)) return 'news';
+  if (code >= 1 || /github\.com|stackoverflow|docs\.|developer\.|rust-lang|python\.org|syntax\.fm|changelog|darknetdiaries|corecursive/i.test(host)) return 'tech';
+  if (/bbc\.|bbci\.|nytimes|reuters|theguardian|cnn\.|apnews|bloomberg|economist|wsj\.|ft\.com|npr\.org|voanews/i.test(host)) return 'news';
   const quotes = (md.match(/[“"][^”"]{10,}[”"]/g) ?? []).length;
   if (quotes >= 5 && / (he|she) (said|asked|replied)/i.test(md)) return 'lit';
   return 'general';
@@ -109,25 +282,55 @@ export function guessGenre(md: string, source_uri?: string): Genre {
 
 interface SaveOut { document_id: string; section_ids: string[]; duplicate: boolean; /** 之前读过但不在书架里，这次导入把它放进了书架 */ shelvedNow?: boolean }
 
-/** 第三步：入库（documents / sections / sentences），内容哈希去重 */
-async function saveStep(job: ImportRun, ctx: Ctx, fetched: Fetched, seg: Segmented, input: ImportInput): Promise<SaveOut> {
-  const hash = await sha256Hex(normalizeForHash(fetched.markdown));
+/** 第三步：入库（documents / sections / sentences），内容哈希去重（播客优先按 media_url 去重） */
+async function saveStep(job: ImportRun, ctx: Ctx, fetched: Fetched, seg: Segmented | undefined, input: ImportInput): Promise<SaveOut> {
+  const hashSeed = fetched.media_url ? `media:${fetched.media_url}` : fetched.media_path && fetched.transcript_source === 'none' ? `audio:${fetched.media_path}` : normalizeForHash(fetched.markdown);
+  const hash = await sha256Hex(hashSeed);
   const key = `${job.id}:save`;
-  const existing = await getDocumentByHash(ctx.db, hash);
+  const existing = (fetched.media_url ? await getDocumentByMediaUrl(ctx.db, fetched.media_url) : undefined) ?? await getDocumentByHash(ctx.db, hash);
   if (existing) {
-    // 从订阅里读过（不在书架里）的，这次是要放进书架的导入：放进去
     const shelvedNow = input.shelve !== false && Number(existing.shelved) === 0;
     if (shelvedNow) { await ctx.db.run('UPDATE documents SET shelved = 1, updated_at = ? WHERE id = ?', [now(), existing.id]); ctx.events.emit('data.changed', { table: 'documents', ids: [existing.id] }); }
     return { document_id: existing.id, section_ids: (await listSections(ctx.db, existing.id)).map(s => s.id), duplicate: !(await alreadyDone(ctx.db, key)), shelvedNow };
   }
   const genre = input.hints?.genre ?? fetched.genre ?? guessGenre(fetched.markdown, fetched.source_uri);
   const out = await ctx.db.transaction(async tx => {
+    if (fetched.timed_segments?.length) {
+      const paras = groupTranscriptParagraphs(fetched.timed_segments);
+      const content_md = paras.map(p => p.sentences.map(s => s.text).join(' ')).join('\n\n');
+      const word_count = countWords(content_md);
+      const lastEnd = fetched.timed_segments.reduce((m, s) => Math.max(m, s.end_ms), 0);
+      const document_id = await insertDocument(tx, {
+        title: fetched.title, author: fetched.author, kind: 'episode', genre, source_type: fetched.source_type, source_uri: fetched.source_uri,
+        lang: 'en', content_hash: hash, word_count, section_count: 1, published_at: fetched.published_at, cover_path: fetched.cover_path,
+        shelved: input.shelve !== false, media_url: fetched.media_url, media_path: fetched.media_path,
+        duration_ms: fetched.duration_ms ?? (lastEnd > 0 ? lastEnd : undefined), transcript_source: fetched.transcript_source,
+      });
+      const section_id = await insertSection(tx, { document_id, idx: 0, title: fetched.title, content_md, word_count });
+      let idx = 0;
+      for (const p of paras) {
+        for (const s of p.sentences) {
+          await insertSentence(tx, {
+            section_id, paragraph_idx: p.paragraph_idx, block_type: 'prose', idx: idx++, text: s.text,
+            start_ms: s.start_ms, end_ms: s.end_ms, speaker: s.speaker,
+          });
+        }
+      }
+      if (input.hints?.tags?.length) await setDocumentTags(tx, document_id, input.hints.tags, { source: 'user' });
+      await recordUndo(tx, ctx, { tool: 'save_document', args: { title: fetched.title }, undo_payload: { document_id }, idempotency_key: key });
+      return { document_id, section_ids: [section_id], duplicate: false };
+    }
+
+    const s = seg!;
     const document_id = await insertDocument(tx, {
-      title: fetched.title, author: fetched.author, kind: seg.kind, genre, source_type: fetched.source_type, source_uri: fetched.source_uri, lang: seg.lang,
-      content_hash: hash, word_count: seg.word_count, section_count: seg.sections.length, published_at: fetched.published_at, shelved: input.shelve !== false,
+      title: fetched.title, author: fetched.author, kind: fetched.kind === 'episode' ? 'episode' : s.kind, genre,
+      source_type: fetched.source_type, source_uri: fetched.source_uri, lang: s.lang,
+      content_hash: hash, word_count: s.word_count, section_count: s.sections.length, published_at: fetched.published_at,
+      cover_path: fetched.cover_path, shelved: input.shelve !== false,
+      media_url: fetched.media_url, media_path: fetched.media_path, duration_ms: fetched.duration_ms, transcript_source: fetched.transcript_source,
     });
     const section_ids: string[] = [];
-    for (const sec of seg.sections) {
+    for (const sec of s.sections) {
       const content_md = sec.paragraphs.map(p => p.block_type === 'code' ? '```' + (p.lang ?? '') + '\n' + p.text + '\n```' : p.block_type === 'image' ? `![${p.text}](${p.src})` : p.block_type === 'heading' ? '## ' + p.text : p.block_type === 'list_item' ? '- ' + p.text : p.block_type === 'quote' ? '> ' + p.text : p.text).join('\n\n');
       const section_id = await insertSection(tx, { document_id, idx: sec.idx, title: sec.title, content_md, word_count: sec.paragraphs.filter(isTextBlock).reduce((a, p) => a + countWords(p.text), 0) });
       section_ids.push(section_id);
@@ -145,15 +348,44 @@ async function saveStep(job: ImportRun, ctx: Ctx, fetched: Fetched, seg: Segment
   return out;
 }
 
+/** 后台静默缓存音频（流式先播、后台落盘，并按 2 GB LRU 清理） */
+function scheduleSilentCache(ctx: Ctx, document_id: string, media_url: string) {
+  if (!ctx.platform.downloadMedia) return;
+  background(`media_cache:${document_id}`, async () => {
+    try {
+      const dl = await ctx.platform.downloadMedia!(media_url, document_id, { maxBytes: MAX_AUDIO_BYTES });
+      const t = now();
+      await ctx.db.run('UPDATE documents SET media_path = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL', [dl.path, t, document_id]);
+      if (ctx.platform.pruneMediaCache) {
+        const { removed_paths } = await ctx.platform.pruneMediaCache(DEFAULT_CACHE_LIMIT);
+        for (const rp of removed_paths) await ctx.db.run('UPDATE documents SET media_path = NULL, updated_at = ? WHERE media_path = ?', [t, rp]);
+      }
+      ctx.events.emit('data.changed', { table: 'documents', ids: [document_id] });
+    } catch { /* 静默缓存失败不影响流式播放 */ }
+  });
+}
+
+/** 后台拉取 Podcasting 2.0 官方 JSON 章节 */
+function scheduleFetchChapters(ctx: Ctx, document_id: string, chapters_url: string) {
+  background(`chapters:${document_id}`, async () => {
+    try {
+      const page = await ctx.platform.fetchUrl(chapters_url, { timeout_ms: 10_000 });
+      if (page.status >= 400) return;
+      const chapters = parseJsonChapters(page.body);
+      if (!chapters.length) return;
+      await putAiResult(ctx.db, document_id, 'chapters', chapters, 'rss');
+      ctx.events.emit('data.changed', { table: 'documents', ids: [document_id] });
+    } catch { /* 官方章节拉取失败不影响 AI 生成章节 */ }
+  });
+}
+
 /**
  * 第四步：分词、还原、按词库标状态；写 sentences.tokens、term_forms、term_contexts（R7：不碰 FSRS）。
- * 不建 terms 行：生词只有用户自己标的（加入生词本、点"不认识"）。已有行的词在这里登记语境和遇见次数。
  */
 export async function annotateSection(db: Database, ctx: Ctx, section_id: string, opts: { document_id: string }): Promise<{ counts: { total: number; new: number; learning: number }; rare: number }> {
   const sentences = await listSentences(db, section_id);
   const texts = sentences.map(s => s.text);
   const phrases = (await db.all<{ text: string }>("SELECT text FROM terms WHERE kind = 'phrase' AND deleted_at IS NULL")).map(r => r.text);
-  // 先用一次空的 statusOf 跑分词，拿到全部 lemma 后再查词库，这样只查一轮
   const first = await annotateSentences({ sentences: texts, dict: ctx.dict, statusOf: () => undefined, phrases, ignoreProperNouns: true });
   const lemmas = [...new Set(first.sentences.flatMap(s => s.tokens.map(t => t.l)))];
   const known = await getTermsByTexts(db, lemmas);
@@ -175,7 +407,6 @@ export async function annotateSection(db: Database, ctx: Ctx, section_id: string
       }
     }
     for (const [term_id, n] of encounters) await bumpEncounter(tx, term_id, n, t);
-    // 已有短语：登记语境
     for (const ph of res.phrases) {
       const row = await tx.get<{ id: string }>("SELECT id FROM terms WHERE kind = 'phrase' AND text = ? AND deleted_at IS NULL", [ph.text]);
       if (!row) continue;
@@ -187,10 +418,8 @@ export async function annotateSection(db: Database, ctx: Ctx, section_id: string
   return { counts: res.counts, rare: res.rare_ratio === undefined ? -1 : Math.round(res.rare_ratio * res.counts.total) };
 }
 
-/** 整篇标注 + 难度；reanalyze 也走这里 */
 const LAZY_EAGER = 2;
 
-/** 打开一章时如果还没标注（书的后面几章），现在标；返回是否做了标注 */
 export async function ensureAnnotated(ctx: Ctx, section_id: string): Promise<boolean> {
   const sec = await ctx.db.get<{ status: string; document_id: string }>('SELECT status, document_id FROM sections WHERE id = ? AND deleted_at IS NULL', [section_id]);
   if (!sec || sec.status !== 'pending') return false;
@@ -206,14 +435,12 @@ const ANNOTATING = new Map<string, Promise<void>>();
 async function annotateDocument(job: ImportRun | undefined, ctx: Ctx, document_id: string, section_ids: string[]): Promise<{ level?: string }> {
   const doc = await getDocument(ctx.db, document_id); if (!doc) throw new TibiError('not_found', '文章不在了');
   let total = 0, rare = 0, hasFreq = true;
-  // 书按章懒处理（00 §3.1）：导入时只标前两章，其余在打开那一章时再标（sections.get → ensureAnnotated）
   const eager = doc.kind === 'book' ? section_ids.slice(0, LAZY_EAGER) : section_ids;
   for (let i = 0; i < eager.length; i++) {
     job?.progress(eager.length > 1 ? `正在分析第 ${i + 1} / ${eager.length} 章` : '正在分析');
     const r = await annotateSection(ctx.db, ctx, section_ids[i]!, { document_id });
     total += r.counts.total; if (r.rare < 0) hasFreq = false; else rare += r.rare;
   }
-  // 文本级别：只看词频（常用 3000 词以外的占比），与用户无关；没有词频表时不估
   const rare_ratio = hasFreq && total ? rare / total : null;
   const level = rare_ratio === null ? undefined : levelOfRatio(rare_ratio);
   await ctx.db.run('UPDATE documents SET status = ?, rare_ratio = ?, difficulty_cefr = ?, updated_at = ? WHERE id = ?', ['ready', rare_ratio, level ?? null, now(), document_id]);
@@ -230,42 +457,161 @@ type ImportResult = { summary: string; action: { label: string; route: string };
 
 export async function runImport(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<ImportResult> {
   const r = await importOnce(job, ctx, input);
-  // 订阅里的同一篇（请求的链接或重定向后的链接）记成"在书架里"（11 §5.2）
   if (input.source.type === 'url') {
     const doc = await getDocument(ctx.db, r.document_id);
     if (await linkImported(ctx.db, [input.source.url, doc?.source_uri], r.document_id)) ctx.events.emit('data.changed', { table: 'feed_items' });
+  } else if (input.source.type === 'podcast_item') {
+    if (await linkImportedItem(ctx.db, input.source.id, r.document_id)) ctx.events.emit('data.changed', { table: 'feed_items' });
   }
   return r;
 }
 
 async function importOnce(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<ImportResult> {
-  job.progress('取正文');
+  job.progress(input.source.type === 'podcast_item' || input.source.type === 'audio' ? '准备电台单集' : '取正文');
   const fetched = await fetchStep(job, ctx, input);
-  const seg = segmentMarkdown(fetched.markdown, { kind: input.hints?.kind ?? fetched.kind ?? 'article', title: fetched.title });
-  if (seg.lang !== 'en') throw new TibiError('invalid_source', '目前只支持英文文章');
-  if (seg.word_count < 5) throw new TibiError('invalid_source', '内容太短了');
+  const isTimedEpisode = !!fetched.timed_segments?.length;
+  const seg = isTimedEpisode ? undefined : segmentMarkdown(fetched.markdown, { kind: input.hints?.kind ?? (fetched.kind === 'episode' ? 'article' : fetched.kind) ?? 'article', title: fetched.title });
+  if (!isTimedEpisode) {
+    if (fetched.kind !== 'episode' && seg!.lang !== 'en') throw new TibiError('invalid_source', '目前只支持英文文章');
+    if (fetched.kind !== 'episode' && seg!.word_count < 5) throw new TibiError('invalid_source', '内容太短了');
+  }
   const saved = await saveStep(job, ctx, fetched, seg, input);
   if (saved.duplicate) {
     const d = (await getDocument(ctx.db, saved.document_id))!;
-    return { summary: saved.shelvedNow ? `已放进书架：${d.title}` : Number(d.shelved) ? '这篇已经在书架里' : `可以读了：${d.title}`, action: { label: '打开', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: true, title: d.title, level: d.difficulty_cefr ?? undefined, minutes: Math.max(1, Math.round(Number(d.word_count) / WPM)) };
+    const mins = d.kind === 'episode' && d.duration_ms ? Math.max(1, Math.round(Number(d.duration_ms) / 60_000)) : Math.max(1, Math.round(Number(d.word_count) / WPM));
+    return { summary: saved.shelvedNow ? `已放进书架：${d.title}` : Number(d.shelved) ? '这篇已经在书架里' : `可以听读了：${d.title}`, action: { label: '打开', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: true, title: d.title, level: d.difficulty_cefr ?? undefined, minutes: mins };
   }
   const ann = await annotateDocument(job, ctx, saved.document_id, saved.section_ids);
-  await ctx.db.run('INSERT INTO learning_events(id, type, payload, created_at) VALUES (?,?,?,?)', [uuidv7(), 'document_imported', j.str({ document_id: saved.document_id, source_type: fetched.source_type, title: fetched.title, word_count: seg.word_count }), now()]);
+  const wordCount = isTimedEpisode ? countWords(fetched.markdown) : seg!.word_count;
+  const minutes = fetched.kind === 'episode' && fetched.duration_ms ? Math.max(1, Math.round(fetched.duration_ms / 60_000)) : Math.max(1, Math.round(wordCount / WPM));
+  await ctx.db.run('INSERT INTO learning_events(id, type, payload, created_at) VALUES (?,?,?,?)', [uuidv7(), 'document_imported', j.str({ document_id: saved.document_id, source_type: fetched.source_type, title: fetched.title, word_count: wordCount }), now()]);
+  if (fetched.chapters_url) scheduleFetchChapters(ctx, saved.document_id, fetched.chapters_url);
+  if (fetched.need_silent_cache && fetched.media_url) scheduleSilentCache(ctx, saved.document_id, fetched.media_url);
+
   const sample = input.source.type === 'sample' ? getSample(input.source.id) : undefined;
   if (sample) {
-    // 内置示例：写入预生成的总结与语境释义，不调模型
     await writeSampleAi(ctx.db, saved.document_id, (await sample.load()).ai);
     ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
     ctx.events.emit('data.changed', { table: 'terms' });
-    return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, level: ann.level, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
+    return { summary: `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, level: ann.level, minutes };
   }
-  // 总结不自动做：用户在阅读器的总结面板里点"现在生成"（documents.analyze）
   ctx.events.emit('data.changed', { table: 'documents', ids: [saved.document_id] });
   ctx.events.emit('data.changed', { table: 'terms' });
-  return { summary: input.shelve === false ? `可以读了：${fetched.title}` : `已放进书架：${fetched.title}`, action: { label: '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, level: ann.level, minutes: Math.max(1, Math.round(seg.word_count / WPM)) };
+  const openVerb = fetched.kind === 'episode' ? '可以听读了' : '可以读了';
+  return { summary: input.shelve === false ? `${openVerb}：${fetched.title}` : `已放进书架：${fetched.title}`, action: { label: fetched.kind === 'episode' ? '开始听读' : '开始阅读', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: false, title: fetched.title, level: ann.level, minutes };
 }
 
-/** documents.reanalyze：按当前词库重新标注（分词升级、词典后来才装上）；ai=true 时把 AI 状态置回 deferred，用户再手动生成 */
+/** 确保电台单集音频已缓存在本机（供桌面本地离线 ASR 读取，避开浏览器 CORS 并复用 SSRF 校验） */
+export async function ensureEpisodeMedia(ctx: Ctx, document_id: string): Promise<{ media_path?: string; media_url?: string; duration_ms?: number }> {
+  const doc = await getDocument(ctx.db, document_id);
+  if (!doc || doc.deleted_at) throw new TibiError('not_found', '找不到这期单集');
+  if (doc.kind !== 'episode') throw new TibiError('invalid_params', '只有电台单集才有音频文件');
+  const duration_ms = doc.duration_ms != null ? Number(doc.duration_ms) : undefined;
+  if (doc.media_path) {
+    return { media_path: doc.media_path, ...(doc.media_url ? { media_url: doc.media_url } : {}), ...(duration_ms ? { duration_ms } : {}) };
+  }
+  if (!doc.media_url) throw new TibiError('invalid_source', '缺少音频文件');
+  if (!ctx.platform.downloadMedia) {
+    return { media_url: doc.media_url, ...(duration_ms ? { duration_ms } : {}) };
+  }
+  const dl = await ctx.platform.downloadMedia(doc.media_url, doc.id, { maxBytes: MAX_AUDIO_BYTES });
+  const t = now();
+  await ctx.db.run('UPDATE documents SET media_path = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL', [dl.path, t, doc.id]);
+  if (ctx.platform.pruneMediaCache) {
+    const { removed_paths } = await ctx.platform.pruneMediaCache(DEFAULT_CACHE_LIMIT);
+    for (const rp of removed_paths) {
+      if (rp !== dl.path) await ctx.db.run('UPDATE documents SET media_path = NULL, updated_at = ? WHERE media_path = ?', [t, rp]);
+    }
+  }
+  ctx.events.emit('data.changed', { table: 'documents', ids: [doc.id] });
+  return { media_path: dl.path, media_url: doc.media_url, ...(duration_ms ? { duration_ms } : {}) };
+}
+
+/** 对已有电台单集事后补跑云端 ASR 转写、写入本地离线转写结果，或导入本地 .vtt / .srt 字幕文件 */
+export async function transcribeEpisode(
+  ctx: Ctx,
+  p: { document_id: string; transcript_path?: string; segments?: TimedSegment[]; duration_ms?: number; transcript_source?: TranscriptSource; onProgress?: (label: string) => void },
+): Promise<{ sentences: number; transcript_source: TranscriptSource }> {
+  const doc = await getDocument(ctx.db, p.document_id);
+  if (!doc || doc.deleted_at) throw new TibiError('not_found', '找不到这期单集');
+  if (doc.kind !== 'episode') throw new TibiError('invalid_params', '只有电台单集才能转写逐字稿');
+
+  let segs: TimedSegment[] = [];
+  let source: TranscriptSource = 'cloud_asr';
+  let durationMs = doc.duration_ms != null ? Number(doc.duration_ms) : undefined;
+  let mediaPath = doc.media_path ?? undefined;
+
+  if (p.segments) {
+    segs = mergeTimedSegments(p.segments);
+    if (!segs.length) throw new TibiError('invalid_source', '语音转写没有识别出有效文本');
+    durationMs = durationMs ?? (p.duration_ms && p.duration_ms > 0 ? p.duration_ms : undefined);
+    source = p.transcript_source ?? 'local_asr';
+  } else if (p.transcript_path) {
+    if (!ctx.platform.isPathAllowed(p.transcript_path)) throw new TibiError('permission_denied', '字幕文件没有经过选择或拖入');
+    if (!ctx.platform.readFile) throw new TibiError('invalid_source', '这里不能读取本地字幕文件');
+    p.onProgress?.('正在解析字幕文件');
+    const raw = new TextDecoder('utf-8').decode(await ctx.platform.readFile(p.transcript_path));
+    segs = parseTranscript(raw, p.transcript_path);
+    if (!segs.length) throw new TibiError('invalid_source', '字幕文件里没有解析出有效内容');
+    source = 'manual';
+  } else {
+    const asrCfg = await resolveAsrConfig(ctx);
+    if (!asrCfg) throw new TibiError('model_unavailable', '还没有配置语音转写服务。可以开启本地离线转写，或到 设置 → 模型 中添加硅基流动 / Groq / OpenAI / Deepgram');
+    if (!ctx.platform.transcribeAudio) throw new TibiError('invalid_source', '当前运行环境不支持云端语音转写');
+    if (!mediaPath) {
+      if (!doc.media_url || !ctx.platform.downloadMedia) throw new TibiError('invalid_source', '缺少音频文件，无法转写');
+      p.onProgress?.('正在下载音频准备转写');
+      const dl = await ctx.platform.downloadMedia(doc.media_url, doc.id, {
+        maxBytes: MAX_AUDIO_BYTES,
+        onProgress: (loaded, total) => p.onProgress?.(`正在下载音频${total ? ` ${Math.min(99, Math.round((loaded / total) * 100))}%` : ''}`),
+      });
+      mediaPath = dl.path;
+      await ctx.db.run('UPDATE documents SET media_path = ?, updated_at = ? WHERE id = ?', [mediaPath, now(), doc.id]);
+    }
+    p.onProgress?.('正在 AI 转写逐字稿');
+    const tr = await ctx.platform.transcribeAudio({ path: mediaPath, url: doc.media_url ?? undefined }, { config: asrCfg, onProgress: p.onProgress });
+    segs = mergeTimedSegments(tr.segments);
+    if (!segs.length) throw new TibiError('invalid_source', '语音转写没有识别出文本');
+    durationMs = durationMs ?? tr.duration_ms;
+    source = 'cloud_asr';
+  }
+
+  const paras = groupTranscriptParagraphs(segs);
+  const content_md = paras.map(x => x.sentences.map(s => s.text).join(' ')).join('\n\n');
+  const word_count = countWords(content_md);
+  const lastEnd = segs.reduce((m, s) => Math.max(m, s.end_ms), 0);
+  const finalDuration = durationMs ?? (lastEnd > 0 ? lastEnd : null);
+  const t = now();
+
+  const sections = await listSections(ctx.db, doc.id);
+  const sectionId = sections[0]?.id;
+  if (!sectionId) throw new TibiError('not_found', '缺少章节记录');
+
+  await ctx.db.transaction(async tx => {
+    await tx.run('UPDATE sentences SET deleted_at = ?, updated_at = ? WHERE section_id = ? AND deleted_at IS NULL', [t, t, sectionId]);
+    await tx.run('UPDATE term_contexts SET deleted_at = ?, updated_at = ? WHERE document_id = ? AND deleted_at IS NULL', [t, t, doc.id]);
+    await tx.run('UPDATE sections SET content_md = ?, word_count = ?, status = ?, updated_at = ? WHERE id = ?', [content_md, word_count, 'pending', t, sectionId]);
+    let idx = 0;
+    for (const para of paras) {
+      for (const s of para.sentences) {
+        await insertSentence(tx, {
+          section_id: sectionId, paragraph_idx: para.paragraph_idx, block_type: 'prose', idx: idx++, text: s.text,
+          start_ms: s.start_ms, end_ms: s.end_ms, speaker: s.speaker,
+        });
+      }
+    }
+    await tx.run('UPDATE documents SET word_count = ?, duration_ms = COALESCE(?, duration_ms), transcript_source = ?, ai_status = ?, updated_at = ? WHERE id = ?',
+      [word_count, finalDuration, source, 'deferred', t, doc.id]);
+    await tx.run("UPDATE ai_results SET deleted_at = ?, updated_at = ? WHERE scope = 'document' AND target_id = ? AND model != 'rss' AND deleted_at IS NULL", [t, t, doc.id]);
+  });
+
+  await annotateDocument(undefined, ctx, doc.id, [sectionId]);
+  ctx.events.emit('data.changed', { table: 'documents', ids: [doc.id] });
+  ctx.events.emit('data.changed', { table: 'sentences', ids: [sectionId] });
+  return { sentences: segs.length, transcript_source: source };
+}
+
+/** documents.reanalyze：按当前词库重新标注；ai=true 时把 AI 状态置回 deferred */
 export async function runReanalyze(ctx: Ctx, input: { document_id: string; ai?: boolean }) {
   const doc = await getDocument(ctx.db, input.document_id); if (!doc || doc.deleted_at) throw new TibiError('not_found', '文章不在了');
   const sections = await listSections(ctx.db, doc.id);
@@ -277,7 +623,6 @@ export async function runReanalyze(ctx: Ctx, input: { document_id: string; ai?: 
   return { document_id: doc.id, level: ann.level };
 }
 
-/** 应用上次退出时还在做总结的文章：改回 deferred，用户在总结面板里重新生成 */
 export async function recoverAnalysis(db: Database) {
   const t = now();
   await db.run("UPDATE documents SET ai_status = 'deferred', updated_at = ? WHERE ai_status = 'running'", [t]);

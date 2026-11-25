@@ -5045,7 +5045,7 @@ dependencies = [
 
 [[package]]
 name = "tibi"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "env_logger",

@@ -64,7 +64,13 @@ export async function sectionContent(db: Database, section_id: string, opts: { t
         from = at + ph.text.length;
       }
     }
-    return { id: r.id, idx: r.idx, paragraph_idx: r.paragraph_idx, block_type: r.block_type as Sentence['block_type'], text: r.text, tokens, translation: opts.translations ? r.translation ?? undefined : undefined };
+    return {
+      id: r.id, idx: r.idx, paragraph_idx: r.paragraph_idx, block_type: r.block_type as Sentence['block_type'], text: r.text, tokens,
+      translation: opts.translations ? r.translation ?? undefined : undefined,
+      ...(r.start_ms != null ? { start_ms: Number(r.start_ms) } : {}),
+      ...(r.end_ms != null ? { end_ms: Number(r.end_ms) } : {}),
+      ...(r.speaker ? { speaker: r.speaker } : {}),
+    };
   });
   // 块：按 content_md 的段落顺序，代码块、图片直接取原文，其余段落引用句子
   const paras = splitBlocks(sec.content_md);

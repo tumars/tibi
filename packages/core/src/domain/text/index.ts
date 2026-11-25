@@ -3,3 +3,4 @@ export { tokenize, looksProperNoun, isAcronym, normalizeCase, type RawToken } fr
 export { lemmatize, lemmatizeAll, ruleLemma } from './lemma.js';
 export { COMMON_RANK, isRare, levelOfRatio } from './level.js';
 export { annotateSentences, type AnnotatedSentence, type AnnotateInput, type AnnotateResult, type AnnotatedToken } from './annotate.js';
+export { parseTranscript, parseVttOrSrt, parseJsonTranscript, parseJsonChapters, mergeTimedSegments, groupTranscriptParagraphs, parseTimestampMs, type TranscriptParagraph } from './transcript.js';

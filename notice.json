@@ -1,16 +1,16 @@
 {
   "notices": [
     {
-      "id": "release-0.1.5-macos",
+      "id": "release-0.2.0-macos",
       "message": {
-        "zh": "Tibi 0.1.5 已发布：全站视觉质感与插图图标升级——新增定制 Tibi 双色调图标与多场景藏狐插图，重构阅读器总结面板（CEFR 难度标尺、丝绒柔光摘要与建议卡、开放式短语索引），优化浅色与深色模式层次。",
-        "en": "Tibi 0.1.5 is out: refreshed visual craft with custom Tibi duotone icons, expanded mascot illustrations across empty and hero states, a redesigned Reader summary panel (CEFR scale, silk-tinted overview & advice cards, clean phrase index), and calmer borderless hierarchy in light & dark mode."
+        "zh": "Tibi 0.2.0 已发布：新增「电台」播客听读与单句精听/盲听、本地离线 Whisper 语音转写与硅基流动一站式配置；全面升级全站设计系统、语义组件与文案规范。",
+        "en": "Tibi 0.2.0 is out: adds Podcast Radio with synced listen-and-read, free local offline Whisper transcription, one-step SiliconFlow setup, and a unified design system with refined UI copy across the app."
       },
       "platforms": [
         "macos"
       ],
-      "below": "0.1.5",
-      "until": "2026-12-24",
+      "below": "0.2.0",
+      "until": "2026-12-25",
       "url": "tibi://settings?sec=about",
       "label": {
         "zh": "去更新",

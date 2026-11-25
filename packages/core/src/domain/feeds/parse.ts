@@ -1,12 +1,13 @@
 import { XMLParser } from 'fast-xml-parser';
+import type { FeedKind } from '../../types.js';
 
 /**
- * 订阅源解析（11 §4.3）：RSS 2.0 / RSS 1.0（RDF）/ Atom / JSON Feed → 统一的条目。
+ * 订阅源解析（11 §4.3、17 §5.1）：RSS 2.0（含 Podcast 2.0 / iTunes）/ RSS 1.0（RDF）/ Atom / JSON Feed → 统一的条目。
  * 不依赖 DOM（R11）；正文类字段（description、content…）按原样取出再自己解码，CDATA 和转义过的 HTML 都能对上。
  */
 
 export interface ParsedItem {
-  /** 去重键：guid → Atom id → 链接 */
+  /** 去重键：guid → Atom id → 链接 → 音频链接 */
   guid: string;
   url: string;
   title: string;
@@ -18,15 +19,35 @@ export interface ParsedItem {
   content_html?: string;
   /** 讨论页（HNRSS 这类聚合源） */
   comments_url?: string;
+  /** 播客单集元数据（17 §4） */
+  audio_url?: string;
+  audio_mime?: string;
+  audio_bytes?: number;
+  duration_ms?: number;
+  transcript_url?: string;
+  transcript_type?: string;
+  chapters_url?: string;
+  artwork_url?: string;
+  season?: number;
+  episode?: number;
 }
-export interface ParsedFeed { title: string; site_url?: string; ttl_minutes?: number; items: ParsedItem[] }
+export interface ParsedFeed {
+  title: string;
+  site_url?: string;
+  ttl_minutes?: number;
+  kind: FeedKind;
+  artwork_url?: string;
+  language?: string;
+  description?: string;
+  items: ParsedItem[];
+}
 
 const RAW = ['description', 'content:encoded', 'content', 'summary'];
 const parser = new XMLParser({
   ignoreAttributes: false, attributeNamePrefix: '@_', textNodeName: '#text',
   parseTagValue: false, parseAttributeValue: false, trimValues: true, htmlEntities: true,
   stopNodes: RAW.map(n => `*.${n}`),
-  isArray: name => name === 'item' || name === 'entry' || name === 'link',
+  isArray: name => name === 'item' || name === 'entry' || name === 'link' || name === 'enclosure' || name === 'podcast:transcript',
 });
 
 const ENT: Record<string, string> = { lt: '<', gt: '>', quot: '"', apos: "'", amp: '&', nbsp: ' ', mdash: '—', ndash: '–', hellip: '…', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“' };
@@ -66,6 +87,71 @@ const excerptOf = (html: string) => htmlToText(html).replace(/\b(Article URL|Com
 /** 描述长到像全文（≥ 150 词）才算全文 */
 const looksFull = (html: string) => htmlToText(html).split(' ').length >= 150;
 
+/** 解析 itunes:duration：支持 HH:MM:SS、MM:SS、纯秒数 */
+export function parseDurationMs(raw: string): number | undefined {
+  const s = raw.trim();
+  if (!s) return undefined;
+  if (/^\d+(?:\.\d+)?$/.test(s)) {
+    const sec = Number(s);
+    return Number.isFinite(sec) && sec > 0 ? Math.round(sec * 1000) : undefined;
+  }
+  const parts = s.split(':').map(Number);
+  if (parts.length < 2 || parts.length > 3 || parts.some(n => !Number.isFinite(n) || n < 0)) return undefined;
+  const sec = parts.length === 3 ? parts[0]! * 3600 + parts[1]! * 60 + parts[2]! : parts[0]! * 60 + parts[1]!;
+  return sec > 0 ? Math.round(sec * 1000) : undefined;
+}
+
+const TRANSCRIPT_RANK: Record<string, number> = {
+  'text/vtt': 4,
+  'application/x-subrip': 3,
+  'application/srt': 3,
+  'text/srt': 3,
+  'application/json': 2,
+  'text/plain': 1,
+};
+
+/** 从多个 <podcast:transcript> 中挑出最合适的一个（VTT > SRT > JSON > TXT，英文优先） */
+function pickTranscript(node: Node, base: string): { url: string; type: string } | undefined {
+  const list = arr(node) as Record<string, string>[];
+  let best: { url: string; type: string; score: number } | undefined;
+  for (const item of list) {
+    if (!item || typeof item !== 'object') continue;
+    const url = abs(item['@_url'], base);
+    const type = (item['@_type'] ?? '').toLowerCase().split(';')[0]!.trim();
+    if (!url || !type) continue;
+    const baseScore = TRANSCRIPT_RANK[type] ?? (/vtt/i.test(type) ? 4 : /srt/i.test(type) ? 3 : /json/i.test(type) ? 2 : /text\/plain/i.test(type) ? 1 : 0);
+    if (!baseScore) continue;
+    const lang = (item['@_language'] ?? '').toLowerCase();
+    const langBonus = !lang || lang.startsWith('en') ? 10 : 0;
+    const score = baseScore + langBonus;
+    if (!best || score > best.score) best = { url, type, score };
+  }
+  return best ? { url: best.url, type: best.type } : undefined;
+}
+
+/** 提取音频 enclosure */
+function pickAudioEnclosure(node: Node, base: string): { url: string; mime: string; bytes?: number } | undefined {
+  for (const enc of arr(node) as Record<string, string>[]) {
+    if (!enc || typeof enc !== 'object') continue;
+    const url = abs(enc['@_url'], base);
+    const mime = (enc['@_type'] ?? '').toLowerCase().trim();
+    if (!url) continue;
+    const isAudio = mime.startsWith('audio/') || /\.(mp3|m4a|ogg|opus|wav|aac)(\?|$)/i.test(url);
+    if (!isAudio) continue;
+    const len = Number(enc['@_length']);
+    return { url, mime: mime || 'audio/mpeg', ...(Number.isFinite(len) && len > 0 ? { bytes: Math.round(len) } : {}) };
+  }
+  return undefined;
+}
+
+function channelArtwork(ch: Record<string, unknown>, base: string): string | undefined {
+  const itunes = attr(ch['itunes:image'], 'href');
+  if (itunes) return abs(itunes, base);
+  const img = ch.image as Record<string, unknown> | undefined;
+  if (img && typeof img === 'object') return abs(text(img.url), base);
+  return undefined;
+}
+
 const PERIOD: Record<string, number> = { hourly: 60, daily: 1440, weekly: 10080, monthly: 43200, yearly: 525600 };
 
 /** 解析订阅源；不是订阅源（网页、坏 XML）时返回 undefined */
@@ -86,25 +172,62 @@ function parseRss(doc: Record<string, unknown>, feedUrl: string): ParsedFeed {
   const rawItems = arr(rdf ? rdf.item : ch.item) as Record<string, unknown>[];
   const ttl = Number(text(ch.ttl)) || (PERIOD[text(ch['sy:updatePeriod']).trim()] ? PERIOD[text(ch['sy:updatePeriod']).trim()]! / (Number(text(ch['sy:updateFrequency'])) || 1) : undefined);
   const site = abs(text(ch.link), feedUrl);
+  const artwork = channelArtwork(ch, feedUrl);
+  const lang = text(ch.language).trim() || undefined;
+  const chDesc = excerptOf(rawToHtml(text(ch.description) || text(ch['itunes:summary'])));
   const items: ParsedItem[] = [];
+  let audioCount = 0;
   for (const it of rawItems) {
-    const url = abs(text(it.link), feedUrl) ?? (attr(it.guid, 'isPermaLink') !== 'false' ? abs(text(it.guid), feedUrl) : undefined) ?? abs(attr(it, 'rdf:about'), feedUrl);
+    const enc = pickAudioEnclosure(it.enclosure, feedUrl);
+    if (enc) audioCount++;
+    const url = abs(text(it.link), feedUrl)
+      ?? (attr(it.guid, 'isPermaLink') !== 'false' ? abs(text(it.guid), feedUrl) : undefined)
+      ?? abs(attr(it, 'rdf:about'), feedUrl)
+      ?? enc?.url;
     const title = cleanTitle(text(it.title));
     if (!url || !title) continue;
-    const desc = rawToHtml(text(it.description));
+    const desc = rawToHtml(text(it.description) || text(it['itunes:summary']));
     const encoded = rawToHtml(text(it['content:encoded']));
     const content_html = encoded || (looksFull(desc) ? desc : undefined);
     const rssAuthor = text(it.author).replace(/^\S+@\S+\s*\((.*)\)$/, '$1');
+    const author = htmlToText(text(it['dc:creator']) || text(it['itunes:author']) || rssAuthor);
+    const transcript = pickTranscript(it['podcast:transcript'], feedUrl);
+    const chaptersUrl = abs(attr(it['podcast:chapters'], 'url'), feedUrl);
+    const itemArt = abs(attr(it['itunes:image'], 'href'), feedUrl);
+    const duration_ms = parseDurationMs(text(it['itunes:duration']));
+    const seasonNum = Number(text(it['itunes:season']));
+    const episodeNum = Number(text(it['itunes:episode']));
     items.push({
       guid: text(it.guid).trim() || url, url, title,
-      ...opt('author', htmlToText(text(it['dc:creator']) || rssAuthor)),
+      ...opt('author', author),
       ...opt('published_at', date(text(it.pubDate) || text(it['dc:date']))),
       excerpt: excerptOf(desc || encoded),
       ...opt('content_html', content_html),
       ...opt('comments_url', abs(text(it.comments), feedUrl)),
+      ...opt('audio_url', enc?.url),
+      ...opt('audio_mime', enc?.mime),
+      ...opt('audio_bytes', enc?.bytes),
+      ...opt('duration_ms', duration_ms),
+      ...opt('transcript_url', transcript?.url),
+      ...opt('transcript_type', transcript?.type),
+      ...opt('chapters_url', chaptersUrl),
+      ...opt('artwork_url', itemArt),
+      ...opt('season', Number.isInteger(seasonNum) && seasonNum > 0 ? seasonNum : undefined),
+      ...opt('episode', Number.isInteger(episodeNum) && episodeNum > 0 ? episodeNum : undefined),
     });
   }
-  return { title: cleanTitle(text(ch.title)) || new URL(feedUrl).hostname, ...opt('site_url', site), ...opt('ttl_minutes', ttl ? Math.round(ttl) : undefined), items };
+  const hasItunes = !!(ch['itunes:category'] || ch['itunes:explicit'] || ch['itunes:type'] || ch['itunes:author']);
+  const kind: FeedKind = audioCount > 0 && (audioCount >= Math.ceil(items.length * 0.3) || hasItunes) ? 'podcast' : 'article';
+  return {
+    title: cleanTitle(text(ch.title)) || new URL(feedUrl).hostname,
+    ...opt('site_url', site),
+    ...opt('ttl_minutes', ttl ? Math.round(ttl) : undefined),
+    kind,
+    ...opt('artwork_url', artwork),
+    ...opt('language', lang),
+    ...opt('description', chDesc),
+    items,
+  };
 }
 
 function atomLink(links: Node, base: string): string | undefined {
@@ -113,12 +236,27 @@ function atomLink(links: Node, base: string): string | undefined {
   return abs(pick?.['@_href'], base);
 }
 
+function atomAudioEnclosure(links: Node, base: string): { url: string; mime: string; bytes?: number } | undefined {
+  for (const l of arr(links) as Record<string, string>[]) {
+    if (l['@_rel'] !== 'enclosure') continue;
+    const url = abs(l['@_href'], base);
+    const mime = (l['@_type'] ?? '').toLowerCase().trim();
+    if (!url || !(mime.startsWith('audio/') || /\.(mp3|m4a|ogg|opus|wav)(\?|$)/i.test(url))) continue;
+    const len = Number(l['@_length']);
+    return { url, mime: mime || 'audio/mpeg', ...(Number.isFinite(len) && len > 0 ? { bytes: Math.round(len) } : {}) };
+  }
+  return undefined;
+}
+
 function parseAtom(feed: Record<string, unknown>, feedUrl: string): ParsedFeed {
   const base = abs(feed['@_xml:base'] as string | undefined, feedUrl) ?? feedUrl;
   const items: ParsedItem[] = [];
+  let audioCount = 0;
   for (const e of arr(feed.entry) as Record<string, unknown>[]) {
     const eb = abs(e['@_xml:base'] as string | undefined, base) ?? base;
-    const url = atomLink(e.link, eb);
+    const enc = atomAudioEnclosure(e.link, eb);
+    if (enc) audioCount++;
+    const url = atomLink(e.link, eb) ?? enc?.url;
     const title = cleanTitle(text(e.title));
     if (!url || !title) continue;
     const content = rawToHtml(text(e.content), attr(e.content, 'type') === 'xhtml');
@@ -130,18 +268,26 @@ function parseAtom(feed: Record<string, unknown>, feedUrl: string): ParsedFeed {
       ...opt('published_at', date(text(e.published) || text(e.updated))),
       excerpt: excerptOf(summary || content),
       ...opt('content_html', content || (looksFull(summary) ? summary : undefined)),
+      ...opt('audio_url', enc?.url),
+      ...opt('audio_mime', enc?.mime),
+      ...opt('audio_bytes', enc?.bytes),
     });
   }
-  return { title: cleanTitle(text(feed.title)) || new URL(feedUrl).hostname, ...opt('site_url', atomLink(feed.link, base)), items };
+  const kind: FeedKind = audioCount > 0 && audioCount >= Math.ceil(items.length * 0.5) ? 'podcast' : 'article';
+  return { title: cleanTitle(text(feed.title)) || new URL(feedUrl).hostname, ...opt('site_url', atomLink(feed.link, base)), kind, items };
 }
 
 function parseJsonFeed(body: string, feedUrl: string): ParsedFeed | undefined {
-  let f: { version?: string; title?: string; home_page_url?: string; items?: { id?: string | number; url?: string; external_url?: string; title?: string; content_html?: string; content_text?: string; summary?: string; date_published?: string; date_modified?: string; authors?: { name?: string }[]; author?: { name?: string } }[] };
+  let f: { version?: string; title?: string; home_page_url?: string; icon?: string; description?: string; language?: string; items?: { id?: string | number; url?: string; external_url?: string; title?: string; content_html?: string; content_text?: string; summary?: string; date_published?: string; date_modified?: string; authors?: { name?: string }[]; author?: { name?: string }; attachments?: { url?: string; mime_type?: string; size_in_bytes?: number; duration_in_seconds?: number }[] }[] };
   try { f = JSON.parse(body); } catch { return undefined; }
   if (!f || typeof f !== 'object' || !String(f.version ?? '').includes('jsonfeed.org')) return undefined;
   const items: ParsedItem[] = [];
+  let audioCount = 0;
   for (const it of f.items ?? []) {
-    const url = abs(it.url ?? it.external_url, feedUrl);
+    const audioAtt = (it.attachments ?? []).find(a => a.url && (a.mime_type?.startsWith('audio/') || /\.(mp3|m4a|ogg)(\?|$)/i.test(a.url)));
+    const audio_url = abs(audioAtt?.url, feedUrl);
+    if (audio_url) audioCount++;
+    const url = abs(it.url ?? it.external_url, feedUrl) ?? audio_url;
     const title = cleanTitle(it.title ?? '');
     if (!url || !title) continue;
     const html = it.content_html ?? (it.content_text ? it.content_text.split(/\n{2,}/).map(p => `<p>${p.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`).join('') : '');
@@ -152,9 +298,22 @@ function parseJsonFeed(body: string, feedUrl: string): ParsedFeed | undefined {
       ...opt('published_at', date(it.date_published ?? it.date_modified ?? '')),
       excerpt: excerptOf(it.summary ?? html),
       ...opt('content_html', html || undefined),
+      ...opt('audio_url', audio_url),
+      ...opt('audio_mime', audioAtt?.mime_type),
+      ...opt('audio_bytes', audioAtt?.size_in_bytes),
+      ...opt('duration_ms', audioAtt?.duration_in_seconds ? Math.round(audioAtt.duration_in_seconds * 1000) : undefined),
     });
   }
-  return { title: cleanTitle(f.title ?? '') || new URL(feedUrl).hostname, ...opt('site_url', abs(f.home_page_url, feedUrl)), items };
+  const kind: FeedKind = audioCount > 0 && audioCount >= Math.ceil(items.length * 0.5) ? 'podcast' : 'article';
+  return {
+    title: cleanTitle(f.title ?? '') || new URL(feedUrl).hostname,
+    ...opt('site_url', abs(f.home_page_url, feedUrl)),
+    kind,
+    ...opt('artwork_url', abs(f.icon, feedUrl)),
+    ...opt('language', f.language),
+    ...opt('description', f.description?.slice(0, 600)),
+    items,
+  };
 }
 
 const opt = <K extends string, V>(k: K, v: V | undefined | '') => (v === undefined || v === '' ? {} : { [k]: v } as { [P in K]: V });

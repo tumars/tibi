@@ -4,7 +4,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { Dictionary } from '../components/Dictionary';
 import { lang, setLang, tl } from '../lib/i18n';
-import { PRESETS, saveProvider, storeSecret } from '../lib/providers';
+import { PRESETS, saveProvider, saveSiliconFlowBundle, storeSecret } from '../lib/providers';
+import { openLink } from '../settings/AuthorItems';
 import { fmtAgo, fmtDate, STATUS_NAMES } from '../lib/util';
 import { errorInfo, isWeb, rpc } from '../rpc';
 import type { SyncStatus } from '../rpc/methods';
@@ -125,20 +126,41 @@ function SyncPanel({ st, onChange }: { st?: SyncStatus; onChange: (s: SyncStatus
 
 /** 模型（手机可以单独用：自己的 API Key，只存在这台手机上） */
 export function ModelPanel({ onDone }: { onDone: () => void }) {
+  const [prov, setProv] = useState<'deepseek' | 'siliconflow'>('deepseek');
   const [key, setKey] = useState(''); const [busy, setBusy] = useState(false);
   const save = async () => {
     setBusy(true);
     try {
-      const { provider, keyStored } = await saveProvider({ name: PRESETS.deepseek.name, base_url: PRESETS.deepseek.base_url, model: PRESETS.deepseek.fast, tier: 'fast', key });
+      let testId: string;
+      let keyStored: boolean;
+      if (prov === 'siliconflow') {
+        const res = await saveSiliconFlowBundle({ key: key.trim(), includeAsr: true, isDefaultLlm: true, isDefaultAsr: true });
+        testId = res.fast.id; keyStored = res.keyStored;
+      } else {
+        const { provider, keyStored: stored } = await saveProvider({ name: PRESETS.deepseek.name, base_url: PRESETS.deepseek.base_url, model: PRESETS.deepseek.fast, tier: 'fast', key: key.trim() });
+        testId = provider.id; keyStored = stored;
+      }
       if (!keyStored) { toast(tl('浏览器模式不能写钥匙串。dev 下用环境变量 TIBI_SECRET_<REF>')); return; }
-      const r = await rpc.call('providers.test', { id: provider.id });
+      const r = await rpc.call('providers.test', { id: testId });
       if (r.ok) { toast(tl('连接成功')); void useCore.getState().refresh(); onDone(); } else toast(tl('连接失败：{v0}', { v0: r.error ?? '' }), { kind: 'err' });
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } finally { setBusy(false); }
   };
+  const registerUrl = prov === 'siliconflow' ? PRESETS.siliconflow.registerUrl : PRESETS.deepseek.keyUrl;
   return <><h2>{tl('连接模型')}</h2>
-    <p className="note2">{isWeb() ? tl('连上模型后才能讲解和总结。推荐 DeepSeek：便宜、中文好。Key 只存在这个浏览器里。') : tl('连上模型后才能讲解和总结。推荐 DeepSeek：便宜、中文好。Key 只存在这台手机上。')}</p>
-    <input className="field" type="password" value={key} onChange={e => setKey(e.target.value)} placeholder="DeepSeek API Key" autoCapitalize="off" autoCorrect="off" />
+    <div className="seg" style={{ marginTop: 8 }}>
+      <button className={prov === 'deepseek' ? 'on' : ''} onClick={() => setProv('deepseek')}>DeepSeek</button>
+      <button className={prov === 'siliconflow' ? 'on' : ''} onClick={() => setProv('siliconflow')}>{tl('硅基流动（一站式）')}</button>
+    </div>
+    <p className="note2">
+      {prov === 'siliconflow'
+        ? (isWeb() ? tl('国内直连、支持微信/支付宝，一把 Key 配齐 DeepSeek 与免费转写。Key 只存在这个浏览器里。') : tl('国内直连、支持微信/支付宝，一把 Key 配齐 DeepSeek 与免费转写。Key 只存在这台手机上。'))
+        : (isWeb() ? tl('连上模型后才能讲解和总结。推荐 DeepSeek：便宜、中文好。Key 只存在这个浏览器里。') : tl('连上模型后才能讲解和总结。推荐 DeepSeek：便宜、中文好。Key 只存在这台手机上。'))}
+    </p>
+    <input className="field" type="password" value={key} onChange={e => setKey(e.target.value)} placeholder={prov === 'siliconflow' ? tl('硅基流动 API Key (sk-…)') : 'DeepSeek API Key'} autoCapitalize="off" autoCorrect="off" />
     <button className="btn pri full" style={{ marginTop: 14 }} disabled={!key.trim() || busy} onClick={() => void save()}>{busy ? tl('正在连接…') : tl('保存并测试')}</button>
+    <p className="note2" style={{ marginTop: 10 }}>
+      <a href={registerUrl} target="_blank" rel="noopener noreferrer" onClick={e => void openLink(e)}>{prov === 'siliconflow' ? tl('去注册硅基流动并获取 Key →') : tl('前往 DeepSeek 开放平台获取 Key →')}</a>
+    </p>
     <p className="note2">{tl('其他 OpenAI 兼容的服务在电脑上的 设置 → 模型 里添加。')}</p>
   </>;
 }

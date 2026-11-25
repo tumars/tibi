@@ -2,7 +2,8 @@ import { PanelLeft, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { OutsideApprovals } from './OutsideApprovals';
-import { NavDictIcon, NavFeedsIcon, NavHomeIcon, NavLibraryIcon, NavReviewIcon, NavSettingsIcon, NavStatsIcon, NavWordsIcon } from './TibiIcons';
+import { NavDictIcon, NavFeedsIcon, NavHomeIcon, NavLibraryIcon, NavRadioIcon, NavReviewIcon, NavSettingsIcon, NavStatsIcon, NavWordsIcon } from './TibiIcons';
+import { MiniPlayer } from './MiniPlayer';
 import { useCore } from '../store/core';
 import { SIDE_W, useUi } from '../store/ui';
 import { tl } from '../lib/i18n';
@@ -15,6 +16,7 @@ const NAV = [
   { to: '/', label: tl('首页'), icon: NavHomeIcon },
   { to: '/library', label: tl('书架'), icon: NavLibraryIcon, count: 'docCount' as const },
   { to: '/feeds', label: tl('订阅'), icon: NavFeedsIcon, count: 'feedUnread' as const },
+  { to: '/radio', label: tl('电台'), icon: NavRadioIcon, count: 'radioUnread' as const },
   { to: '/words', label: tl('生词本'), icon: NavWordsIcon, count: 'wordCount' as const },
   { to: '/dict', label: tl('词典'), icon: NavDictIcon },
   { to: '/review', label: tl('复习'), icon: NavReviewIcon, badge: true },
@@ -26,12 +28,13 @@ export function Shell() {
   const sideWidth = useUi(s => s.sideWidth); const setSideWidth = useUi(s => s.setSideWidth);
   const [resizing, setResizing] = useState(false);
   const due = useCore(s => s.due); const connected = useCore(s => s.connected);
-  const counts = { docCount: useCore(s => s.docCount), wordCount: useCore(s => s.wordCount), feedUnread: useCore(s => s.feedUnread) };
+  const counts = { docCount: useCore(s => s.docCount), wordCount: useCore(s => s.wordCount), feedUnread: useCore(s => s.feedUnread), radioUnread: useCore(s => s.radioUnread) };
   const goal = useCore(s => s.goal); const minutes = useCore(s => s.todayMinutes); const streak = useCore(s => s.streak);
   const nickname = useCore(s => s.nickname);
   const loc = useLocation();
   const reading = loc.pathname.startsWith('/read/');
-  const readingShelved = useUi(s => s.readingShelved);
+  const readingNav = useUi(s => s.readingNav);
+  const readingRoute = readingNav === 'radio' ? '/radio' : readingNav === 'feeds' ? '/feeds' : '/library';
 
   useEffect(() => {
     if (isMacDesktop) return;   // mac 上这个快捷键归菜单栏（lib/macNative）
@@ -53,12 +56,12 @@ export function Shell() {
         </div>
         <nav className="nav">
           {NAV.map(n => (
-            <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive || (n.to === (readingShelved ? '/library' : '/feeds') && reading) ? 'cur' : '')} title={n.label}>
+            <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive || (n.to === readingRoute && reading) ? 'cur' : '')} title={n.label}>
               <n.icon /><span className="hide-c">{n.label}</span>
               {n.badge && due > 0 && <span className="n badge hide-c">{due}</span>}
-              {/* 订阅的未读是源推来的，数字只会越攒越大，侧栏只给一个点 */}
-              {'count' in n && n.count && counts[n.count] > 0 && (n.count === 'feedUnread'
-                ? <span className="dot hide-c" title={tl('{n} 篇未读', { n: counts[n.count] })} />
+              {/* 订阅与电台的未读是源推来的，数字只会越攒越大，侧栏只给一个点 */}
+              {'count' in n && n.count && counts[n.count] > 0 && (n.count === 'feedUnread' || n.count === 'radioUnread'
+                ? <span className="dot hide-c" title={n.count === 'radioUnread' ? tl('{n} 期未听', { n: counts[n.count] }) : tl('{n} 篇未读', { n: counts[n.count] })} />
                 : <span className="n hide-c">{counts[n.count]}</span>)}
             </NavLink>
           ))}
@@ -80,6 +83,7 @@ export function Shell() {
       <SearchPalette />
       <section className="main">
         <Outlet />
+        <MiniPlayer />
         <OutsideApprovals />
       </section>
     </div>

@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react';
+import { SettingItem } from '../components/ui';
 import { tl } from '../lib/i18n';
 import { isTauri } from '../rpc';
 import { toast } from '../store/ui';
@@ -17,16 +18,18 @@ export const openLink = async (e: MouseEvent<HTMLAnchorElement>) => {
 /** 设置 → 关于：作者 */
 export function AuthorItems() {
   return (
-    <div className="item"><div><div className="t">Tumars</div><div className="d">{tl('90 后程序员')}</div></div><div className="ctl">
-      {LINKS.map(([label, url]) => <a key={url} className="btn sm" href={url} target="_blank" rel="noopener noreferrer" onClick={e => void openLink(e)}>{label}</a>)}
-    </div></div>
+    <SettingItem
+      title="Tumars"
+      status={tl('90 后程序员')}
+      control={<>{LINKS.map(([label, url]) => <a key={url} className="btn sm" href={url} target="_blank" rel="noopener noreferrer" onClick={e => void openLink(e)}>{label}</a>)}</>}
+    />
   );
 }
 
 /** 设置 → 关于：捐赠 */
 export function DonateItems() {
   return (
-    <div className="item col"><div className="d" style={{ marginTop: 0 }}>{tl('Tibi 免费开源。如果它帮到了你，可以扫码请作者喝杯咖啡')}</div>
+    <div className="item col"><div className="d" style={{ marginTop: 0 }}>{tl('Tibi 免费开源，欢迎扫码支持开发。')}</div>
       <div className="donate">
         <figure><img src="/donate/alipay.webp" alt={tl('支付宝收款码')} /><figcaption>{tl('支付宝')}</figcaption></figure>
         <figure><img src="/donate/wechat.webp" alt={tl('微信收款码')} /><figcaption>{tl('微信')}</figcaption></figure>

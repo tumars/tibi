@@ -11,6 +11,20 @@ export interface ReadableArticle { title: string; /** 站点名（og:site_name�
 /** 文件抽取的结果（EPUB / PDF / DOCX → Markdown，M4） */
 export interface ExtractedFile { title?: string; author?: string; markdown: string; kind: 'article' | 'book'; needs_ocr?: boolean; pages?: number }
 
+/** 音频转写结果的一条片段（带时间戳，17 §5.3） */
+export interface TimedSegment { text: string; start_ms: number; end_ms: number; speaker?: string }
+
+/** 云端 / 本地 ASR 引擎配置 */
+export interface AsrConfig {
+  protocol: string;      // 'siliconflow_asr' | 'groq_whisper' | 'openai_whisper' | 'deepgram'
+  base_url?: string;
+  model: string;
+  api_key: string;
+  language?: string;
+}
+
+export interface MediaCacheStats { bytes: number; files: number; max_bytes: number }
+
 export interface Platform {
   /** 抓取网页；只在 Core 校验过 URL 之后调用。重定向每跳由实现方重查。post：调带密钥的接口，不跟随重定向（密钥不能带去别的地址） */
   fetchUrl(url: string, opts?: { signal?: AbortSignal; timeout_ms?: number; post?: { headers: Record<string, string>; body: string }; /** GET 也带的请求头（订阅的 If-None-Match / If-Modified-Since、accept） */ headers?: Record<string, string> }): Promise<FetchedPage>;
@@ -31,6 +45,18 @@ export interface Platform {
   listAssets?(): Promise<{ key: string; modified_at: number }[]>;
   /** 删掉一个 key 的整个目录 */
   removeAssets?(key: string): Promise<void>;
+  /** 下载远程电台音频到本地 media/podcasts/<key>.<ext>（含 SSRF 校验、大小上限、进度回调） */
+  downloadMedia?(url: string, key: string, opts?: { maxBytes?: number; signal?: AbortSignal; onProgress?: (loaded: number, total?: number) => void }): Promise<{ path: string; bytes: number; mime: string }>;
+  /** 复制本地音频文件进 media/podcasts/<key>.<ext>（导入本地音频用） */
+  copyMedia?(srcPath: string, key: string): Promise<{ path: string; bytes: number; mime: string }>;
+  /** 语音转文字（云端 BYOK ASR / 本地 ASR），返回带句级时间戳的片段 */
+  transcribeAudio?(input: { path?: string; url?: string; mime?: string }, opts: { config: AsrConfig; signal?: AbortSignal; onProgress?: (label: string) => void }): Promise<{ segments: TimedSegment[]; duration_ms?: number; engine: string }>;
+  /** 测试云端 ASR 连接是否可用 */
+  testAsr?(config: AsrConfig): Promise<{ ok: boolean; latency_ms?: number; error?: string }>;
+  /** 本地电台音频缓存统计、LRU 清理与一键清空 */
+  mediaCacheInfo?(maxBytes?: number): Promise<MediaCacheStats>;
+  pruneMediaCache?(maxBytes: number): Promise<{ freed_bytes: number; removed_paths: string[] }>;
+  clearMediaCache?(): Promise<{ freed_bytes: number; removed_paths: string[] }>;
   /** 读本地文件（path 已由壳登记）；手机上是沙盒内路径 */
   readFile?(path: string): Promise<Uint8Array>;
   /** 密钥：经壳按需取，只留内存（05 §8） */

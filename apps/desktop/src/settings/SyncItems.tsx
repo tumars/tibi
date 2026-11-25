@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Badge, SettingItem } from '../components/ui';
 import { tl } from '../lib/i18n';
 import { storeSecret } from '../lib/providers';
 import { isAppStore } from '../lib/update';
@@ -74,28 +75,47 @@ export function SyncItems() {
       : st.state === 'error' ? <><i className="sdot err" />{st.error?.message ?? tl('同步失败')}</>
       : <><i className="sdot" />{st.last_synced_at ? tl('已同步 · {ago}', { ago: fmtAgo(st.last_synced_at) }) : tl('还没有同步过')}{st.pending ? tl(' · {n} 条改动待推送', { n: st.pending }) : ''}</>;
     return <>
-      <div className="item"><div><div className="t">{tl('同步')} {st.backend && <span className="tag def">{KIND_LABEL[st.backend.kind]}</span>}</div><div className="d">{stateLine}</div></div>
-        <div className="ctl"><button className="btn sm" disabled={st.state === 'syncing'} onClick={() => void now()}>{st.state === 'error' ? tl('重试') : tl('立即同步')}</button></div></div>
-      <div className="item"><div><div className="t">{tl('设备')}</div><div className="sdev">
-        <div><b style={{ fontWeight: 500 }}>{st.device?.name || tl('这台电脑')}</b><span>{tl('本机')}</span></div>
-        {st.peers.filter(p => !p.removed).map(p => <div key={p.id}><b style={{ fontWeight: 500 }}>{p.name}</b><span>{PLATFORM[p.platform] ?? p.platform}{p.last_seen_at ? ` · ${fmtAgo(p.last_seen_at)}` : ''}</span><button onClick={() => void remove(p.id)}>{tl('移除')}</button></div>)}
-      </div></div><div className="ctl" /></div>
-      <div className="item"><div><div className="t">{tl('停止同步')}</div><div className="d">{tl('这台电脑上的数据保留，云盘里的文件不删')}</div></div><div className="ctl"><button className="btn sm" onClick={() => void stop()}>{tl('停止')}</button></div></div>
+      <SettingItem
+        title={tl('同步')}
+        badge={st.backend && <Badge tone="accent">{KIND_LABEL[st.backend.kind]}</Badge>}
+        status={stateLine}
+        control={<button className="btn sm" disabled={st.state === 'syncing'} onClick={() => void now()}>{st.state === 'error' ? tl('重试') : tl('立即同步')}</button>}
+      />
+      <SettingItem title={tl('设备')}>
+        <div className="sdev">
+          <div><b style={{ fontWeight: 500 }}>{st.device?.name || tl('这台电脑')}</b><span>{tl('本机')}</span></div>
+          {st.peers.filter(p => !p.removed).map(p => <div key={p.id}><b style={{ fontWeight: 500 }}>{p.name}</b><span>{PLATFORM[p.platform] ?? p.platform}{p.last_seen_at ? ` · ${fmtAgo(p.last_seen_at)}` : ''}</span><button className="linkbtn danger" onClick={() => void remove(p.id)}>{tl('移除')}</button></div>)}
+        </div>
+      </SettingItem>
+      <SettingItem
+        title={tl('停止同步')}
+        tip={tl('停止后保留本机数据，云端同步文件不会删除。')}
+        control={<button className="btn sm danger" onClick={() => void stop()}>{tl('停止')}</button>}
+      />
     </>;
   }
-  if (!setup) return <div className="item"><div><div className="t">{tl('同步')}</div><div className="d">{isWeb() ? tl('和电脑、手机上的 Tibi 同步，经过你自己的 WebDAV 云盘（坚果云、Nextcloud 等）。网页版经 Tibi 的中转连接，中转不存任何内容') : isAppStore ? tl('通过你自己的 WebDAV 云盘同步。没有 Tibi 的服务器') : tl('和手机、其他电脑同步，经过你自己的 iCloud Drive、WebDAV 云盘或一个共享文件夹。没有 Tibi 的服务器')}</div></div><div className="ctl"><button className="btn sm pri" onClick={() => setSetup(true)}>{tl('开启同步')}</button></div></div>;
+  if (!setup) return (
+    <SettingItem
+      title={tl('同步')}
+      tip={isWeb() ? tl('通过个人 WebDAV 云盘与桌面端、移动端同步；网页版经中转连接，中转不留存任何内容。') : isAppStore ? tl('通过个人 WebDAV 云盘同步，不经过第三方服务器。') : tl('通过个人 iCloud Drive、WebDAV 云盘或共享文件夹跨设备同步，不经过第三方服务器。')}
+      status={tl('未开启')}
+      control={<button className="btn sm pri" onClick={() => setSetup(true)}>{tl('开启同步')}</button>}
+    />
+  );
   return <>
-    <div className="item"><div><div className="t">{tl('同步')}</div><div className="d">{tl('同步文件不加密，存放在你选的位置')}</div></div><div className="ctl"><div className="seg">
-      {KINDS.map(k => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND_LABEL[k]}</button>)}
-    </div></div></div>
-    {kind === 'icloud' && <div className="item"><div><div className="d">{tl('用 iCloud Drive 里 Tibi 自己的文件夹，和 iPhone 上的 Tibi 共用。需要登录 iCloud 并打开 iCloud Drive')}</div></div><div className="ctl" /></div>}
-    {kind === 'folder' && <div className="pform"><span>{tl('文件夹')}</span><div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1 }} value={path} onChange={e => setPath(e.target.value)} placeholder={tl('比如 Dropbox 或 OneDrive 里的一个文件夹')} /><button className="btn sm" onClick={() => void pickFolder()}>{tl('选择…')}</button></div></div>}
+    <SettingItem
+      title={tl('同步')}
+      tip={tl('同步文件明文保存在所选存储位置。')}
+      control={<div className="seg">{KINDS.map(k => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND_LABEL[k]}</button>)}</div>}
+    />
+    {kind === 'icloud' && <div className="item"><div><div className="d">{tl('使用 iCloud Drive 专属目录与 iOS 端同步，需开启系统 iCloud Drive。')}</div></div><div className="ctl" /></div>}
+    {kind === 'folder' && <div className="pform"><span>{tl('文件夹')}</span><div style={{ display: 'flex', gap: 8 }}><input className="input" style={{ flex: 1 }} value={path} onChange={e => setPath(e.target.value)} placeholder={tl('例如 Dropbox 或 OneDrive 中的共享文件夹')} /><button className="btn sm" onClick={() => void pickFolder()}>{tl('选择…')}</button></div></div>}
     {kind === 'webdav' && <div className="pform">
       <span>{tl('地址')}</span><input className="input" value={dav.url} onChange={e => setDav({ ...dav, url: e.target.value })} placeholder="https://dav.jianguoyun.com/dav/Tibi" />
       <span>{tl('账号')}</span><input className="input" value={dav.user} onChange={e => setDav({ ...dav, user: e.target.value })} placeholder={tl('邮箱或用户名')} />
-      <span>{tl('应用密码')}</span><input className="input" type="password" value={dav.pw} onChange={e => setDav({ ...dav, pw: e.target.value })} placeholder={tl('在云盘的安全设置里生成')} />
+      <span>{tl('应用密码')}</span><input className="input" type="password" value={dav.pw} onChange={e => setDav({ ...dav, pw: e.target.value })} placeholder={tl('在云盘安全设置中生成')} />
     </div>}
-    <div className="item"><div><div className="d">{probe?.text ?? tl('先检查这里有没有已有的 Tibi 资料库')}</div></div>
+    <div className="item"><div><div className="d">{probe?.text ?? tl('请先检查目标位置是否已有资料库。')}</div></div>
       <div className="ctl"><button className="btn sm" onClick={() => { setSetup(false); setProbe(undefined); }}>{tl('取消')}</button>
         {probe?.ready ? <button className="btn sm pri" disabled={busy} onClick={() => void enable()}>{probe.join ? tl('加入') : tl('新建并开启')}</button>
           : <button className="btn sm pri" disabled={busy} onClick={() => void check()}>{tl('检查')}</button>}</div></div>

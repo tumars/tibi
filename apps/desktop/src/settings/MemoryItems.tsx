@@ -2,6 +2,7 @@ import type { Memory } from '@tibi/core';
 import { useCallback, useEffect, useState } from 'react';
 import { Modal } from '../components/Modal';
 import { Switch } from '../components/Switch';
+import { SettingItem } from '../components/ui';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { locale, tl } from '../lib/i18n';
@@ -40,24 +41,29 @@ export function MemoryItems() {
   const groups = (Object.keys(TYPE) as Memory['type'][]).map(t => [t, (items ?? []).filter(m => m.type === t && m.status === 'active')] as const).filter(([, l]) => l.length);
 
   return <>
-    <div className="item">
-      <div><div className="t">{tl('暂停记住新的事')}</div><div className="d">{tl('Tibi 平时会自动记下你的习惯和偏好，对话里有回执可以撤销，这里也能查看、修改、删除。打开后不再记新的，已有的照常使用。')}</div></div>
-      <div className="ctl"><Switch label={tl('暂停记住新的事')} checked={paused} onChange={async v => { setPaused(v); await rpc.call('memory.pause', { paused: v }).catch(e => toast(errorInfo(e).message, { kind: 'err' })); }} /></div>
-    </div>
-    {items && !groups.length && <div className="item"><div className="d">{tl('Tibi 还没有记住什么。对话里说"记住……"，或者在 设置 → 高级 → Tibi 能做的事 里让它整理记忆。')}</div></div>}
+    <SettingItem
+      title={tl('暂停记住新的事')}
+      tip={tl('Tibi 会自动记录你的习惯与偏好，对话中可撤销，亦可在此编辑或删除。暂停后不再写入新记忆，已有记忆照常生效。')}
+      control={<Switch label={tl('暂停记住新的事')} checked={paused} onChange={async v => { setPaused(v); await rpc.call('memory.pause', { paused: v }).catch(e => toast(errorInfo(e).message, { kind: 'err' })); }} />}
+    />
+    {items && !groups.length && <div className="item"><div className="d">{tl('暂无已保存的记忆。')}</div></div>}
     {groups.map(([t, list]) => <div key={t} className="item col">
       <div className="t">{TYPE[t]}</div>
       <div className="memlist">{list.map(m => <div key={m.id} className="mem">
         {edit?.id === m.id
           ? <input className="input" autoFocus value={edit.text} onChange={e => setEdit({ id: m.id, text: e.target.value })} onBlur={save} onKeyDown={e => { if (isImeKey(e.nativeEvent)) return; if (e.key === 'Enter') void save(); if (e.key === 'Escape') setEdit(undefined); }} />
-          : <button className="memc" title={tl('点一下修改')} onClick={() => setEdit({ id: m.id, text: m.content })}>{m.content}</button>}
+          : <button className="memc" title={tl('编辑')} onClick={() => setEdit({ id: m.id, text: m.content })}>{m.content}</button>}
         <span className="lbl">{m.source.label} · {new Date(m.updated_at).toLocaleDateString(locale)}</span>
-        <button className="linkbtn" onClick={() => del(m)}>{tl('删除')}</button>
+        <button className="linkbtn danger" onClick={() => del(m)}>{tl('删除')}</button>
       </div>)}</div>
     </div>)}
-    {!!items?.length && <div className="item"><div><div className="t">{tl('清空全部记忆')}</div><div className="d">{tl('可以撤销。')}</div></div><div className="ctl"><button className="btn sm" onClick={() => setClear(true)}>{tl('清空')}</button></div></div>}
-    <Modal open={clear} onOpenChange={setClear} title={tl('清空 Tibi 的全部记忆？')} actions={<><button className="btn" onClick={() => setClear(false)}>{tl('取消')}</button><button className="btn pri" onClick={doClear}>{tl('清空')}</button></>}>
-      <p>{tl('Tibi 会忘掉关于你的身份、兴趣和你提过的要求。之后可以在提示里撤销。')}</p>
+    {!!items?.length && <SettingItem
+      title={tl('清空全部记忆')}
+      tip={tl('清空后可通过提示条撤销。')}
+      control={<button className="btn sm danger" onClick={() => setClear(true)}>{tl('清空全部')}</button>}
+    />}
+    <Modal open={clear} onOpenChange={setClear} title={tl('清空全部记忆？')} actions={<><button className="btn" onClick={() => setClear(false)}>{tl('取消')}</button><button className="btn danger" onClick={doClear}>{tl('确认清空')}</button></>}>
+      <p>{tl('将清空关于你的身份、偏好和历史要求，操作后可在提示条中撤销。')}</p>
     </Modal>
   </>;
 }

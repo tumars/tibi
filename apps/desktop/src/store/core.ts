@@ -20,6 +20,8 @@ interface CoreState {
   wordCount: number;
   /** 订阅未读数（侧栏角标） */
   feedUnread: number;
+  /** 电台未读数（侧栏角标） */
+  radioUnread: number;
   recentDocs: DocumentSummary[];
   recentChats: Conversation[];
   refresh(): Promise<void>;
@@ -29,7 +31,7 @@ interface CoreState {
 }
 
 export const useCore = create<CoreState>((set, get) => ({
-  connected: false, due: 0, docCount: 0, wordCount: 0, feedUnread: 0, goal: 20, nickname: '', todayMinutes: 0, streak: 0, recentDocs: [], recentChats: [],
+  connected: false, due: 0, docCount: 0, wordCount: 0, feedUnread: 0, radioUnread: 0, goal: 20, nickname: '', todayMinutes: 0, streak: 0, recentDocs: [], recentChats: [],
   async refresh() {
     try {
       const status = await rpc.call('system.status', {});
@@ -63,7 +65,7 @@ export const useCore = create<CoreState>((set, get) => ({
     await rpc.call('chat.list', { limit: 50 }).then(c => set({ recentChats: c }), () => {});
   },
   async refreshFeeds() {
-    await rpc.call('feeds.status', {}).then(s => set({ feedUnread: s.unread }), () => {});
+    await rpc.call('feeds.status', {}).then(s => set({ feedUnread: s.unread, radioUnread: s.radio_unread ?? 0 }), () => {});
   },
 }));
 

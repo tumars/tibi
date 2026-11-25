@@ -2,6 +2,7 @@ import type { UsageSummary } from '@tibi/core';
 import { useCallback, useEffect, useState } from 'react';
 import { Modal } from '../components/Modal';
 import { Switch } from '../components/Switch';
+import { SettingItem } from '../components/ui';
 import { errorInfo, isTauri, rpc, type Result } from '../rpc';
 import { toast } from '../store/ui';
 import { locale, tl } from '../lib/i18n';
@@ -42,13 +43,15 @@ export function BackupItems() {
   const shown = showAll ? items : items.slice(0, 3);
 
   return <>
-    <div className="item">
-      <div><div className="t">{tl('自动备份')}</div><div className="d">{tl('每天一次，保留最近 7 份；手动和恢复前的备份不会自动删。{v0}', { v0: last ? tl('上次：{v0}', { v0: fmtTime(last.created_at) }) : tl('还没有备份') })}</div></div>
-      <div className="ctl">
+    <SettingItem
+      title={tl('自动备份')}
+      tip={tl('每日自动备份一次并保留最近 7 份；手动及恢复前备份不会自动清理。')}
+      status={last ? tl('上次备份：{v0}', { v0: fmtTime(last.created_at) }) : tl('暂无备份')}
+      control={<>
         <Switch label={tl('自动备份')} checked={data?.auto ?? true} onChange={async v => { setData(d => d && { ...d, auto: v }); await rpc.call('settings.set', { patch: { 'backup.auto': v } }).catch(() => undefined); }} />
         <button className="btn sm" disabled={busy || data?.dir_supported === false} onClick={now}>{busy ? tl('正在备份…') : tl('立即备份')}</button>
-      </div>
-    </div>
+      </>}
+    />
     {items.length > 0 && <div className="item col">
       <div className="t">{tl('备份')}</div>
       <div className="bklist">
@@ -67,6 +70,35 @@ export function BackupItems() {
   </>;
 }
 
+export function MediaCacheItem() {
+  const [info, setInfo] = useState<Result<'system.mediaCache'>>();
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => { rpc.call('system.mediaCache', {}).then(setInfo, () => undefined); }, []);
+  useEffect(load, [load]);
+
+  const clear = async () => {
+    setBusy(true);
+    try {
+      const r = await rpc.call('system.clearMediaCache', {});
+      toast(r.freed_bytes > 0 ? tl('已清理电台音频缓存 · {v0}', { v0: fmtSize(r.freed_bytes) }) : tl('电台音频缓存已经是空的'));
+      load();
+    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    setBusy(false);
+  };
+
+  if (info && !info.supported) return null;
+  const used = info ? (info.bytes > 0 ? `${fmtSize(info.bytes)}（${tl('{n} 个文件', { n: info.files })}）` : tl('0 MB')) : '—';
+
+  return (
+    <SettingItem
+      title={tl('电台音频缓存')}
+      tip={tl('单集音频自动缓存在本机（上限 2 GB）；清理仅删除音频文件，不影响逐字稿、生词与学习记录。')}
+      status={tl('当前占用：{used}', { used })}
+      control={<button className="btn sm danger" disabled={busy || !info || info.bytes === 0} onClick={() => void clear()}>{busy ? tl('清理中…') : tl('清理缓存')}</button>}
+    />
+  );
+}
+
 export function ExportSummaryItem() {
   const [sum, setSum] = useState<UsageSummary>();
   const text = sum ? JSON.stringify(sum, null, 2) : '';
@@ -77,10 +109,11 @@ export function ExportSummaryItem() {
     try { const r = await invoke<{ saved: boolean; path?: string }>('save_text_file', { defaultName: 'tibi-summary.json', text }); if (r.saved) toast(tl('已保存')); } catch (e) { toast(String(e), { kind: 'err' }); }
   };
   return <>
-    <div className="item">
-      <div><div className="t">{tl('导出学习汇总')}</div><div className="d">{tl('只有计数（导入了几篇、复习了几次等），不含单词和正文。先给你看全部内容，你决定要不要发给作者；Tibi 不会自己上传。')}</div></div>
-      <div className="ctl"><button className="btn sm" onClick={open}>{tl('查看并导出')}</button></div>
-    </div>
+    <SettingItem
+      title={tl('导出学习汇总')}
+      tip={tl('仅含脱敏统计计数，不含文章正文与生词；预览确认后由您自行保存，不自动上传。')}
+      control={<button className="btn sm" onClick={open}>{tl('查看并导出')}</button>}
+    />
     <Modal open={!!sum} onOpenChange={o => { if (!o) setSum(undefined); }} title={tl('学习汇总（脱敏）')}
       actions={<><button className="btn" onClick={() => setSum(undefined)}>{tl('关闭')}</button><button className="btn" onClick={copy}>{tl('复制')}</button><button className="btn pri" onClick={save}>{tl('另存为…')}</button></>}>
       <pre className="sumjson">{text}</pre>

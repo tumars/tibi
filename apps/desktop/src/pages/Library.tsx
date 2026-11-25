@@ -50,7 +50,7 @@ export function DocCard({ d, onOpen, onTags, list = false }: { d: DocumentSummar
         <span className="lv" style={{ fontSize: 12.5 }}>{d.level ?? '—'}</span>
         <span className="lbl">{d.progress >= 1 ? tl('读完了') : fmtAgo(d.opened_at)}</span>
       </> : <>
-      <div className="m"><GenreBadge genre={d.genre} book={d.kind === 'book'} label={`${d.kind === 'book' ? tl('书 · ') : ''}${GENRE_NAMES[d.genre] ?? d.genre}`} /><span>{d.progress >= 1 ? tl('读完了') : d.progress > 0 ? tl('读到 {v0}', { v0: fmtPct(d.progress) }) : fmtMinutes(d.minutes)}</span>{docSource(d) && <><span>·</span><span className="src" title={docSource(d)}>{docSource(d)}</span></>}</div>
+      <div className="m"><GenreBadge genre={d.genre} book={d.kind === 'book'} label={`${d.kind === 'book' ? tl('书 · ') : d.kind === 'episode' ? tl('电台 · ') : ''}${GENRE_NAMES[d.genre] ?? d.genre}`} /><span>{d.progress >= 1 ? (d.kind === 'episode' ? tl('听完了') : tl('读完了')) : d.progress > 0 ? (d.kind === 'episode' ? tl('听到 {v0}', { v0: fmtPct(d.progress) }) : tl('读到 {v0}', { v0: fmtPct(d.progress) })) : fmtMinutes(d.minutes)}</span>{docSource(d) && <><span>·</span><span className="src" title={docSource(d)}>{docSource(d)}</span></>}</div>
       <div className="t">{d.title}</div>
       {d.excerpt && <div className="ex">{d.excerpt}</div>}
       <div className="f">
@@ -97,7 +97,7 @@ export function Library() {
   const turn = (p: number) => { setPage(p); scroller.current?.scrollTo({ top: 0 }); };
 
   const tags = [...new Set(facets.filter(d => kind === 'all' || d.kind === kind).flatMap(d => d.tags))];
-  const counts = { article: facets.filter(d => d.kind === 'article').length, book: facets.filter(d => d.kind === 'book').length };
+  const counts = { article: facets.filter(d => d.kind === 'article').length, book: facets.filter(d => d.kind === 'book').length, episode: facets.filter(d => d.kind === 'episode').length };
 
   return (
     <>
@@ -110,16 +110,19 @@ export function Library() {
         <button className="btn sm" title={tl('到首页粘贴网址、英文或添加文件')} onClick={() => nav('/?compose=1')}><Plus />{tl('导入')}</button>
       </>} />
       <div className="scroll" ref={scroller}><div className="page">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+        <div className="filter-bar">
           <div className="seg">
-            {([['all', tl('全部')], ['article', tl('文章 {article}', { article: counts.article })], ['book', tl('书 {book}', { book: counts.book })]] as const).map(([k, l]) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => filt(setKind, k)}>{l}</button>)}
+            {([['all', tl('全部')], ['article', tl('文章 {article}', { article: counts.article })], ['book', tl('书 {book}', { book: counts.book })], ['episode', tl('电台 {episode}', { episode: counts.episode })]] as const).map(([k, l]) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => filt(setKind, k)}>{l}</button>)}
           </div>
-          {tags.map(t => <button key={t} className={`chip${tag === t ? ' on' : ''}`} style={tag === t ? { background: 'var(--accent-wash)', color: 'var(--accent)', boxShadow: 'none' } : undefined} onClick={() => filt(setTag, tag === t ? undefined : t)}>{t}</button>)}
+          {tags.map(t => <button key={t} className={`chip${tag === t ? ' on' : ''}`} onClick={() => filt(setTag, tag === t ? undefined : t)}>{t}</button>)}
           {tag && <button className="linkbtn" onClick={() => filt(setTag, undefined)}>{tl('清除')}</button>}
         </div>
-        {items === undefined ? null : items.length === 0 ? <Empty image="empty-library" title={tl('书架还是空的')} text={tl('在首页粘贴网址或一段英文就能导入，也可以先读一篇示例。')} action={<Samples />} />
-          : grid ? <div className="docs" style={{ marginTop: 16 }}>{items.map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} onTags={() => setEditing(d)} />)}</div>
-          : <div className="doclist" style={{ marginTop: 12 }}>
+        {items === undefined ? null : items.length === 0 ? (
+          q || tag || kind !== 'all'
+            ? <Empty title={tl('没有符合筛选条件的内容。')} action={<button className="btn" onClick={() => { setQ(''); setTag(undefined); setKind('all'); setPage(0); }}>{tl('清除筛选')}</button>} />
+            : <Empty image="empty-library" title={tl('书架暂无内容，导入文章或选择下方示例开始阅读。')} action={<Samples />} />
+        ) : grid ? <div className="docs spaced">{items.map(d => <DocCard key={d.id} d={d} onOpen={() => nav(`/read/${d.id}`)} onTags={() => setEditing(d)} />)}</div>
+          : <div className="doclist spaced">
             <div className="row h"><span>{tl('标题')}</span><span>{tl('类型 · 标签')}</span><span>{tl('时长')}</span><span>{tl('级别')}</span><span>{tl('最近打开')}</span></div>
             {items.map(d => <DocCard key={d.id} list d={d} onOpen={() => nav(`/read/${d.id}`)} onTags={() => setEditing(d)} />)}
           </div>}

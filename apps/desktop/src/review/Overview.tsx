@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { Bars } from '../components/Charts';
 import { Mascot } from '../components/Mascot';
 import { MetricDueIcon, MetricStreakIcon, MetricWordsIcon, SummaryHardIcon } from '../components/TibiIcons';
+import { InfoTip, SectionHeader } from '../components/ui';
 import { locale, tl } from '../lib/i18n';
 import { isImeKey } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
@@ -89,38 +90,44 @@ export function ReviewOverview() {
           <Mascot id={d.today.reviews > 0 ? 'celebrate-review' : 'empty-review'} />
           <div className="m">
             <span className="k">{tl('今天')}</span>
-            <b className="big">{d.today.reviews > 0 ? tl('今天的复习做完了') : tl('今天没有要复习的')}</b>
-            <span className="d">{d.forecast[1] ? tl('明天有 {n} 张。', { n: d.forecast[1] }) : tl('明天也没有到期的。')}{d.new_waiting > 0 && d.fresh === 0 ? tl('今天的新词额度用完了，还有 {n} 个排在后面。', { n: d.new_waiting }) : d.new_waiting === 0 && d.today.reviews === 0 ? tl('读文章时点开的生词会排进来。') : ''}</span>
+            <b className="big">{d.today.reviews > 0 ? tl('今日复习已完成') : tl('今日暂无待复习词条')}</b>
+            {(d.forecast[1] || (d.new_waiting > 0 && d.fresh === 0)) && (
+              <span className="d">
+                {d.forecast[1] ? tl('明日到期 {n} 张', { n: d.forecast[1] }) : ''}
+                {d.forecast[1] && d.new_waiting > 0 && d.fresh === 0 ? ' · ' : ''}
+                {d.new_waiting > 0 && d.fresh === 0 ? tl('待学新词 {n} 个', { n: d.new_waiting }) : ''}
+              </span>
+            )}
           </div>
           <div className="acts">
             {d.later_today > 0 && <button className="btn" onClick={() => nav('/review?run=1&ahead=1')}>{tl('提前复习 {n} 张', { n: d.later_today })}</button>}
-            {d.new_waiting === 0 && d.today.reviews === 0 ? <button className="btn pri" onClick={() => nav('/library')}>{tl('去读点什么')}</button> : <button className="btn pri" onClick={() => nav('/review?tab=practice')}>{tl('练一会儿（不计分）')}</button>}
+            {d.new_waiting === 0 && d.today.reviews === 0 ? <button className="btn pri" onClick={() => nav('/library')}>{tl('前往书架')}</button> : <button className="btn pri" onClick={() => nav('/review?tab=practice')}>{tl('开始练习')}</button>}
           </div>
         </div>
       )}
 
       <div className="tiles four">
-        <div className="tile"><div className="tile-head"><span className="k">{tl('今天已复习')}</span><span className="tile-ic accent"><MetricDueIcon /></span></div><span className="v">{d.today.reviews}<small>{tl('次')}</small></span><span className="d">{d.today.reviews ? tl('答对 {p}% · {m} 分钟', { p: todayPct, m: Math.max(1, d.today.minutes) }) : tl('还没开始')}</span></div>
-        <div className="tile"><div className="tile-head"><span className="k">{tl('今天新学')}</span><span className="tile-ic ok"><MetricWordsIcon /></span></div><span className="v">{d.today.new_learned}<small>/ {d.daily_new}</small></span><span className="d">{d.new_waiting ? tl('还有 {n} 个新词排队', { n: d.new_waiting }) : tl('没有排队的新词')}</span></div>
-        <div className="tile"><div className="tile-head"><span className="k">{tl('连续学习')}</span><span className="tile-ic warm"><MetricStreakIcon /></span></div><span className="v">{streak}<small>{tl('天')}</small></span><span className="d">{tl('读或复习都算')}</span></div>
-        <button className="tile" onClick={() => nav('/words?view=leech')}><div className="tile-head"><span className="k">{tl('难词')}</span><span className="tile-ic"><SummaryHardIcon /></span></div><span className="v">{d.leeches}<small>{tl('词')}</small></span><span className="d">{d.leeches ? tl('忘了 3 次以上 · 去看看 →') : tl('还没有总忘的词')}</span></button>
+        <div className="tile"><div className="tile-head"><span className="k">{tl('今天已复习')}</span><span className="tile-ic accent"><MetricDueIcon /></span></div><span className="v">{d.today.reviews}<small>{tl('次')}</small></span><span className="d">{d.today.reviews ? tl('答对 {p}% · {m} 分钟', { p: todayPct, m: Math.max(1, d.today.minutes) }) : tl('尚未开始')}</span></div>
+        <div className="tile"><div className="tile-head"><span className="k">{tl('今天新学')}</span><span className="tile-ic ok"><MetricWordsIcon /></span></div><span className="v">{d.today.new_learned}<small>/ {d.daily_new}</small></span><span className="d">{d.new_waiting ? tl('待学 {n} 词', { n: d.new_waiting }) : tl('无排队新词')}</span></div>
+        <div className="tile"><div className="tile-head"><span className="tile-k-group"><span className="k">{tl('连续学习')}</span><InfoTip content={tl('当日完成阅读或复习均计入连续天数。')} /></span><span className="tile-ic warm"><MetricStreakIcon /></span></div><span className="v">{streak}<small>{tl('天')}</small></span></div>
+        <button className="tile" onClick={() => nav('/words?view=leech')}><div className="tile-head"><span className="k">{tl('难词')}</span><span className="tile-ic"><SummaryHardIcon /></span></div><span className="v">{d.leeches}<small>{tl('词')}</small></span><span className="d">{d.leeches ? tl('遗忘 3 次以上 →') : tl('暂无难词')}</span></button>
       </div>
 
       <div className="two">
         <section>
-          <div className="sech"><h2>{tl('接下来 7 天')}</h2><span className="lbl">{tl('之后 6 天共 {n} 张', { n: week })}</span></div>
+          <SectionHeader title={tl('接下来 7 天')} meta={tl('后续 6 天共 {n} 张', { n: week })} />
           <Bars values={d.forecast} hi={(_, i) => i === 0} height={96} labels={days} title={(v, i) => tl('{day} · {v} 张', { day: days[i], v })} />
         </section>
         <section>
-          <div className="sech"><h2>{tl('这周忘过的词')}</h2>{d.mistakes.length > 0 && <button className="linkbtn" onClick={() => nav('/review?tab=practice&source=mistakes')}>{tl('练这些（不计分）')}</button>}</div>
+          <SectionHeader title={tl('这周忘过的词')} action={d.mistakes.length > 0 ? <button className="linkbtn" onClick={() => nav('/review?tab=practice&source=mistakes')}>{tl('专项练习')}</button> : undefined} />
           {d.mistakes.length ? <ul className="rvmiss">{d.mistakes.map(m => (
             <li key={m.term_id}><a href={`#/words?term=${m.term_id}`}><b>{m.display}</b><span>{m.meaning}</span>{m.lapses >= 3 && <i className="hard">{tl('难')}</i>}</a></li>
-          ))}</ul> : <p className="lbl">{tl('这周没有忘过的词。')}</p>}
+          ))}</ul> : <p className="lbl">{tl('本周暂无遗忘词条。')}</p>}
         </section>
       </div>
 
       <section>
-        <div className="sech"><h2>{tl('练习')}</h2><span className="lbl">{tl('不计分，不影响复习排期')}</span></div>
+        <SectionHeader title={tl('练习')} tip={tl('不计入记忆评分，不影响原有复习排期。')} />
         <div className="pmodes four">{MODES.map(m => { const Icon = m.icon; return <button key={m.key} onClick={() => nav(`/review?tab=practice&mode=${m.key}`)}><span className="pmode-ic"><Icon size={17} /></span><b>{m.label}</b><span>{m.desc}</span></button>; })}</div>
       </section>
 
