@@ -1,6 +1,6 @@
 {
   "name": "@tibi/desktop",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "Tibi 桌面端：Tauri 2 壳 + React 界面",
   "type": "module",

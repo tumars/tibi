@@ -138,7 +138,11 @@ async function loadLocalReleases() {
 }
 function renderRelease(data) {
   state.release = data; $('#release-preview').classList.remove('hidden');
-  $('#release-preview-title').textContent = 'Tibi ' + data.tag + ' · 发行预览'; $('#release-notes').textContent = data.notes;
+  $('#release-preview-title').textContent = 'Tibi ' + data.tag + ' · 发行预览';
+  $('#release-notes-input').value = data.notes || data.suggestedNotes || '';
+  const fill = $('#release-notes-fill');
+  fill.classList.toggle('hidden', !data.suggestedNotes);
+  fill.onclick = () => { $('#release-notes-input').value = data.suggestedNotes || ''; notify('已填入 docs/CHANGELOG.md 摘要'); };
   $('#release-platforms').replaceChildren(...data.platforms.map(p => el('span', '✓ ' + p.platform + ' · 已验签', 'platform-chip')));
   $('#release-blocked').classList.toggle('hidden', !data.blocked); $('#release-blocked').textContent = data.blocked || '';
   const rows = $('#release-files'); rows.replaceChildren();
@@ -306,7 +310,8 @@ $('#release-publish').onclick = safely(async () => {
   if (!r || r.blocked || !$('#release-validated').checked) return;
   if (!await confirmAction('发布 Tibi ' + r.tag + '？', r.platforms.map(p => p.platform).join('、') + '\n' + r.files.length + ' 个文件，共 ' +
     bytes(r.files.reduce((n, f) => n + f.size, 0)) + '\n\n完成后将切换官网下载与应用更新清单。', '确认发布')) return;
-  await api('releases/publish', { method: 'POST', data: { token: r.token, confirm: r.tag, validated: true } });
+  const notes = $('#release-notes-input').value.trim();
+  await api('releases/publish', { method: 'POST', data: { token: r.token, confirm: r.tag, validated: true, notes } });
   state.release = null; syncButtons(); await pollJobs(); notify('版本发布已开始，请查看任务日志');
 });
 $('#notice-add').onclick = () => {

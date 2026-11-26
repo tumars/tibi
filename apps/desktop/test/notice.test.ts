@@ -40,6 +40,10 @@ describe('公告', () => {
     expect(pickNotices(list, ctx({ seen: { up: '2026-11-04' } }))).toEqual([]);
     expect(pickNotices(list, ctx({ seen: { up: '2026-11-03' } }))).toHaveLength(1);
     expect(pickNotices(list, ctx({ version: '0.2.0' }))).toEqual([]);
+    // 内置更新器已发现 >= below 的版本时去重，不再重复弹同版本催更公告
+    expect(pickNotices(list, ctx({ handledUpdateVersion: '0.2.0' }))).toEqual([]);
+    expect(pickNotices(list, ctx({ handledUpdateVersion: '0.2.1' }))).toEqual([]);
+    expect(pickNotices(list, ctx({ handledUpdateVersion: '0.1.9' }))).toHaveLength(1);
   });
 
   it('按平台和截止日期过滤', () => {

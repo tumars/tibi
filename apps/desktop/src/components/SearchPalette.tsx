@@ -1,15 +1,17 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import type { SearchResult, Term } from '@tibi/core';
-import { BarChart3, BookA, BookOpen, Bookmark, CornerDownLeft, FileText, Headphones, Home as HomeIcon, MessageSquare, Moon, Plus, RotateCcw, Rss, Search, Settings as SettingsIcon, Sparkles } from 'lucide-react';
+import { ArrowUpCircle, BarChart3, BookA, BookOpen, Bookmark, CornerDownLeft, FileText, Headphones, Home as HomeIcon, MessageSquare, Moon, Plus, RotateCcw, RotateCw, Rss, Search, Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { tl } from '../lib/i18n';
 import { isMacDesktop } from '../lib/macNative';
+import { isAppStore } from '../lib/update';
 import { GENRE_NAMES, STATUS_NAMES, isImeKey } from '../lib/util';
-import { errorInfo, rpc } from '../rpc';
+import { errorInfo, isTauri, rpc } from '../rpc';
 import { SETTINGS } from '../settings/search';
 import { useCore } from '../store/core';
 import { toast, useUi } from '../store/ui';
+import { useUpdate } from '../store/update';
 
 /**
  * 全局搜索（00 §3.8，⌘K）：居中浮层，一个输入框搜文章、单词、对话、设置和操作；最后一行永远是"问 Tibi"。
@@ -44,6 +46,8 @@ export function SearchPalette() {
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const list = useRef<HTMLDivElement>(null);
   const recentDocs = useCore(st => st.recentDocs);
+  const updPhase = useUpdate(st => st.phase);
+  const updVersion = useUpdate(st => st.version);
   const [recentWords, setRecentWords] = useState<Term[]>([]);
   useEffect(() => { if (open && scope === 'words' && !q) rpc.call('terms.list', { view: 'all', sort: 'added', limit: 6 }).then(r => setRecentWords(r.items), () => undefined); }, [open, scope, q]);
 
@@ -87,8 +91,23 @@ export function SearchPalette() {
     { label: tl('设置'), kw: 'settings', icon: <SettingsIcon size={15} />, run: () => go('/settings') },
     { label: tl('导入文章'), kw: 'import url 网址 导入', icon: <Plus size={15} />, run: () => go('/?compose=1') },
     { label: tl('切换深浅色'), kw: 'dark light theme 深色 浅色', icon: <Moon size={15} />, run: () => { setOpen(false); setTheme(document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches) ? 'light' : 'dark'); } },
+    ...(!isAppStore && isTauri() ? [{
+      label:
+        updPhase === 'ready' && updVersion ? tl('重启以更新到 Tibi {v0}', { v0: updVersion })
+        : updPhase === 'available' && updVersion ? tl('下载更新 Tibi {v0}', { v0: updVersion })
+        : updPhase === 'downloading' && updVersion ? tl('查看更新下载进度（{v0}）', { v0: updVersion })
+        : tl('检查更新'),
+      kw: 'update upgrade restart version 更新 升级 重启 新版本',
+      icon: updPhase === 'ready' ? <RotateCw size={15} /> : <ArrowUpCircle size={15} />,
+      run: () => {
+        setOpen(false);
+        const u = useUpdate.getState();
+        if (u.phase === 'ready' || u.phase === 'available' || u.phase === 'downloading' || u.phase === 'backup_failed') u.openModal();
+        else void u.check({ manual: true, openModal: true });
+      },
+    }] : []),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [q, recent]);
+  ], [q, recent, updPhase, updVersion]);
 
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase(); const out: Row[] = [];

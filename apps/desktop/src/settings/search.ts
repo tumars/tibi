@@ -27,7 +27,7 @@ export const SETTINGS: { label: string; sec: string; kw: string }[] = [
   { label: '使用统计', sec: 'data', kw: '隐私 统计 数据收集 analytics telemetry privacy usage' },
   { label: '导出学习汇总', sec: 'data', kw: '导出 汇总 export' },
   { label: '检查更新', sec: 'about', kw: '更新 升级 新版本 版本 update upgrade version' },
-  { label: '自动检查更新', sec: 'about', kw: '更新 升级 自动 update auto' },
+  { label: '自动更新', sec: 'about', kw: '更新 升级 自动 后台下载 自动检查更新 update auto download' },
   { label: '反馈与建议', sec: 'about', kw: '反馈 建议 问题 报错 bug 意见 联系 邮件 feedback issue report contact email' },
   { label: '关于作者', sec: 'about', kw: '作者 开发者 博客 邮箱 twitter github email author developer' },
   { label: '请作者喝咖啡', sec: 'about', kw: '捐赠 打赏 赞助 支付宝 微信 收款码 donate coffee sponsor alipay wechat' },

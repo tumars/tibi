@@ -8,7 +8,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
 import { createCloud, run } from './cos.mjs';
-import { inspectRelease, requireNewVersion } from './release.mjs';
+import { inspectRelease, requireNewVersion, extractChangelogNotes } from './release.mjs';
 import { parseNotices } from '../apps/desktop/src/lib/notice-schema.ts';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -236,15 +236,18 @@ export async function createAdmin({ cloud, root = ROOT, dataDir = join(root, '.t
         available(); const input = await body(req);
         const config = JSON.parse(await readFile(join(root, 'apps/desktop/src-tauri/tauri.conf.json'), 'utf8'));
         const result = await inspectRelease(input.directory, config.plugins.updater.pubkey);
+        const suggestedNotes = await extractChangelogNotes(root, result.version);
         let blocked = null;
         try { await releaseAvailable(result.version); } catch (e) { blocked = redact(e.message); }
         preview = { ...result, token: randomUUID(), publicKey: config.plugins.updater.pubkey };
-        return send(200, { ...result, token: preview.token, blocked });
+        return send(200, { ...result, suggestedNotes, token: preview.token, blocked });
       }
       if (route === 'POST /api/releases/publish') {
         available(); const input = await body(req);
         available();
         if (!preview || input.token !== preview.token || input.confirm !== preview.tag || input.validated !== true) throw error(409, '请先检查并确认此版本及安装验证');
+        if (input.notes !== undefined && (typeof input.notes !== 'string' || input.notes.length > 8000)) throw error(400, '更新说明格式不合法或超出 8000 字');
+        const notesOverride = typeof input.notes === 'string' ? input.notes.trim() : undefined;
         const checked = preview; preview = null;
         return send(202, startJob('发布 Tibi ' + checked.tag, async emit => {
           await releaseAvailable(checked.version);
@@ -254,6 +257,13 @@ export async function createAdmin({ cloud, root = ROOT, dataDir = join(root, '.t
             for (const file of checked.files) await copyFile(join(checked.directory, file.name), join(stage, file.name));
             const final = await inspectRelease(stage, checked.publicKey);
             if (final.fingerprint !== checked.fingerprint) throw new Error('检查后发行文件发生变化，请重新检查');
+            if (notesOverride !== undefined && notesOverride !== (checked.notes || '').trim()) {
+              const manifestPath = join(stage, 'latest.json');
+              const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+              manifest.notes = notesOverride;
+              await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+              emit('已将编辑后的更新说明写入本次发行的 latest.json');
+            }
             await execute(process.execPath, [join(root, 'tools/publish-cos.mjs'), 'release', stage, checked.tag],
               { cwd: root, env: cloud.env, emit: line => emit(redact(line)), timeout: 3_600_000 });
           } finally { await rm(stage, { recursive: true, force: true }); }

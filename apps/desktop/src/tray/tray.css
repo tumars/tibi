@@ -84,6 +84,38 @@ body.tray-body {
   user-select: text;
 }
 
+/* 更新轻提示条 */
+.tray-update {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-2);
+  border-radius: var(--r-m);
+  background: var(--sunken);
+  border: 1px solid var(--line);
+}
+.tray-update.ready {
+  background: var(--accent-wash);
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.tray-update-ic {
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.tray-update-txt {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* 剪贴板建议条 */
 .tray-clip {
   display: flex;

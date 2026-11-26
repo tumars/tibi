@@ -171,3 +171,24 @@ test('新版本发布只传检查过的快照，既有版本目录被拦住', as
   const blocked = (await request('releases/inspect', { method: 'POST', data: { directory: f.dir } })).body;
   assert.match(blocked.blocked, /版本目录已存在/);
 });
+
+test('发布前可提取 CHANGELOG 摘要并把编辑后的更新说明写入本次 latest.json', async t => {
+  let publishedManifest;
+  const { request, root } = await setup(t, { execute: async (command, args) => {
+    publishedManifest = JSON.parse(await readFile(join(args[2], 'latest.json'), 'utf8'));
+  } });
+  await mkdir(join(root, 'docs'), { recursive: true });
+  await writeFile(join(root, 'docs/CHANGELOG.md'), '| 日期 | 结论 |\n|---|---|\n| 2026-11-27 | 发布 **v0.2.0**：新增后台静默下载与一键重启更新。 |\n');
+  const f = await releaseFixture(root, '0.2.0');
+  const inspected = (await request('releases/inspect', { method: 'POST', data: { directory: f.dir } })).body;
+  assert.equal(inspected.suggestedNotes, '新增后台静默下载与一键重启更新。');
+  assert.equal((await request('releases/publish', {
+    method: 'POST',
+    data: { token: inspected.token, confirm: inspected.tag, validated: true, notes: '- 新增后台静默下载\n- 新增侧栏重启提示' },
+  })).status, 202);
+  assert.equal((await done(request)).status, 'succeeded');
+  assert.equal(publishedManifest.notes, '- 新增后台静默下载\n- 新增侧栏重启提示');
+  // 原始目录里的 latest.json 不被改写
+  const original = JSON.parse(await readFile(join(f.dir, 'latest.json'), 'utf8'));
+  assert.equal(original.notes, undefined);
+});

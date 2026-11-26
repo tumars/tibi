@@ -4,6 +4,7 @@
 
 | 日期 | 结论 |
 |---|---|
+| 2026-11-26 | 发布 **v0.2.3**：重构桌面端自动更新与通知体验（T31 升级）——Rust 壳拆分两阶段更新（`update_check` 返回更新说明与 macOS 只读卷/AppTranslocation 路径预检；新增 `update_download` 后台流式下载、100ms 节流进度、Ed25519 验签并原子落盘至 `$APP_CACHE_DIR/updates/` 释放内存，启动自动清理过期缓存；`update_install` 优先复用验签缓存并保留更新前自动备份）；前端新建全局 `useUpdate` 状态机，默认开启「后台静默下载、就绪后提示重启」（6 小时冷却、仅成功写入冷却、失败退避与切回前台/联网补查，设置页提供「自动下载 / 仅提醒 / 关闭」三档策略）；全触点落地低打扰提示（左侧栏底部常驻 Update Pill、含 Markdown 更新日志与跳过此版本的更新详情弹窗、设置图标与关于页圆点、macOS 原生菜单栏动态文案、托盘右键菜单与快捷查词面板更新轻提示、`⌘K` 命令面板及升级后首启「已更新」轻提示），并与 `notice.json` 同版本催更自动去重；本机分发管理台支持从 `docs/CHANGELOG.md` 提取并编辑写入 `latest.json` 的更新说明。 |
 | 2026-11-26 | 发布 **v0.2.2**：实现**电台发现与低门槛订阅（阶段 1 & 2，T44）**——`/radio` 左栏新增一级「发现电台」（`?view=discover`），内置 45 档经探活验证的英文精选播客快照并支持按需从 `dl.ferecord.com/radio-catalog.json` 刷新（24h 缓存，全渠道含商店版一致），新增 Apple 6 大分类美/英区实时热门榜（语言学习榜自动过滤非英语语种）、单集只读预览与免订阅直接试听（`podcasts.preview` + `podcast_episode` 导入，事后订阅自动去重关联）、Onboarding 兴趣联动排序、`scout` 技能对话找电台，以及 `/radio/manage` 与 `/feeds/manage` 共用的 OPML 2.0 导入导出；配套 `tools/verify-radio-catalog.mjs` 与 `publish-cos.mjs catalog` 并同步更新 `PRIVACY.md`。设计见 `design/19-radio-discovery.md`。 |
 | 2026-11-26 | 发布 **v0.2.1**：新增安全本地 `asset://` 协议处理器（`asset_protocol.rs`）修复 macOS/iOS 播客 `<audio>` 频繁 Range 请求取消时的跨线程崩溃；精简内置订阅与电台源（迁移 `0011_prune_builtin_feeds.sql`）；完善可选使用统计与首次引导开关；完成全仓稳定性与安全细节加固。 |
 | 2026-11-26 | 更新[可选使用统计](design/15-usage-analytics.md)，首次引导可选择开启。修正主窗口与托盘重复计数，补齐词典、阅读、复习完成与电台播放，上报字段在进入离线队列前过滤。 |

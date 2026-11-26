@@ -20,8 +20,9 @@ import { toast } from './store/ui';
 import { trackUsage } from './lib/analytics';
 import { lang, tl } from './lib/i18n';
 import { startDesktopReminder, type ReminderTime } from './lib/reminder';
-import { autoCheckOn, startAutoUpdateCheck } from './lib/update';
+import { autoCheckOn, detectJustUpdated, isAppStore } from './lib/update';
 import { presentNotice, startNoticeCheck } from './lib/notice';
+import { startUpdatePolling, useUpdate } from './store/update';
 import { installMacNative, isMacDesktop } from './lib/macNative';
 import { openDeepLink } from './lib/deeplink';
 import { listenSafe } from './lib/tauriEvents';
@@ -33,7 +34,14 @@ export function App() {
   const modelAsked = useRef(false);
   // 菜单栏只装一次，导航函数随路由变，所以经 ref 取最新的
   const navRef = useRef(nav); navRef.current = nav;
-  useEffect(() => installMacNative(to => navRef.current(to)), []);
+  useEffect(() => installMacNative(
+    to => navRef.current(to),
+    () => {
+      const u = useUpdate.getState();
+      if (u.phase === 'available' || u.phase === 'downloading' || u.phase === 'ready' || u.phase === 'backup_failed') u.openModal();
+      else void u.check({ manual: true, openModal: true });
+    },
+  ), []);
   // 托盘菜单待复习数、文案语言与设置同步
   const due = useCore(s => s.due);
   useEffect(() => {
@@ -66,6 +74,12 @@ export function App() {
         }
         return;
       }
+      if (route === '__update__') {
+        const u = useUpdate.getState();
+        if (u.phase === 'available' || u.phase === 'downloading' || u.phase === 'ready' || u.phase === 'backup_failed') u.openModal();
+        else void u.check({ manual: true, openModal: true });
+        return;
+      }
       if (route) navRef.current(route);
     });
     return () => { offSettings(); offNav(); };
@@ -78,9 +92,24 @@ export function App() {
     const stop = startDesktopReminder(() => ({ time, due: useCore.getState().due }));
     return () => { off(); stop(); };
   }, []);
-  // 软件更新（T31）：自动检查默认开，关掉就不联网；只提醒，装不装用户定。公告跟着同一个开关
-  useEffect(() => startAutoUpdateCheck(v => toast(tl('Tibi {v0} 可以更新了', { v0: v }), { ms: 15_000, action: { label: tl('去看看'), run: () => navRef.current('/settings?sec=about&item=检查更新') } })), []);
-  useEffect(() => startNoticeCheck(presentNotice, autoCheckOn), []);
+  // 软件更新（T31）：默认后台静默下载，下完在侧栏/菜单栏/托盘提示重启以更新；不强制重启。公告跟着同一个开关并自动去重
+  useEffect(() => startUpdatePolling(), []);
+  useEffect(() => startNoticeCheck(presentNotice, autoCheckOn, () => useUpdate.getState().version), []);
+  // 刚完成升级重启进入新版本：弹一条轻提示并允许查看更新说明
+  useEffect(() => {
+    if (!isTauri() || isAppStore) return;
+    void import('@tauri-apps/api/app')
+      .then(a => a.getVersion())
+      .then(v => {
+        const info = detectJustUpdated(v);
+        if (!info) return;
+        toast(tl('已更新到 Tibi {v0}', { v0: info.version }), {
+          ms: 10_000,
+          ...(info.notes ? { action: { label: tl('查看更新内容'), run: () => useUpdate.getState().openWhatsNew(info.version, info.notes) } } : {}),
+        });
+      })
+      .catch(() => undefined);
+  }, []);
   useEffect(() => {
     bindCoreEvents();
     // 朗读设置（tts.*）与本地离线转写设置（radio.local_asr.*）

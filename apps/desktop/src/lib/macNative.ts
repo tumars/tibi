@@ -1,6 +1,7 @@
 import { isTauri } from '../rpc';
 import { useUi } from '../store/ui';
 import { tl } from './i18n';
+import { isAppStore } from './update';
 
 /**
  * mac 原生感里要靠系统做的部分（E2、E5）：窗口外观跟 App 主题、菜单栏、右键菜单。
@@ -71,7 +72,9 @@ async function syncWindowTheme() {
   useUi.subscribe(s => { if (s.theme !== last) { last = s.theme; void apply(last); } });
 }
 
-async function installMenuBar(go: (to: string) => void) {
+let tibiMenu: Awaited<ReturnType<typeof import('@tauri-apps/api/menu').Submenu.new>> | undefined;
+
+async function installMenuBar(go: (to: string) => void, onCheckUpdate?: () => void) {
   const { Menu, Submenu } = await import('@tauri-apps/api/menu');
   const nav = (text: string, to: string, n: number) => ({ id: `go-${n}`, text, accelerator: `Cmd+${n}`, action: () => go(to) });
   const win = await Submenu.new({
@@ -83,25 +86,27 @@ async function installMenuBar(go: (to: string) => void) {
       { item: 'CloseWindow', text: tl('关闭窗口') },
     ],
   });
+  const appSubmenu = await Submenu.new({
+    text: 'Tibi',
+    items: [
+      { item: { About: null }, text: tl('关于 Tibi') },
+      { item: 'Separator' },
+      { id: 'settings', text: tl('设置…'), accelerator: 'Cmd+,', action: () => go('/settings') },
+      ...(isAppStore ? [] : [{ id: 'update', text: tl('检查更新…'), action: () => (onCheckUpdate ? onCheckUpdate() : go('/settings?sec=about')) }]),
+      { item: 'Separator' },
+      { item: 'Services', text: tl('服务') },
+      { item: 'Separator' },
+      { item: 'Hide', text: tl('隐藏 Tibi') },
+      { item: 'HideOthers', text: tl('隐藏其他') },
+      { item: 'ShowAll', text: tl('全部显示') },
+      { item: 'Separator' },
+      { item: 'Quit', text: tl('退出 Tibi') },
+    ],
+  });
+  tibiMenu = appSubmenu;
   const menu = await Menu.new({
     items: [
-      await Submenu.new({
-        text: 'Tibi',
-        items: [
-          { item: { About: null }, text: tl('关于 Tibi') },
-          { item: 'Separator' },
-          { id: 'settings', text: tl('设置…'), accelerator: 'Cmd+,', action: () => go('/settings') },
-          { id: 'update', text: tl('检查更新…'), action: () => go('/settings?sec=about') },
-          { item: 'Separator' },
-          { item: 'Services', text: tl('服务') },
-          { item: 'Separator' },
-          { item: 'Hide', text: tl('隐藏 Tibi') },
-          { item: 'HideOthers', text: tl('隐藏其他') },
-          { item: 'ShowAll', text: tl('全部显示') },
-          { item: 'Separator' },
-          { item: 'Quit', text: tl('退出 Tibi') },
-        ],
-      }),
+      appSubmenu,
       await Submenu.new({
         text: tl('文件'),
         items: [
@@ -161,11 +166,28 @@ function blockWebviewContextMenu() {
   });
 }
 
+/** 动态更新 macOS 应用菜单里的「检查更新…」文案（如发现新版本 / 正在下载 / 重启以更新） */
+export async function syncMacUpdateMenu(info: { phase: string; version?: string }) {
+  if (!isMacDesktop || isAppStore || !tibiMenu) return;
+  const item = await tibiMenu.get('update');
+  if (!item) return;
+  const label =
+    info.phase === 'ready' && info.version ? tl('重启以更新到 {v0}…', { v0: info.version })
+    : info.phase === 'downloading' && info.version ? tl('正在下载更新 {v0}…', { v0: info.version })
+    : info.phase === 'available' && info.version ? tl('发现新版本 {v0}…', { v0: info.version })
+    : tl('检查更新…');
+  try {
+    if ('setText' in item) await item.setText(label);
+  } finally {
+    await item.close();
+  }
+}
+
 let installed = false;
-export function installMacNative(go: (to: string) => void) {
+export function installMacNative(go: (to: string) => void, onCheckUpdate?: () => void) {
   if (!isMacDesktop || installed) return;
   installed = true;
   blockWebviewContextMenu();
   void syncWindowTheme().catch(e => console.warn('窗口外观同步失败', e));
-  void installMenuBar(go).catch(e => console.warn('菜单栏安装失败', e));
+  void installMenuBar(go, onCheckUpdate).catch(e => console.warn('菜单栏安装失败', e));
 }

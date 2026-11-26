@@ -1,15 +1,15 @@
 {
   "notices": [
     {
-      "id": "release-0.2.2-macos",
+      "id": "release-0.2.3-macos",
       "message": {
-        "zh": "Tibi 0.2.2 已发布：电台新增一级「发现电台」广场（内置 45 档英文精选与 Apple 实时分类榜）、支持不订阅直接预览并试听单集、AI 对话找播客，以及电台与订阅的 OPML 导入导出。",
-        "en": "Tibi 0.2.2 is out: adds the Discover hub for Podcasts (45 curated English picks + live Apple category charts), episode preview & listen without subscribing, AI podcast discovery, and OPML import/export."
+        "zh": "Tibi 0.2.3 已发布：升级自动更新体验，默认后台静默下载并在侧栏、菜单栏与托盘常驻提示一键重启更新，支持查看版本更新日志、跳过版本与三档更新策略。",
+        "en": "Tibi 0.2.3 is out: upgrades auto-updates with silent background downloads, persistent sidebar/menu/tray restart prompts, in-app release notes, skip-version support, and configurable update modes."
       },
       "platforms": [
         "macos"
       ],
-      "below": "0.2.2",
+      "below": "0.2.3",
       "until": "2026-12-26",
       "url": "tibi://settings?sec=about",
       "label": {

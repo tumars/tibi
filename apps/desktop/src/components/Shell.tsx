@@ -11,6 +11,7 @@ import { isMacDesktop } from '../lib/macNative';
 import { RecentChats } from './RecentChats';
 import { ResizeHandle } from './ResizeHandle';
 import { SearchPalette } from './SearchPalette';
+import { UpdateModal, UpdatePill, useHasUpdateIndicator } from './UpdateBanner';
 
 const NAV = [
   { to: '/', label: tl('首页'), icon: NavHomeIcon },
@@ -35,6 +36,7 @@ export function Shell() {
   const reading = loc.pathname.startsWith('/read/');
   const readingNav = useUi(s => s.readingNav);
   const readingRoute = readingNav === 'radio' ? '/radio' : readingNav === 'feeds' ? '/feeds' : '/library';
+  const hasUpdate = useHasUpdateIndicator();
 
   useEffect(() => {
     if (isMacDesktop) return;   // mac 上这个快捷键归菜单栏（lib/macNative）
@@ -68,6 +70,7 @@ export function Shell() {
         </nav>
         <RecentChats />
         <div className="sidefoot">
+          <UpdatePill />
           <div className="streak" title={tl('今日 {minutes} / {goal} 分钟', { minutes, goal })}>
             <svg className="sring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--line-2)" strokeWidth="4" /><circle cx="18" cy="18" r="14" fill="none" stroke="var(--warm)" strokeWidth="4" strokeLinecap="round" strokeDasharray="87.96" strokeDashoffset={ring} transform="rotate(-90 18 18)" /></svg>
             <div className="hide-c"><div className="t">{!connected ? (import.meta.env.DEV ? tl('Core 未连接') : tl('暂时读不到数据')) : streak > 0 ? tl('连续 {streak} 天', { streak }) : tl('今天开始')}</div><div className="s">{connected ? tl('今日 {minutes} / {goal} 分钟', { minutes, goal }) : import.meta.env.DEV ? tl('界面只显示空状态') : tl('重启 Tibi 试试')}</div></div>
@@ -75,12 +78,16 @@ export function Shell() {
           <div className="user">
             <span className="av" title={nickname || undefined}>{nickname ? avatarChar(nickname) : tl('你')}</span>
             <span className="hide-c" style={{ flex: 1 }} />
-            <NavLink to="/settings" className="ibtn" title={tl('设置')}><NavSettingsIcon size={17} /></NavLink>
+            <NavLink to="/settings" className="ibtn" title={hasUpdate ? tl('设置（有可用更新）') : tl('设置')}>
+              <NavSettingsIcon size={17} />
+              {hasUpdate && <i className="ibtn-dot" aria-hidden="true" />}
+            </NavLink>
           </div>
         </div>
         {!collapsed && <ResizeHandle className="side-resize" side="right" width={sideWidth} onChange={setSideWidth} onReset={() => setSideWidth(SIDE_W)} onDragging={setResizing} />}
       </aside>
       <SearchPalette />
+      <UpdateModal />
       <section className="main">
         <Outlet />
         <MiniPlayer />

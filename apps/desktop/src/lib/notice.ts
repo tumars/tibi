@@ -16,8 +16,8 @@ const HOUR = 3600_000;
 // 这个地址同时写在 capabilities 的 http:default 里，改这里要一起改
 const SOURCE = 'https://dl.ferecord.com/notice.json';
 
-export interface ShownNotice { id: string; text: string; urgent: boolean; url?: string; label?: string }
-export interface NoticeCtx { version: string; platform: NoticePlatform; today: string; seen: Record<string, string> }
+export interface ShownNotice { id: string; text: string; urgent: boolean; url?: string; label?: string; below?: string }
+export interface NoticeCtx { version: string; platform: NoticePlatform; today: string; seen: Record<string, string>; handledUpdateVersion?: string }
 
 const textOf = (t: Text) => typeof t === 'string' ? t : (lang === 'en' && t.en) || t.zh;
 
@@ -27,9 +27,11 @@ export function pickNotices(list: Notice[], ctx: NoticeCtx): ShownNotice[] {
     if (n.platforms && !n.platforms.includes(ctx.platform)) return false;
     if (n.until && ctx.today > n.until) return false;
     if (n.below && !olderThan(ctx.version, n.below)) return false;
+    // 桌面内置更新器已经发现 >= below 的版本时，不再重复弹同版本的催升级公告
+    if (n.below && ctx.handledUpdateVersion && !olderThan(ctx.handledUpdateVersion, n.below)) return false;
     const seen = ctx.seen[n.id];
     return n.below ? seen !== ctx.today : !seen;
-  }).map(n => ({ id: n.id, text: textOf(n.message), urgent: !!n.below, url: n.url, label: n.label && textOf(n.label) }));
+  }).map(n => ({ id: n.id, text: textOf(n.message), urgent: !!n.below, url: n.url, label: n.label && textOf(n.label), ...(n.below ? { below: n.below } : {}) }));
 }
 
 /** iPad 的 UA 也写 Macintosh，手机壳（Core 在 WebView 里）里就当 iOS */
@@ -64,20 +66,30 @@ export function presentNotice(n: ShownNotice) {
   toast(n.text, { ms: n.urgent ? 60_000 : 15_000, ...(run ? { action: { label: n.label || tl('去看看'), run } } : {}) });
 }
 
-/** 每天查一次公告（enabled 关着就不查）；查不到不打扰，第二天再试。返回停止函数 */
-export function startNoticeCheck(show: (n: ShownNotice) => void, enabled: () => boolean = () => true): () => void {
+/** 每天查一次公告（enabled 关着就不查）；查不到不消耗当天额度，下次定时再试。返回停止函数 */
+export function startNoticeCheck(
+  show: (n: ShownNotice) => void,
+  enabled: () => boolean = () => true,
+  handledUpdateVersion?: () => string | undefined,
+): () => void {
   if (!isTauri()) return () => undefined;
   const tick = async () => {
     if (!enabled()) return;
     const day = today();
     let last = ''; try { last = localStorage.getItem(LAST) ?? ''; } catch { /* */ }
     if (last === day) return;
-    try { localStorage.setItem(LAST, day); } catch { /* */ }
     const got = await Promise.all([fetchNotices(), import('@tauri-apps/api/app').then(a => a.getVersion())]).catch(() => undefined);
     if (!got) return;
+    try { localStorage.setItem(LAST, day); } catch { /* */ }
     const [list, version] = got;
     const seen = readSeen();
-    const shown = pickNotices(list, { version, platform: currentPlatform(), today: day, seen });
+    const shown = pickNotices(list, {
+      version,
+      platform: currentPlatform(),
+      today: day,
+      seen,
+      handledUpdateVersion: handledUpdateVersion?.(),
+    });
     // 已经不在 notice.json 里的条目就不用记了
     const next: Record<string, string> = {};
     for (const n of list) { const d = seen[n.id]; if (d) next[n.id] = d; }

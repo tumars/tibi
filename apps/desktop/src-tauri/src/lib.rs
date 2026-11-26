@@ -592,6 +592,9 @@ fn run_desktop() {
             if let Err(e) = tray::setup(app) {
                 log::error!("托盘初始化失败：{e}");
             }
+            // 启动时清理过期或残留的更新安装包缓存
+            #[cfg(feature = "direct-distribution")]
+            update::cleanup_stale_cache(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -630,9 +633,11 @@ fn run_desktop() {
             #[cfg(not(feature = "direct-distribution"))]
             confirm_ai_sharing,
             tray::tray_hide, tray::tray_set_pinned, tray::tray_open_main, tray::tray_update_summary,
-            tray::tray_sync_theme, tray::tray_set_hotkey, tray::tray_read_clipboard,
+            tray::tray_sync_theme, tray::tray_sync_update, tray::tray_get_update, tray::tray_set_hotkey, tray::tray_read_clipboard,
             #[cfg(feature = "direct-distribution")]
             update::update_check,
+            #[cfg(feature = "direct-distribution")]
+            update::update_download,
             #[cfg(feature = "direct-distribution")]
             update::update_install,
             #[cfg(feature = "direct-distribution")]

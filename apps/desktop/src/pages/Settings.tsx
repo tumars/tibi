@@ -15,6 +15,7 @@ import { SkillItems } from '../settings/SkillItems';
 import { McpItems } from '../settings/McpItems';
 import { SyncItems } from '../settings/SyncItems';
 import { UpdateItems } from '../settings/UpdateItems';
+import { useHasUpdateIndicator } from '../components/UpdateBanner';
 import { isAppStore } from '../lib/update';
 import { AuthorItems, DonateItems, openLink } from '../settings/AuthorItems';
 import { FeedbackItems } from '../settings/FeedbackItems';
@@ -66,6 +67,7 @@ export function Settings() {
   const [params] = useSearchParams();
   const [sec, setSec] = useState<string>(params.get('sec') ?? 'general');
   const [profile, setProfile] = useState<Profile>();
+  const hasUpdate = useHasUpdateIndicator();
 
   // 页内搜索：q 是输入框里的字，query 是拿去过滤的字（拼音输入法选字途中不过滤）
   const [q, setQ] = useState(''); const [query, setQuery] = useState('');
@@ -121,7 +123,7 @@ export function Settings() {
       <div className="scroll"><div className="page"><div ref={swRef} className={searching ? 'sw searching' : 'sw'}>
         <nav className="snav">
           <label className="sfind"><Search size={14} /><input ref={findRef} value={q} placeholder={tl('搜索设置')} aria-label={tl('搜索设置')} autoComplete="off" onChange={e => { setQ(e.target.value); if (!(e.nativeEvent as InputEvent).isComposing) setQuery(e.target.value); }} onCompositionEnd={e => setQuery(e.currentTarget.value)} onKeyDown={e => { if (e.key === 'Escape' && !isImeKey(e.nativeEvent)) { clearSearch(); e.currentTarget.blur(); } }} />{!q && <span className="k">/</span>}</label>
-          {SECTIONS.map(([k, l]) => <button key={k} className={sec === k ? 'on' : ''} disabled={missed.includes(k)} onClick={() => { setSec(k); document.getElementById(`s-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>{l}</button>)}
+          {SECTIONS.map(([k, l]) => <button key={k} className={sec === k ? 'on' : ''} disabled={missed.includes(k)} onClick={() => { setSec(k); document.getElementById(`s-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>{l}{k === 'about' && hasUpdate && <i className="snav-dot" aria-hidden="true" />}</button>)}
         </nav>
         <div>
           <section className="ssec" id="s-general"><h2>{tl('通用')}</h2><div className="group">

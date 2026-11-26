@@ -71,3 +71,25 @@ export async function inspectRelease(directory, publicKey) {
 export function requireNewVersion(version, current) {
   if (current && !olderThan(current, version)) throw new Error('只能发布高于线上 ' + current + ' 的新版本');
 }
+
+/** 从仓库 docs/CHANGELOG.md 中提取该版本的变更摘要，便于发布时一键填入 latest.json 的 notes */
+export async function extractChangelogNotes(root, version) {
+  if (!VERSION.test(version || '')) return '';
+  let text;
+  try { text = await readFile(join(root, 'docs/CHANGELOG.md'), 'utf8'); }
+  catch { return ''; }
+  const escaped = version.replaceAll('.', '\\.');
+  const verRe = new RegExp(`(?:^|[^0-9.])v?${escaped}(?![0-9.])`, 'i');
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('|')) continue;
+    const cols = trimmed.split('|').slice(1, -1).map(c => c.trim());
+    if (cols.length < 2) continue;
+    const body = cols[1];
+    if (!verRe.test(body)) continue;
+    return body
+      .replace(new RegExp(`^发布\\s*(?:\\*\\*)?v?${escaped}(?:\\*\\*)?[：:]\\s*`, 'i'), '')
+      .trim();
+  }
+  return '';
+}

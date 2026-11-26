@@ -1,7 +1,7 @@
 import type { DictEntryResult, DictSuggestResult, DocumentSummary, Status } from '@tibi/core';
 import {
-  ArrowUpRight, BookA, Bookmark, BookOpen, ChevronDown, ChevronUp,
-  FileText, Globe, Pin, RotateCcw, Search, Settings as SettingsIcon, Sparkles, X,
+  ArrowUpCircle, ArrowUpRight, BookA, Bookmark, BookOpen, ChevronDown, ChevronUp,
+  FileText, Globe, Pin, RotateCcw, RotateCw, Search, Settings as SettingsIcon, Sparkles, X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SpeakButtons, stopSpeaking } from '../components/Speak';
@@ -15,6 +15,12 @@ import { fmtPct, isImeKey, STATUS_NAMES } from '../lib/util';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { classifyClipboardHint, classifyTrayQuery, DEFAULT_TRAY_HOTKEY, hotkeyKeys, type ClipboardHint } from './classify';
+
+interface TrayUpdateBanner {
+  version?: string | null;
+  stage?: string | null;
+  ratio?: number | null;
+}
 
 interface Snapshot {
   due: number;
@@ -46,6 +52,8 @@ export function TrayApp() {
   const [recent, setRecent] = useState<string[]>(loadRecentLookups);
   const [clipHint, setClipHint] = useState<ClipboardHint | null>(null);
   const dismissedClip = useRef<string>('');
+  const [updateBanner, setUpdateBanner] = useState<TrayUpdateBanner | null>(null);
+  const [dismissedUpdate, setDismissedUpdate] = useState<string>('');
 
   // 词典状态
   const [sug, setSug] = useState<DictSuggestResult>();
@@ -115,6 +123,7 @@ export function TrayApp() {
   useEffect(() => {
     void refreshSnapshot();
     void refreshClipboard();
+    void invokeSafe<TrayUpdateBanner>('tray_get_update').then(u => { if (u) setUpdateBanner(u); });
     inputRef.current?.focus({ preventScroll: true });
 
     const offData = rpc.on('data.changed', d => {
@@ -151,13 +160,17 @@ export function TrayApp() {
     };
     window.addEventListener('storage', onStorage);
 
-    const offOpened = listenSafe('tray_opened', () => {
+    const offOpened = listenSafe<{ update?: TrayUpdateBanner }>('tray_opened', payload => {
       void refreshSnapshot();
       void refreshClipboard();
+      if (payload?.update) setUpdateBanner(payload.update);
       requestAnimationFrame(() => {
         const el = inputRef.current;
         if (el) { el.focus({ preventScroll: true }); el.select(); }
       });
+    });
+    const offUpdate = listenSafe<TrayUpdateBanner>('tray_update', payload => {
+      setUpdateBanner(payload ?? null);
     });
     const offHidden = listenSafe('tray_hidden', () => { stopSpeaking(); });
     const offTheme = listenSafe<{ theme?: string }>('tray_theme', payload => {
@@ -169,7 +182,7 @@ export function TrayApp() {
     return () => {
       offData(); offProg(); offDone();
       window.removeEventListener('storage', onStorage);
-      offOpened(); offHidden(); offTheme();
+      offOpened(); offUpdate(); offHidden(); offTheme();
     };
   }, [refreshSnapshot, refreshClipboard]);
 
@@ -405,6 +418,33 @@ export function TrayApp() {
       <main className="tray-scroll" ref={scrollRef}>
         {intent.kind === 'empty' && (
           <>
+            {updateBanner?.version && (updateBanner.stage === 'ready' || updateBanner.stage === 'available' || updateBanner.stage === 'downloading') && dismissedUpdate !== `${updateBanner.version}:${updateBanner.stage}` && (
+              <div className={`tray-update${updateBanner.stage === 'ready' ? ' ready' : ''}`}>
+                <span className="tray-update-ic" aria-hidden="true">
+                  {updateBanner.stage === 'ready' ? <RotateCw size={14} /> : <ArrowUpCircle size={14} />}
+                </span>
+                <span className="tray-update-txt">
+                  {updateBanner.stage === 'ready'
+                    ? tl('Tibi {v0} 已就绪，可重启更新', { v0: updateBanner.version })
+                    : updateBanner.stage === 'downloading'
+                    ? (typeof updateBanner.ratio === 'number'
+                        ? tl('正在下载 Tibi {v0}（{v1}%）', { v0: updateBanner.version, v1: Math.round(updateBanner.ratio * 100) })
+                        : tl('正在下载 Tibi {v0}…', { v0: updateBanner.version }))
+                    : tl('发现新版本 Tibi {v0}', { v0: updateBanner.version })}
+                </span>
+                <button type="button" className={`btn sm${updateBanner.stage === 'ready' ? ' pri' : ''}`} onClick={() => openMain('__update__')}>
+                  {updateBanner.stage === 'ready' ? tl('重启更新') : tl('查看')}
+                </button>
+                <button
+                  type="button"
+                  className="tray-clip-x"
+                  aria-label={tl('忽略更新提示')}
+                  onClick={() => setDismissedUpdate(`${updateBanner.version}:${updateBanner.stage}`)}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
             {clipHint && (
               <div className="tray-clip">
                 <div className="tray-clip-meta">

@@ -73,8 +73,15 @@
           <form id="release-inspect"><label for="release-directory">发行目录</label><div class="input-action"><input id="release-directory" list="release-directories" placeholder="/Users/username/Documents/releases/Tibi/0.2.0" required><datalist id="release-directories"></datalist><button class="button" type="submit" id="inspect-button">校验产物</button></div></form>
         </article>
         <article class="panel hidden" id="release-preview">
-          <div class="panel-heading"><div><h2 id="release-preview-title">发行预览</h2><p id="release-notes"></p></div><span class="badge success">更新签名已验证</span></div>
+          <div class="panel-heading"><div><h2 id="release-preview-title">发行预览</h2></div><span class="badge success">更新签名已验证</span></div>
           <div id="release-platforms" class="platform-list"></div>
+          <div class="release-notes-box">
+            <div class="release-notes-head">
+              <label for="release-notes-input">更新说明（客户端更新弹窗中展示，支持 Markdown）</label>
+              <button type="button" class="text-button hidden" id="release-notes-fill">从 CHANGELOG 填入</button>
+            </div>
+            <textarea id="release-notes-input" rows="3" placeholder="填写给用户看的本版本更新亮点，将写入发布后的 latest.json"></textarea>
+          </div>
           <div class="alert hidden" id="release-blocked"></div>
           <div class="table-scroll"><table><thead><tr><th>产物</th><th>大小</th><th>SHA-256</th></tr></thead><tbody id="release-files"></tbody></table></div>
           <div class="publish-footer"><label class="check-label"><input type="checkbox" id="release-validated">安装包已完成签名、公证及安装验证</label><button class="button" id="release-publish" data-write disabled>发布版本</button></div>

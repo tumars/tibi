@@ -43,8 +43,17 @@ struct TrayMenuItems {
     dict: MenuItem<tauri::Wry>,
     words: MenuItem<tauri::Wry>,
     import: MenuItem<tauri::Wry>,
+    #[cfg(feature = "direct-distribution")]
+    update: MenuItem<tauri::Wry>,
     settings: MenuItem<tauri::Wry>,
     quit: MenuItem<tauri::Wry>,
+}
+
+#[derive(Clone, Debug, Default, serde::Serialize)]
+pub struct TrayUpdateBanner {
+    pub version: Option<String>,
+    pub stage: Option<String>,
+    pub ratio: Option<f64>,
 }
 
 #[derive(Default)]
@@ -53,6 +62,7 @@ pub struct TrayState {
     last_blur_at: Mutex<Option<Instant>>,
     last_rect: Mutex<Option<Rect>>,
     menu_items: Mutex<Option<TrayMenuItems>>,
+    update_banner: Mutex<TrayUpdateBanner>,
 }
 
 /// 根据托盘图标矩形（物理坐标）和显示器列表，计算弹出面板的物理坐标，保证贴近图标且不越出屏幕。
@@ -259,7 +269,11 @@ fn show_popover_at(app: &AppHandle, rect: Option<Rect>) {
     }
     let _ = w.show();
     let _ = w.set_focus();
-    let _ = w.emit("tray_opened", json!({}));
+    let banner = app
+        .try_state::<TrayState>()
+        .map(|s| lock_or_recover(&s.update_banner).clone())
+        .unwrap_or_default();
+    let _ = w.emit("tray_opened", json!({ "update": banner }));
 }
 
 #[cfg(target_os = "macos")]
@@ -332,9 +346,17 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let words = MenuItem::with_id(app, "words", "生词本", true, None::<&str>)?;
     let import = MenuItem::with_id(app, "import", "导入文章", true, None::<&str>)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
+    #[cfg(feature = "direct-distribution")]
+    let update = MenuItem::with_id(app, "update", "检查更新…", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "设置…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "退出 Tibi", true, None::<&str>)?;
 
+    #[cfg(feature = "direct-distribution")]
+    let menu = Menu::with_items(
+        app,
+        &[&quick, &open, &sep1, &review, &dict, &words, &import, &sep2, &update, &settings, &quit],
+    )?;
+    #[cfg(not(feature = "direct-distribution"))]
     let menu = Menu::with_items(
         app,
         &[&quick, &open, &sep1, &review, &dict, &words, &import, &sep2, &settings, &quit],
@@ -348,6 +370,8 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             dict,
             words,
             import,
+            #[cfg(feature = "direct-distribution")]
+            update,
             settings,
             quit,
         });
@@ -370,6 +394,8 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             "dict" => show_main_window(app, Some("/dict"), None),
             "words" => show_main_window(app, Some("/words"), None),
             "import" => show_main_window(app, Some("/?compose=1"), None),
+            #[cfg(feature = "direct-distribution")]
+            "update" => show_main_window(app, Some("__update__"), None),
             "settings" => show_main_window(app, Some("/settings"), None),
             "quit" => {
                 if let Some(c) = app.try_state::<Arc<crate::core::CoreProcess>>() {
@@ -448,6 +474,24 @@ pub fn tray_open_main(
     json!({ "ok": true })
 }
 
+#[cfg(feature = "direct-distribution")]
+fn format_update_menu_text(banner: &TrayUpdateBanner, en: bool) -> String {
+    match (banner.stage.as_deref(), banner.version.as_deref()) {
+        (Some("ready"), Some(v)) => {
+            if en { format!("Restart to Update ({v})…") } else { format!("重启以更新 Tibi {v}…") }
+        }
+        (Some("downloading"), Some(v)) => {
+            if en { format!("Downloading Tibi {v}…") } else { format!("正在下载 Tibi {v}…") }
+        }
+        (Some("available"), Some(v)) => {
+            if en { format!("Update Available ({v})…") } else { format!("发现新版本 {v}…") }
+        }
+        _ => {
+            if en { "Check for Updates…".to_string() } else { "检查更新…".to_string() }
+        }
+    }
+}
+
 #[tauri::command]
 pub fn tray_update_summary(
     app: AppHandle,
@@ -456,6 +500,8 @@ pub fn tray_update_summary(
     lang: Option<String>,
 ) -> Value {
     let en = lang.as_deref() == Some("en");
+    #[cfg(feature = "direct-distribution")]
+    let banner = lock_or_recover(&state.update_banner).clone();
     if let Some(items) = lock_or_recover(&state.menu_items).as_ref() {
         let _ = items.quick.set_text(if en { "Quick Lookup" } else { "快速查词" });
         let _ = items.open.set_text(if en { "Open Tibi" } else { "打开 Tibi" });
@@ -474,6 +520,8 @@ pub fn tray_update_summary(
         let _ = items.dict.set_text(if en { "Dictionary" } else { "词典" });
         let _ = items.words.set_text(if en { "Wordbook" } else { "生词本" });
         let _ = items.import.set_text(if en { "Import Article" } else { "导入文章" });
+        #[cfg(feature = "direct-distribution")]
+        let _ = items.update.set_text(format_update_menu_text(&banner, en));
         let _ = items.settings.set_text(if en { "Settings…" } else { "设置…" });
         let _ = items.quit.set_text(if en { "Quit Tibi" } else { "退出 Tibi" });
     }
@@ -492,6 +540,38 @@ pub fn tray_update_summary(
         let _ = tray.set_tooltip(Some(&tip));
     }
     json!({ "ok": true })
+}
+
+/// 同步更新状态到托盘右键菜单与 macOS 快捷查词面板
+#[tauri::command]
+pub fn tray_sync_update(
+    app: AppHandle,
+    state: State<'_, TrayState>,
+    version: Option<String>,
+    stage: Option<String>,
+    ratio: Option<f64>,
+    lang: Option<String>,
+) -> Value {
+    let banner = TrayUpdateBanner { version, stage, ratio };
+    *lock_or_recover(&state.update_banner) = banner.clone();
+    #[cfg(feature = "direct-distribution")]
+    {
+        let en = lang.as_deref() == Some("en");
+        if let Some(items) = lock_or_recover(&state.menu_items).as_ref() {
+            let _ = items.update.set_text(format_update_menu_text(&banner, en));
+        }
+    }
+    #[cfg(not(feature = "direct-distribution"))]
+    let _ = lang;
+    if let Some(w) = app.get_webview_window(TRAY_WINDOW_LABEL) {
+        let _ = w.emit("tray_update", &banner);
+    }
+    json!({ "ok": true })
+}
+
+#[tauri::command]
+pub fn tray_get_update(state: State<'_, TrayState>) -> TrayUpdateBanner {
+    lock_or_recover(&state.update_banner).clone()
 }
 
 #[tauri::command]
