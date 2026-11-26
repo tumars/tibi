@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { existsSync, createWriteStream } from 'node:fs';
 import { readFile, writeFile, mkdir, readdir, mkdtemp, copyFile, rm, rename } from 'node:fs/promises';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir, tmpdir } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
@@ -14,8 +14,9 @@ import { parseNotices } from '../apps/desktop/src/lib/notice-schema.ts';
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const UI = fileURLToPath(new URL('./ui/', import.meta.url));
 const MAX_UPLOAD = 2 * 1024 ** 3;
+const MAX_JOBS = 100;
 const hash = value => createHash('sha256').update(value).digest('hex');
-const publicUrl = (cloud, key) => cloud.base + '/' + key.split('/').map(encodeURIComponent).join('/');
+const publicUrl = (cloud, key) => cloud.url ? cloud.url(key) : cloud.base + '/' + key.split('/').map(encodeURIComponent).join('/');
 const writable = key => typeof key === 'string' && key.startsWith('uploads/') && key.length > 8 && key.length < 512
   && !key.endsWith('/') && !key.split('/').some(p => !p || p === '.' || p === '..') && !/[\x00-\x1f\\]/.test(key);
 const error = (status, message) => Object.assign(new Error(message), { status });
@@ -60,8 +61,20 @@ export async function createAdmin({ cloud, root = ROOT, dataDir = join(root, '.t
     const job = { id: Date.now() + '-' + randomUUID(), title, status: 'running',
       started: new Date().toISOString(), finished: null, lines: [] };
     active = job; jobs.set(job.id, job);
+    if (jobs.size > MAX_JOBS) {
+      for (const [id, entry] of jobs) {
+        if (jobs.size <= MAX_JOBS) break;
+        if (entry.status !== 'running') jobs.delete(id);
+      }
+    }
     let saving = Promise.resolve();
-    const save = () => { saving = saving.then(() => atomicWrite(join(history, job.id + '.json'), JSON.stringify(job))); };
+    const save = (snapshot = job) => {
+      const payload = JSON.stringify(snapshot);
+      saving = saving
+        .then(() => atomicWrite(join(history, job.id + '.json'), payload))
+        .catch(e => console.error('任务日志保存失败：' + redact(e.message)));
+      return saving;
+    };
     const emit = text => {
       job.lines.push(...redact(text).trimEnd().split(/\r?\n/));
       job.lines = job.lines.slice(-500); save();
@@ -69,11 +82,20 @@ export async function createAdmin({ cloud, root = ROOT, dataDir = join(root, '.t
     save();
     // 下一轮事件循环开始，接口先返回任务 ID，大文件上传不会阻塞其他只读接口。
     setImmediate(async () => {
-      try { await work(emit); job.status = 'succeeded'; emit('操作完成，公开内容已核对。'); }
-      catch (e) { job.status = 'failed'; emit(e.message || String(e)); }
-      finally {
-        job.finished = new Date().toISOString(); active = null; save();
-        await saving.catch(e => console.error('任务日志保存失败：' + redact(e.message)));
+      let finalStatus = 'failed';
+      try {
+        await work(emit);
+        finalStatus = 'succeeded';
+        job.lines.push('操作完成，公开内容已核对。');
+      } catch (e) {
+        job.lines.push(...redact(e.message || String(e)).trimEnd().split(/\r?\n/));
+      } finally {
+        job.lines = job.lines.slice(-500);
+        const finished = new Date().toISOString();
+        await save({ ...job, status: finalStatus, finished });
+        job.finished = finished;
+        job.status = finalStatus;
+        active = null;
       }
     });
     return job;
@@ -139,9 +161,11 @@ export async function createAdmin({ cloud, root = ROOT, dataDir = join(root, '.t
         if (!writable(key)) throw error(403, '普通文件只能上传到 uploads/，发行文件请使用版本发布');
         if (Number(req.headers['content-length']) > MAX_UPLOAD) throw error(413, '单个文件最大 2 GB');
         writing = true;
-        const dir = await mkdtemp(join(tmpdir(), 'tibi-admin-upload-'));
-        const file = join(dir, 'upload'); let size = 0;
+        let dir;
         try {
+          dir = await mkdtemp(join(tmpdir(), 'tibi-admin-upload-'));
+          const ext = extname(key).replace(/[^.\w-]/g, '');
+          const file = join(dir, 'upload' + ext); let size = 0;
           if (await cloud.head(key)) throw error(409, '文件已存在，请换一个文件名');
           await pipeline(req, new Transform({ transform(chunk, encoding, callback) {
             size += chunk.length;
@@ -159,7 +183,7 @@ export async function createAdmin({ cloud, root = ROOT, dataDir = join(root, '.t
             } finally { await rm(dir, { recursive: true, force: true }); }
           });
           return send(202, job);
-        } catch (e) { await rm(dir, { recursive: true, force: true }); throw e; }
+        } catch (e) { if (dir) await rm(dir, { recursive: true, force: true }); throw e; }
         finally { writing = false; }
       }
       if (route === 'DELETE /api/storage') {
@@ -176,22 +200,28 @@ export async function createAdmin({ cloud, root = ROOT, dataDir = join(root, '.t
       if (route === 'PUT /api/notices') {
         available(); const input = await body(req);
         parseNotices(input.data);
-        await unchangedDraft(input.revision);
         available();
         writing = true;
-        try { await atomicWrite(join(root, 'notice.json'), JSON.stringify(input.data, null, 2) + '\n'); }
-        finally { writing = false; }
-        return send(200, await draft());
+        try {
+          await unchangedDraft(input.revision);
+          await atomicWrite(join(root, 'notice.json'), JSON.stringify(input.data, null, 2) + '\n');
+          return send(200, await draft());
+        } finally { writing = false; }
       }
       if (route === 'POST /api/notices/publish') {
         available(); const input = await body(req);
         if (input.confirm !== true) throw error(400, '请先确认发布公告');
-        const local = await unchangedDraft(input.revision);
-        const snapshot = join(snapshots, Date.now() + '-' + randomUUID() + '.json');
-        await writeFile(snapshot, JSON.stringify(local.data, null, 2) + '\n', { mode: 0o600 });
-        return send(202, startJob('发布公告 · ' + local.data.notices.length + ' 条', emit =>
-          execute(process.execPath, [join(root, 'tools/publish-cos.mjs'), 'notice', snapshot],
-            { cwd: root, env: cloud.env, emit: line => emit(redact(line)), timeout: 600_000 })));
+        available();
+        writing = true;
+        try {
+          const local = await unchangedDraft(input.revision);
+          const snapshot = join(snapshots, Date.now() + '-' + randomUUID() + '.json');
+          await writeFile(snapshot, JSON.stringify(local.data, null, 2) + '\n', { mode: 0o600 });
+          writing = false;
+          return send(202, startJob('发布公告 · ' + local.data.notices.length + ' 条', emit =>
+            execute(process.execPath, [join(root, 'tools/publish-cos.mjs'), 'notice', snapshot],
+              { cwd: root, env: cloud.env, emit: line => emit(redact(line)), timeout: 600_000 })));
+        } finally { writing = false; }
       }
       if (route === 'GET /api/releases/local') {
         const dirs = [];
@@ -213,6 +243,7 @@ export async function createAdmin({ cloud, root = ROOT, dataDir = join(root, '.t
       }
       if (route === 'POST /api/releases/publish') {
         available(); const input = await body(req);
+        available();
         if (!preview || input.token !== preview.token || input.confirm !== preview.tag || input.validated !== true) throw error(409, '请先检查并确认此版本及安装验证');
         const checked = preview; preview = null;
         return send(202, startJob('发布 Tibi ' + checked.tag, async emit => {
@@ -244,6 +275,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     await cloud.close(); process.exit(1);
   });
   server.listen(port, '127.0.0.1', () => console.log('Tibi 管理台：http://127.0.0.1:' + server.address().port));
-  const stop = () => server.close(async () => { await cloud.close(); process.exit(0); });
+  const stop = () => {
+    server.closeAllConnections?.();
+    server.close(async () => { await cloud.close(); process.exit(0); });
+  };
   process.on('SIGINT', stop); process.on('SIGTERM', stop);
 }

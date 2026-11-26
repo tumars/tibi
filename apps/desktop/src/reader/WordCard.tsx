@@ -6,6 +6,7 @@ import { SpeakButtons } from '../components/Speak';
 import { TibiAvatar } from '../components/TibiIcons';
 import { StageBar } from '../components/ui';
 import { EXAM_NAMES } from '../lib/dict';
+import { trackUsage } from '../lib/analytics';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
@@ -25,14 +26,16 @@ export function WordCard({ word, sentenceId, anchor, right = innerWidth, onClose
   const alive = useRef(true);
 
   useEffect(() => {
+    let current = true;
     alive.current = true;
     setCtxm(undefined);
     rpc.call('terms.lookup', { text: word, sentence_id: sentenceId }).then(r => {
-      if (!alive.current) return; setData(r); setStatus(r.term?.status);
+      if (!current) return; setData(r); setStatus(r.term?.status);
+      if (r.dict || r.term || r.context_meaning) trackUsage('word_lookup_used', 'reader');
       if (r.context_meaning) { setCtxm({ state: 'ok', text: r.context_meaning }); return; }
       if (sentenceId && (r.dict || r.term)) setCtxm({ state: 'idle' });
-    }, e => { if (alive.current) setErr(errorInfo(e).message); });
-    return () => { alive.current = false; };
+    }, e => { if (current) setErr(errorInfo(e).message); });
+    return () => { current = false; alive.current = false; };
   }, [word, sentenceId]);
 
   const explain = () => {
@@ -46,9 +49,16 @@ export function WordCard({ word, sentenceId, anchor, right = innerWidth, onClose
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); if (/^[0-5]$/.test(e.key) && !(e.target instanceof HTMLInputElement)) void setS(Number(e.key) as Status); };
-    setTimeout(() => addEventListener('mousedown', onDown), 0); addEventListener('keydown', onKey);
-    return () => { removeEventListener('mousedown', onDown); removeEventListener('keydown', onKey); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || t.isContentEditable)) return;
+      if (/^[0-5]$/.test(e.key)) void setS(Number(e.key) as Status);
+    };
+    const timer = setTimeout(() => addEventListener('mousedown', onDown), 0);
+    addEventListener('keydown', onKey);
+    return () => { clearTimeout(timer); removeEventListener('mousedown', onDown); removeEventListener('keydown', onKey); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose, data]);
 

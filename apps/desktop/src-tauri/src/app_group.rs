@@ -6,12 +6,21 @@
 
 use serde_json::Value;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static TMP_SEQ: AtomicU64 = AtomicU64::new(1);
 
 fn group_dir() -> Option<PathBuf> {
+    #[cfg(test)]
     if let Ok(d) = std::env::var("TIBI_APP_GROUP_DIR") {
         return Some(PathBuf::from(d));
     }
     platform::group_dir()
+}
+
+fn is_http_url(u: &str) -> bool {
+    let lower = u.to_ascii_lowercase();
+    lower.starts_with("http://") || lower.starts_with("https://")
 }
 
 /// 取走分享扩展放进来的网址（读完即删）
@@ -25,7 +34,7 @@ pub fn share_take_pending() -> Result<Vec<Value>, String> {
     for f in files {
         if let Ok(s) = std::fs::read_to_string(&f) {
             if let Ok(v) = serde_json::from_str::<Value>(&s) {
-                if v.get("url").and_then(|u| u.as_str()).is_some_and(|u| u.starts_with("http")) {
+                if v.get("url").and_then(|u| u.as_str()).is_some_and(is_http_url) {
                     out.push(v);
                 }
             }
@@ -40,9 +49,17 @@ pub fn share_take_pending() -> Result<Vec<Value>, String> {
 pub fn widget_write(snapshot: Value) -> Result<(), String> {
     let Some(dir) = group_dir() else { return Ok(()) };
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let tmp = dir.join("widget.json.tmp");
-    std::fs::write(&tmp, snapshot.to_string()).map_err(|e| e.to_string())?;
-    std::fs::rename(tmp, dir.join("widget.json")).map_err(|e| e.to_string())
+    let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    let tmp = dir.join(format!("widget.{}.{seq}.tmp", std::process::id()));
+    if let Err(e) = std::fs::write(&tmp, snapshot.to_string()) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e.to_string());
+    }
+    if let Err(e) = std::fs::rename(&tmp, dir.join("widget.json")) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e.to_string());
+    }
+    Ok(())
 }
 
 #[cfg(target_os = "ios")]

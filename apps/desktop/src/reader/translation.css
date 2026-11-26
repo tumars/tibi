@@ -1,4 +1,4 @@
-.translation-status { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 10px 22px; background: var(--paper); box-shadow: 0 1px 0 var(--line); color: var(--ink-2); font: 12px/1.5 var(--f-ui); overflow-anchor: none; }
+.translation-status { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 10px 22px; background: var(--paper, var(--surface)); box-shadow: 0 1px 0 var(--line); color: var(--ink-2); font: 12px/1.5 var(--f-ui); overflow-anchor: none; }
 .translation-status > svg { width: 17px; height: 17px; flex: none; color: var(--accent); }
 .translation-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .translation-copy strong, .translation-copy span { display: block; }

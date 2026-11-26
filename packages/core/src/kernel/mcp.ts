@@ -3,17 +3,16 @@ import { j, now, type Database } from '../db/driver.js';
 import { uuidv7 } from '../ids.js';
 import { method, type Ctx, type MethodMap } from '../rpc/define.js';
 import { TibiError } from '../types.js';
-import type { CapabilityRegistry } from './capabilities.js';
+import { INTERNAL_CAPABILITIES, type CapabilityRegistry } from './capabilities.js';
 import type { Turns } from './turns.js';
 
 /**
  * MCP Server 的 Core 一侧（06 §6、05 §8，M5）。外部 AI 工具经 `tibi-core --mcp` 代理连进来，调用都走这里：
- * - 工具 = 能力层（不含 run_skill / tool_search）；
+ * - 工具 = 能力层（不含 run_skill / tool_search / ask_user）；
  * - 读能力默认全开；写能力（write / confirm）要用户在设置里逐项打开（settings mcp.write_tools），打开后仍按权限模式审批；
  * - 写调用直接执行；要确认时在 Tibi 里弹审批（注明来自外部工具），等用户点，最多等 5 分钟，超时算没确认。
  */
 export interface McpTool { name: string; description: string; inputSchema: unknown; write: boolean }
-const SKIP = new Set(['run_skill', 'tool_search']);
 
 async function settings(db: Database): Promise<{ enabled: boolean; write: Set<string> }> {
   const rows = await db.all<{ key: string; value: string }>("SELECT key, value FROM settings WHERE key IN ('mcp.enabled', 'mcp.write_tools')");
@@ -24,7 +23,7 @@ async function settings(db: Database): Promise<{ enabled: boolean; write: Set<st
 function mcpTools(registry: CapabilityRegistry, write: Set<string>, all = false): McpTool[] {
   const out: McpTool[] = [];
   for (const c of registry.listForMcp()) {
-    if (SKIP.has(c.name)) continue;
+    if (INTERNAL_CAPABILITIES.has(c.name)) continue;
     const isWrite = c.perm !== 'read';
     if (isWrite && !all && !write.has(c.name)) continue;
     const def = registry.get(c.name)!;
@@ -41,15 +40,17 @@ export function makeMcpMethods(deps: { db: Database; registry: CapabilityRegistr
   /** 写调用：开一次不在对话里的运行，审批挂在它上面；超时就停掉 */
   const callWrite = async (name: string, args: unknown, client?: string) => {
     let out: { ok: true; value: unknown } | { ok: false; error: unknown } = { ok: false, error: new TibiError('busy', '没有执行') };
+    let timedOut = false;
     const id = uuidv7();
     turns.start({ id, client: client ?? '外部工具' }, async () => {
       try { out = { ok: true, value: await registry.call(name, args, deps.makeCtx({ origin: 'mcp', turn_id: id })) }; } catch (e) { out = { ok: false, error: e }; }
     });
-    const timer = setTimeout(() => void turns.cancel(id), MCP_APPROVAL_MS);
+    const timer = setTimeout(() => { timedOut = true; void turns.cancel(id); }, MCP_APPROVAL_MS);
+    (timer as { unref?: () => void }).unref?.();
     try { await turns.wait(id); } finally { clearTimeout(timer); }
     const r = out as { ok: true; value: unknown } | { ok: false; error: unknown };
     if (r.ok) return r.value;
-    if (r.error instanceof TibiError && r.error.code === 'busy') throw new TibiError('permission_denied', '用户没有在 Tibi 里确认');
+    if (timedOut && r.error instanceof TibiError && r.error.code === 'busy') throw new TibiError('permission_denied', '用户没有在 Tibi 里确认');
     throw r.error;
   };
   return {
@@ -67,7 +68,7 @@ export function makeMcpMethods(deps: { db: Database; registry: CapabilityRegistr
     'mcp.tools': method(Type.Object({}), async () => { const s = await settings(db); if (!s.enabled) throw new TibiError('permission_denied', 'Tibi 的 MCP 没有打开'); return mcpTools(registry, s.write); }, '代理用：tools/list'),
     'mcp.call': method(Type.Object({ name: Type.String(), args: Type.Optional(Type.Unknown()), client: Type.Optional(Type.String()) }), async (p) => {
       const s = await settings(db); if (!s.enabled) throw new TibiError('permission_denied', 'Tibi 的 MCP 没有打开');
-      if (SKIP.has(p.name)) throw new TibiError('permission_denied', `${p.name} 不对外开放`);
+      if (INTERNAL_CAPABILITIES.has(p.name)) throw new TibiError('permission_denied', `${p.name} 不对外开放`);
       const def = registry.get(p.name); if (!def) throw new TibiError('not_found', `没有这项能力：${p.name}`);
       if (def.mcp === false) throw new TibiError('permission_denied', `${p.name} 不对外开放`);
       if (def.perm === 'read') return registry.call(p.name, p.args ?? {}, deps.makeCtx({ origin: 'mcp' }));

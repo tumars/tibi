@@ -1,4 +1,4 @@
-import { Agent } from '@earendil-works/pi-agent-core';
+import { Agent, type StreamFn } from '@earendil-works/pi-agent-core';
 import type { AssistantMessage } from '@earendil-works/pi-ai';
 import { now } from '../db/driver.js';
 import type { Ctx } from '../rpc/define.js';
@@ -14,10 +14,28 @@ export interface CompleteOptions { tier?: Tier; provider_id?: string; system: st
 export interface CompleteResult { text: string; model: string; latency_ms: number }
 export type Resolver = (ctx: Ctx, tier: Tier, provider_id?: string) => Promise<ResolvedModel>;
 
+async function isLocalProvider(ctx: Ctx, tier: Tier, provider_id?: string): Promise<boolean> {
+  const row = provider_id
+    ? await ctx.db.get<{ protocol: string; base_url: string | null }>('SELECT protocol, base_url FROM providers WHERE id = ? AND deleted_at IS NULL', [provider_id])
+    : await ctx.db.get<{ protocol: string; base_url: string | null }>("SELECT protocol, base_url FROM providers WHERE kind = 'llm' AND deleted_at IS NULL AND (tier = ? OR is_default = 1) ORDER BY CASE WHEN tier = ? THEN 0 ELSE 1 END LIMIT 1", [tier, tier]);
+  if (!row) return false;
+  if (row.protocol === 'ollama') return true;
+  if (row.base_url) {
+    try { const h = new URL(row.base_url).hostname; return h === 'localhost' || h === '127.0.0.1' || h === '::1'; } catch { /* ignore */ }
+  }
+  return false;
+}
+
 export async function completeOnce(ctx: Ctx, resolve: Resolver, o: CompleteOptions): Promise<CompleteResult> {
-  if (!ctx.platform.isOnline()) throw new TibiError('offline', '现在没有网络');
-  const resolved = await resolve(ctx, o.tier ?? 'fast', o.provider_id);
-  const agent = new Agent({ initialState: { systemPrompt: o.system, model: resolved.model, tools: [], messages: [] }, streamFn: resolved.streamFn, getApiKey: () => resolved.apiKey });
+  if (o.signal?.aborted) throw new TibiError('busy', '已取消');
+  const tier = o.tier ?? 'fast';
+  if (!ctx.platform.isOnline() && !(await isLocalProvider(ctx, tier, o.provider_id))) throw new TibiError('offline', '现在没有网络');
+  const resolved = await resolve(ctx, tier, o.provider_id);
+  if (o.signal?.aborted) throw new TibiError('busy', '已取消');
+  const streamFn: StreamFn = o.max_tokens
+    ? (model, context, opts) => resolved.streamFn(model, context, { ...opts, maxTokens: o.max_tokens })
+    : resolved.streamFn;
+  const agent = new Agent({ initialState: { systemPrompt: o.system, model: resolved.model, tools: [], messages: [] }, streamFn, getApiKey: () => resolved.apiKey });
   const onAbort = () => agent.abort();
   o.signal?.addEventListener('abort', onAbort, { once: true });
   let msg: AssistantMessage | undefined;

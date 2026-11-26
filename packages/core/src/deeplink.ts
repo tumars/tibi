@@ -22,7 +22,8 @@ export function parseDeepLink(href: string): DeepLink | undefined {
   try { u = new URL(href); } catch { return undefined; }
   if (u.protocol !== 'tibi:') return undefined;
   // tibi://read/<id> 里 read 是 host；有的平台会把它解析进 pathname（tibi:read/<id>）
-  const parts = [u.host, ...u.pathname.split('/')].filter(Boolean).map(decodeURIComponent);
+  let parts: string[];
+  try { parts = [u.host, ...u.pathname.split('/')].filter(Boolean).map(decodeURIComponent); } catch { return undefined; }
   const [to, a, b] = parts;
   const q = u.searchParams;
   switch (to) {

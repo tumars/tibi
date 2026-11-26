@@ -67,5 +67,39 @@ export function isImeKey(e: KeyboardEvent) { return e.isComposing || e.keyCode =
 
 /** 单词发音、句子朗读：走设置里选的引擎（系统语音 / Kokoro，lib/tts） */
 export function speak(text: string) {
-  void import('./tts').then(t => t.say(text));
+  void import('./tts').then(t => t.say(text)).catch(() => undefined);
+}
+
+/** 听写：按词对齐（LCS），返回每个原词是否写对，和准确率 */
+export function alignWords(target: string, typed: string): { words: { w: string; ok: boolean }[]; accuracy: number } {
+  const splitNorm = (s: string) => s
+    .replace(/[\u2018\u2019]/g, "'")
+    .toLowerCase()
+    .replace(/[^a-z0-9'-]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(tok => tok && !/^['-]+$/.test(tok));
+  const raw = target.split(/\s+/).filter(Boolean);
+  const an: { idx: number; token: string }[] = [];
+  raw.forEach((w, idx) => { for (const token of splitNorm(w)) an.push({ idx, token }); });
+  const b = splitNorm(typed);
+  const dp = Array.from({ length: an.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  for (let i = an.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) dp[i]![j] = an[i]!.token === b[j] ? dp[i + 1]![j + 1]! + 1 : Math.max(dp[i + 1]![j]!, dp[i]![j + 1]!);
+  const rawCounts = new Map<number, number>();
+  const rawHits = new Map<number, number>();
+  an.forEach(t => rawCounts.set(t.idx, (rawCounts.get(t.idx) ?? 0) + 1));
+  let hitCount = 0;
+  let i = 0, j = 0;
+  while (i < an.length && j < b.length) {
+    if (an[i]!.token === b[j]) {
+      hitCount++;
+      rawHits.set(an[i]!.idx, (rawHits.get(an[i]!.idx) ?? 0) + 1);
+      i++; j++;
+    } else if (dp[i + 1]![j]! >= dp[i]![j + 1]!) i++; else j++;
+  }
+  const words = raw.map((w, k) => {
+    const total = rawCounts.get(k) ?? 0;
+    return { w, ok: total === 0 || (rawHits.get(k) ?? 0) === total };
+  });
+  return { words, accuracy: an.length ? Math.round((hitCount / an.length) * 100) : 0 };
 }

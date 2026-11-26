@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Fox } from '../components/Fox';
 import { tl } from '../lib/i18n';
 import { errorInfo, rpc } from '../rpc';
+import { AnalyticsItem } from '../settings/AnalyticsItem';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
 import { ModelPanel } from './Me';
@@ -50,6 +51,7 @@ export function Welcome() {
       <div style={{ display: 'flex', justifyContent: 'center' }}><Fox size={96} state="happy" /></div>
       <h2 style={{ textAlign: 'center' }}>{tl('你好，我是 Tibi。')}</h2>
       <p className="note2" style={{ textAlign: 'center', marginTop: 0 }}>{tl('读的时候点不认识的词，加进生词本，Tibi 会帮你复习。先放一篇示例给你。')}</p>
+      <AnalyticsItem firstRun />
       <button className="btn pri full" style={{ marginTop: 14 }} onClick={() => void start()}>{tl('开始')}</button>
       <p className="note2" style={{ textAlign: 'center' }}>{tl('电脑上已经在用 Tibi？开始后到 我 › 同步 连上同一个云盘。')}</p>
     </Sheet>

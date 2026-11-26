@@ -58,8 +58,8 @@ describe('同步场景（08 §11）', () => {
       expect(rows[0]!.folder).toBe('科技');
     }
     expect((await B.db.get<{ etag: string | null }>("SELECT etag FROM feeds WHERE url = 'https://ex.com/feed.xml'"))!.etag).toBeNull();
-    // 内置源（3 个文章源 + 5 个电台源）两边 ID 一样，不会多出来
-    expect(Number((await B.db.get<{ n: number }>('SELECT count(*) AS n FROM feeds WHERE builtin = 1 AND deleted_at IS NULL'))!.n)).toBe(8);
+    // 内置源（2 个文章源 + 2 个电台源）两边 ID 一样，不会多出来
+    expect(Number((await B.db.get<{ n: number }>('SELECT count(*) AS n FROM feeds WHERE builtin = 1 AND deleted_at IS NULL'))!.n)).toBe(4);
   });
 
   it('离线各改同一个词：不同字段都留下，同一字段后改的赢', async () => {
@@ -208,5 +208,103 @@ describe('同步场景（08 §11）', () => {
     expect([...files.keys()].some(k => /changes\/[^/]+\/base-/.test(k))).toBe(true);
     await D.eng.sync();
     expect((await term(D.db, 'parser'))?.meaning).toBe('离开期间改的');
+  });
+
+  it('标签跨设备大小写不敏感去重，不因 UNIQUE COLLATE NOCASE 崩溃', async () => {
+    const files = new Map<string, Uint8Array>();
+    const A = await device('A', files), B = await device('B', files);
+    await A.eng.enable({ device_name: 'A' }); await B.eng.enable({ device_name: 'B' });
+    const t = Date.now();
+    await A.db.run("INSERT INTO tags(id, name, created_at, updated_at) VALUES (?, 'Tech', ?, ?)", [uuidv7(t), t, t]);
+    await sleep(3);
+    await B.db.run("INSERT INTO tags(id, name, created_at, updated_at) VALUES (?, 'tech', ?, ?)", [uuidv7(t + 5), t + 5, t + 5]);
+    await A.eng.sync(); await B.eng.sync(); await A.eng.sync();
+    const ta = await A.db.all<{ id: string; name: string }>('SELECT id, name FROM tags');
+    const tb = await B.db.all<{ id: string; name: string }>('SELECT id, name FROM tags');
+    expect(ta).toHaveLength(1);
+    expect(tb).toHaveLength(1);
+    expect(ta[0]!.id).toBe(tb[0]!.id);
+  });
+
+  it('硬删除墓碑不被乱序旧 put 复活', async () => {
+    const files = new Map<string, Uint8Array>();
+    const A = await device('A', files), B = await device('B', files);
+    await A.eng.enable({ device_name: 'A' }); await B.eng.enable({ device_name: 'B' });
+    const t = Date.now();
+    await A.db.run("INSERT INTO settings(key, value, updated_at) VALUES ('review.daily_cap', '20', ?)", [t]);
+    await A.eng.sync(); await B.eng.sync();
+    // 离线：B 在更早时间改了这个设置，A 在更晚时间删掉了它
+    await B.db.run("UPDATE settings SET value = '30' WHERE key = 'review.daily_cap'");
+    await sleep(5);
+    await A.db.run("DELETE FROM settings WHERE key = 'review.daily_cap'");
+    // 先让 A 推删除到两台设备，再让 B 推更早的修改（乱序到达 A）
+    await A.eng.sync();
+    await B.eng.sync();
+    await A.eng.sync();
+    expect(await A.db.get("SELECT value FROM settings WHERE key = 'review.daily_cap'")).toBeUndefined();
+    expect(await B.db.get("SELECT value FROM settings WHERE key = 'review.daily_cap'")).toBeUndefined();
+  });
+
+  it('首次同步失败或停用期间的改动，重试或重新开启后会完整同步到另一台设备', async () => {
+    const files = new Map<string, Uint8Array>();
+    const inner = sync.memoryBackend(files);
+    let failDevices = true;
+    const flakyBackend = {
+      ...inner,
+      async list(prefix: string) {
+        if (failDevices && prefix === 'devices') throw new Error('network down');
+        return inner.list(prefix);
+      },
+    };
+    const A = await device('A', files, flakyBackend);
+    const B = await device('B', files);
+    const id = await A.importText();
+    await expect(A.eng.enable({ device_name: 'A' })).rejects.toThrow('network down');
+
+    // 首次失败之后继续编辑，再重试 enable
+    failDevices = false;
+    await A.core.call('documents.update', { id, patch: { tags: ['RetryTag'] } });
+    await A.eng.enable({ device_name: 'A' });
+    await B.eng.enable({ device_name: 'B' });
+    const docB1 = await B.db.get<{ tags_cnt: number }>('SELECT count(*) AS tags_cnt FROM document_tags WHERE document_id = ? AND deleted_at IS NULL', [id]);
+    expect(Number(docB1?.tags_cnt)).toBe(1);
+
+    // 停用不依赖后端且不影响停用前已同步的他端独立字段；重开后仍保留双端各自已同步状态
+    const ts0 = Date.now();
+    await A.db.run("INSERT INTO feeds(id, url, title, folder, created_at, updated_at) VALUES ('f-ind', 'https://ind.ex/rss', 'Init', 'Tech', ?, ?)", [ts0, ts0]);
+    await A.eng.sync(); await B.eng.sync();
+    await B.db.run("UPDATE feeds SET folder = 'B Folder', updated_at = ? WHERE id = 'f-ind'", [Date.now()]);
+    await B.eng.sync();
+    await A.eng.disable();
+    await A.eng.enable({ device_name: 'A' });
+    const feedA = await A.db.get<{ title: string; folder: string | null }>("SELECT title, folder FROM feeds WHERE id = 'f-ind'");
+    expect(feedA).toEqual({ title: 'Init', folder: 'B Folder' });
+  });
+
+  it('0011 裁剪本地未定制默认源后首次全量导出，不会隐藏另一台设备上已定制的同名默认源', async () => {
+    const files = new Map<string, Uint8Array>();
+    const A = await device('A', files), B = await device('B', files);
+    const t = Date.now();
+    // B 上把 builtin-pod-voa 恢复并定制了名字和分组；A 保持 0011 本地裁剪后的状态
+    await B.db.run("UPDATE feeds SET deleted_at = NULL, title = 'My Custom VOA', folder = 'Custom', updated_at = ? WHERE id = 'builtin-pod-voa'", [t]);
+    await B.eng.enable({ device_name: 'B' });
+    await A.eng.enable({ device_name: 'A' });
+    await B.eng.sync();
+    const bVoa = await B.db.get<{ title: string; folder: string | null; deleted_at: number | null }>("SELECT title, folder, deleted_at FROM feeds WHERE id = 'builtin-pod-voa'");
+    expect(bVoa).toEqual({ title: 'My Custom VOA', folder: 'Custom', deleted_at: null });
+
+    // A 拉取 B 的定制源复活后，若 A 停用、用户手动删除该源再加入新资料库，新的用户删除必须正常导出
+    await A.eng.sync();
+    await A.eng.disable();
+    const tDel = t + 5_000;
+    await A.db.run("UPDATE feeds SET deleted_at = ?, updated_at = ? WHERE id = 'builtin-pod-voa'", [tDel, tDel]);
+    const files2 = new Map<string, Uint8Array>();
+    const A2 = await device('A2', files2);
+    await A2.db.run("UPDATE feeds SET deleted_at = ?, updated_at = ? WHERE id = 'builtin-pod-voa'", [tDel, tDel]);
+    await A2.eng.enable({ device_name: 'A2' });
+    const C = await device('C', files2);
+    await C.eng.enable({ device_name: 'C' });
+    const cVoa = await C.db.get<{ deleted_at: number | null }>("SELECT deleted_at FROM feeds WHERE id = 'builtin-pod-voa'");
+    expect(cVoa?.deleted_at).toBe(tDel);
   });
 });

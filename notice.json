@@ -1,16 +1,16 @@
 {
   "notices": [
     {
-      "id": "release-0.2.0-macos",
+      "id": "release-0.2.1-macos",
       "message": {
-        "zh": "Tibi 0.2.0 已发布：新增「电台」播客听读与单句精听/盲听、本地离线 Whisper 语音转写与硅基流动一站式配置；全面升级全站设计系统、语义组件与文案规范。",
-        "en": "Tibi 0.2.0 is out: adds Podcast Radio with synced listen-and-read, free local offline Whisper transcription, one-step SiliconFlow setup, and a unified design system with refined UI copy across the app."
+        "zh": "Tibi 0.2.1 已发布：修复 macOS 播客本地音频播放偶发闪退，精简默认订阅与电台源，完善可选使用统计并在首次引导开放选择，同步优化多处稳定性与安全细节。",
+        "en": "Tibi 0.2.1 is out: fixes a macOS crash during local podcast audio playback, streamlines default feeds and podcasts, refines optional usage analytics with an onboarding choice, and improves stability and security across the app."
       },
       "platforms": [
         "macos"
       ],
-      "below": "0.2.0",
-      "until": "2026-12-25",
+      "below": "0.2.1",
+      "until": "2026-12-26",
       "url": "tibi://settings?sec=about",
       "label": {
         "zh": "去更新",

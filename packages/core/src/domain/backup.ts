@@ -1,4 +1,4 @@
-import type { Database } from '../db/driver.js';
+import { j, type Database } from '../db/driver.js';
 import type { BackupFile, Platform } from '../platform.js';
 import { TibiError } from '../types.js';
 
@@ -8,7 +8,7 @@ import { TibiError } from '../types.js';
  * 恢复要替换正在用的 app.db，由壳来做：停 Core → 换文件 → 重启（06 system.backups）。
  */
 const KEEP = 7;
-export const DAY = 24 * 3600_000;
+const DAY = 24 * 3600_000;
 export type BackupReason = 'auto' | 'manual' | 'before_reset' | 'before_restore' | 'before_update';
 
 function stamp(t: number) {
@@ -43,7 +43,7 @@ export async function backupNow(db: Database, platform: Platform, reason: Backup
 export async function maybeAutoBackup(db: Database, platform: Platform, at = Date.now()): Promise<boolean> {
   if (!platform.backups) return false;
   const row = await db.get<{ value: string }>("SELECT value FROM settings WHERE key = 'backup.auto'");
-  if (row && JSON.parse(row.value) === false) return false;
+  if (row && j.parse<boolean>(row.value, true) === false) return false;
   const last = (await listBackups(platform)).find(f => f.reason === 'auto');
   if (last && at - last.created_at < DAY) return false;
   await backupNow(db, platform, 'auto', at);

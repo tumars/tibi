@@ -16,11 +16,21 @@ const optionSchema = Type.Object({
   url: Type.Optional(Type.String({ maxLength: 2000, description: '这一项对应的文章链接（工具返回的原始链接）；用户选了它，导入时不用再确认' })),
 });
 
-interface Waiting { conversation_id: string; turn_id: string; block: WidgetBlock & { kind: 'ask' }; resolve(text: string): void }
+interface Waiting { conversation_id: string; turn_id: string; block: WidgetBlock & { kind: 'ask' }; resolve(text: string): void; cleanup: () => void }
 /** 等用户回答的卡片：卡片 ID → 那次工具调用 */
 const waiting = new Map<string, Waiting>();
 /** 用户在卡片上选过的网址：turn_id → 网址（子技能和主对话在同一轮里，共用一份） */
 const chosen = new Map<string, Set<string>>();
+
+/** 从本轮已见文本/JSON 中精确提取 http(s) URL token（防止子串前缀绕过） */
+function extractSeenUrls(seen: string[]): Set<string> {
+  const out = new Set<string>();
+  const re = /https?:\/\/[^\s"'<>\\）)]+/g;
+  for (const text of seen) {
+    for (const m of text.matchAll(re)) out.add(m[0]);
+  }
+  return out;
+}
 
 /** 这个网址是用户在这一轮的卡片上选的 */
 export function isChosen(turn_id: string | undefined, url: string): boolean { return !!turn_id && !!chosen.get(turn_id)?.has(url); }
@@ -39,10 +49,12 @@ export function askCapabilities(deps: { turns: Turns }): CapabilityMap {
         const run = deps.turns.get(ctx.caller.turn_id);
         const show = ctx.caller.turn_id ? presenters.get(ctx.caller.turn_id) : undefined;
         if (!run || !show) throw new TibiError('conflict', '这里没有对话，问不了用户。按最合理的方式继续，并在结果里说明');
+        if (run.signal.aborted) throw new TibiError('busy', '已取消');
+        const seenUrls = p.options.some(o => o.url) ? extractSeenUrls(run.seen) : undefined;
         const options: AskOption[] = [];
         for (const [i, o] of p.options.entries()) {
-          // 只能是这一轮真的查到的或用户自己给的网址，模型编的、网页里塞的改写都过不去
-          if (o.url && !run.seen.some(t => t.includes(o.url!))) throw new TibiError('invalid_params', `这个网址不在这次的查询结果里：${o.url}。只用工具返回的原始链接`);
+          // 只能是这一轮真的查到的或用户自己给的完整网址，模型编的、网页里塞的改写或前缀截断都过不去
+          if (o.url && !seenUrls!.has(o.url)) throw new TibiError('invalid_params', `这个网址不在这次的查询结果里：${o.url}。只用工具返回的原始链接`);
           options.push({ id: `o${i + 1}`, label: o.label, ...(o.description ? { description: o.description } : {}), ...(o.url ? { url: o.url } : {}) });
         }
         const data: AskData = { question: p.question, multi: !!p.multi, options, untrusted: run.tainted };
@@ -51,9 +63,12 @@ export function askCapabilities(deps: { turns: Turns }): CapabilityMap {
         const shown = show({ kind: 'ask', summary: `Tibi 问：${p.question} ${brief}`, data }, ctx.caller.depth ? undefined : ctx.caller.call_id);
         if (!shown) throw new TibiError('conflict', '卡片没能显示出来，按最合理的方式继续');
         const block = shown.block as Waiting['block'];
+        if (run.signal.aborted) { block.state = { expired: true } satisfies AskState; throw new TibiError('busy', '已取消'); }
         const answer = await new Promise<string>((resolve, reject) => {
-          waiting.set(block.id, { conversation_id: shown.conversation_id, turn_id: run.id, block, resolve });
-          run.signal.addEventListener('abort', () => { waiting.delete(block.id); block.state = { expired: true } satisfies AskState; reject(new TibiError('busy', '已取消')); }, { once: true });
+          const onAbort = () => { waiting.delete(block.id); block.state = { expired: true } satisfies AskState; reject(new TibiError('busy', '已取消')); };
+          const cleanup = () => run.signal.removeEventListener('abort', onAbort);
+          waiting.set(block.id, { conversation_id: shown.conversation_id, turn_id: run.id, block, resolve, cleanup });
+          run.signal.addEventListener('abort', onAbort, { once: true });
         });
         return { answer };
       },
@@ -72,6 +87,7 @@ export function answerAsk(p: { widget_id: string; option_ids: string[]; text?: s
   if (!picked.length && !text) throw new TibiError('invalid_params', '选一项或者写一句');
   if (picked.length > 1 && !data.multi) throw new TibiError('invalid_params', '这个问题只能选一项');
   waiting.delete(p.widget_id);
+  w.cleanup();
   const state: AskState = { answered: { option_ids: p.option_ids, ...(text ? { text } : {}), at: Date.now() } };
   w.block.state = state;
   w.block.result = askResultText(picked, text);

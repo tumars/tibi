@@ -5,7 +5,7 @@ import { Mascot } from '../components/Mascot';
 import { MetricDueIcon, MetricStreakIcon, MetricWordsIcon, SummaryHardIcon } from '../components/TibiIcons';
 import { InfoTip, SectionHeader } from '../components/ui';
 import { locale, tl } from '../lib/i18n';
-import { isImeKey } from '../lib/util';
+import { fmtAgo, isImeKey } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
@@ -15,13 +15,6 @@ type Data = Result<'review.overview'>;
 
 /** 一步约 20 秒；新词先初见再回忆，按 1.5 步算 */
 const estMinutes = (due: number, fresh: number) => Math.max(1, Math.round((due + fresh * 1.5) * 20 / 60));
-
-function ago(ts: number): string {
-  const m = Math.round((Date.now() - ts) / 60000);
-  if (m < 60) return tl('{m} 分钟前', { m: Math.max(1, m) });
-  const h = Math.round(m / 60);
-  return h < 24 ? tl('{h} 小时前', { h }) : tl('{d} 天前', { d: Math.round(h / 24) });
-}
 
 /**
  * 复习页面板（00 §3.3"复习页入口"）：进来先看今天要做什么、做到哪了，再决定开始；不建会话。
@@ -64,7 +57,7 @@ export function ReviewOverview() {
           <div className="m">
             <span className="k">{tl('复习做到一半')}</span>
             <b className="big">{tl('还剩 {n} 张', { n: d.open.left })}</b>
-            <span className="d">{tl('这一轮共 {total} 张 · 约 {m} 分钟 · {ago}停下的', { total: d.open.total, m: estMinutes(d.open.left, 0), ago: ago(d.open.updated_at) })}</span>
+            <span className="d">{tl('这一轮共 {total} 张 · 约 {m} 分钟 · {ago}停下的', { total: d.open.total, m: estMinutes(d.open.left, 0), ago: fmtAgo(d.open.updated_at) })}</span>
           </div>
           <div className="acts">
             <button className="btn" onClick={() => void restart()}>{tl('从头开始')}</button>

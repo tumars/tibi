@@ -1,5 +1,7 @@
 import type { Document, Sentence } from '@tibi/core';
 import { create } from 'zustand';
+import { trackUsage } from '../lib/analytics';
+import { tl } from '../lib/i18n';
 import { resolveMediaSrc } from '../lib/mediaSrc';
 import { rpc } from '../rpc';
 
@@ -65,28 +67,71 @@ const readRate = () => {
 let el: HTMLAudioElement | undefined;
 let gapTimer: ReturnType<typeof setTimeout> | undefined;
 let pausedByLookup = false;
+let lastSavedDocId: string | undefined;
 let lastSavedMs = -1;
 let lastSaveAt = 0;
 let lastSentenceIdForGap: string | undefined;
+let loadedSrc: string | undefined;
+let pendingSeekMs: number | undefined;
+let pendingAutoPlay = false;
+let recordedPlayback = false;
+const failedLocalSrcs = new Set<string>();
+
+function applySource(a: HTMLAudioElement, src: string, rate: number, seekMs?: number, autoPlay = false) {
+  loadedSrc = src;
+  pendingSeekMs = seekMs && seekMs > 0 ? seekMs : undefined;
+  pendingAutoPlay = autoPlay;
+  a.defaultPlaybackRate = rate;
+  a.playbackRate = rate;
+  a.src = src;
+}
 
 function audio(): HTMLAudioElement {
   if (el) return el;
   el = new Audio();
   el.preload = 'metadata';
-  el.playbackRate = readRate();
+  const initRate = readRate();
+  el.defaultPlaybackRate = initRate;
+  el.playbackRate = initRate;
 
-  el.addEventListener('loadstart', () => useAudio.setState({ loading: true, error: undefined }));
+  el.addEventListener('loadstart', () => {
+    if (!useAudio.getState().docId || !el?.getAttribute('src')) return;
+    useAudio.setState({ loading: pendingAutoPlay, error: undefined });
+  });
+  el.addEventListener('waiting', () => {
+    if (!useAudio.getState().docId || (el!.paused && !pendingAutoPlay)) return;
+    useAudio.setState({ loading: true });
+  });
+  el.addEventListener('playing', () => {
+    useAudio.setState({ playing: true, loading: false, error: undefined });
+    if (!recordedPlayback && useAudio.getState().docId) {
+      recordedPlayback = true;
+      trackUsage('podcast_played');
+    }
+  });
   el.addEventListener('canplay', () => useAudio.setState({ loading: false }));
   el.addEventListener('loadedmetadata', () => {
+    const st = useAudio.getState();
     const dur = Number.isFinite(el!.duration) && el!.duration > 0 ? Math.round(el!.duration * 1000) : 0;
     if (dur > 0) useAudio.setState({ durationMs: dur });
+    el!.defaultPlaybackRate = st.rate;
+    el!.playbackRate = st.rate;
+    if (pendingSeekMs !== undefined) {
+      const target = dur > 0 ? Math.min(dur, Math.max(0, pendingSeekMs)) : Math.max(0, pendingSeekMs);
+      pendingSeekMs = undefined;
+      try { el!.currentTime = target / 1000; } catch { /* */ }
+    }
+    if (pendingAutoPlay) {
+      pendingAutoPlay = false;
+      void el!.play().catch(e => useAudio.setState({ playing: false, loading: false, error: e instanceof Error ? e.message : tl('播放失败') }));
+    }
   });
   el.addEventListener('play', () => {
     clearGap();
     useAudio.setState({ playing: true, loading: false, error: undefined });
   });
   el.addEventListener('pause', () => {
-    useAudio.setState({ playing: false });
+    useAudio.setState({ playing: false, loading: false });
     savePlayback(true);
   });
   el.addEventListener('ended', () => {
@@ -99,15 +144,20 @@ function audio(): HTMLAudioElement {
     savePlayback(true);
   });
   el.addEventListener('error', () => {
+    // close() 清空 src 后可能触发空的 error 事件，直接忽略
+    if (!el?.getAttribute('src')) return;
     const st = useAudio.getState();
-    // 本地缓存打不开时自动回退到远程流式地址
-    if (st.mediaUrl && st.src !== st.mediaUrl) {
-      el!.src = st.mediaUrl;
+    if (!st.docId) return;
+    // 本地缓存打不开时记录失效源并自动回退到远程流式地址，保留原进度与播放意图
+    if (st.src && st.mediaUrl && st.src !== st.mediaUrl) {
+      failedLocalSrcs.add(st.src);
+      const shouldResume = st.playing || pendingAutoPlay;
       useAudio.setState({ src: st.mediaUrl, error: undefined, loading: true });
-      if (st.currentMs > 0) el!.currentTime = st.currentMs / 1000;
+      applySource(el, st.mediaUrl, st.rate, st.currentMs, shouldResume);
       return;
     }
-    useAudio.setState({ playing: false, loading: false, error: '音频暂时无法播放，请检查网络或稍后再试' });
+    pendingAutoPlay = false;
+    useAudio.setState({ playing: false, loading: false, error: tl('音频暂时无法播放，请检查网络或稍后再试') });
   });
   el.addEventListener('timeupdate', () => {
     const ms = Math.round(el!.currentTime * 1000);
@@ -175,12 +225,16 @@ function savePlayback(force: boolean) {
   const st = useAudio.getState();
   if (!st.docId) return;
   const nowMs = Date.now();
-  if (!force && (nowMs - lastSaveAt < 5000 || Math.abs(st.currentMs - lastSavedMs) < 1500)) return;
+  const rounded = Math.max(0, Math.round(st.currentMs));
+  // 切集 / 关闭时先显式强制存盘，紧接着 a.pause() 触发的 pause 事件不再重复发同一条 RPC
+  if (force && lastSavedDocId === st.docId && rounded === lastSavedMs && nowMs - lastSaveAt < 1000) return;
+  if (!force && (nowMs - lastSaveAt < 5000 || (lastSavedDocId === st.docId && Math.abs(rounded - lastSavedMs) < 1500))) return;
   lastSaveAt = nowMs;
-  lastSavedMs = st.currentMs;
+  lastSavedDocId = st.docId;
+  lastSavedMs = rounded;
   void rpc.call('documents.playback', {
     id: st.docId,
-    playback_ms: Math.max(0, Math.round(st.currentMs)),
+    playback_ms: rounded,
     ...(st.durationMs > 0 ? { duration_ms: Math.round(st.durationMs) } : {}),
   }).catch(() => undefined);
 }
@@ -228,7 +282,14 @@ export const useAudio = create<AudioState>((set, get) => ({
     if (doc.kind !== 'episode' || !doc.episode) return;
     const prev = get();
     const ep = doc.episode;
-    const nextSrc = resolveMediaSrc(ep.media_path, ep.media_url);
+    const localSrc = ep.media_path ? resolveMediaSrc(ep.media_path) : undefined;
+    // 同一集刚完成新的本地缓存下载时解除旧的失败标记，让修好的缓存能重新生效
+    if (prev.docId === doc.id && !prev.mediaPath && ep.media_path && localSrc) {
+      failedLocalSrcs.delete(localSrc);
+    }
+    const nextSrc = localSrc && !failedLocalSrcs.has(localSrc)
+      ? localSrc
+      : resolveMediaSrc(undefined, ep.media_url);
     const lines = sentences ? extractLines(sentences) : prev.docId === doc.id ? prev.lines : [];
 
     // 同一集（比如后台静默缓存刚刚完成，media_path 出现了）：不中断播放，仅刷新元数据与逐字稿
@@ -239,12 +300,10 @@ export const useAudio = create<AudioState>((set, get) => ({
         ...(ep.duration_ms && !prev.durationMs ? { durationMs: ep.duration_ms } : {}),
         ...(sentences ? { lines, activeSentenceId: findLineAt(lines, prev.currentMs)?.id } : {}),
       };
-      // 如果之前没源现在有了，或者当前暂停且刚拿到本地缓存，切到本地源
-      if (nextSrc && (!prev.src || (!prev.playing && ep.media_path && prev.src !== nextSrc))) {
+      // 如果之前没源现在有了，或者真正处于静止暂停态（非查词暂停、非句间停顿）且刚拿到本地缓存，再安全切到本地源
+      if (nextSrc && (!prev.src || (!prev.playing && !pausedByLookup && !gapTimer && ep.media_path && prev.src !== nextSrc))) {
         const a = audio();
-        a.src = nextSrc;
-        a.playbackRate = prev.rate;
-        if (prev.currentMs > 0) a.currentTime = prev.currentMs / 1000;
+        applySource(a, nextSrc, prev.rate, prev.currentMs, false);
         patch.src = nextSrc;
       }
       set(patch);
@@ -253,8 +312,12 @@ export const useAudio = create<AudioState>((set, get) => ({
 
     // 切到新一集：先把上一集进度存下来
     if (prev.docId) savePlayback(true);
+    recordedPlayback = false;
     clearGap();
     pausedByLookup = false;
+    pendingSeekMs = undefined;
+    pendingAutoPlay = false;
+    lastSavedDocId = doc.id;
     lastSavedMs = ep.playback_ms ?? 0;
     lastSentenceIdForGap = undefined;
 
@@ -262,18 +325,17 @@ export const useAudio = create<AudioState>((set, get) => ({
     a.pause();
     const startMs = Math.max(0, ep.playback_ms ?? 0);
     if (nextSrc) {
-      a.src = nextSrc;
-      a.playbackRate = prev.rate;
-      if (startMs > 0) {
-        const applyStart = () => { try { a.currentTime = startMs / 1000; } catch { /* */ } };
-        a.addEventListener('loadedmetadata', applyStart, { once: true });
-      }
+      applySource(a, nextSrc, prev.rate, startMs, false);
+    } else {
+      loadedSrc = undefined;
+      a.removeAttribute('src');
+      a.load();
     }
     const active = findLineAt(lines, startMs);
     set({
       docId: doc.id, title: doc.title, author: doc.author, cover: doc.cover_path,
       mediaPath: ep.media_path, mediaUrl: ep.media_url, src: nextSrc,
-      playing: false, loading: false, error: nextSrc ? undefined : '没有可用的音频地址',
+      playing: false, loading: false, error: nextSrc ? undefined : tl('没有可用的音频地址'),
       currentMs: startMs, durationMs: ep.duration_ms ?? 0,
       lines, activeSentenceId: active?.id, loopSentenceId: undefined, abLoop: {}, revealedIds: [],
     });
@@ -291,14 +353,21 @@ export const useAudio = create<AudioState>((set, get) => ({
     const st = get();
     if (!st.src) return;
     const a = audio();
-    if (a.src !== st.src && !a.currentSrc) a.src = st.src;
+    if (loadedSrc !== st.src) {
+      set({ loading: true, error: undefined });
+      applySource(a, st.src, st.rate, st.currentMs, true);
+      return;
+    }
+    a.defaultPlaybackRate = st.rate;
     a.playbackRate = st.rate;
-    void a.play().catch(e => set({ playing: false, error: e instanceof Error ? e.message : '播放失败' }));
+    if (a.readyState < 3) set({ loading: true });
+    void a.play().catch(e => set({ playing: false, loading: false, error: e instanceof Error ? e.message : tl('播放失败') }));
   },
 
   pause() {
     clearGap();
     pausedByLookup = false;
+    pendingAutoPlay = false;
     audio().pause();
   },
 
@@ -311,7 +380,12 @@ export const useAudio = create<AudioState>((set, get) => ({
     const st = get();
     const clamped = Math.max(0, st.durationMs > 0 ? Math.min(st.durationMs, ms) : ms);
     const a = audio();
-    try { a.currentTime = clamped / 1000; } catch { /* metadata 未就绪 */ }
+    if (a.readyState >= 1) {
+      pendingSeekMs = undefined;
+      try { a.currentTime = clamped / 1000; } catch { pendingSeekMs = clamped; }
+    } else {
+      pendingSeekMs = clamped;
+    }
     const active = findLineAt(st.lines, clamped);
     lastSentenceIdForGap = active?.id;
     set({ currentMs: clamped, activeSentenceId: active?.id });
@@ -348,7 +422,9 @@ export const useAudio = create<AudioState>((set, get) => ({
 
   setRate(rate) {
     const clamped = Math.max(0.5, Math.min(2.5, Math.round(rate * 100) / 100));
-    audio().playbackRate = clamped;
+    const a = audio();
+    a.defaultPlaybackRate = clamped;
+    a.playbackRate = clamped;
     try { localStorage.setItem(RATE_KEY, String(clamped)); } catch { /* */ }
     set({ rate: clamped });
   },
@@ -389,7 +465,7 @@ export const useAudio = create<AudioState>((set, get) => ({
   },
 
   pauseForLookup() {
-    if (get().playing) {
+    if (get().playing || gapTimer !== undefined) {
       pausedByLookup = true;
       clearGap();
       audio().pause();
@@ -408,9 +484,14 @@ export const useAudio = create<AudioState>((set, get) => ({
     savePlayback(true);
     clearGap();
     pausedByLookup = false;
+    pendingSeekMs = undefined;
+    pendingAutoPlay = false;
+    loadedSrc = undefined;
     const a = audio();
     a.pause();
     a.removeAttribute('src');
-    set({ docId: undefined, title: '', author: undefined, cover: undefined, src: undefined, playing: false, loading: false, error: undefined, currentMs: 0, durationMs: 0, lines: [], activeSentenceId: undefined, loopSentenceId: undefined, abLoop: {}, revealedIds: [] });
+    // 通知媒体元素立即释放底层解码器并中止在途 Range 请求
+    a.load();
+    set({ docId: undefined, title: '', author: undefined, cover: undefined, mediaPath: undefined, mediaUrl: undefined, src: undefined, playing: false, loading: false, error: undefined, currentMs: 0, durationMs: 0, lines: [], activeSentenceId: undefined, loopSentenceId: undefined, abLoop: {}, revealedIds: [] });
   },
 }));

@@ -60,10 +60,8 @@ Tibi 的核心主张是「读你感兴趣的英文文章，顺便把英语学会
 **订阅与导入入口**：
 1. **搜播客（零门槛）**：点击「+ 加电台」默认提供搜索框，调用 Apple **iTunes Search API**（免费、免 Key），展示封面、节目名、作者与集数，一键订阅。
 2. **粘贴链接自动发现**：支持 Podcast RSS URL、Apple Podcasts 页面链接（`podcasts.apple.com/.../id...` → iTunes Lookup 反查 `feedUrl`）、节目官网链接（走 `discoverInHtml`）以及 OPML 导入导出。
-3. **内置精选英文电台种子**（用户可随时删，删后不再种回，规则同 `0009_builtin_feeds.sql`；优先挑选带官方字幕或语速清晰的节目）：
-   - 入门 / 慢速（A2–B1）：*BBC 6 Minute English*、*VOA Learning English*
-   - 商业 / 科普（B2）：*NPR Planet Money*、*The Indicator from Planet Money*、*TED Talks Daily*
-   - 科技 / 开发者（B2–C1）：*Syntax.fm*、*The Changelog*
+3. **内置精选英文电台种子**（用户可随时删，删后不再种回，规则同 `0009_builtin_feeds.sql`；迁移 `0011_prune_builtin_feeds.sql` 后仅保留通用且持续更新的节目）：
+   - 通用精听 / 口语：*BBC 6 Minute English*、*BBC The English We Speak*（其余兴趣节目可通过「搜索播客」或链接一键添加）
 4. **本地音频导入**：首页大输入框 / 书架支持拖入 `.mp3` / `.m4a` / `.wav` / `.ogg` 文件（并允许附带同目录或手动选择的 `.vtt` / `.srt` 字幕文件），走同一条听读流水线。
 
 ### 2.3 听读一体化阅读器

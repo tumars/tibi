@@ -2,8 +2,9 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AWS_S3_CONFIG_INI, buildAwsEnv, validateCosConfig } from '../admin/cos.mjs';
 import { parseNotices } from '../apps/desktop/src/lib/notice-schema.ts';
 import { verifyMacAppArchive } from '../packages/core-node/scripts/sidecar-verify.mjs';
 
@@ -15,30 +16,25 @@ const [mode, dist, tag] = process.argv.slice(2);
 if ((mode !== 'release' && mode !== 'notice') || (mode === 'release' && (!dist || !tag))) {
   throw new Error('用法：node tools/publish-cos.mjs release <产物目录> <v版本号> | notice');
 }
-const base = (process.env.BASE_URL || 'https://dl.ferecord.com').replace(/\/+$/, '');
-if (new URL(base).protocol !== 'https:') throw new Error('BASE_URL 必须是 https');
-for (const key of ['BUCKET', 'S3_ENDPOINT', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_DEFAULT_REGION']) {
-  if (!process.env[key]) throw new Error(`缺少 ${key}，见 docs/dev/tencent-distribution.md`);
-}
-const bucket = `s3://${process.env.BUCKET}`;
+const { bucket: bucketName, endpoint, base } = validateCosConfig(process.env, '见 docs/dev/tencent-distribution.md');
+const bucket = `s3://${bucketName}`;
 const out = mkdtempSync(join(tmpdir(), 'tibi-cos-'));
 // 只配置这个进程，避免修改开发机的全局 AWS 配置。小分片、单并发减少跨境上传停滞。
 const config = join(out, 'aws-config');
-writeFileSync(config, '[default]\ns3 =\n  addressing_style = virtual\n  max_concurrent_requests = 1\n  multipart_chunksize = 5MB\n');
-const env = {
-  ...process.env,
-  AWS_CONFIG_FILE: config,
-  AWS_RETRY_MODE: 'standard',
-  AWS_MAX_ATTEMPTS: '5',
-  AWS_REQUEST_CHECKSUM_CALCULATION: 'when_required',
-  AWS_RESPONSE_CHECKSUM_VALIDATION: 'when_required',
-};
+writeFileSync(config, AWS_S3_CONFIG_INI);
+const env = buildAwsEnv(process.env, config);
+const aliasContentType = name =>
+  name.endsWith('.dmg') ? 'application/x-apple-diskimage' :
+  name.endsWith('.exe') ? 'application/vnd.microsoft.portable-executable' :
+  name.endsWith('.tar.gz') || name.endsWith('.tgz') ? 'application/gzip' :
+  name.endsWith('.zip') ? 'application/zip' :
+  'application/octet-stream';
 function run(command, args) {
   const r = spawnSync(command, args, { cwd: root, env, stdio: 'inherit' });
   if (r.error) throw r.error;
   if (r.status !== 0) throw new Error(`${command} 执行失败（${r.status}），未继续发布`);
 }
-const s3 = (...args) => run('aws', ['s3', '--endpoint-url', process.env.S3_ENDPOINT, ...args, '--no-progress']);
+const s3 = (...args) => run('aws', ['s3', '--endpoint-url', endpoint, ...args, '--no-progress']);
 async function readPublic(path, method = 'GET') {
   const r = await fetch(`${base}/${path}`, { method, cache: 'no-store', signal: AbortSignal.timeout(30_000) });
   if (!r.ok) throw new Error(`公开地址 ${path} 返回 ${r.status}`);
@@ -47,10 +43,12 @@ async function readPublic(path, method = 'GET') {
 try {
   run('aws', ['--version']);
   if (mode === 'notice') {
-    // 与客户端共用现有测试校验公告所有字段，不只检查 JSON 语法。
-    run('pnpm', ['exec', 'vitest', 'run', 'apps/desktop/test/notice.test.ts']);
     // 管理台发布保存后的快照，避免上传过程中本机草稿被编辑。
     const notice = dist || join(root, 'notice.json');
+    if (resolve(notice) === resolve(root, 'notice.json')) {
+      // 发布仓库内公告时，顺带用客户端现有测试校验所有字段。
+      run('pnpm', ['exec', 'vitest', 'run', 'apps/desktop/test/notice.test.ts']);
+    }
     parseNotices(JSON.parse(readFileSync(notice, 'utf8')));
     s3('cp', notice, `${bucket}/notice.json`, '--cache-control', 'no-cache', '--content-type', 'application/json');
     if (await (await readPublic('notice.json')).text() !== readFileSync(notice, 'utf8')) throw new Error('线上 notice.json 与本地不一致');
@@ -72,7 +70,7 @@ try {
     const aliases = readFileSync(join(out, 'aliases.tsv'), 'utf8').trim();
     for (const line of aliases ? aliases.split('\n') : []) {
       const [file, alias] = line.split('\t');
-      s3('cp', `${bucket}/${tag}/${file}`, `${bucket}/latest/${alias}`, '--cache-control', 'no-cache', '--metadata-directive', 'REPLACE');
+      s3('cp', `${bucket}/${tag}/${file}`, `${bucket}/latest/${alias}`, '--cache-control', 'no-cache', '--metadata-directive', 'REPLACE', '--content-type', aliasContentType(alias));
     }
     s3('cp', join(out, 'SHA256SUMS-latest.txt'), `${bucket}/latest/SHA256SUMS.txt`, '--cache-control', 'no-cache');
     // 安装包和更新包都能公开读取后，最后切换更新指针；失败时旧版本仍可用。

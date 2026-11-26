@@ -2,7 +2,7 @@
 // 最终商店签名后，仍需通过完整 App 验证沙盒继承。
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -11,32 +11,19 @@ const app = resolve(process.argv[2]);
 const binary = join(app, 'Contents/MacOS/tibi-core');
 const resources = join(app, 'Contents/Resources');
 const dir = mkdtempSync(join(tmpdir(), 'tibi-mas-smoke-'));
-const intl = execFileSync(binary, ['-e', `
-  const assert = (v) => { if (!v) throw new Error('ICU regression'); };
-  assert(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Singapore', year: 'numeric' }).format(new Date('2026-01-01')) === '2026');
-  assert(new Intl.NumberFormat('en-US').format(1234.5) === '1,234.5');
-  assert(new Intl.NumberFormat('en-US').formatRange(1, 3).includes('3'));
-  assert(new Intl.Collator('en').compare('a', 'b') < 0);
-  assert([...new Intl.Segmenter('en', { granularity: 'word' }).segment('Hello world')].length === 3);
-  assert(new Intl.PluralRules('en').select(1) === 'one');
-  assert(new Intl.RelativeTimeFormat('en').format(-1, 'day') === '1 day ago');
-  assert(new Intl.ListFormat('en').format(['A', 'B']).includes('and'));
-  assert(new Intl.DisplayNames('en', { type: 'region' }).of('US') === 'United States');
-  assert(new Intl.Locale('zh').maximize().script === 'Hans');
-  assert('e\\u0301'.normalize('NFC') === 'é');
-  console.log('ICU: date, timezone, number/range, collation, segmentation, plurals, relative time, lists, locale, normalization OK');
-`], { encoding: 'utf8', env: { ...process.env, BUN_BE_BUN: '1' }, timeout: 30_000 });
-console.log(intl.trim());
 
 async function start() {
   const child = spawn(binary, ['--stdio', '--no-mcp', '--db', join(dir, 'app.db'), '--dict', join(resources, 'dict.db')], {
-    env: { ...process.env, TIBI_RESOURCE_DIR: resources }, stdio: ['pipe', 'pipe', 'inherit'],
+    env: { ...process.env, TIBI_RESOURCE_DIR: join(resources, 'ocr') }, stdio: ['pipe', 'pipe', 'inherit'],
   });
   let id = 0;
   const pending = new Map();
   const lines = createInterface({ input: child.stdout });
   lines.on('line', line => {
-    const message = JSON.parse(line);
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    let message;
+    try { message = JSON.parse(trimmed); } catch { return; }
     if (message.method === 'secret.get') child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: message.id, result: {} }) + '\n');
     const task = pending.get(message.id);
     if (task) { clearTimeout(task.timer); pending.delete(message.id); message.error ? task.reject(new Error(JSON.stringify(message.error))) : task.resolve(message.result); }
@@ -53,8 +40,27 @@ async function start() {
   });
   return { call, stop: () => { child.stdin.end(); lines.close(); child.kill(); } };
 }
-let core = await start();
+
+let core;
 try {
+  const intl = execFileSync(binary, ['-e', `
+    const assert = (v) => { if (!v) throw new Error('ICU regression'); };
+    assert(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Singapore', year: 'numeric' }).format(new Date('2026-01-01')) === '2026');
+    assert(new Intl.NumberFormat('en-US').format(1234.5) === '1,234.5');
+    assert(new Intl.NumberFormat('en-US').formatRange(1, 3).includes('3'));
+    assert(new Intl.Collator('en').compare('a', 'b') < 0);
+    assert([...new Intl.Segmenter('en', { granularity: 'word' }).segment('Hello world')].length === 3);
+    assert(new Intl.PluralRules('en').select(1) === 'one');
+    assert(new Intl.RelativeTimeFormat('en').format(-1, 'day') === '1 day ago');
+    assert(new Intl.ListFormat('en').format(['A', 'B']).includes('and'));
+    assert(new Intl.DisplayNames('en', { type: 'region' }).of('US') === 'United States');
+    assert(new Intl.Locale('zh').maximize().script === 'Hans');
+    assert('e\\u0301'.normalize('NFC') === 'é');
+    console.log('ICU: date, timezone, number/range, collation, segmentation, plurals, relative time, lists, locale, normalization OK');
+  `], { encoding: 'utf8', env: { ...process.env, BUN_BE_BUN: '1' }, timeout: 30_000 });
+  console.log(intl.trim());
+
+  core = await start();
   assert.equal((await core.call('system.status')).db_path, join(dir, 'app.db'));
   const entry = await core.call('dict.entry', { word: 'compiler' });
   assert.equal(entry.entry.word, 'compiler');
@@ -74,5 +80,8 @@ try {
   core.stop();
   core = await start();
   assert.ok((await core.call('documents.list')).items.some(item => item.id === documentId));
-  console.log(`Core: startup, dictionary, import/read, search, backup, restart persistence OK (${dir})`);
-} finally { core.stop(); }
+  console.log('Core: startup, dictionary, import/read, search, backup, restart persistence OK');
+} finally {
+  core?.stop();
+  rmSync(dir, { recursive: true, force: true });
+}

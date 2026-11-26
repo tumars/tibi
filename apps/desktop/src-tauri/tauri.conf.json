@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Tibi",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "identifier": "app.tibi",
   "build": {
     "beforeDevCommand": "pnpm web",
@@ -25,13 +25,13 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob: https:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost https://huggingface.co https://*.huggingface.co https://*.hf.co https://modelscope.cn https://*.modelscope.cn https://cdn.jsdelivr.net https://api-js.mixpanel.com; worker-src 'self' blob:; media-src 'self' asset: http://asset.localhost blob: https: http:; object-src 'none'; base-uri 'self'; form-action 'none'",
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob: https: http:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost https://huggingface.co https://*.huggingface.co https://*.hf.co https://modelscope.cn https://*.modelscope.cn https://cdn.jsdelivr.net https://api-js.mixpanel.com; worker-src 'self' blob:; media-src 'self' asset: http://asset.localhost blob: https: http:; object-src 'none'; base-uri 'self'; form-action 'none'",
       "devCsp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' http://localhost:1420; style-src 'self' 'unsafe-inline' http://localhost:1420; img-src 'self' asset: http://asset.localhost data: blob: https: http://localhost:1420; font-src 'self' data: http://localhost:1420; connect-src ipc: http://ipc.localhost asset: http://asset.localhost ws://localhost:1420 http://localhost:1420 ws://127.0.0.1:3456 http://127.0.0.1:3456 https://huggingface.co https://*.huggingface.co https://*.hf.co https://modelscope.cn https://*.modelscope.cn https://cdn.jsdelivr.net https://api-js.mixpanel.com; worker-src 'self' blob:; media-src 'self' asset: http://asset.localhost blob: https: http: http://127.0.0.1:3456; object-src 'none'",
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$APPDATA/**",
-          "$RESOURCE/**"
+          "$APPDATA/assets/**",
+          "$APPDATA/media/**"
         ]
       }
     }

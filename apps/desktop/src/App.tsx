@@ -17,12 +17,15 @@ import { Words } from './pages/Words';
 import { isTauri, rpc } from './rpc';
 import { bindCoreEvents, useCore } from './store/core';
 import { toast } from './store/ui';
+import { trackUsage } from './lib/analytics';
 import { lang, tl } from './lib/i18n';
 import { startDesktopReminder, type ReminderTime } from './lib/reminder';
 import { autoCheckOn, startAutoUpdateCheck } from './lib/update';
 import { presentNotice, startNoticeCheck } from './lib/notice';
 import { installMacNative, isMacDesktop } from './lib/macNative';
 import { openDeepLink } from './lib/deeplink';
+import { listenSafe } from './lib/tauriEvents';
+import { syncTtsFromSettings } from './lib/ttsConfig';
 import { DEFAULT_TRAY_HOTKEY } from './tray/classify';
 
 export function App() {
@@ -52,9 +55,8 @@ export function App() {
     };
     syncTraySettings();
     const offSettings = rpc.on('data.changed', d => { if (d.table === 'settings') syncTraySettings(); });
-    let offNav: (() => void) | undefined;
-    void import('@tauri-apps/api/event').then(({ listen }) => listen<{ route?: string | null; ask?: string | null }>('tray_navigate', async e => {
-      const { route, ask } = e.payload ?? {};
+    const offNav = listenSafe<{ route?: string | null; ask?: string | null }>('tray_navigate', async payload => {
+      const { route, ask } = payload ?? {};
       if (ask) {
         try {
           const c = await rpc.call('chat.open', {});
@@ -65,8 +67,8 @@ export function App() {
         return;
       }
       if (route) navRef.current(route);
-    })).then(off => { offNav = off; });
-    return () => { offSettings(); offNav?.(); };
+    });
+    return () => { offSettings(); offNav(); };
   }, []);
   // 每日提醒（J8）：应用开着（含托盘里）时到点提醒
   useEffect(() => {
@@ -77,46 +79,53 @@ export function App() {
     return () => { off(); stop(); };
   }, []);
   // 软件更新（T31）：自动检查默认开，关掉就不联网；只提醒，装不装用户定。公告跟着同一个开关
-  useEffect(() => startAutoUpdateCheck(v => toast(tl('Tibi {v0} 可以更新了', { v0: v }), { ms: 15_000, action: { label: tl('去看看'), run: () => nav('/settings?sec=about&item=检查更新') } })), [nav]);
+  useEffect(() => startAutoUpdateCheck(v => toast(tl('Tibi {v0} 可以更新了', { v0: v }), { ms: 15_000, action: { label: tl('去看看'), run: () => navRef.current('/settings?sec=about&item=检查更新') } })), []);
   useEffect(() => startNoticeCheck(presentNotice, autoCheckOn), []);
   useEffect(() => {
     bindCoreEvents();
     // 朗读设置（tts.*）与本地离线转写设置（radio.local_asr.*）
-    const loadTts = () => void rpc.call('settings.get', { keys: ['tts.engine', 'tts.voice', 'tts.ai_voice', 'tts.rate'] }).then(s => void import('./lib/tts').then(t => t.configure({ engine: (s['tts.engine'] as 'system' | 'kokoro') ?? 'system', voice: (s['tts.voice'] as string) ?? '', aiVoice: (s['tts.ai_voice'] as string) || undefined, rate: Number(s['tts.rate'] ?? 1) || 1 })), () => undefined);
     const loadLocalAsr = () => void import('./lib/localAsr').then(m => m.hydrateLocalAsrConfig(true)).catch(() => undefined);
-    loadTts();
+    void syncTtsFromSettings();
     loadLocalAsr();
     // Tibi 或别的设备改了语速 / 设置，马上生效
-    const offTts = rpc.on('data.changed', d => { if (d.table === 'settings') { loadTts(); loadLocalAsr(); } });
+    const offTts = rpc.on('data.changed', d => { if (d.table === 'settings') { void syncTtsFromSettings(); loadLocalAsr(); } });
     // 第一次打开（没走过引导、书架是空的）进首次启动引导，其中有连接模型一步；已有文章的老库直接记为走过（00 §3.9）
     void useCore.getState().refresh().then(async () => {
       const st = useCore.getState(); if (!st.connected) return;
       const s = await rpc.call('settings.get', { keys: [ONBOARDING_KEY] }).catch(() => ({} as Record<string, unknown>));
-      // 走过引导但还没连模型：每次打开先问一次（可以"先不连"）；只在首页问，不打断深链和刷新。nav 随路由变，这段会重跑，所以记一下问过没有
+      // 走过引导但还没连模型：每次打开先问一次（可以"先不连"）；只在首页问，不打断深链和刷新
       const first = !modelAsked.current; modelAsked.current = true;
-      const askModel = () => { if (first && !st.status?.models.ok && /^#?\/?$/.test(location.hash)) nav('/welcome?step=3&from=home', { replace: true }); };
+      const askModel = () => { if (first && !st.status?.models.ok && /^#?\/?$/.test(location.hash)) navRef.current('/welcome?step=3&from=home', { replace: true }); };
       if (s[ONBOARDING_KEY]) { askModel(); return; }
       if (st.docCount > 0) { void rpc.call('settings.set', { patch: { [ONBOARDING_KEY]: true } }); askModel(); return; }
-      if (!location.hash.startsWith('#/welcome')) nav('/welcome', { replace: true });
+      if (!location.hash.startsWith('#/welcome') && !location.hash.includes('import=')) navRef.current('/welcome', { replace: true });
     });
     const offDone = rpc.on('import.done', r => {
+      if (r.ok && r.document_id && !r.duplicate) trackUsage('import_succeeded');
       // 对话里起的导入：进度和结果在对话的导入卡上，这里不提示
       if (r.origin === 'chat') return;
       // 导入失败：错误在发起的地方显示（首页进度条）；这里只提示成功
       if (!r.ok) { if (r.origin !== 'mcp' && !location.hash.startsWith('#/welcome')) toast(r.error || tl('导入失败'), { kind: 'err' }); return; }
       // 已经打开了这篇（如点示例后自动跳进阅读器）就不再提示"开始阅读"
-      if (r.document_id) setTimeout(() => { if (!location.hash.includes(`/read/${r.document_id}`) && !location.hash.startsWith('#/welcome')) toast(r.summary || tl('导入完成'), { action: { label: tl('开始阅读'), run: () => nav(`/read/${r.document_id}`) } }); }, 80);
+      if (r.document_id) setTimeout(() => { if (!location.hash.includes(`/read/${r.document_id}`) && !location.hash.startsWith('#/welcome')) toast(r.summary || tl('导入完成'), { action: { label: tl('开始阅读'), run: () => navRef.current(`/read/${r.document_id}`) } }); }, 80);
     });
-    // 深链（Rust 发 deep_link 事件）：tibi://import?url=… 确认后导入；其余 tibi:// 和对话卡片上的按钮一样跳转
-    let offDeep: (() => void) | undefined;
-    if (isTauri()) {
-      void import('@tauri-apps/api/event').then(({ listen }) => listen<{ action: string; url: string }>('deep_link', e => {
-        if (e.payload.action === 'import') nav(`/?import=${encodeURIComponent(e.payload.url)}`);
-        else if (e.payload.action === 'open') openDeepLink(e.payload.url);
-      })).then(off => { offDeep = off; });
-    }
-    return () => { offTts(); offDone(); offDeep?.(); };
-  }, [nav]);
+    // 深链（Rust 发 deep_link 事件；冷启动时可能早于 WebView 监听，补拉一次待消费队列）：tibi://import?url=… 确认后导入；其余 tibi:// 按白名单跳转
+    const handleDeep = (payload: { action: string; url: string }) => {
+      if (payload.action === 'import') navRef.current(`/?import=${encodeURIComponent(payload.url)}`);
+      else if (payload.action === 'open') openDeepLink(payload.url);
+    };
+    const offDeep = listenSafe<{ action: string; url: string }>('deep_link', handleDeep, () => {
+      void import('@tauri-apps/api/core')
+        .then(c => c.invoke<{ action: string; url: string }[]>('take_pending_deep_links'))
+        .then(list => { for (const p of list) handleDeep(p); })
+        .catch(() => undefined);
+    });
+    const onUnload = () => {
+      if (isTauri()) void import('@tauri-apps/api/core').then(c => c.invoke('reset_deep_link_ready')).catch(() => undefined);
+    };
+    window.addEventListener('beforeunload', onUnload);
+    return () => { offTts(); offDone(); offDeep(); window.removeEventListener('beforeunload', onUnload); };
+  }, []);
 
   return (
     <>

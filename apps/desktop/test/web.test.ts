@@ -32,7 +32,7 @@ describe('Web 版的数据库（sqlite-wasm，Worker 命令和手机壳同名）
   it('迁移、导入、搜索、事务回滚、BLOB 都能走通', async () => {
     const { db, dict } = await openLocalDbs(await wasmShell());
     expect(dict).toBeDefined();   // 词典总是"有"，下载完之前查词等着、没有时查不到
-    expect((await db.get<{ user_version: number }>('PRAGMA user_version'))?.user_version).toBe(10);
+    expect((await db.get<{ user_version: number }>('PRAGMA user_version'))?.user_version).toBe(11);
     const { core } = await assembleCore({ db, platform: fakePlatform(), device: 'desktop', resume: false });
     const { import_id } = await core.call<{ import_id: string }>('documents.import', { source: { type: 'text', text: 'The compiler enforces a small set of rules.\n\nA parser builds a syntax tree.' } });
     expect((await documents.importDone(import_id))?.ok).toBe(true);

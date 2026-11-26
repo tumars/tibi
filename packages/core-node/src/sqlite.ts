@@ -1,5 +1,5 @@
 import type BetterSqlite3 from 'better-sqlite3';
-import { Database, migrate, MIGRATIONS, PRAGMAS, type Driver, type Migration, type Row, type SqlParams } from '@tibi/core';
+import { Database, initAppDb, MIGRATIONS, type Driver, type Migration, type Row, type SqlParams } from '@tibi/core';
 
 /**
  * Node 运行时的驱动：better-sqlite3（同步 API 包成 Core 要的异步接口）。
@@ -33,21 +33,20 @@ export class BetterSqliteDriver implements Driver {
 export function loadMigrations(): Migration[] { return MIGRATIONS; }
 
 /** 打开（或新建）app.db：设 PRAGMA、跑迁移 */
-export async function openAppDb(path: string): Promise<Database> {
-  const db = new Database(await BetterSqliteDriver.open(path));
-  for (const p of PRAGMAS) await db.exec(p);
-  await migrate(db, loadMigrations());
-  return db;
+export async function openAppDb(path: string, opts?: { seedProfile?: boolean }): Promise<Database> {
+  return initAppDb(await BetterSqliteDriver.open(path), { migrations: loadMigrations(), seedProfile: opts?.seedProfile });
 }
 
 /** 只读打开 dict.db；不存在或是空文件（没有 stardict 表）时返回 undefined（查词降级为"无词典"） */
 export async function openDictDb(path: string | undefined): Promise<Database | undefined> {
   if (!path) return undefined;
+  let db: Database | undefined;
   try {
-    const db = new Database(await BetterSqliteDriver.open(path, { readonly: true, fileMustExist: true }));
+    db = new Database(await BetterSqliteDriver.open(path, { readonly: true, fileMustExist: true }));
     await db.get('SELECT 1 FROM stardict LIMIT 1');
     return db;
   } catch {
+    await db?.close().catch(() => undefined);
     return undefined;
   }
 }

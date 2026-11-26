@@ -29,18 +29,29 @@ export interface Driver {
  */
 export class Database {
   private chain: Promise<unknown> = Promise.resolve();
+  /** 指向最外层非事务句柄，供事务内安排的后台任务取回外层锁 */
+  readonly root: Database;
 
-  constructor(public readonly driver: Driver, private readonly inTx = false) {}
+  constructor(public readonly driver: Driver, private readonly inTx = false, root?: Database) {
+    this.root = root ?? this;
+  }
 
-  exec(sql: string) { return this.driver.exec(sql); }
-  run(sql: string, params?: SqlParams) { return this.driver.run(sql, params); }
-  all<T extends Row = Row>(sql: string, params?: SqlParams) { return this.driver.all<T>(sql, params); }
-  get<T extends Row = Row>(sql: string, params?: SqlParams) { return this.driver.get<T>(sql, params); }
+  private enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.inTx) return fn();
+    const p = this.chain.then(fn, fn);
+    this.chain = p.catch(() => undefined);
+    return p;
+  }
+
+  exec(sql: string) { return this.enqueue(() => this.driver.exec(sql)); }
+  run(sql: string, params?: SqlParams) { return this.enqueue(() => this.driver.run(sql, params)); }
+  all<T extends Row = Row>(sql: string, params?: SqlParams) { return this.enqueue(() => this.driver.all<T>(sql, params)); }
+  get<T extends Row = Row>(sql: string, params?: SqlParams) { return this.enqueue(() => this.driver.get<T>(sql, params)); }
 
   async transaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {
     if (this.inTx) return fn(this);
-    const tx = new Database(this.driver, true);
-    const run = async () => {
+    const tx = new Database(this.driver, true, this.root);
+    return this.enqueue(async () => {
       await this.driver.exec('BEGIN IMMEDIATE');
       try {
         const out = await fn(tx);
@@ -50,13 +61,10 @@ export class Database {
         try { await this.driver.exec('ROLLBACK'); } catch { /* 已回滚 */ }
         throw e;
       }
-    };
-    const p = this.chain.then(run, run);
-    this.chain = p.catch(() => undefined);
-    return p;
+    });
   }
 
-  close() { return this.driver.close(); }
+  close() { return this.enqueue(() => this.driver.close()); }
 }
 
 export const now = () => Date.now();

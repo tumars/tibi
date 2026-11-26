@@ -2,9 +2,10 @@ import type { Document, SectionContent, Sentence, Status, Term, Undo } from '@ti
 import { MoreHorizontal, Sparkles } from 'lucide-react';
 import { useEffect, useImperativeHandle, useRef, useState, type Ref, type RefObject } from 'react';
 import { ContextMenu, type ContextItem, type MenuPosition } from '../components/ContextMenu';
+import { copyText, openSource } from '../lib/contextActions';
 import { tl } from '../lib/i18n';
 import { isMacDesktop } from '../lib/macNative';
-import { errorInfo, isTauri, rpc } from '../rpc';
+import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { contextTarget, selectionTarget, type ReaderTarget, type WordTarget } from './contextTarget';
 import type { Mode } from './Section';
@@ -112,12 +113,8 @@ export function ReaderMenu(props: Props) {
     };
   }, [props.root, props.active, props.doc.id, props.content.id]);
 
-  const copy = async (text: string) => { try { await navigator.clipboard.writeText(text); toast(tl('已复制')); } catch { toast(tl('没能复制'), { kind: 'err' }); } };
-  const source = async (url: string) => {
-    if (!/^https?:\/\//i.test(url)) return;
-    if (isTauri()) { const { openUrl } = await import('@tauri-apps/plugin-opener'); await openUrl(url); }
-    else window.open(url, '_blank', 'noopener,noreferrer');
-  };
+  const copy = (text: string) => copyText(text);
+  const source = (url: string) => openSource(url);
   const ask = (target: ReaderTarget) => {
     if (!('text' in target)) return;
     const sentence = 'sentence' in target ? target.sentence : undefined;

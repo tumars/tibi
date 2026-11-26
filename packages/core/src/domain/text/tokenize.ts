@@ -37,9 +37,7 @@ export function isAcronym(t: string): boolean {
   return /^[A-Z]{2,}s?$/.test(t);
 }
 
-/** 词的规范形式（lemma 之前先做的大小写处理）：句首大写转小写；全大写缩写保留；其余保留原样再小写 */
-export function normalizeCase(t: string, atSentenceStart: boolean): string {
-  if (isAcronym(t)) return t;
-  if (atSentenceStart || /^[A-Z][a-z]/.test(t)) return t.toLowerCase();
-  return t.toLowerCase();
+/** 词的规范形式（lemma 之前先做的大小写处理）：全大写缩写保留，其余转小写 */
+export function normalizeCase(t: string, _atSentenceStart: boolean): string {
+  return isAcronym(t) ? t : t.toLowerCase();
 }

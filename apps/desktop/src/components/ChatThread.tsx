@@ -13,10 +13,11 @@ import { SelectAsk } from './SelectAsk';
 import { TibiAvatar } from './TibiIcons';
 import { Blocks } from './Widgets';
 import { useChat, type ChatContext } from '../lib/useChat';
-import { errorInfo, isMobileUi, isTauri, rpc } from '../rpc';
+import { errorInfo, isMobileUi, rpc } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
 import { copyText } from '../lib/contextActions';
+import { openExternalSafe } from '../lib/external';
 import { ObjectMenuButton, useObjectMenu } from './ObjectMenu';
 
 /**
@@ -29,12 +30,6 @@ export interface Pending { key: string; text: string; context?: ChatContext; ski
 
 interface Queued { id: string; text: string; skill?: string; model?: string }
 
-/** 在系统浏览器里打开；浏览器模式（开发）新开标签页 */
-async function openLink(url: string) {
-  if (!isTauri()) { window.open(url, '_blank', 'noopener'); return; }
-  const { openUrl } = await import('@tauri-apps/plugin-opener');
-  await openUrl(url).catch(err => toast(String(err), { kind: 'err' }));
-}
 const queues = new Map<string, Queued[]>();
 // 阅读页未连模型的问题要跨“去连接 → 返回”保留，但不会自动补发。
 const drafts = new Map<string, { text: string; context?: ChatContext }>();
@@ -74,7 +69,12 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
   const sendingQueued = useRef(false);
   // 翻出更早的消息后留在原来读的位置：新内容提交到页面时、绘制之前补上高度差
   const heightBefore = useRef<number | undefined>(undefined);
-  const older = () => { heightBefore.current = scroll.current?.scrollHeight; void loadOlder(); };
+  const older = () => {
+    heightBefore.current = scroll.current?.scrollHeight;
+    void loadOlder().finally(() => {
+      requestAnimationFrame(() => { heightBefore.current = undefined; });
+    });
+  };
   useLayoutEffect(() => {
     const el = scroll.current; const h = heightBefore.current;
     if (!el || h === undefined || el.scrollHeight === h) return;
@@ -109,13 +109,16 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
 
   const slash = useSlashMenu(text, focus, a => { setAction(a); setText(''); ta.current?.focus(); });
   const enqueue = (t: string, sk?: string) => { setQueue([...queue, { id: `${Date.now()}`, text: t, skill: sk, model }]); setText(''); setAction(undefined); };
-  const sendQueued = async (q: Queued) => {
+  const sendQueued = useCallback(async (q: Queued) => {
     if (sendingQueued.current) return;
     sendingQueued.current = true;
-    setQueue(queue.filter(x => x.id !== q.id));
-    await send(q.text, undefined, q.skill, q.model);
-    sendingQueued.current = false;
-  };
+    try {
+      setQueue((queues.get(conversationId) ?? []).filter(x => x.id !== q.id));
+      await send(q.text, undefined, q.skill, q.model);
+    } finally {
+      sendingQueued.current = false;
+    }
+  }, [conversationId, setQueue, send]);
   const submit = async () => {
     const t = text.trim();
     const typed = action ? { action, rest: t } : parseSlash(t, slash.actions);
@@ -156,7 +159,9 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
   useEffect(() => { if (speaking?.key.startsWith('msg:') && !msgs.some(m => `msg:${m.id}` === speaking.key)) stopSpeaking(); }, [msgs, speaking]);
   // 上一句正常答完才接着发；停止或出错时留着，让用户决定
   const stuck = !!visible[visible.length - 1]?.interrupted;
-  useEffect(() => { if (ready && queue[0] && !running && !live.length && !stuck) void sendQueued(queue[0]); });
+  useEffect(() => {
+    if (ready && queue[0] && !running && !live.length && !stuck) void sendQueued(queue[0]);
+  }, [ready, queue, running, live.length, stuck, sendQueued]);
   const regenerate = async (i: number) => {
     const q = visible.slice(0, i).reverse().find(m => m.role === 'user');
     if (!q) return;
@@ -204,7 +209,7 @@ export function ChatThread({ conversationId, skill, context, pending, placeholde
           if (!a) return;
           e.preventDefault();
           if (e.metaKey || e.ctrlKey) { importInChat(a.href); return; }
-          void openLink(a.href);
+          void openExternalSafe(a.href);
         }}>
           {cursor && <button className="linkbtn loadolder" onClick={older}>{tl('加载更早的消息')}</button>}
           {visible.map((m, i) => m.role === 'user'

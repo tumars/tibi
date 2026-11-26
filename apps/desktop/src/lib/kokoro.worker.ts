@@ -19,6 +19,7 @@ const post = (m: Out, transfer: Transferable[] = []) => (self as unknown as Dedi
 
 let model: Promise<Model> | undefined;
 let Split: new () => Splitter;
+let mirrorInstalled = false;
 function load(): Promise<Model> {
   if (!model) {
     model = (async () => {
@@ -30,7 +31,10 @@ function load(): Promise<Model> {
       ]);
       env.wasmPaths = { mjs, wasm } as unknown as string;
       Split = TextSplitterStream;
-      globalThis.fetch = withKokoroMirror(globalThis.fetch.bind(globalThis));
+      if (!mirrorInstalled) {
+        mirrorInstalled = true;
+        globalThis.fetch = withKokoroMirror(globalThis.fetch.bind(globalThis));
+      }
       const files = new Map<string, [number, number]>();
       return KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
         dtype: 'q8', device: 'wasm',
@@ -49,6 +53,7 @@ let queue: Promise<void> = Promise.resolve();
 async function gen(id: number, text: string, voice: string, speed: number) {
   if (cancelled.delete(id)) return post({ type: 'done', id });
   const m = await load();
+  if (cancelled.delete(id)) return post({ type: 'done', id });
   // 按句子切开（kokoro-js 自带的分句）：第一句合成完就能先出声，长段落也不会被截断（一次最多约 510 个音素）
   // 直接传字符串时 kokoro-js 不 close 分句器，最后一句永远等不到；自己建一个推完就关
   const split = new Split(); split.push(text); split.close();

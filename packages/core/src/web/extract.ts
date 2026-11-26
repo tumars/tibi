@@ -32,8 +32,9 @@ export async function extractBuffer(name: string, buf: Uint8Array, deps: Extract
 /* ---------- EPUB ---------- */
 const xmlOf = (parse: HtmlParser) => (text: string) => parse(`<root>${text.replace(/<\?xml[^>]*>/, '')}</root>`);
 const dirOf = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '');
+const safeDecode = (s: string) => { try { return decodeURIComponent(s); } catch { return s; } };
 function resolve(base: string, href: string) {
-  const parts = (dirOf(base) + decodeURIComponent(href.split('#')[0]!)).split('/'); const out: string[] = [];
+  const parts = (dirOf(base) + safeDecode(href.split('#')[0]!)).split('/'); const out: string[] = [];
   for (const p of parts) { if (p === '..') out.pop(); else if (p && p !== '.') out.push(p); }
   return out.join('/');
 }
@@ -88,7 +89,7 @@ export async function extractEpub(buf: Uint8Array, deps: ExtractDeps): Promise<E
   const names = new Map<string, string>(); const anchors = new Map<string, { id: string; name: string }[]>(); const wholeFiles = new Set<string>();
   const toc = (base: string, h: string, label: string) => {
     const k = resolve(base, h); if (!names.has(k)) names.set(k, label);
-    const frag = h.split('#')[1]; if (!frag) wholeFiles.add(k); else { const a = anchors.get(k) ?? []; a.push({ id: decodeURIComponent(frag), name: label }); anchors.set(k, a); }
+    const frag = h.split('#')[1]; if (!frag) wholeFiles.add(k); else { const a = anchors.get(k) ?? []; a.push({ id: safeDecode(frag), name: label }); anchors.set(k, a); }
   };
   const nav = [...manifest.values()].find(m => m.props.includes('nav'));
   if (nav) for (const a of xml(text(nav.href)).querySelectorAll('nav a')) { const h = a.getAttribute('href'); if (h) toc(nav.href, h, a.textContent?.trim() ?? ''); }
@@ -192,54 +193,58 @@ export async function extractPdf(buf: Uint8Array, deps: ExtractDeps): Promise<Ex
   if (!deps.pdfjs) throw new Error('这个版本不能导入 PDF');
   const pdfjs = await deps.pdfjs();
   const doc = await pdfjs.getDocument({ data: buf, useSystemFonts: false, isEvalSupported: false, disableFontFace: true, verbosity: 0 }).promise;
-  const info = (await doc.getMetadata().catch(() => undefined))?.info as { Title?: string; Author?: string } | undefined;
-  const pages: string[] = []; let empty = 0;
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i);
-    const tc = await page.getTextContent();
-    // 按 y 分行，行距明显变大或行首缩进时分段
-    const lines: { y: number; x: number; h: number; s: string }[] = [];
-    for (const it of tc.items as { str: string; transform: number[]; height: number; hasEOL?: boolean }[]) {
-      const y = Math.round(it.transform[5]!); const x = it.transform[4]!;
-      const last = lines[lines.length - 1];
-      if (last && Math.abs(last.y - y) < 3) last.s += (last.s.endsWith(' ') || it.str.startsWith(' ') ? '' : ' ') + it.str;
-      else lines.push({ y, x, h: it.height || 10, s: it.str });
+  try {
+    const info = (await doc.getMetadata().catch(() => undefined))?.info as { Title?: string; Author?: string } | undefined;
+    const pages: string[] = []; let empty = 0;
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const tc = await page.getTextContent();
+      // 按 y 分行，行距明显变大或行首缩进时分段
+      const lines: { y: number; x: number; h: number; s: string }[] = [];
+      for (const it of tc.items as { str?: string; transform?: number[]; height?: number; hasEOL?: boolean }[]) {
+        if (!it || typeof it.str !== 'string' || !Array.isArray(it.transform) || it.transform.length < 6) continue;
+        const y = Math.round(it.transform[5]!); const x = it.transform[4]!;
+        const last = lines[lines.length - 1];
+        if (last && Math.abs(last.y - y) < 3) last.s += (last.s.endsWith(' ') || it.str.startsWith(' ') ? '' : ' ') + it.str;
+        else lines.push({ y, x, h: it.height || 10, s: it.str });
+      }
+      const paras: string[] = []; let cur = '';
+      for (let k = 0; k < lines.length; k++) {
+        const l = lines[k]!; const prev = lines[k - 1];
+        const gap = prev ? prev.y - l.y : 0;
+        if (prev && (gap > prev.h * 1.7 || gap < 0)) { if (cur.trim()) paras.push(cur.trim()); cur = ''; }
+        const t = l.s.trim(); if (!t) continue;
+        cur = cur.endsWith('-') && /^[a-z]/.test(t) ? cur.slice(0, -1) + t : cur ? `${cur} ${t}` : t;   // 行尾连字符断词拼回去
+      }
+      if (cur.trim()) paras.push(cur.trim());
+      const pageText = paras.filter(p => !/^\d{1,4}$/.test(p)).join('\n\n');   // 去掉单独的页码
+      if (pageText.replace(/\s/g, '').length < 30) empty++;
+      pages.push(pageText);
+      page.cleanup();
     }
-    const paras: string[] = []; let cur = '';
-    for (let k = 0; k < lines.length; k++) {
-      const l = lines[k]!; const prev = lines[k - 1];
-      const gap = prev ? prev.y - l.y : 0;
-      if (prev && (gap > prev.h * 1.7 || gap < 0)) { if (cur.trim()) paras.push(cur.trim()); cur = ''; }
-      const t = l.s.trim(); if (!t) continue;
-      cur = cur.endsWith('-') && /^[a-z]/.test(t) ? cur.slice(0, -1) + t : cur ? `${cur} ${t}` : t;   // 行尾连字符断词拼回去
+    const needs_ocr = doc.numPages > 0 && empty / doc.numPages > 0.6;
+    // 有目录且页数多：按目录第一层分章
+    let markdown = pages.join('\n\n'); let kind: 'article' | 'book' = 'article';
+    const outline = await doc.getOutline().catch(() => null);
+    if (outline && outline.length >= 3 && doc.numPages > 20) {
+      const starts: { title: string; page: number }[] = [];
+      for (const o of outline) {
+        try {
+          const dest = typeof o.dest === 'string' ? await doc.getDestination(o.dest) : o.dest;
+          if (dest && dest[0]) { const idx = await doc.getPageIndex(dest[0] as never); starts.push({ title: o.title.trim(), page: idx }); }
+        } catch { /* 坏目录项 */ }
+      }
+      starts.sort((a, b) => a.page - b.page);
+      if (starts.length >= 3) {
+        kind = 'book';
+        const pre = pages.slice(0, starts[0]!.page).join('\n\n').trim();
+        markdown = (pre ? `# ${info?.Title || '前言'}\n\n${pre}\n\n` : '') + starts.map((s, i) => `# ${s.title}\n\n${pages.slice(s.page, starts[i + 1]?.page ?? pages.length).join('\n\n')}`).join('\n\n');
+      }
     }
-    if (cur.trim()) paras.push(cur.trim());
-    const pageText = paras.filter(p => !/^\d{1,4}$/.test(p)).join('\n\n');   // 去掉单独的页码
-    if (pageText.replace(/\s/g, '').length < 30) empty++;
-    pages.push(pageText);
-    page.cleanup();
+    return { title: info?.Title?.trim() || undefined, author: info?.Author?.trim() || undefined, markdown, kind, needs_ocr, pages: pages.length };
+  } finally {
+    await doc.destroy();
   }
-  const needs_ocr = doc.numPages > 0 && empty / doc.numPages > 0.6;
-  // 有目录且页数多：按目录第一层分章
-  let markdown = pages.join('\n\n'); let kind: 'article' | 'book' = 'article';
-  const outline = await doc.getOutline().catch(() => null);
-  if (outline && outline.length >= 3 && doc.numPages > 20) {
-    const starts: { title: string; page: number }[] = [];
-    for (const o of outline) {
-      try {
-        const dest = typeof o.dest === 'string' ? await doc.getDestination(o.dest) : o.dest;
-        if (dest && dest[0]) { const idx = await doc.getPageIndex(dest[0] as never); starts.push({ title: o.title.trim(), page: idx }); }
-      } catch { /* 坏目录项 */ }
-    }
-    starts.sort((a, b) => a.page - b.page);
-    if (starts.length >= 3) {
-      kind = 'book';
-      const pre = pages.slice(0, starts[0]!.page).join('\n\n').trim();
-      markdown = (pre ? `# ${info?.Title || '前言'}\n\n${pre}\n\n` : '') + starts.map((s, i) => `# ${s.title}\n\n${pages.slice(s.page, starts[i + 1]?.page ?? pages.length).join('\n\n')}`).join('\n\n');
-    }
-  }
-  await doc.destroy();
-  return { title: info?.Title?.trim() || undefined, author: info?.Author?.trim() || undefined, markdown, kind, needs_ocr, pages: pages.length };
 }
 
 /* ---------- DOCX ---------- */

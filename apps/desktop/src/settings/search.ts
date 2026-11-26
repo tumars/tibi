@@ -8,7 +8,7 @@ export const SETTINGS: { label: string; sec: string; kw: string }[] = [
   { label: 'Tibi 怎么称呼你', sec: 'general', kw: '昵称 名字 nickname name' },
   { label: '关闭窗口时留在菜单栏', sec: 'general', kw: '菜单栏 托盘 后台 menubar tray keep running' },
   { label: '快速查词快捷键', sec: 'general', kw: '快捷键 全局 查词 菜单栏 hotkey shortcut quick lookup menubar' },
-  { label: '权限模式', sec: 'general', kw: '审批 确认 自动 permission' },
+  { label: '权限模式', sec: 'advanced', kw: '审批 确认 自动 permission' },
   { label: '系统朗读', sec: 'general', kw: '朗读 语音 发音 音色 tts voice' },
   { label: 'AI 朗读', sec: 'general', kw: '朗读 语音 发音 音色 kokoro tts voice' },
   { label: '默认朗读方式', sec: 'general', kw: '朗读引擎 语音 快捷键 自动播放 tts engine default' },

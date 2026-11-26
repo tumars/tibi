@@ -1,6 +1,6 @@
 import type { Document, EpisodeChapter, PreVocabItem, SpokenExpression } from '@tibi/core';
 import { ArrowUpRight, ListMusic, Play, Sparkles, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Mascot } from '../components/Mascot';
 import { SummaryAdviceIcon, SummaryHardIcon, SummaryLevelIcon, SummaryOverviewIcon, SummaryPhrasesIcon, TibiAvatar } from '../components/TibiIcons';
@@ -39,6 +39,7 @@ export function SummaryPanel({ doc, onClose, onPhrase, onSeek }: { doc: Document
   const modelOk = useCore(st => !!st.status?.models.ok);
   const nav = useNavigate();
   const [busy, setBusy] = useState(false);
+  useEffect(() => { if (doc.ai_status !== 'running') setBusy(false); }, [doc.id, doc.ai_status]);
   const running = busy || doc.ai_status === 'running';
   const level = cefrInfo(doc.level);
   const panelTitle = isEp ? tl('导听') : tl('总结');
@@ -46,7 +47,14 @@ export function SummaryPanel({ doc, onClose, onPhrase, onSeek }: { doc: Document
   const generate = async () => {
     if (!modelOk) { nav(`/welcome?step=3&back=${encodeURIComponent(location.hash.slice(1) || '/')}`); return; }
     setBusy(true);
-    try { await rpc.call('documents.analyze', { id: doc.id }); toast(isEp ? tl('正在生成导听与章节，好了会自动出现') : tl('正在生成总结，好了会自动出现')); } catch (e) { setBusy(false); toast(errorInfo(e).message, { kind: 'err' }); }
+    try {
+      await rpc.call('documents.analyze', { id: doc.id });
+      toast(isEp ? tl('正在生成导听与章节，好了会自动出现') : tl('正在生成总结，好了会自动出现'));
+    } catch (e) {
+      toast(errorInfo(e).message, { kind: 'err' });
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

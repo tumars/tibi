@@ -3,6 +3,7 @@ import { ArrowUp, BookmarkPlus, BookOpenCheck, Captions, CircleCheck, Cpu, Eye, 
 import { NavDictIcon, NavWordsIcon, SummaryOverviewIcon, TibiAvatar } from '../components/TibiIcons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { CoverArt } from '../components/CoverArt';
 import { DocSource } from '../components/DocSource';
 import { Empty } from '../components/Empty';
 import { Modal } from '../components/Modal';
@@ -24,6 +25,7 @@ import { EpisodePlayer } from '../reader/EpisodePlayer';
 import { SectionView } from '../reader/Section';
 import { TranslationStatus } from '../reader/TranslationStatus';
 import { useTranslation } from '../reader/useTranslation';
+import { useReaderUsage } from '../reader/useReaderUsage';
 import { DictPanel } from '../reader/DictPanel';
 import { WordsPanel } from '../reader/WordsPanel';
 import { SummaryPanel } from '../reader/SummaryPanel';
@@ -46,6 +48,7 @@ export function Reader() {
   const [doc, setDoc] = useState<Document>();
   const [content, setContent] = useState<SectionContent>();
   const [err, setErr] = useState<string>();
+  useReaderUsage(id, !!doc && doc.id === id && content?.document_id === id && !err);
   const mode = useUi(s => s.readerMode); const setMode = useUi(s => s.setReaderMode);
   const panelWidth = useUi(s => s.panelWidth); const setPanelWidth = useUi(s => s.setPanelWidth);
   const [resizing, setResizing] = useState(false);
@@ -81,8 +84,18 @@ export function Reader() {
 
   const sectionId = section ?? doc?.sections[0]?.id;
 
+  const prevDocId = useRef<string | undefined>(undefined);
+  const prevSecId = useRef<string | undefined>(undefined);
+
   useEffect(() => {
     let alive = true; setErr(undefined); restored.current = false;
+    if (prevDocId.current !== id) {
+      prevDocId.current = id;
+      prevSecId.current = undefined;
+      setDoc(undefined);
+      setContent(undefined);
+      setCard(undefined);
+    }
     const get = () => rpc.call('documents.get', { id: id! }).then(d => { if (alive) setDoc(d); }, e => { if (alive) setErr(errorInfo(e).message); });
     void get();
     // 后台生成的总结（现在生成、重新生成）好了就刷新
@@ -91,9 +104,13 @@ export function Reader() {
   }, [id]);
   useEffect(() => {
     if (!sectionId) return;
-    let alive = true; restored.current = false;   // 切章后按这一章的进度重新定位：各章进度在文章里，连文章一起重取（切走的那章刚存了位置）
+    let alive = true; restored.current = false;
+    // 切章时重新拉一次文档以同步上一章刚存的进度；首次进入时上面 useEffect([id]) 已拉过 documents.get，不重复请求
+    const switchedChapter = !!prevSecId.current && prevSecId.current !== sectionId;
+    prevSecId.current = sectionId;
     let refresh = 0;
-    Promise.all([rpc.call('sections.get', { id: sectionId, with: ['translations'] }), id ? rpc.call('documents.get', { id }) : undefined])
+    let termsTimer: ReturnType<typeof setTimeout> | undefined;
+    Promise.all([rpc.call('sections.get', { id: sectionId, with: ['translations'] }), switchedChapter && id ? rpc.call('documents.get', { id }) : undefined])
       .then(([c, d]) => { if (alive) { if (d) setDoc(d); if (refresh === 0) setContent(c); setOverrides(new Map()); } }, e => { if (alive && refresh === 0) setErr(errorInfo(e).message); });
     const reload = () => {
       const version = ++refresh;
@@ -104,11 +121,14 @@ export function Reader() {
       if (d.table === 'sentences' && d.ids?.includes(sectionId)) reload();
       // 刚导入、还在分词标注时就打开：句子还没有 tokens；标注做完文章会变，再取一次
       else if (d.table === 'documents' && d.ids?.includes(id!)) reload();
-      // 词卡上标了词：覆盖状态只管着色，行间释义要重新取（刚标的词加载时还没有记录，不带释义）
-      else if (d.table === 'terms') reload();
+      // 词卡上标了词：防抖刷新行间释义，避免批量标词高频触发全章重载
+      else if (d.table === 'terms') {
+        if (termsTimer) clearTimeout(termsTimer);
+        termsTimer = setTimeout(() => { termsTimer = undefined; reload(); }, 200);
+      }
     });
-    return () => { alive = false; off(); };
-  }, [sectionId]);
+    return () => { alive = false; if (termsTimer) clearTimeout(termsTimer); off(); };
+  }, [sectionId, id]);
 
   // R16：打开直接回到上次位置；"回到开头"常驻
   useEffect(() => {
@@ -156,6 +176,17 @@ export function Reader() {
     if (doc?.kind === 'episode') useAudio.getState().pauseForLookup();
     setCard({ word, lemma, sentence, s, anchor: (ev.currentTarget as HTMLElement).getBoundingClientRect(), right: scrollRef.current?.getBoundingClientRect().right });
   }, [doc?.kind]);
+
+  const onSentenceMenu = useCallback((sentence: Sentence, element: HTMLElement) => {
+    readerMenu.current?.sentence(sentence, element);
+  }, []);
+  const onSeekSentence = useCallback((s: Sentence) => {
+    useAudio.getState().playSentence(s.id, true);
+  }, []);
+  const onRevealSentence = useCallback((sid: string) => {
+    useAudio.getState().revealSentence(sid);
+  }, []);
+  const selectedToken = useMemo(() => (card ? { sentence: card.sentence.id, s: card.s } : undefined), [card]);
 
   const closeCard = useCallback(() => {
     setCard(undefined);
@@ -333,7 +364,7 @@ export function Reader() {
             <DocSource d={doc} />
           </div>
           <div className="ep-title-row">
-            {isEpisode && doc.cover_path && <img className="ep-head-art" src={doc.cover_path} alt="" referrerPolicy="no-referrer" onError={e => { e.currentTarget.style.display = 'none'; }} />}
+            {isEpisode && doc.cover_path && <div className="ep-head-art"><CoverArt src={doc.cover_path} size={24} /></div>}
             <h1>{doc.sections.length > 1 && sec?.title ? sec.title : doc.title}</h1>
           </div>
           {isEpisode && doc.episode?.transcript_source === 'none' && (
@@ -397,14 +428,14 @@ export function Reader() {
           gloss={gloss}
           translations={translations}
           overrides={overrides}
-          selected={card ? { sentence: card.sentence.id, s: card.s } : undefined}
+          selected={selectedToken}
           onWord={onWord}
-          onSentenceMenu={(sentence, element) => readerMenu.current?.sentence(sentence, element)}
+          onSentenceMenu={onSentenceMenu}
           episode={isEpisode}
           blindMode={isEpisode && blindMode}
           revealedIds={revealedIds}
-          onSeekSentence={s => useAudio.getState().playSentence(s.id, true)}
-          onRevealSentence={sid => useAudio.getState().revealSentence(sid)}
+          onSeekSentence={onSeekSentence}
+          onRevealSentence={onRevealSentence}
         />
         <div className="rd rdtail">
           {counts && counts.new + counts.learning > 0 && <div className="rdhint">{tl('生词 {new} · 学习中 {learning}', { new: counts.new, learning: counts.learning })}</div>}
@@ -437,7 +468,7 @@ export function Reader() {
           {showTop && <><span className="vsep" /><button title={tl('回到开头')} onClick={() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setShowTop(false); }}><ArrowUp />{tl('回到开头')}</button></>}
         </div>
       </div>
-      {isEpisode && <EpisodePlayer doc={doc} content={content} scroller={scrollRef.current} />}
+      {isEpisode && <EpisodePlayer doc={doc} content={content} scrollerRef={scrollRef} />}
       </div>
       {panel && <ResizeHandle className="rpanel-resize" side="left" width={panelWidth} onChange={setPanelWidth} onReset={() => setPanelWidth(PANEL_W)} onDragging={setResizing} />}
       {panel === 'tibi' && <TibiPanel key={doc.id} doc={doc} sectionId={content.id} pending={pending?.context?.document_id === doc.id ? pending : undefined} onClose={() => setPanel(undefined)} />}

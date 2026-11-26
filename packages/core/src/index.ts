@@ -3,7 +3,7 @@ export * from './ids.js';
 export * from './hash.js';
 export * from './deeplink.js';
 export { Database, now, j, type Driver, type Row, type SqlParams, type SqlValue } from './db/driver.js';
-export { migrate, PRAGMAS, type Migration } from './db/migrate.js';
+export { migrate, initAppDb, PRAGMAS, type Migration } from './db/migrate.js';
 export * from './platform.js';
 export * from './dict/types.js';
 export { SqliteDict, parseExchange } from './dict/sqlite.js';

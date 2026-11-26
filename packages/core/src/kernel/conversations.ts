@@ -69,11 +69,18 @@ export class Conversations {
     }
     if (opts.today) {
       const day = localDay();
-      const row = await this.db.get<{ id: string }>("SELECT id FROM conversations WHERE kind = 'day' AND day = ? AND deleted_at IS NULL", [day]);
-      if (row) return (await this.get(row.id))!;
-      return this.create({ kind: 'day', day, title: day, device: opts.device ?? 'mobile' });
+      const key = `day:${day}`;
+      const inflight = OPENING.get(key); if (inflight) return inflight;
+      const p = this.openForDay(day, opts.device).finally(() => OPENING.delete(key));
+      OPENING.set(key, p); return p;
     }
     return this.create({ kind: 'chat', title: '', device: opts.device });
+  }
+
+  private async openForDay(day: string, device?: 'desktop' | 'mobile'): Promise<Conversation> {
+    const row = await this.db.get<{ id: string }>("SELECT id FROM conversations WHERE kind = 'day' AND day = ? AND deleted_at IS NULL", [day]);
+    if (row) return (await this.get(row.id))!;
+    return this.create({ kind: 'day', day, title: day, device: device ?? 'mobile' });
   }
 
   private async openForDocument(document_id: string, device?: 'desktop' | 'mobile'): Promise<Conversation> {
@@ -129,7 +136,7 @@ export class Conversations {
       const said = role === 'user' ? userText(body) : '';
       const title = conv && !conv.title && said ? said.slice(0, 40) : null;
       await tx.run('UPDATE conversations SET last_message_at = ?, updated_at = ?, title = COALESCE(?, title) WHERE id = ?', [t, t, title, conversation_id]);
-      if (title) await tx.run('UPDATE thread_links SET title = ? WHERE conversation_id = ?', [title, conversation_id]);
+      if (title) await tx.run('UPDATE thread_links SET title = ?, updated_at = ? WHERE conversation_id = ?', [title, t, conversation_id]);
     });
     return { id, created_at: t };
   }
@@ -174,7 +181,7 @@ export class Conversations {
 
   /** 应用上次退出时还没答完的回答：记成中断，界面显示"重试" */
   async interruptRunning(): Promise<number> {
-    const rows = await this.db.all<{ id: string }>("SELECT id FROM messages WHERE role = 'user' AND deleted_at IS NULL AND ui LIKE '%\"state\":\"running\"%'");
+    const rows = await this.db.all<{ id: string }>("SELECT id FROM messages WHERE role = 'user' AND deleted_at IS NULL AND json_extract(ui, '$.turn.state') = 'running'");
     for (const r of rows) await this.setTurn(r.id, { state: 'error', error: '上次没有回答完就中断了' });
     return rows.length;
   }
@@ -187,7 +194,7 @@ export class Conversations {
 
   /** 对话里还留着读过不可信内容的回答吗：历史都会带给模型。回退作废的消息不算 */
   async tainted(conversation_id: string): Promise<boolean> {
-    return !!await this.db.get("SELECT 1 AS hit FROM messages WHERE conversation_id = ? AND role = 'user' AND deleted_at IS NULL AND ui LIKE '%\"tainted\":true%' LIMIT 1", [conversation_id]);
+    return !!await this.db.get("SELECT 1 AS hit FROM messages WHERE conversation_id = ? AND role = 'user' AND deleted_at IS NULL AND json_extract(ui, '$.turn.tainted') = 1 LIMIT 1", [conversation_id]);
   }
 
   /** 重试这一轮时，上次没说完的回答作废（用户那句留着） */
@@ -198,13 +205,17 @@ export class Conversations {
 
   /** 回到这句话之前：这条和它之后的消息作废（已写入的词不动）；之后的压缩记录一起作废 */
   async rewind(conversation_id: string, message_id: string): Promise<{ text: string; skill?: SkillId }> {
-    const m = await this.db.get<{ body: string; turn_id: string | null; created_at: number; role: string }>('SELECT body, turn_id, created_at, role FROM messages WHERE id = ? AND conversation_id = ? AND deleted_at IS NULL', [message_id, conversation_id]);
+    const m = await this.db.get<{ rowid: number; body: string; turn_id: string | null; created_at: number; role: string }>('SELECT rowid, body, turn_id, created_at, role FROM messages WHERE id = ? AND conversation_id = ? AND deleted_at IS NULL', [message_id, conversation_id]);
     if (!m || m.role !== 'user') throw new TibiError('not_found', '找不到这句话');
     const skill = m.turn_id ? (await this.turn(m.turn_id))?.skill : undefined;
     const t = now();
-    await this.db.run('UPDATE messages SET deleted_at = ?, updated_at = ? WHERE conversation_id = ? AND deleted_at IS NULL AND (created_at > ? OR (created_at = ? AND id >= ?))', [t, t, conversation_id, m.created_at, m.created_at, message_id]);
-    // 摘要里写进了被删的内容：保留原文起点在被删范围之后的压缩记录不存在，起点在之前的也要作废
-    await this.db.run("UPDATE messages SET deleted_at = ?, updated_at = ? WHERE conversation_id = ? AND role = 'compaction' AND deleted_at IS NULL", [t, t, conversation_id]);
+    await this.db.transaction(async tx => {
+      await tx.run('UPDATE messages SET deleted_at = ?, updated_at = ? WHERE conversation_id = ? AND deleted_at IS NULL AND (created_at > ? OR (created_at = ? AND rowid >= ?))', [t, t, conversation_id, m.created_at, m.created_at, m.rowid]);
+      // 摘要里写进了被删的内容：保留原文起点在被删范围之后的压缩记录不存在，起点在之前的也要作废
+      await tx.run("UPDATE messages SET deleted_at = ?, updated_at = ? WHERE conversation_id = ? AND role = 'compaction' AND deleted_at IS NULL", [t, t, conversation_id]);
+      const last = await tx.get<{ t: number | null }>('SELECT max(created_at) AS t FROM messages WHERE conversation_id = ? AND deleted_at IS NULL', [conversation_id]);
+      await tx.run('UPDATE conversations SET last_message_at = ?, updated_at = ? WHERE id = ?', [last?.t ?? null, t, conversation_id]);
+    });
     return { text: userText(j.parse(m.body, {})), ...(skill ? { skill } : {}) };
   }
 
@@ -236,8 +247,7 @@ export class Conversations {
   async updateWidget(message_id: string, widget_id: string, state: unknown, result?: string): Promise<void> {
     const conv = await this.db.get<{ conversation_id: string; turn_id: string | null }>('SELECT conversation_id, turn_id FROM messages WHERE id = ? AND deleted_at IS NULL', [message_id]);
     if (!conv) throw new TibiError('not_found', '找不到这条消息');
-    const row = await this.findWidget(conv.conversation_id, conv.turn_id, widget_id);
-    const block = (row.ui as ToolResultUi).widget!;
+    const { row, block } = await this.findWidget(conv.conversation_id, conv.turn_id, widget_id);
     if (block.kind === 'ask') throw new TibiError('conflict', '反问卡要用 chat.answer 回答');
     const wasDone = quizDone(block);
     block.state = state; if (result) block.result = result; else delete block.result;
@@ -260,9 +270,11 @@ export class Conversations {
   }
 
   private async findWidget(conversation_id: string, turn_id: string | null, widget_id: string, db: Database = this.db) {
-    const row = await this.findUi(conversation_id, turn_id, ui => (ui as ToolResultUi).widget?.id === widget_id, db);
+    const row = await this.findUi(conversation_id, turn_id, ui => [(ui as ToolResultUi).widget, ...((ui as ToolResultUi).widgets ?? [])].some(w => w?.id === widget_id), db);
     if (!row) throw new TibiError('not_found', '找不到这张卡片');
-    return row;
+    const ui = row.ui as ToolResultUi;
+    const block = [ui.widget, ...(ui.widgets ?? [])].find((w): w is WidgetBlock => w?.id === widget_id)!;
+    return { row, block };
   }
 
   /** 在同一轮（没有 turn_id 时在整段对话）的工具结果里找 ui */
@@ -278,17 +290,27 @@ export class Conversations {
 
   /** 界面看的历史：按 turn_id 合成回答气泡；进行中的回答不在这里（走 activity().live） */
   async history(conversation_id: string, opts: { cursor?: string; limit?: number } = {}): Promise<{ items: Message[]; total: number; cursor?: string }> {
-    const limit = opts.limit ?? 50;
+    const limit = Math.max(1, opts.limit ?? 50);
     const rows = await this.db.all<MsgRow>("SELECT rowid, id, role, body, ui, turn_id, created_at FROM messages WHERE conversation_id = ? AND deleted_at IS NULL AND role IN ('user', 'assistant', 'tool_result') ORDER BY created_at, rowid", [conversation_id]);
     const turns = new Map<string, TurnInfo>();
     for (const r of rows) if (r.role === 'user') { const t = j.parse<UserUi>(r.ui, {}).turn; if (t) turns.set(r.id, t); }
     const all = project(rows, turns);
-    // 游标带 id：同一毫秒写入的消息不会被跳过
-    const [at, id] = (opts.cursor ?? '').split('_');
-    const end = at ? all.findIndex(m => m.created_at > Number(at) || (m.created_at === Number(at) && m.id >= (id ?? ''))) : all.length;
-    const upto = end < 0 ? all.length : end;
-    const page = all.slice(Math.max(0, upto - limit), upto);
-    return { items: page, total: all.length, cursor: upto - limit > 0 ? `${page[0]!.created_at}_${page[0]!.id}` : undefined };
+    // 游标按首个 '_' 切分：保留含 '_' 的合成 id（如 <id>_err），先按 id 精确查找，找不到再退回时间戳比较
+    let upto = all.length;
+    if (opts.cursor) {
+      const sep = opts.cursor.indexOf('_');
+      const at = Number(sep >= 0 ? opts.cursor.slice(0, sep) : opts.cursor);
+      const id = sep >= 0 ? opts.cursor.slice(sep + 1) : '';
+      const exact = id ? all.findIndex(m => m.id === id) : -1;
+      if (exact >= 0) upto = exact;
+      else if (Number.isFinite(at)) {
+        const end = all.findIndex(m => m.created_at > at || (m.created_at === at && m.id >= id));
+        upto = end < 0 ? all.length : end;
+      }
+    }
+    const start = Math.max(0, upto - limit);
+    const page = all.slice(start, upto);
+    return { items: page, total: all.length, cursor: start > 0 && page.length ? `${page[0]!.created_at}_${page[0]!.id}` : undefined };
   }
 
   /**

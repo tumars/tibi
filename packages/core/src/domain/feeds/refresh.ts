@@ -23,12 +23,26 @@ const MAX_CONTENT = 200_000;
 export interface RefreshResult { feeds: number; not_modified: number; new_items: number; failed: number }
 
 let running: Promise<RefreshResult> | undefined;
+let runningKey: string | undefined;
 
-/** 刷新订阅；同一时间只跑一轮，重复调用拿到同一轮的结果 */
+function refreshKey(p: { feed_ids?: string[]; kind?: FeedKind; force?: boolean }): string {
+  const ids = p.feed_ids?.length ? [...p.feed_ids].sort().join(',') : '';
+  return `${p.kind ?? ''}|${ids}|${p.force ? '1' : '0'}`;
+}
+
+/** 刷新订阅：相同参数的并发调用复用同一轮；指定了 feed_ids / kind / force 时排在当前轮之后单独跑，不静默吞掉 */
 export function refreshFeeds(ctx: Ctx, p: { feed_ids?: string[]; kind?: FeedKind; force?: boolean } = {}): Promise<RefreshResult> {
-  if (running) return running;
-  running = doRefresh(ctx, p).finally(() => { running = undefined; });
-  return running;
+  const key = refreshKey(p);
+  if (running && runningKey === key) return running;
+  const prev = running;
+  const task: Promise<RefreshResult> = (prev ? prev.catch(() => undefined) : Promise.resolve())
+    .then(() => doRefresh(ctx, p))
+    .finally(() => {
+      if (running === task) { running = undefined; runningKey = undefined; }
+    });
+  running = task;
+  runningKey = key;
+  return task;
 }
 export const isRefreshing = () => !!running;
 
@@ -229,7 +243,9 @@ export async function discoverFeeds(ctx: Ctx, url: string): Promise<FeedCandidat
       if (f && !out.some(o => o.url === p.final_url)) out.push(candidate(p.final_url, f));
     } catch { /* 这个候选坏了，看下一个 */ }
   };
-  for (const c of discoverInHtml(page.body, page.final_url).slice(0, 5)) await tryFeed(c.url);
+  for (const c of discoverInHtml(page.body, page.final_url).slice(0, 5)) {
+    if (checkUrlShape(c.url).ok) await tryFeed(c.url);
+  }
   if (!out.length) {
     const origin = new URL(page.final_url).origin;
     for (const g of GUESS) { await tryFeed(origin + g); if (out.length) break; }

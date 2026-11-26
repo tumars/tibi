@@ -2,6 +2,7 @@ import type { Approval, Conversation, Message, MessageBlock } from '@tibi/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { tl } from './i18n';
 import { errorInfo, rpc, type Params } from '../rpc';
+import { ensureImportTracking } from '../components/Widgets';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
 
@@ -159,6 +160,7 @@ export function useChat(conversationId: string | undefined, o: { skill?: string;
   }, [conversationId, reload]);
 
   useEffect(() => {
+    ensureImportTracking();
     const patch = (sid: string, f: (l: Live) => Live) => setLive(ls => ls.map(l => (l.id === sid ? f(l) : l)));
     const offs = [
       rpc.on('chat.delta', d => { if (d.conversation_id === conversationId) patch(d.submission_id, l => l.resumed ? { ...l, done: l.done || !!d.done } : endThinking({ ...l, text: l.text + d.delta, blocks: appendText(l.blocks, d.delta), done: l.done || !!d.done })); }),

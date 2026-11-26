@@ -3,6 +3,7 @@ import { AudioLines, ChevronLeft, CircleCheck, Eye, Info, Languages, LoaderCircl
 import { current as currentTts, kokoroDownloaded, type Engine } from '../lib/tts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { trackUsage } from '../lib/analytics';
 import { tl } from '../lib/i18n';
 import { fmtMinutes, GENRE_NAMES, STATUS_NAMES, throttle, isImeKey } from '../lib/util';
 import { DocSource } from '../components/DocSource';
@@ -11,6 +12,7 @@ import { ChapterNav } from '../reader/ChapterNav';
 import { SectionView } from '../reader/Section';
 import { TranslationStatus } from '../reader/TranslationStatus';
 import { useTranslation } from '../reader/useTranslation';
+import { useReaderUsage } from '../reader/useReaderUsage';
 import { useAloud } from '../reader/useAloud';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
@@ -32,6 +34,7 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
   const { translating, generate: generateTranslation } = useTranslation(content, setContent);
   const modelOk = useCore(st => !!st.status?.models.ok);
   const [err, setErr] = useState<string>();
+  useReaderUsage(id, !!doc && doc.id === id && content?.document_id === id && !err);
   const [tr, setTr] = useState(false); const [gloss, setGloss] = useState(false);
   const [card, setCard] = useState<{ word: string; sentence: Sentence; s: number }>();
   const [tibi, setTibi] = useState<{ key: string; text: string } | 'open'>();
@@ -68,8 +71,15 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
     void get();
     // 刚导入、还在分词标注时就打开：句子还没有 tokens（词点不了）；标注做完文章会变（data.changed documents），再取一次
     // 标了词也再取：刚标的词加载时还没有记录，不带行间释义
-    const off = rpc.on('data.changed', d => { if ((d.table === 'documents' && d.ids?.includes(id!)) || (d.table === 'sentences' && d.ids?.includes(secId)) || d.table === 'terms') void get(); });
-    return () => { alive = false; off(); };
+    let termsTimer: ReturnType<typeof setTimeout> | undefined;
+    const off = rpc.on('data.changed', d => {
+      if ((d.table === 'documents' && d.ids?.includes(id!)) || (d.table === 'sentences' && d.ids?.includes(secId))) void get();
+      else if (d.table === 'terms') {
+        if (termsTimer) clearTimeout(termsTimer);
+        termsTimer = setTimeout(() => { termsTimer = undefined; void get(); }, 200);
+      }
+    });
+    return () => { alive = false; if (termsTimer) clearTimeout(termsTimer); off(); };
   }, [secId, id]);
   // 回到上次位置（R16）
   useEffect(() => {
@@ -86,6 +96,11 @@ export function MReader({ onImmersive }: { onImmersive: (on: boolean) => void })
   }, [content, doc]);
 
   const save = useMemo(() => throttle((sid: string, p: number, sentence_id: string) => { void rpc.call('sections.progress', { id: sid, sentence_id, progress: p }).catch(() => undefined); }, 1500), []);
+  useEffect(() => {
+    const flush = () => save.flush();
+    addEventListener('pagehide', flush);
+    return () => { removeEventListener('pagehide', flush); flush(); };
+  }, [secId, save]);
   const onScroll = useCallback(() => {
     const el = scroll.current; if (!el || !content) return;
     const y = el.scrollTop; onImmersive(y > lastY.current + 4 && y > 80 ? true : y < lastY.current - 4 ? false : (document.querySelector('.phone.imm') !== null)); lastY.current = y;
@@ -193,11 +208,17 @@ function WordSheet({ card, onClose, onStatus, onAsk }: { card?: { word: string; 
   const [ctxm, setCtxm] = useState<string>();
   const modelOk = useCore(s => !!s.status?.models.ok);
   const [detail, setDetail] = useState<Result<'terms.get'>>();
+  const lastLookup = useRef<typeof card>(undefined);
   useEffect(() => { setDetail(undefined); const tid = data?.term?.id; if (tid) rpc.call('terms.get', { id: tid }).then(setDetail, () => undefined); }, [data?.term?.id]);
   useEffect(() => {
-    if (!card) return; let alive = true; setData(undefined); setCtxm(undefined);
+    if (!card) { lastLookup.current = undefined; return; }
+    let alive = true; setData(undefined); setCtxm(undefined);
     rpc.call('terms.lookup', { text: card.word, sentence_id: card.sentence.id }).then(r => {
       if (!alive) return; setData(r); setStatus(r.term?.status);
+      if (lastLookup.current !== card && (r.dict || r.term || r.context_meaning)) {
+        lastLookup.current = card;
+        trackUsage('word_lookup_used', 'reader');
+      }
       if (r.term && r.status_change) onStatus(r.term.text, r.status_change.to);
       if (r.context_meaning) setCtxm(r.context_meaning);
       else if (modelOk && (r.dict || r.term)) rpc.call('terms.context_meaning', { text: card.word, sentence_id: card.sentence.id }).then(m => { if (alive) setCtxm(m.meaning); }, () => undefined);

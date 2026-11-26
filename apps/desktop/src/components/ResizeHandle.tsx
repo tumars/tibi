@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { tl } from '../lib/i18n';
 
 /**
@@ -8,17 +9,31 @@ export function ResizeHandle({ className, width, side, onChange, onReset, onDrag
   className: string; width: number; side: 'left' | 'right';
   onChange(w: number, save: boolean): void; onReset(): void; onDragging(on: boolean): void;
 }) {
+  const stopRef = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => () => { stopRef.current?.(); }, []);
+
   const start = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
+    stopRef.current?.();
     const x0 = e.clientX, sign = side === 'right' ? 1 : -1;
+    let lastX = x0;
     onDragging(true);
-    const move = (ev: PointerEvent) => onChange(width + sign * (ev.clientX - x0), false);
-    const up = (ev: PointerEvent) => {
-      onChange(width + sign * (ev.clientX - x0), true); onDragging(false);
-      removeEventListener('pointermove', move); removeEventListener('pointerup', up);
+    const move = (ev: PointerEvent) => { lastX = ev.clientX; onChange(width + sign * (ev.clientX - x0), false); };
+    const cleanup = (save: boolean) => {
+      stopRef.current = undefined;
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      removeEventListener('pointercancel', cancel);
+      if (save) onChange(width + sign * (lastX - x0), true);
+      onDragging(false);
     };
-    addEventListener('pointermove', move); addEventListener('pointerup', up);
+    const up = (ev: PointerEvent) => { lastX = ev.clientX; cleanup(true); };
+    const cancel = () => cleanup(true);
+    stopRef.current = () => cleanup(false);
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    addEventListener('pointercancel', cancel);
   };
   return <div className={`resize-h ${className}`} onPointerDown={start} onDoubleClick={onReset} title={tl('拖动调整宽度，双击恢复')} />;
 }

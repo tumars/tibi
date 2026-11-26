@@ -1,5 +1,6 @@
 import type { AnswerResult, QueueItem, Rating, ReviewSession } from '@tibi/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { trackUsage } from '../lib/analytics';
 import { tl } from '../lib/i18n';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
@@ -21,6 +22,8 @@ export function useReviewSession(opts: { ahead?: boolean } = {}) {
   const [done, setDone] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const t0 = useRef(Date.now()); const start = useRef(Date.now()); const told = useRef('');
+  const busy = useRef(false);
+  const retrySyncPending = useRef(false);
 
   const load = useCallback(async (opts: Parameters<typeof rpc.call<'review.start'>>[1] = { resume: true }) => {
     setErr(undefined);
@@ -49,41 +52,86 @@ export function useReviewSession(opts: { ahead?: boolean } = {}) {
   }, []);
 
   const answer = useCallback(async (a: { choice?: string; typed?: string; self_rating?: Rating }) => {
-    if (!session || !item) return;
+    if (!session || !item || busy.current) return;
+    busy.current = true;
     try {
       const r = await rpc.call('review.answer', { session_id: session.session_id, step: item.step, answer: a, hints, duration_ms: Date.now() - t0.current });
+      retrySyncPending.current = false;
       setResults(p => ({ ...p, [item.step]: { rating: r.rating, correct: r.correct, retry: item.retry > 0, intro: false } }));
-      if (r.retry_step !== undefined && !session.steps.some(s => s.step === r.retry_step)) {
-        // 答错插入的重练步：重新拉会话拿到完整步骤
-        const s2 = await rpc.call('review.start', { resume: true }); setSession({ ...s2, cursor: session.cursor });
-      }
       setPhase({ kind: 'answered', result: r, chosen: a.choice, typed: a.typed });
+      if (r.retry_step !== undefined) {
+        // 答错插入重练步后会重排后续下标：已先锁定本步为 answered 防重答，再同步最新队列与结果映射
+        try {
+          const s2 = await rpc.call('review.start', { resume: true });
+          if (s2.session_id === session.session_id && s2.steps.length > 0) {
+            const nextResults: Record<number, StepResult> = {};
+            s2.steps.forEach(st => { if (st.result) nextResults[st.step] = { rating: st.result.rating, correct: st.result.correct, retry: st.retry > 0, intro: st.intro }; });
+            setResults(nextResults);
+            setSession({ ...s2, cursor: session.cursor });
+          } else {
+            retrySyncPending.current = true;
+          }
+        } catch (refreshErr) {
+          retrySyncPending.current = true;
+          toast(errorInfo(refreshErr).message, { kind: 'err' });
+        }
+      }
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    finally { busy.current = false; }
   }, [session, item, hints]);
 
   const next = useCallback(async () => {
-    if (!session || !item) return;
-    try { await rpc.call('review.next', { session_id: session.session_id, step: item.step }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); return; }
-    advance(session);
+    if (!session || !item || busy.current) return;
+    busy.current = true;
+    let cur = session;
+    try {
+      const result = await rpc.call('review.next', { session_id: session.session_id, step: item.step });
+      if (result.finished) trackUsage('review_completed');
+      if (retrySyncPending.current && !result.finished) {
+        const s2 = await rpc.call('review.start', { resume: true });
+        if (s2.session_id === session.session_id && s2.steps.length > 0) {
+          const nextResults: Record<number, StepResult> = {};
+          s2.steps.forEach(st => { if (st.result) nextResults[st.step] = { rating: st.result.rating, correct: st.result.correct, retry: st.retry > 0, intro: st.intro }; });
+          setResults(nextResults);
+          cur = { ...s2, cursor: session.cursor };
+          retrySyncPending.current = false;
+        }
+      }
+    }
+    catch (e) { toast(errorInfo(e).message, { kind: 'err' }); return; }
+    finally { busy.current = false; }
+    advance(cur);
   }, [session, item, advance]);
 
   const override = useCallback(async (rating: Rating) => {
-    if (!session || !item || phase.kind !== 'answered') return;
-    try { const r = await rpc.call('review.override', { session_id: session.session_id, step: item.step, rating }); setResults(p => ({ ...p, [item.step]: { ...p[item.step]!, rating } })); setPhase({ ...phase, result: r }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    if (!session || !item || phase.kind !== 'answered' || busy.current) return;
+    busy.current = true;
+    try { const r = await rpc.call('review.override', { session_id: session.session_id, step: item.step, rating }); setResults(p => ({ ...p, [item.step]: { ...p[item.step]!, rating } })); setPhase({ ...phase, result: r }); }
+    catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    finally { busy.current = false; }
   }, [session, item, phase]);
 
   const undo = useCallback(async () => {
-    if (!session || session.cursor === 0) return;
-    try { await rpc.call('review.undo', { session_id: session.session_id }); await load(); toast(tl('已撤销上一张')); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    if (!session || session.cursor === 0 || busy.current) return;
+    busy.current = true;
+    try { await rpc.call('review.undo', { session_id: session.session_id }); await load(); toast(tl('已撤销上一张')); }
+    catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    finally { busy.current = false; }
   }, [session, load]);
 
   const pause = useCallback(async () => { if (session) { try { await rpc.call('review.pause', { session_id: session.session_id }); } catch { /* 已结束 */ } } }, [session]);
 
   /** 做完后：答错的词再练一遍（不计分） */
   const drill = useCallback(async (term_ids: string[]) => {
-    await load({});
-    try { const s = await rpc.call('review.quiz', { term_ids }); setSession(s); setDone(false); setResults({}); setPhase({ kind: 'ask' }); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  }, [load]);
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      const s = await rpc.call('review.quiz', { term_ids });
+      setSession(s); setDone(false); setResults({}); setPhase({ kind: 'ask' }); setTyped(''); setHints(0);
+      t0.current = Date.now(); start.current = Date.now();
+    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    finally { busy.current = false; }
+  }, []);
 
   /** 做完后：Tibi 写一篇用到这些词的短文 */
   const story = useCallback(async () => {

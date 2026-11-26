@@ -12,7 +12,7 @@ function routeOf(l: DeepLink, mobile = isMobile()): string {
     case 'settings': return mobile ? '/me' : `/settings${l.section ? `?sec=${encodeURIComponent(l.section)}` : ''}`;
     case 'chat': return mobile ? '/' : `/chat/${l.conversation_id}`;
     case 'words': return mobile ? '/library' : '/words';
-    case 'dict': return mobile ? '/' : `/dict${l.q ? `?q=${encodeURIComponent(l.q)}` : ''}`;
+    case 'dict': return mobile ? '/' : `/dict${l.q ? `?w=${encodeURIComponent(l.q)}` : ''}`;
     case 'stats': return mobile ? '/me' : '/stats';
   }
 }

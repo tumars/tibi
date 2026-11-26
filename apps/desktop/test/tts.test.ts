@@ -92,4 +92,25 @@ describe('tts 暂停', () => {
     void tts.say('hello');
     expect(tts.pause()).toBe(false); expect(speech.paused).toBe(false);
   });
+
+  it('Kokoro 合成等待音频块期间被 stop() 打断，say() 立即结束并返回 false', async () => {
+    vi.resetModules();
+    vi.stubGlobal('speechSynthesis', fakeSpeech());
+    vi.stubGlobal('SpeechSynthesisUtterance', class { lang = ''; rate = 1; voice: unknown; constructor(public text: string) {} });
+    class FakeWorker {
+      onmessage: ((e: { data: unknown }) => void) | null = null;
+      onerror: ((e: { message: string }) => void) | null = null;
+      addEventListener() {}
+      removeEventListener() {}
+      postMessage() {}
+      terminate() {}
+    }
+    vi.stubGlobal('Worker', FakeWorker);
+    vi.stubGlobal('AudioContext', class { state = 'running'; resume() { return Promise.resolve(); } });
+    const freshTts = await import('../src/lib/tts');
+    const p = freshTts.say('Waiting for kokoro chunk', { engine: 'kokoro' });
+    freshTts.stop();
+    await expect(p).resolves.toBe(false);
+    expect(freshTts.getStatus()).toBe('idle');
+  });
 });

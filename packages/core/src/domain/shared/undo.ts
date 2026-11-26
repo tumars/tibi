@@ -35,13 +35,13 @@ export async function alreadyDone(db: Database, idempotency_key: string): Promis
 
 export const undoMethods: MethodMap = {
   'system.undo': method(Type.Object({ undo_id: Type.String() }), async (p, ctx) => {
-    const row = await ctx.db.get<{ tool: string; undo_payload: string; undone_at: number | null; created_at: number }>('SELECT tool, undo_payload, undone_at, created_at FROM skill_audit WHERE id = ?', [p.undo_id]);
-    if (!row) throw new TibiError('not_found', '找不到这次操作');
-    if (row.undone_at) throw new TibiError('conflict', '已经撤销过了');
-    if (now() - row.created_at > UNDO_TTL_MS) throw new TibiError('conflict', '超过撤销时限');
-    const fn = undoers.get(row.tool);
-    if (!fn) throw new TibiError('conflict', `这个操作不能撤销：${row.tool}`);
     await ctx.db.transaction(async tx => {
+      const row = await tx.get<{ tool: string; undo_payload: string; undone_at: number | null; created_at: number }>('SELECT tool, undo_payload, undone_at, created_at FROM skill_audit WHERE id = ?', [p.undo_id]);
+      if (!row) throw new TibiError('not_found', '找不到这次操作');
+      if (row.undone_at) throw new TibiError('conflict', '已经撤销过了');
+      if (now() - row.created_at > UNDO_TTL_MS) throw new TibiError('conflict', '超过撤销时限');
+      const fn = undoers.get(row.tool);
+      if (!fn) throw new TibiError('conflict', `这个操作不能撤销：${row.tool}`);
       await fn(j.parse(row.undo_payload, null), { ...ctx, db: tx });
       await tx.run('UPDATE skill_audit SET undone_at = ? WHERE id = ?', [now(), p.undo_id]);
     });

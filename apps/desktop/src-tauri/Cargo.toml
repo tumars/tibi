@@ -1,6 +1,6 @@
 [package]
 name = "tibi"
-version = "0.2.0"
+version = "0.2.1"
 description = "Tibi（提比）：本地优先、AI 原生的英语阅读学习工具"
 authors = ["Tibi contributors"]
 license = "MIT"
@@ -23,7 +23,6 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "protocol-asset", "image-png", "macos-private-api"] }
-tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-deep-link = "2"
@@ -48,8 +47,7 @@ keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 window-vibrancy = "0.6"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWindow", "NSButton", "NSControl", "NSView", "NSPasteboard", "NSApplication"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSWindow", "NSButton", "NSControl", "NSView", "NSPasteboard"] }
 
 # Windows / Linux：深链会再起一个进程，交给已经开着的那个（deep-link 特性会转发 URL）
 [target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
@@ -71,5 +69,7 @@ tauri-plugin-fs = "2"
 codegen-units = 1
 lto = true
 opt-level = "s"
-panic = "abort"
+# Apple 平台上 wry 使用 objc2::exception::catch 捕获 WKURLSchemeTask 等 Objective-C 异常；
+# panic = "abort" 会让编译器生成 nounwind landing pad，导致异常无法被捕获而直接 SIGABRT 闪退。
+panic = "unwind"
 strip = true

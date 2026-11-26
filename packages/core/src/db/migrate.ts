@@ -1,4 +1,5 @@
-import type { Database } from './driver.js';
+import { Database, now, type Driver } from './driver.js';
+import { MIGRATIONS } from './migrations.gen.js';
 
 /**
  * 迁移：只向前（01 §9）。版本记在 PRAGMA user_version。
@@ -23,3 +24,15 @@ export async function migrate(db: Database, migrations: Migration[]): Promise<{ 
 }
 
 export const PRAGMAS = ['PRAGMA journal_mode = WAL', 'PRAGMA foreign_keys = ON', 'PRAGMA synchronous = NORMAL'];
+
+/** 统一的应用数据库初始化（Node / Bun / Mobile / Web 共用）：设置 PRAGMA、执行迁移、可选初始化用户档案 */
+export async function initAppDb(driver: Driver, opts: { migrations?: Migration[]; seedProfile?: boolean } = {}): Promise<Database> {
+  const db = new Database(driver);
+  for (const p of PRAGMAS) await db.exec(p);
+  await migrate(db, opts.migrations ?? MIGRATIONS);
+  if (opts.seedProfile) {
+    const t = now();
+    await db.run("INSERT OR IGNORE INTO user_profile(id, created_at, updated_at) VALUES ('1', ?, ?)", [t, t]);
+  }
+  return db;
+}

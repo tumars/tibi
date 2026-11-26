@@ -12,10 +12,28 @@ import { toast, useUi } from '../store/ui';
 export function Sheet({ open, onClose, children, tall, full: fullInit, className = '' }: { open: boolean; onClose: () => void; children: ReactNode; tall?: boolean; full?: boolean; className?: string }) {
   const [full, setFull] = useState(!!fullInit);
   const y0 = useRef<number | undefined>(undefined);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const prevFocus = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => { if (!open) setFull(!!fullInit); }, [open, fullInit]);
+  useEffect(() => {
+    if (!open) return;
+    prevFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    sheetRef.current?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); onCloseRef.current(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      prevFocus.current?.focus?.();
+      prevFocus.current = null;
+    };
+  }, [open]);
   return <>
     <div className={`scrim${open ? ' on' : ''}`} onClick={onClose} />
-    <div className={`sheet${open ? ' on' : ''}${full ? ' full' : tall ? ' tall' : ''} ${className}`} role="dialog" aria-modal="true" aria-hidden={!open}>
+    <div ref={sheetRef} tabIndex={-1} className={`sheet${open ? ' on' : ''}${full ? ' full' : tall ? ' tall' : ''} ${className}`} role="dialog" aria-modal="true" aria-hidden={!open}>
       <div className="grab" onClick={() => setFull(f => !f)}
         onTouchStart={e => { y0.current = e.touches[0]!.clientY; }}
         onTouchEnd={e => { const dy = e.changedTouches[0]!.clientY - (y0.current ?? 0); if (dy < -30) setFull(true); else if (dy > 40) { if (full) setFull(false); else onClose(); } }} />

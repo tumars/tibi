@@ -444,10 +444,10 @@ learning_events        audio_cache        daily_stats
 | consolidated | INTEGER | 是否已被整合进记忆 |
 | created_at | INTEGER | |
 
-### feeds（订阅与电台，迁移 `0007_feeds.sql`、`0010_podcasts.sql`，见 [11](11-rss-reader.md)、[17](17-podcast-radio.md)）
+### feeds（订阅与电台，迁移 `0007_feeds.sql`、`0009_builtin_feeds.sql`、`0010_podcasts.sql`、`0011_prune_builtin_feeds.sql`，见 [11](11-rss-reader.md)、[17](17-podcast-radio.md)）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | TEXT PK | 内置源用固定 ID（`builtin-hn`、`builtin-pod-6min` 等），两台设备种出来的是同一条 |
+| id | TEXT PK | 内置源用固定 ID（`builtin-nil`、`builtin-pod-6min` 等），两台设备种出来的是同一条 |
 | url | TEXT | 订阅地址；没删的里唯一（同步的自然键） |
 | kind | TEXT | `'article'`（默认，文章订阅）/ `'podcast'`（播客电台，迁移 0010） |
 | site_url / title / folder / artwork_url / language / description | TEXT | `title_custom = 1` 时不用源里的标题覆盖（改过名、内置源）；后三项用于电台封面与简介（迁移 0010） |

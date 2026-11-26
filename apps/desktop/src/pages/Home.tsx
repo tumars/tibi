@@ -17,6 +17,7 @@ import { toast } from '../store/ui';
 import { DocCard } from './Library';
 import { tl } from '../lib/i18n';
 import { pickFiles, registerFiles } from '../lib/files';
+import { listenDragDropSafe } from '../lib/tauriEvents';
 
 const IMPORTABLE = /\.(pdf|epub|docx|txt|md|markdown|png|jpe?g|webp|heic|tiff?)$/i;
 const IMAGE = /\.(png|jpe?g|webp|heic|tiff?)$/i;
@@ -103,20 +104,15 @@ export function Home() {
     if (f) { if (!isTauri()) toast(tl('浏览器开发模式只能拖入 .txt / .md；PDF、EPUB、DOCX 请在桌面端里拖入或点 +')); return; }   // 桌面端的文件拖入走下面的 Tauri 事件（拿得到路径）
     const t = e.dataTransfer.getData('text'); if (t) setText(t);
   };
-  // 桌面端：系统把拖进窗口的文件路径交给壳；登记给 Core 后按文件导入（M4：PDF / EPUB / DOCX / 图片）
-  useEffect(() => {
-    if (!isTauri()) return;
-    let off: (() => void) | undefined;
-    void import('@tauri-apps/api/webview').then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent(async ev => {
-      if (ev.payload.type !== 'drop') return;
-      const paths = ev.payload.paths.filter(p => IMPORTABLE.test(p));
-      if (!paths.length) return;
-      await rpc.call('system.registerPaths', { paths });
-      await importFiles(paths);
-    })).then(f => { off = f; });
-    return () => off?.();
+  // 桌面端：系统把拖进窗口的文件路径交给壳；经 confirm_dropped_paths 校验并同步给 Core 后导入（M4：PDF / EPUB / DOCX / 图片）
+  useEffect(() => listenDragDropSafe(async rawPaths => {
+    const paths = rawPaths.filter(p => IMPORTABLE.test(p));
+    if (!paths.length) return;
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('confirm_dropped_paths', { paths });
+    await importFiles(paths);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }), []);
 
   // 图片合成一篇（OCR），别的文件一个一篇
   const importFiles = async (paths: string[]) => {

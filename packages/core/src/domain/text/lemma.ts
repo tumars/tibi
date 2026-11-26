@@ -25,7 +25,7 @@ const IRREGULAR: Record<string, string> = {
 };
 // 以 s 结尾但本身就是原形的常见词，避免被当复数
 const S_WORDS = new Set(['this', 'his', 'is', 'was', 'has', 'bus', 'yes', 'us', 'thus', 'plus', 'gas', 'virus', 'bonus', 'campus', 'status', 'focus', 'basis', 'crisis', 'analysis', 'always', 'perhaps', 'news', 'series', 'species', 'means', 'physics', 'mathematics', 'politics', 'economics', 'lens', 'chaos', 'canvas', 'atlas', 'class', 'glass', 'pass', 'mass', 'less', 'unless', 'across', 'process', 'access', 'address', 'business', 'kiss', 'boss', 'loss', 'cross', 'dress', 'press', 'stress', 'success', 'express', 'discuss', 'miss', 'grass', 'its', 'ours', 'yours', 'hers', 'theirs', 'whereas', 'towards', 'besides', 'sometimes', 'as', 'iris', 'oasis', 'thesis', 'axis', 'dis']);
-const ED_WORDS = new Set(['need', 'feed', 'seed', 'bleed', 'speed', 'breed', 'succeed', 'proceed', 'exceed', 'indeed', 'red', 'bed', 'wed', 'shed', 'fed', 'led', 'embed', 'hundred', 'sacred', 'naked', 'wicked', 'rugged', 'wretched', 'beloved', 'aged', 'blessed', 'crooked', 'learned', 'ragged', 'hatred', 'kindred', 'shred', 'sled', 'shed']);
+const ED_WORDS = new Set(['need', 'feed', 'seed', 'bleed', 'speed', 'breed', 'succeed', 'proceed', 'exceed', 'indeed', 'red', 'bed', 'wed', 'shed', 'fed', 'led', 'embed', 'hundred', 'sacred', 'naked', 'wicked', 'rugged', 'wretched', 'beloved', 'aged', 'blessed', 'crooked', 'learned', 'ragged', 'hatred', 'kindred', 'shred', 'sled']);
 const ING_WORDS = new Set(['thing', 'king', 'ring', 'sing', 'bring', 'spring', 'string', 'wing', 'swing', 'sting', 'cling', 'fling', 'sling', 'wring', 'during', 'morning', 'evening', 'nothing', 'something', 'anything', 'everything', 'ceiling', 'building', 'being', 'meaning', 'feeling', 'wedding', 'pudding', 'herring', 'darling', 'sibling', 'duckling', 'ping', 'ding']);
 
 /** 去掉 -ed / -ing 后补回原形：双写辅音去一个（stop），短词 CVC 补 e（make、move），常见词尾补 e（create） */
@@ -72,7 +72,7 @@ export function ruleLemma(form: string): string {
   // -ous / -us / -is 结尾的是原形（ubiquitous、status、analysis），英语复数不会这样结尾
   if (/(ous|us|is)$/.test(w)) return w;
   if (w.endsWith('s') && !w.endsWith('ss') && !S_WORDS.has(w)) {
-    if (/(ches|shes|sses|xes|zes|oes)$/.test(w) && w.length > 4) return /oes$/.test(w) && !/^(does|goes)$/.test(w) ? w.slice(0, -2) : w.slice(0, -2);
+    if (/(ches|shes|sses|xes|zes|oes)$/.test(w) && w.length > 4) return w.slice(0, -2);
     if (/[^aeiou]es$/.test(w) && w.length > 4 && /(ves)$/.test(w)) return w.slice(0, -3) + 'f';
     return w.slice(0, -1);
   }

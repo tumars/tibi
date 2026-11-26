@@ -10,10 +10,11 @@ import { dateKey, rollupToday } from './rollup.js';
 
 /** 统计（00 §3.6、06）：读 daily_stats（先懒汇总今天）、review_logs、documents */
 
-async function ensureToday(db: Database, _dict?: Dict) { await rollupToday(db); }
+async function ensureToday(db: Database) { await rollupToday(db); }
 
 async function dailyRows(db: Database, days: number): Promise<Map<string, Record<string, number>>> {
-  const from = dateKey(now() - (days - 1) * 86_400_000);
+  const d = new Date(now());
+  const from = dateKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() - (days - 1)).getTime());
   const rows = await db.all<Record<string, number | string>>('SELECT * FROM daily_stats WHERE date >= ? ORDER BY date', [from]);
   const m = new Map<string, Record<string, number>>();
   for (const r of rows) { const { date, ...rest } = r; m.set(String(date), Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, Number(v)]))); }
@@ -21,28 +22,42 @@ async function dailyRows(db: Database, days: number): Promise<Map<string, Record
 }
 
 function dayList(days: number): { key: string; ts: number }[] {
-  const out = []; const start = startOfToday() - (days - 1) * 86_400_000;
-  for (let i = 0; i < days; i++) { const ts = start + i * 86_400_000; out.push({ key: dateKey(ts), ts }); }
+  const out = [];
+  const d = new Date(now());
+  const y = d.getFullYear(), m = d.getMonth(), startDay = d.getDate() - (days - 1);
+  for (let i = 0; i < days; i++) {
+    const ts = new Date(y, m, startDay + i).getTime();
+    out.push({ key: dateKey(ts), ts });
+  }
   return out;
 }
 
-async function streaks(db: Database): Promise<{ streak: number; longest: number; study_days: number }> {
+/** 按本地日历日比较 YYYY-MM-DD 是否相邻（DST 安全） */
+function nextDateKey(key: string): string {
+  const [y, m, dd] = key.split('-').map(Number);
+  return dateKey(new Date(y!, m! - 1, dd! + 1).getTime());
+}
+
+export async function streaks(db: Database): Promise<{ streak: number; longest: number; study_days: number }> {
   const goal = Number((await db.get<{ g: number }>("SELECT daily_goal_minutes AS g FROM user_profile WHERE id = '1'"))?.g ?? 20);
   const rows = await db.all<{ date: string; reading_ms: number; reviews: number }>('SELECT date, reading_ms, reviews FROM daily_stats ORDER BY date');
   const active = new Set(rows.filter(r => Number(r.reading_ms) >= goal * 60_000 || Number(r.reviews) > 0).map(r => r.date));
-  let longest = 0, run = 0; let prev: number | null = null;
+  let longest = 0, run = 0; let prev: string | null = null;
   for (const d of [...active].sort()) {
-    const t = Date.parse(d + 'T00:00:00');
-    run = prev != null && t - prev === 86_400_000 ? run + 1 : 1; prev = t; longest = Math.max(longest, run);
+    run = prev !== null && nextDateKey(prev) === d ? run + 1 : 1;
+    prev = d;
+    longest = Math.max(longest, run);
   }
-  let streak = 0; let cur = startOfToday();
-  if (!active.has(dateKey(cur))) cur -= 86_400_000;
-  while (active.has(dateKey(cur))) { streak++; cur -= 86_400_000; }
+  let streak = 0;
+  const today = new Date(now());
+  let y = today.getFullYear(), m = today.getMonth(), dd = today.getDate();
+  if (!active.has(dateKey(new Date(y, m, dd).getTime()))) dd -= 1;
+  while (active.has(dateKey(new Date(y, m, dd).getTime()))) { streak++; dd -= 1; }
   return { streak, longest, study_days: active.size };
 }
 
-export async function summary(db: Database, range: number, dict?: Dict) {
-  await ensureToday(db, dict);
+export async function summary(db: Database, range: number, _dict?: Dict) {
+  await ensureToday(db);
   const days = dayList(range); const rows = await dailyRows(db, range * 2);
   const sum = (keys: { key: string }[], f: string) => keys.reduce((s, d) => s + (rows.get(d.key)?.[f] ?? 0), 0);
   const prevDays = dayList(range * 2).slice(0, range);
@@ -59,8 +74,8 @@ export async function summary(db: Database, range: number, dict?: Dict) {
   return { mastered, mastered_delta: mastered - before, prev_delta: before - prevBefore, minutes: Math.round(sum(days, 'reading_ms') / 60_000), words: sum(days, 'words_read'), study_days: st.study_days, streak: st.streak, longest_streak: st.longest, reviews, retention: reviews ? correct / reviews : 0 };
 }
 
-export async function series(db: Database, metrics: string[], days: number, dict?: Dict) {
-  await ensureToday(db, dict);
+export async function series(db: Database, metrics: string[], days: number, _dict?: Dict) {
+  await ensureToday(db);
   const list = dayList(days); const rows = await dailyRows(db, days);
   const map: Record<string, (r: Record<string, number> | undefined) => number> = {
     mastered: r => r?.mastered_total ?? 0,
@@ -93,8 +108,8 @@ export const statsMethods: MethodMap = {
       const total = ratings.reduce((a, b) => a + b, 0);
       out.push({ ratings, retention: total ? (total - ratings[0]) / total : 0 });
     }
-    const lapses = Number((await ctx.db.get<{ n: number }>('SELECT COALESCE(sum(lapses), 0) AS n FROM cards WHERE deleted_at IS NULL'))?.n ?? 0);
-    const leeches = Number((await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND lapses >= 3'))?.n ?? 0);
+    const lapses = Number((await ctx.db.get<{ n: number }>('SELECT COALESCE(sum(c.lapses), 0) AS n FROM cards c JOIN terms t ON t.id = c.term_id WHERE c.deleted_at IS NULL AND t.deleted_at IS NULL'))?.n ?? 0);
+    const leeches = Number((await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM cards c JOIN terms t ON t.id = c.term_id WHERE c.deleted_at IS NULL AND c.suspended = 0 AND c.lapses >= 3 AND t.deleted_at IS NULL AND t.in_wordbook = 1 AND t.status <= 5'))?.n ?? 0);
     return { weeks: out, lapses, leeches };
   }, '"复习表现"面板'),
   'stats.genres': method(Type.Object({ range: Type.Integer({ minimum: 1, maximum: 730, default: 30 }) }), async (p, ctx) => {
@@ -106,8 +121,8 @@ export const statsMethods: MethodMap = {
     '学习洞察（M3）：当天有缓存就直接返回；否则用快速档按固定提示写一段话 + 1–3 个动作（只能从固定的几个里挑）。没连模型 → model_unavailable'),
   'stats.forecast': method(Type.Object({ days: Type.Optional(Type.Integer({ minimum: 1, maximum: 60 })) }), async (p, ctx) => {
     const days = await forecast(ctx.db, p.days ?? 14);
-    const r = await ctx.db.get<{ v: string }>("SELECT value AS v FROM settings WHERE key = 'review.retention'");
-    return { days, target_retention: r ? Number(JSON.parse(r.v)) : 0.9 };
+    const prof = await ctx.db.get<{ desired_retention: number }>("SELECT desired_retention FROM user_profile WHERE id = '1'");
+    return { days, target_retention: prof?.desired_retention != null ? Number(prof.desired_retention) : 0.9 };
   }, '"接下来要复习"：未来 N 天每天到期的卡数（今天含逾期）'),
   'stats.stages': method(Type.Object({}), async (_p, ctx) => {
     const rows = await ctx.db.all<{ status: number; n: number }>('SELECT status, count(*) AS n FROM terms WHERE deleted_at IS NULL AND in_wordbook = 1 AND status BETWEEN 0 AND 5 GROUP BY status');
@@ -166,7 +181,7 @@ async function insight(ctx: Ctx, regenerate: boolean) {
   const ser = await series(ctx.db, ['minutes', 'reviews'], 14, ctx.dict);
   const genres = await ctx.call<{ genre: string; words: number }[]>('stats.genres', { range: 30 });
   const due = (await forecast(ctx.db, 1))[0] ?? 0;
-  const leeches = Number((await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND lapses >= 3'))?.n ?? 0);
+  const leeches = Number((await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM cards c JOIN terms t ON t.id = c.term_id WHERE c.deleted_at IS NULL AND c.suspended = 0 AND c.lapses >= 3 AND t.deleted_at IS NULL AND t.in_wordbook = 1 AND t.status <= 5'))?.n ?? 0);
   const data = { last_30_days: s30, last_14_days_minutes: ser.series.minutes, last_14_days_reviews: ser.series.reviews, genres, due_today: due, leeches };
   const r = await ctx.ai.complete({ tier: 'fast',
     system: `你是英语学习教练 Tibi。根据用户最近的学习数据（JSON，只有计数），用中文写 2–3 句观察：说清一个变化或现象，再给一个具体建议。不要客套、不要打气、不要编造数据里没有的东西。再从这些动作里挑 1–3 个最相关的：${Object.keys(INSIGHT_ACTIONS).join(', ')}。只输出 JSON：{"text": "...", "actions": ["review"]}`,

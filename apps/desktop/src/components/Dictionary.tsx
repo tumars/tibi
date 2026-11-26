@@ -3,6 +3,7 @@ import { Search, Sparkles, X } from 'lucide-react';
 import { Mascot } from './Mascot';
 import { SpeakButtons } from './Speak';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { trackUsage } from '../lib/analytics';
 import { clearRecentLookups, EXAM_NAMES, INFLECTION_NAMES, loadRecentLookups, parseGloss, posShares, rememberLookup } from '../lib/dict';
 import { tl } from '../lib/i18n';
 import { STATUS_NAMES, isImeKey } from '../lib/util';
@@ -35,13 +36,13 @@ export function Dictionary({ initial, compact, onOpenDoc, onOpenTerm, onAsk }: D
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
 
+  const skip = useRef(!!initial);
   const look = useCallback((w: string, text = true) => { setWord(w); if (text) setQ(w); setRecent(rememberLookup(w)); }, []);
-  useEffect(() => { if (initial) look(initial); }, [initial, look]);
+  useEffect(() => { if (initial) { skip.current = true; look(initial); } }, [initial, look]);
   // 不用 autoFocus：手机上抽屉还在屏幕外，浏览器会为了露出输入框把外层滚走
   useEffect(() => { input.current?.focus({ preventScroll: true }); }, []);
 
   // 联想
-  const skip = useRef(!!initial);
   useEffect(() => {
     const t = q.trim();
     if (!t) { setSug(undefined); setWord(undefined); return; }
@@ -59,11 +60,17 @@ export function Dictionary({ initial, compact, onOpenDoc, onOpenTerm, onAsk }: D
   }, [q, compact]);
 
   // 词条
-  const load = useCallback((w: string, isLive: () => boolean = () => true) => rpc.call('dict.entry', { word: w }).then(r => { if (isLive()) setData(r); }, e => { if (isLive()) { setData(undefined); toast(errorInfo(e).message, { kind: 'err' }); } }), []);
+  const load = useCallback((w: string, isLive: () => boolean, recordLookup = false) => rpc.call('dict.entry', { word: w }).then(r => {
+    if (!isLive()) return;
+    setData(r);
+    if (recordLookup && (r.entry || r.term)) trackUsage('word_lookup_used', 'dictionary');
+  }, e => {
+    if (isLive()) { setData(undefined); toast(errorInfo(e).message, { kind: 'err' }); }
+  }), []);
   useEffect(() => {
     if (!word) { setData(undefined); return; }
     let live = true;
-    void load(word, () => live);
+    void load(word, () => live, true);
     const off = rpc.on('data.changed', d => { if (d.table === 'terms') void load(word, () => live); });
     return () => { live = false; off(); };
   }, [word, load]);

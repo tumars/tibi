@@ -111,6 +111,19 @@ describe('不可信标记的传递', () => {
     expect(await k.tainted(await k.say('看看'))).toBe(1);
   });
 
+  it('读过正文后 remember 带 supersedes 替换已有记忆必须审批', async () => {
+    const k = await setup([
+      { toolCalls: [{ name: 'get_document', args: {} }] },
+      { toolCalls: [{ name: 'remember', args: { type: 'semantic', content: '新内容', supersedes: 'mem-1' } }] },
+      { text: '好' },
+    ], ['get_document']);
+    const id = await k.send('替换记忆');
+    const a = await k.approval(0);
+    expect(a).toMatchObject({ tool: 'remember', untrusted: true });
+    await k.call('approvals.decide', { id: a.id, decision: 'deny' });
+    await finished(k.kernel, id);
+  });
+
   it('coach 的 search_feeds 带订阅来的摘要：算读过', async () => {
     const k = await setup([{ toolCalls: [{ name: 'search_feeds', args: {} }] }, { text: '好' }], ['search_feeds']);
     expect(await k.tainted(await k.say('找一篇', 'coach'))).toBe(1);

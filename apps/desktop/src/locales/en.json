@@ -1034,8 +1034,6 @@
   "本篇暂无已标记的生词。": "No marked words in this article yet.",
   "正在加载生词…": "Loading vocabulary…",
   "加载更多生词": "Load more vocabulary",
-  "{m} 分钟前": "{m} min ago",
-  "{h} 小时前": "{h} h ago",
   "面板没加载出来": "Couldn't load the overview",
   "复习做到一半": "Review in progress",
   "还剩 {n} 张": "{n} cards left",
@@ -1394,5 +1392,8 @@
   "详情": "Details",
   "收起更多": "Show less",
   "展开词形与搭配": "Inflections & collocations",
+  "播放失败": "Playback failed",
+  "音频暂时无法播放，请检查网络或稍后再试": "Audio could not be played. Check your connection or try again later",
+  "没有可用的音频地址": "No audio URL available",
   "Tibi 已经在另一个标签页里打开了。同一时间只能开一个，先关掉那个再回来。": "Tibi is already open in another tab. Only one can be open at a time — close that one and come back."
 }

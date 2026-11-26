@@ -182,8 +182,13 @@ export interface UsageSummary {
   h2: { window_closed: boolean; self_imports_7d: number; passed?: boolean };
   h3: { has_card: boolean; reviewed_next_day?: boolean };
 }
-export interface SyncStatus { enabled: boolean; backend?: 'icloud' | 'webdav'; state: 'off' | 'idle' | 'syncing' | 'error'; last_synced_at?: Ts; pending: number; sync_files: boolean; device: { id: string; name: string }; peers: { id: string; name: string; platform: 'macos' | 'windows' | 'linux' | 'ios' | 'android' | 'web'; last_seen_at: Ts }[]; error?: SyncError }
-export type SyncError = 'offline' | 'auth' | 'icloud_signed_out' | 'quota' | 'newer_format' | 'unknown';
+export type SyncBackendCfg = { kind: 'icloud' } | { kind: 'folder'; path: string } | { kind: 'webdav'; url: string; user: string; password_ref: string };
+export type SyncErrorCode = 'offline' | 'auth' | 'quota' | 'format_newer' | 'not_found' | 'other';
+export interface SyncStatus {
+  enabled: boolean; backend?: SyncBackendCfg; state: 'off' | 'idle' | 'syncing' | 'error'; last_synced_at?: Ts; pending: number; sync_files: boolean;
+  device?: { id: string; name: string }; peers: { id: string; name: string; platform: string; last_seen_at?: Ts; removed: boolean }[];
+  error?: { code: string; message: string };
+}
 export type ErrorCode = 'not_found' | 'conflict' | 'permission_denied' | 'model_unavailable' | 'offline' | 'invalid_source' | 'busy' | 'invalid_params';
 
 /** 业务错误：JSON-RPC 里 error.data.code = code，error.message 可直接显示 */

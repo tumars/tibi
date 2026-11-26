@@ -30,24 +30,41 @@ interface CoreState {
   refreshFeeds(): Promise<void>;
 }
 
+let inflightRefresh: Promise<void> | undefined;
+let refreshAgain = false;
+let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+async function runRefresh(set: (p: Partial<CoreState>) => void, get: () => CoreState): Promise<void> {
+  try {
+    const status = await rpc.call('system.status', {});
+    set({ status, connected: true, error: undefined });
+  } catch (e) { set({ connected: false, error: errorInfo(e).message }); return; }
+  // 下面各项互不依赖，哪个方法没接上就跳过
+  await Promise.all([
+    rpc.call('terms.list', { view: 'due', limit: 1 }).then(t => set({ due: t.counts?.due ?? t.total ?? 0, wordCount: t.counts?.all ?? 0 }), () => {}),
+    rpc.call('documents.list', { limit: 1 }).then(r => set({ docCount: r.total }), () => {}),
+    get().refreshFeeds(),
+    rpc.call('profile.get', {}).then(p => set({ goal: p.daily_goal_minutes || 20, nickname: (p.assistant_prefs?.nickname || p.display_name || '').trim() === '你' ? '' : (p.assistant_prefs?.nickname || p.display_name || '').trim() }), () => {}),
+    rpc.call('stats.summary', { range: 30 }).then(s => set({ streak: s.streak ?? 0 }), () => {}),
+    rpc.call('stats.series', { metrics: ['minutes'], days: 1 }).then(s => set({ todayMinutes: Math.round(s.series.minutes?.at(-1) ?? 0) }), () => {}),
+    rpc.call('documents.list', { sort: 'opened', status: 'reading', limit: 5 }).then(r => set({ recentDocs: r.items }), () => {}),
+    get().refreshChats(),
+  ]);
+}
+
 export const useCore = create<CoreState>((set, get) => ({
   connected: false, due: 0, docCount: 0, wordCount: 0, feedUnread: 0, radioUnread: 0, goal: 20, nickname: '', todayMinutes: 0, streak: 0, recentDocs: [], recentChats: [],
-  async refresh() {
-    try {
-      const status = await rpc.call('system.status', {});
-      set({ status, connected: true, error: undefined });
-    } catch (e) { set({ connected: false, error: errorInfo(e).message }); return; }
-    // 下面各项互不依赖，哪个方法没接上就跳过
-    await Promise.all([
-      rpc.call('terms.list', { view: 'due', limit: 1 }).then(t => set({ due: t.counts?.due ?? t.total ?? 0, wordCount: t.counts?.all ?? 0 }), () => {}),
-      rpc.call('documents.list', { limit: 1 }).then(r => set({ docCount: r.total }), () => {}),
-      get().refreshFeeds(),
-      rpc.call('profile.get', {}).then(p => set({ goal: p.daily_goal_minutes || 20, nickname: (p.assistant_prefs?.nickname || p.display_name || '').trim() === '你' ? '' : (p.assistant_prefs?.nickname || p.display_name || '').trim() }), () => {}),
-      rpc.call('stats.summary', { range: 30 }).then(s => set({ streak: s.streak ?? 0 }), () => {}),
-      rpc.call('stats.series', { metrics: ['minutes'], days: 1 }).then(s => set({ todayMinutes: Math.round(s.series.minutes?.at(-1) ?? 0) }), () => {}),
-      rpc.call('documents.list', { sort: 'opened', status: 'reading', limit: 5 }).then(r => set({ recentDocs: r.items }), () => {}),
-      get().refreshChats(),
-    ]);
+  refresh() {
+    if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = undefined; }
+    if (inflightRefresh) { refreshAgain = true; return inflightRefresh; }
+    const loop = (async () => {
+      do {
+        refreshAgain = false;
+        await runRefresh(set, get);
+      } while (refreshAgain);
+    })().finally(() => { inflightRefresh = undefined; });
+    inflightRefresh = loop;
+    return loop;
   },
   async retry() {
     if (isTauri() && !get().connected) {
@@ -72,12 +89,23 @@ export const useCore = create<CoreState>((set, get) => ({
 let bound = false;
 export function bindCoreEvents() {
   if (bound) return; bound = true;
-  const refresh = () => void useCore.getState().refresh();
-  rpc.on('data.changed', d => { if (d.table === 'cards' || d.table === 'terms' || d.table === 'settings' || d.table === 'documents') refresh(); });
-  rpc.on('data.changed', d => { if (d.table === 'feed_items' || d.table === 'feeds') void useCore.getState().refreshFeeds(); });
-  rpc.on('import.done', refresh);
-  rpc.on('approval.requested', refresh);
-  rpc.on('approval.resolved', refresh);
+  const scheduleRefresh = () => {
+    if (refreshTimer) return;
+    refreshTimer = setTimeout(() => {
+      refreshTimer = undefined;
+      void useCore.getState().refresh();
+    }, 120);
+  };
+  rpc.on('data.changed', d => {
+    if (d.table === 'cards' || d.table === 'terms' || d.table === 'term_contexts' || d.table === 'settings' || d.table === 'documents') {
+      scheduleRefresh();
+    } else if (d.table === 'feed_items' || d.table === 'feeds') {
+      void useCore.getState().refreshFeeds();
+    }
+  });
+  rpc.on('import.done', scheduleRefresh);
+  rpc.on('approval.requested', scheduleRefresh);
+  rpc.on('approval.resolved', scheduleRefresh);
   rpc.on('core.exited', d => useCore.setState({ connected: false, error: d.message || tl('Core 断开了') }));
   rpc.on('core.error', d => useCore.setState({ connected: false, error: d.message || tl('Core 断开了') }));
 }

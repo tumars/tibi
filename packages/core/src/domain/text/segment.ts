@@ -7,7 +7,7 @@ import type { BlockType, Kind } from '../../types.js';
 
 export type ParagraphBlockType = BlockType | 'code' | 'image';
 /** 图片块：text 是替代文字，src 是地址（内置示例用 sample:<id>/<文件名>，由界面换成打包的资源） */
-export interface Paragraph { idx: number; text: string; block_type: ParagraphBlockType; lang?: string; src?: string }
+export interface Paragraph { idx: number; text: string; block_type: ParagraphBlockType; lang?: string; src?: string; headingLevel?: number }
 export interface SegSection { idx: number; title: string; paragraphs: Paragraph[] }
 export interface Segmented { kind: Kind; lang: string; word_count: number; sections: SegSection[] }
 
@@ -25,10 +25,10 @@ export const isTextBlock = (p: { block_type: ParagraphBlockType }) => p.block_ty
 export function splitBlocks(md: string): Paragraph[] {
   const lines = md.replace(/\r\n?/g, '\n').split('\n');
   const out: Paragraph[] = [];
-  const push = (text: string, block_type: ParagraphBlockType, lang?: string) => {
+  const push = (text: string, block_type: ParagraphBlockType, extra?: { lang?: string; headingLevel?: number }) => {
     const t = block_type === 'code' ? text.replace(/\n+$/, '') : cleanInline(text);
     if (!t.trim()) return;
-    out.push({ idx: out.length, text: t, block_type, ...(lang ? { lang } : {}) });
+    out.push({ idx: out.length, text: t, block_type, ...(extra?.lang ? { lang: extra.lang } : {}), ...(extra?.headingLevel ? { headingLevel: extra.headingLevel } : {}) });
   };
   const pushImage = (alt: string, src: string) => { out.push({ idx: out.length, text: cleanInline(alt), block_type: 'image', src }); };
   let i = 0;
@@ -39,7 +39,7 @@ export function splitBlocks(md: string): Paragraph[] {
       const mark = fence[1]!; const lang = fence[2] || undefined; const buf: string[] = []; i++;
       while (i < lines.length && !lines[i]!.startsWith(mark)) buf.push(lines[i++]!);
       i++; // 收尾围栏
-      push(buf.join('\n'), 'code', lang); continue;
+      push(buf.join('\n'), 'code', { lang }); continue;
     }
     if (/^ {4}\S/.test(line) && (out.length === 0 || out[out.length - 1]!.block_type !== 'list_item')) {
       const buf: string[] = [];
@@ -50,7 +50,7 @@ export function splitBlocks(md: string): Paragraph[] {
     const img = line.match(IMAGE);
     if (img) { pushImage(img[1]!, img[2]!); i++; continue; }
     const h = line.match(HEADING);
-    if (h) { push(h[2]!, 'heading'); i++; continue; }
+    if (h) { push(h[2]!, 'heading', { headingLevel: h[1]!.length }); i++; continue; }
     if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { i++; continue; }
     const li = line.match(LIST);
     if (li) {
@@ -132,11 +132,10 @@ export function segmentMarkdown(md: string, opts: { kind?: Kind; title?: string 
   const sections: SegSection[] = [];
   const lang = detectLang(blocks.filter(isTextBlock).map(b => b.text).join(' ').slice(0, 2000));
   if (kind === 'book') {
-    const headLines = md.replace(/\r\n?/g, '\n').split('\n').map(l => l.match(HEADING)).filter(Boolean) as RegExpMatchArray[];
-    const level = headLines.some(h => h[1]!.length === 1) ? 1 : 2;
+    const level = blocks.some(b => b.block_type === 'heading' && b.headingLevel === 1) ? 1 : 2;
     let cur: SegSection | undefined;
     for (const b of blocks) {
-      const isChapter = b.block_type === 'heading' && headingLevelOf(md, b.text) === level;
+      const isChapter = b.block_type === 'heading' && b.headingLevel === level;
       if (isChapter || !cur) {
         cur = { idx: sections.length, title: isChapter ? b.text : (opts.title ?? ''), paragraphs: [] };
         sections.push(cur);
@@ -151,11 +150,6 @@ export function segmentMarkdown(md: string, opts: { kind?: Kind; title?: string 
   }
   const word_count = sections.reduce((s, sec) => s + sec.paragraphs.filter(isTextBlock).reduce((a, p) => a + countWords(p.text), 0), 0);
   return { kind, lang, word_count, sections };
-}
-
-function headingLevelOf(md: string, text: string): number {
-  const m = md.split('\n').find(l => { const h = l.match(HEADING); return h && h[2]!.trim() === text; })?.match(HEADING);
-  return m ? m[1]!.length : 9;
 }
 
 export function countWords(text: string): number {

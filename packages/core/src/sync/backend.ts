@@ -1,3 +1,5 @@
+import type { SyncErrorCode } from '../types.js';
+
 /**
  * 同步后端（08 §8）：一个能读写文件的共享文件夹。路径都是相对资料库根目录（Tibi Sync/）的 POSIX 路径。
  * - 文件夹（core-node 的 folderBackend）：本地路径；Mac 上的 iCloud Drive 也是一个本地文件夹
@@ -14,7 +16,18 @@ export interface SyncBackend {
 }
 
 export class SyncError extends Error {
-  constructor(public code: 'offline' | 'auth' | 'quota' | 'format_newer' | 'not_found' | 'other', message: string) { super(message); }
+  constructor(public code: SyncErrorCode, message: string) { super(message); }
+}
+
+function encodeBase64Utf8(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+function safeDecodeUri(s: string): string {
+  try { return decodeURIComponent(s); } catch { return s; }
 }
 
 export function memoryBackend(files: Map<string, Uint8Array> = new Map()): SyncBackend & { files: Map<string, Uint8Array> } {
@@ -31,7 +44,7 @@ export function memoryBackend(files: Map<string, Uint8Array> = new Map()): SyncB
 export function webdavBackend(o: { url: string; user: string; password: string; fetch?: typeof fetch }): SyncBackend {
   const f = o.fetch ?? fetch;
   const base = o.url.replace(/\/?$/, '/').replace(/ /g, '%20');
-  const auth = 'Basic ' + btoa(unescape(encodeURIComponent(`${o.user}:${o.password}`)));
+  const auth = 'Basic ' + encodeBase64Utf8(`${o.user}:${o.password}`);
   const url = (p: string) => base + p.split('/').map(encodeURIComponent).join('/');
   const req = async (method: string, p: string, init: RequestInit = {}) => {
     let r: Response;
@@ -69,12 +82,12 @@ export function webdavBackend(o: { url: string; user: string; password: string; 
       if (!r.ok && r.status !== 207) throw new SyncError('other', `WebDAV 列目录失败（${r.status}）`);
       const xml = await r.text();
       const out: string[] = [];
-      const self = decodeURIComponent(new URL(url(dir.replace(/\/?$/, '/'))).pathname).replace(/\/$/, '');
+      const self = safeDecodeUri(new URL(url(dir.replace(/\/?$/, '/'))).pathname).replace(/\/$/, '');
       for (const m of xml.matchAll(/<(?:\w+:)?response\b[\s\S]*?<\/(?:\w+:)?response>/g)) {
         const href = /<(?:\w+:)?href>([^<]+)<\/(?:\w+:)?href>/.exec(m[0])?.[1]; if (!href) continue;
-        if (/<(?:\w+:)?collection\s*\/>/.test(m[0])) continue;
-        if (decodeURIComponent(href.replace(/^https?:\/\/[^/]+/, '')).replace(/\/$/, '') === self) continue;   // 目录自己
-        const name = decodeURIComponent(href.replace(/\/$/, '').split('/').pop() ?? ''); if (name) out.push(name);
+        if (/<(?:\w+:)?collection\b[^>]*\/>|<(?:\w+:)?collection\b[^>]*>[\s\S]*?<\/(?:\w+:)?collection>/.test(m[0])) continue;
+        if (safeDecodeUri(href.replace(/^https?:\/\/[^/]+/, '')).replace(/\/$/, '') === self) continue;   // 目录自己
+        const name = safeDecodeUri(href.replace(/\/$/, '').split('/').pop() ?? ''); if (name) out.push(name);
       }
       return out;
     },

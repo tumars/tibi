@@ -1,13 +1,13 @@
 import type { Dict } from '../../dict/types.js';
 import type { Status } from '../../types.js';
-import { lemmatize } from './lemma.js';
+import { lemmatizeAll } from './lemma.js';
 import { isRare, levelOfRatio } from './level.js';
 import { isAcronym, looksProperNoun, normalizeCase, tokenize } from './tokenize.js';
 
 /**
  * 标注（能力 annotate_terms 的纯计算部分）：分词、还原、按词库定每个词的状态。
  * 词只有在词库里有行（用户标过、查过）时才带状态；没有行的词不着色，也不会因为标注而建行。
- * 另外按词频算一个与用户无关的文本级别（level.ts）。不碰数据库：词库由调用方以 statusOf 传入。
+ * 另外按词频算一个与用户无关的文本级别（level.ts）。不碰数据库：词库由调用方以 statusOf / statusesOf 传入。
  */
 export interface AnnotatedToken { t: string; l: string; s: number; e: number; status?: Status; proper?: boolean }
 export interface AnnotatedSentence { text: string; tokens: AnnotatedToken[] }
@@ -15,7 +15,9 @@ export interface AnnotateInput {
   sentences: string[];
   dict: Dict;
   /** 词库：lemma → status（只含有行的词） */
-  statusOf: (lemma: string) => Status | undefined;
+  statusOf?: (lemma: string) => Status | undefined;
+  /** 批量查词库：一次性传入所有还原后的 lemma，避免调用方二次跑 annotateSentences */
+  statusesOf?: (lemmas: string[]) => Promise<Map<string, Status | undefined>>;
   /** 已有的短语（小写）：用于识别 */
   phrases?: string[];
   /** 是否忽略专有名词（技术 / 新闻类型默认忽略，00 §3.1） */
@@ -38,6 +40,16 @@ function userStatus(s: Status | number | undefined): Status | undefined {
   return (s >= 0 && s <= 5) || s === 97 || s === 98 ? (s as Status) : undefined;
 }
 
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function phraseRegex(needle: string): RegExp {
+  const lead = /^[a-z0-9]/i.test(needle) ? '(?<![a-z0-9])' : '';
+  const tail = /[a-z0-9]$/i.test(needle) ? '(?![a-z0-9])' : '';
+  return new RegExp(`${lead}${escapeRe(needle)}${tail}`, 'i');
+}
+
 export async function annotateSentences(input: AnnotateInput): Promise<AnnotateResult> {
   const { dict } = input;
   const raw = input.sentences.map(s => tokenize(s));
@@ -45,13 +57,21 @@ export async function annotateSentences(input: AnnotateInput): Promise<AnnotateR
   const forms = new Set<string>();
   const normalized = raw.map(toks => toks.map((tk, i) => normalizeCase(tk.t, i === 0)));
   for (const ns of normalized) for (const f of ns) forms.add(f);
-  const lemmaOf = new Map<string, string>();
-  await Promise.all([...forms].map(async f => lemmaOf.set(f, await lemmatize(f, dict))));
-  // 词频：批量（只用来估文本级别）
+  const lemmaOf = await lemmatizeAll([...forms], dict);
+  // 词频 + 词库状态：批量查询
   const hasFreq = dict.hasFrequency !== false;
   const lemmas = [...new Set([...lemmaOf.values()])];
-  const ranks = !hasFreq ? new Map<string, number>() : dict.frequencyRanks ? await dict.frequencyRanks(lemmas) : new Map<string, number>();
-  if (hasFreq && !dict.frequencyRanks) await Promise.all(lemmas.map(async l => { const r = await dict.frequencyRank(l); if (r) ranks.set(l, r); }));
+  const [ranks, statusMap] = await Promise.all([
+    (async () => {
+      if (!hasFreq) return new Map<string, number>();
+      if (dict.frequencyRanks) return dict.frequencyRanks(lemmas);
+      const out = new Map<string, number>();
+      await Promise.all(lemmas.map(async l => { const r = await dict.frequencyRank(l); if (r) out.set(l, r); }));
+      return out;
+    })(),
+    input.statusesOf ? input.statusesOf(lemmas) : Promise.resolve(undefined),
+  ]);
+  const lookupStatus = (l: string) => (statusMap ? statusMap.get(l) : input.statusOf?.(l));
 
   const counts = { total: 0, new: 0, learning: 0 };
   let rare = 0;
@@ -67,18 +87,20 @@ export async function annotateSentences(input: AnnotateInput): Promise<AnnotateR
       if (/['’]/.test(l)) return out;                                    // 缩略（don't、I’m、o’clock）：词频表里没有
       counts.total++;
       if (hasFreq && isRare(ranks.get(l))) rare++;
-      const st = userStatus(input.statusOf(l));
+      const st = userStatus(lookupStatus(l));
       if (st === undefined) return out;
       out.status = st;
       if (st === 0) counts.new++; else if (st >= 1 && st <= 4) counts.learning++;
       return out;
     }),
   }));
-  // 短语识别：子串匹配（小写）
+  // 短语识别：按词边界匹配（忽略大小写）
   const phrases: AnnotateResult['phrases'] = [];
   for (const p of input.phrases ?? []) {
-    const needle = p.toLowerCase();
-    const idx = input.sentences.map((s, i) => (s.toLowerCase().includes(needle) ? i : -1)).filter(i => i >= 0);
+    const needle = p.trim().toLowerCase();
+    if (!needle) continue;
+    const re = phraseRegex(needle);
+    const idx = input.sentences.map((s, i) => (re.test(s) ? i : -1)).filter(i => i >= 0);
     if (idx.length) phrases.push({ text: p, sentence_idx: idx });
   }
   if (!hasFreq || !counts.total) return { sentences, phrases, counts };

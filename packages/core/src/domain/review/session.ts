@@ -63,7 +63,8 @@ export interface AnswerInput { session_id: string; step: number; answer: Answer;
 /** review.answer：判分、首次作答记分、答错插重练步 */
 export async function answerStep(ctx: Ctx, dict: Dict, input: AnswerInput): Promise<AnswerResult> {
   const db = ctx.db;
-  return db.transaction(async tx => {
+  const changed: { cards: string[]; terms: string[] } = { cards: [], terms: [] };
+  const result = await db.transaction(async tx => {
     const { s, steps } = await loadSession(tx, input.session_id);
     const step = steps[input.step];
     if (!step) throw new TibiError('not_found', '没有这一步');
@@ -73,16 +74,18 @@ export async function answerStep(ctx: Ctx, dict: Dict, input: AnswerInput): Prom
     const { correct, near_miss } = judge(step, input.answer);
     const graded = !!s.graded && step.retry === 0 && !firstAttemptDone(steps, step.card_id, input.step);
     const { rating, reason } = gradeAnswer({ card_type: step.card_type, correct, near_miss, hints: input.hints, duration_ms: input.duration_ms, self_rating: input.answer.self_rating });
-    let result: AnswerResult = { step: input.step, correct, near_miss, auto: step.card_type !== 'recognize', undo: { undo_id: '', expires_at: 0 }, ...(step.correct_option ? { correct_option: step.correct_option } : {}) };
+    let out: AnswerResult = { step: input.step, correct, near_miss, auto: step.card_type !== 'recognize', undo: { undo_id: '', expires_at: 0 }, ...(step.correct_option ? { correct_option: step.correct_option } : {}) };
     const stepResult: Step['result'] = { correct, answered_at: t, near_miss, first: graded };
 
     if (graded) {
       const applied = await applyRating(tx, ctx, step, rating, { suggested: rating, hints: input.hints, duration_ms: input.duration_ms, auto: step.card_type !== 'recognize', correct, session_id: s.id, t });
-      result = { ...result, ...applied.result, rating, reason };
+      out = { ...out, ...applied.result, rating, reason };
       stepResult.rating = rating; stepResult.reason = reason; stepResult.suggested_rating = rating; stepResult._undo = applied.snapshot;
+      changed.cards.push(step.card_id);
+      if (applied.statusChanged) changed.terms.push(step.term.id);
     } else {
       stepResult.reason = step.retry > 0 ? '重练 · 不计分' : '不计分';
-      result.undo = await recordUndo(tx, ctx, { tool: 'review.answer', args: { session_id: s.id, step: input.step }, undo_payload: { session_id: s.id, step: input.step } });
+      out.undo = await recordUndo(tx, ctx, { tool: 'review.answer', args: { session_id: s.id, step: input.step }, undo_payload: { session_id: s.id, step: input.step } });
     }
     // 答错：3 张之后换题型重练（最多两次）
     if (!correct && s.graded && step.retry < MAX_RETRY && step.card_type !== 'recognize') {
@@ -93,20 +96,23 @@ export async function answerStep(ctx: Ctx, dict: Dict, input: AnswerInput): Prom
         const retryStep = await makeStep(tx, dict, { card, term }, swapped, { retry: (step.retry + 1) as 1 | 2, preferContextId: step.context.id || undefined }) as Step;
         steps.splice(retryIndex, 0, { ...retryStep, step: retryIndex });
         steps.forEach((x, i) => { x.step = i; });
-        result.retry_step = retryIndex;
+        out.retry_step = retryIndex;
         if (stepResult._undo) stepResult._undo.retry_step = retryIndex;
       }
     }
     step.result = stepResult;
     await saveSession(tx, s.id, steps, s.cursor);
-    return result;
+    return out;
   });
+  if (changed.cards.length) ctx.events.emit('data.changed', { table: 'cards', ids: changed.cards });
+  if (changed.terms.length) ctx.events.emit('data.changed', { table: 'terms', ids: changed.terms });
+  return result;
 }
 
 interface ApplyOpts { suggested?: Rating; hints: number; duration_ms: number; auto: boolean; correct?: boolean; session_id?: string; t: number }
 
-/** 把一次评分落到卡片、日志、熟练度上；返回结果与可撤销的快照 */
-export async function applyRating(db: Database, ctx: Ctx, step: Pick<Step, 'card_id' | 'card_type' | 'context' | 'term'>, rating: Rating, o: ApplyOpts): Promise<{ result: Partial<AnswerResult>; snapshot: UndoSnapshot }> {
+/** 把一次评分落到卡片、日志、熟练度上；返回结果与可撤销的快照（由调用方在事务提交后触发 data.changed） */
+export async function applyRating(db: Database, ctx: Ctx, step: Pick<Step, 'card_id' | 'card_type' | 'context' | 'term'>, rating: Rating, o: ApplyOpts): Promise<{ result: Partial<AnswerResult>; snapshot: UndoSnapshot; statusChanged: boolean }> {
   const card = await getCard(db, step.card_id);
   if (!card) throw new TibiError('not_found', '卡片不存在');
   const term = await getTerm(db, step.term.id);
@@ -120,22 +126,22 @@ export async function applyRating(db: Database, ctx: Ctx, step: Pick<Step, 'card
   });
   const status_before = term.status as Status;
   const status_after = nextStatus(status_before, rating, patch.stability);
-  if (status_after !== status_before) await setTermStatus(db, term, status_after, 'srs');
+  const statusChanged = status_after !== status_before;
+  if (statusChanged) await setTermStatus(db, term, status_after, 'srs');
   const newCard = { ...card, ...patch } as CardRow;
   const days = Math.max(0, (patch.due - o.t) / 86_400_000);
   const snapshot: UndoSnapshot = { card, log_id, status_before, status_after, hints: o.hints, duration_ms: o.duration_ms, context_id: step.context.id || undefined, context_snapshot: step.context.sentence };
   const undo = await recordUndo(db, ctx, { tool: 'record_review', args: { card_id: card.id, rating }, undo_payload: { card, log_id, term_id: term.id, status_before } });
   snapshot.audit_id = undo.undo_id;
-  ctx.events.emit('data.changed', { table: 'cards', ids: [card.id] });
-  if (status_after !== status_before) ctx.events.emit('data.changed', { table: 'terms', ids: [term.id] });
   return {
-    result: { card: toCardState(newCard), next: { days, label: intervalLabel(days) }, undo, ...(status_after !== status_before ? { status_change: { from: status_before, to: status_after } } : {}) },
+    result: { card: toCardState(newCard), next: { days, label: intervalLabel(days) }, undo, ...(statusChanged ? { status_change: { from: status_before, to: status_after } } : {}) },
     snapshot,
+    statusChanged,
   };
 }
 
 /** 撤销一次评分（record_review 的撤销函数；system.undo 与 review.undo 共用） */
-async function revertRating(db: Database, payload: { card: CardRow; log_id?: string; term_id: string; status_before: Status }): Promise<void> {
+async function revertRating(db: Database, payload: { card: CardRow; log_id?: string; term_id: string; status_before: Status }): Promise<boolean> {
   const { card } = payload;
   const { id, deleted_at, created_at, updated_at, ...rest } = card; void id; void deleted_at; void created_at; void updated_at;
   await updateCard(db, card.id, rest as Partial<CardRow>);
@@ -143,27 +149,40 @@ async function revertRating(db: Database, payload: { card: CardRow; log_id?: str
   if (payload.log_id) await db.run(`INSERT INTO review_logs(id, card_id, rating, card_type, auto_graded, session_id, undoes_id, reviewed_at)
     SELECT ?, card_id, 0, card_type, auto_graded, session_id, id, ? FROM review_logs WHERE id = ? AND NOT EXISTS (SELECT 1 FROM review_logs WHERE undoes_id = ?)`, [uuidv7(), now(), payload.log_id, payload.log_id]);
   const term = await getTerm(db, payload.term_id);
-  if (term && term.status !== payload.status_before) await setTermStatus(db, term, payload.status_before, 'srs');
+  if (term && term.status !== payload.status_before) {
+    await setTermStatus(db, term, payload.status_before, 'srs');
+    return true;
+  }
+  return false;
 }
-registerUndo<{ card: CardRow; log_id?: string; term_id: string; status_before: Status }>('record_review', async (p, ctx) => revertRating(ctx.db, p));
+registerUndo<{ card: CardRow; log_id?: string; term_id: string; status_before: Status }>('record_review', async (p, ctx) => {
+  const termChanged = await revertRating(ctx.db, p);
+  ctx.events.emit('data.changed', { table: 'cards', ids: [p.card.id] });
+  if (termChanged) ctx.events.emit('data.changed', { table: 'terms', ids: [p.term_id] });
+});
 registerUndo('review.answer', async () => { /* 不计分步的作答没有副作用 */ });
 
 /** review.override：用户改系统给的评分 */
 export async function overrideRating(ctx: Ctx, session_id: string, stepIndex: number, rating: Rating): Promise<AnswerResult> {
-  return ctx.db.transaction(async tx => {
+  let cardId = ''; let termId = ''; let termChanged = false;
+  const out = await ctx.db.transaction(async tx => {
     const { s, steps } = await loadSession(tx, session_id);
     const step = steps[stepIndex];
     if (!step?.result) throw new TibiError('conflict', '这一步还没作答');
     const snap = step.result._undo;
     if (!snap) throw new TibiError('conflict', '这一步不计分，改不了评分');
-    await revertRating(tx, { card: snap.card, log_id: snap.log_id, term_id: step.term.id, status_before: snap.status_before });
+    const revertedTerm = await revertRating(tx, { card: snap.card, log_id: snap.log_id, term_id: step.term.id, status_before: snap.status_before });
     if (snap.audit_id) await tx.run('UPDATE skill_audit SET undone_at = ? WHERE id = ?', [now(), snap.audit_id]);
     const applied = await applyRating(tx, ctx, step, rating, { suggested: step.result.suggested_rating, hints: snap.hints, duration_ms: snap.duration_ms, auto: step.card_type !== 'recognize', correct: step.result.correct, session_id: s.id, t: now() });
+    cardId = step.card_id; termId = step.term.id; termChanged = revertedTerm || applied.statusChanged;
     applied.snapshot.retry_step = snap.retry_step;
     step.result = { ...step.result, rating, reason: `改为${RATING_NAME[rating]}`, _undo: applied.snapshot };
     await saveSession(tx, s.id, steps, s.cursor);
     return { step: stepIndex, correct: step.result.correct, near_miss: !!step.result.near_miss, rating, reason: step.result.reason, auto: false, ...applied.result, undo: applied.result.undo!, ...(step.correct_option ? { correct_option: step.correct_option } : {}) };
   });
+  if (cardId) ctx.events.emit('data.changed', { table: 'cards', ids: [cardId] });
+  if (termChanged && termId) ctx.events.emit('data.changed', { table: 'terms', ids: [termId] });
+  return out;
 }
 
 /** review.next：推进游标；到末尾则结束会话 */
@@ -188,7 +207,8 @@ export async function nextStep(ctx: Ctx, session_id: string, stepIndex: number):
 
 /** review.undo：撤销上一张（恢复卡片、删日志、移除插入的重练步、游标回退） */
 export async function undoLast(ctx: Ctx, session_id: string): Promise<AnswerResult> {
-  return ctx.db.transaction(async tx => {
+  let cardId = ''; let termId = ''; let termChanged = false;
+  const out = await ctx.db.transaction(async tx => {
     const { s, steps } = await loadSession(tx, session_id);
     let idx = -1;
     for (let i = steps.length - 1; i >= 0; i--) if (steps[i]!.result && !steps[i]!.intro) { idx = i; break; }
@@ -196,9 +216,9 @@ export async function undoLast(ctx: Ctx, session_id: string): Promise<AnswerResu
     const step = steps[idx]!;
     const snap = step.result!._undo;
     if (snap) {
-      await revertRating(tx, { card: snap.card, log_id: snap.log_id, term_id: step.term.id, status_before: snap.status_before });
+      termChanged = await revertRating(tx, { card: snap.card, log_id: snap.log_id, term_id: step.term.id, status_before: snap.status_before });
       if (snap.audit_id) await tx.run('UPDATE skill_audit SET undone_at = ? WHERE id = ?', [now(), snap.audit_id]);
-      ctx.events.emit('data.changed', { table: 'cards', ids: [step.card_id] });
+      cardId = step.card_id; termId = step.term.id;
     }
     // 移除因这次答错插入的重练步（它一定在 idx 之后且还没作答）
     const retryAt = snap?.retry_step ?? findRetry(steps, idx);
@@ -210,6 +230,9 @@ export async function undoLast(ctx: Ctx, session_id: string): Promise<AnswerResu
     const undo: Undo = { undo_id: '', expires_at: 0 };
     return { step: idx, correct: false, near_miss: false, auto: true, reason: '已撤销', ...(card ? { card: toCardState(card) } : {}), undo };
   });
+  if (cardId) ctx.events.emit('data.changed', { table: 'cards', ids: [cardId] });
+  if (termChanged && termId) ctx.events.emit('data.changed', { table: 'terms', ids: [termId] });
+  return out;
 }
 
 function findRetry(steps: Step[], idx: number): number | undefined {

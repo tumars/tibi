@@ -14,7 +14,6 @@ import { undoMethods } from './domain/shared/undo.js';
 import { statsCapabilities, statsMethods } from './domain/stats/index.js';
 import { termsCapabilities, termsMethods } from './domain/terms/index.js';
 import { createKernel, type Kernel, type KernelOptions } from './kernel/index.js';
-import { EventBus } from './kernel/types.js';
 import type { Platform } from './platform.js';
 
 /**
@@ -30,8 +29,8 @@ export interface AssembleOptions extends KernelOptions {
 }
 
 export async function assembleCore(opts: AssembleOptions): Promise<{ core: Core; kernel: Kernel }> {
-  const kernel = createKernel(opts.db, new EventBus(), { resolveModel: opts.resolveModel, device: opts.device, engine: opts.engine });
   const core = new Core({ db: opts.db, dict: opts.dict, platform: opts.platform });
+  const kernel = createKernel(opts.db, core.events, { resolveModel: opts.resolveModel, device: opts.device, engine: opts.engine });
   core.ai = (ctx, o) => kernel.complete(ctx, o);
   kernel.bind(caller => core.ctx(caller), core.events);
 

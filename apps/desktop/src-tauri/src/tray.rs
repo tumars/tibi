@@ -3,6 +3,7 @@
 //! - Windows / Linux：保留原生托盘菜单，提供相同的快速跳转入口。
 //! - 窗口外观只用公开 AppKit API（Overlay 标题栏 + 隐藏红绿灯），官网版与 Mac App Store 沙盒版一致可用。
 
+use crate::lock_or_recover;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -74,9 +75,16 @@ pub fn compute_popover_position(
     };
     let Some(icon) = icon else {
         let m = monitors[0];
-        let pw = popover_logical.0 * m.scale;
-        let x = m.x + (m.width - pw) / 2.0;
-        let y = m.y + 36.0 * m.scale;
+        let scale = if m.scale > 0.0 { m.scale } else { 1.0 };
+        let pw = popover_logical.0 * scale;
+        let ph = popover_logical.1 * scale;
+        let margin = margin_logical * scale;
+        let min_x = m.x + margin;
+        let max_x = (m.x + m.width - pw - margin).max(min_x);
+        let x = (m.x + (m.width - pw) / 2.0).clamp(min_x, max_x);
+        let min_y = m.y + margin;
+        let max_y = (m.y + m.height - ph - margin).max(min_y);
+        let y = (m.y + 36.0 * scale).clamp(min_y, max_y);
         return Some((x.round() as i32, y.round() as i32));
     };
     let cx = icon.x + icon.width / 2.0;
@@ -223,7 +231,7 @@ fn hide_popover_inner(app: &AppHandle, record_blur: bool) {
     }
     if record_blur {
         if let Some(st) = app.try_state::<TrayState>() {
-            *st.last_blur_at.lock().unwrap() = Some(Instant::now());
+            *lock_or_recover(&st.last_blur_at) = Some(Instant::now());
         }
     }
 }
@@ -235,7 +243,7 @@ fn show_popover_at(app: &AppHandle, rect: Option<Rect>) {
     };
     let effective_rect = rect
         .or_else(|| app.tray_by_id(TRAY_ID).and_then(|t| t.rect().ok().flatten()))
-        .or_else(|| app.try_state::<TrayState>().and_then(|s| *s.last_rect.lock().unwrap()));
+        .or_else(|| app.try_state::<TrayState>().and_then(|s| *lock_or_recover(&s.last_rect)));
 
     let monitors = collect_monitors(app);
     let fallback_scale = monitors.first().map(|m| m.scale).unwrap_or(2.0);
@@ -257,15 +265,12 @@ fn show_popover_at(app: &AppHandle, rect: Option<Rect>) {
 #[cfg(target_os = "macos")]
 pub fn toggle_from_click(app: &AppHandle, rect: Rect) {
     if let Some(st) = app.try_state::<TrayState>() {
-        *st.last_rect.lock().unwrap() = Some(rect);
-        let recently_blurred = st
-            .last_blur_at
-            .lock()
-            .unwrap()
+        *lock_or_recover(&st.last_rect) = Some(rect);
+        let recently_blurred = lock_or_recover(&st.last_blur_at)
             .map(|t| t.elapsed() < BLUR_DEBOUNCE)
             .unwrap_or(false);
         if recently_blurred {
-            *st.last_blur_at.lock().unwrap() = None;
+            *lock_or_recover(&st.last_blur_at) = None;
             return;
         }
     }
@@ -289,11 +294,6 @@ pub fn toggle_from_hotkey(app: &AppHandle) {
     show_popover_at(app, None);
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn toggle_from_hotkey(app: &AppHandle) {
-    show_main_window(app, Some("/dict"), None);
-}
-
 pub fn handle_popover_window_event(window: &tauri::Window, event: &WindowEvent) -> bool {
     if window.label() != TRAY_WINDOW_LABEL {
         return false;
@@ -309,7 +309,7 @@ pub fn handle_popover_window_event(window: &tauri::Window, event: &WindowEvent) 
         WindowEvent::Focused(false) => {
             let pinned = window
                 .try_state::<TrayState>()
-                .map(|s| *s.pinned.lock().unwrap())
+                .map(|s| *lock_or_recover(&s.pinned))
                 .unwrap_or(false);
             if !pinned && window.is_visible().unwrap_or(false) {
                 #[cfg(target_os = "macos")]
@@ -341,7 +341,7 @@ pub fn setup(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     if let Some(st) = app.try_state::<TrayState>() {
-        *st.menu_items.lock().unwrap() = Some(TrayMenuItems {
+        *lock_or_recover(&st.menu_items) = Some(TrayMenuItems {
             quick,
             open,
             review,
@@ -428,7 +428,7 @@ pub fn tray_hide(app: AppHandle) -> Value {
 
 #[tauri::command]
 pub fn tray_set_pinned(state: State<'_, TrayState>, pinned: bool) -> Value {
-    *state.pinned.lock().unwrap() = pinned;
+    *lock_or_recover(&state.pinned) = pinned;
     json!({ "ok": true, "pinned": pinned })
 }
 
@@ -440,7 +440,7 @@ pub fn tray_open_main(
     ask: Option<String>,
 ) -> Value {
     show_main_window(&app, route.as_deref(), ask.as_deref());
-    let pinned = *state.pinned.lock().unwrap();
+    let pinned = *lock_or_recover(&state.pinned);
     if !pinned {
         #[cfg(target_os = "macos")]
         hide_popover_inner(&app, false);
@@ -456,7 +456,7 @@ pub fn tray_update_summary(
     lang: Option<String>,
 ) -> Value {
     let en = lang.as_deref() == Some("en");
-    if let Some(items) = state.menu_items.lock().unwrap().as_ref() {
+    if let Some(items) = lock_or_recover(&state.menu_items).as_ref() {
         let _ = items.quick.set_text(if en { "Quick Lookup" } else { "快速查词" });
         let _ = items.open.set_text(if en { "Open Tibi" } else { "打开 Tibi" });
         let review_text = if due > 0 {

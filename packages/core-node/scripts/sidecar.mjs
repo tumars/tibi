@@ -1,7 +1,7 @@
 // 把 Core 打成 Tauri sidecar 单文件（T11）：esbuild 先打 dist/tibi-core.js，再 bun build --compile。
 // 用法：node scripts/sidecar.mjs [--target <rust triple>] [--out <dir>]
 //   默认 target = 本机；out = ../../apps/desktop/src-tauri/binaries；文件名 tibi-core-<triple>[.exe]（Tauri externalBin 的约定）
-import { execSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { checkHostBun, smokeTestSidecar } from './sidecar-verify.mjs';
@@ -29,8 +29,8 @@ const outDir = resolve(arg('out') ?? '../../apps/desktop/src-tauri/binaries');
 mkdirSync(outDir, { recursive: true });
 const outfile = join(outDir, `tibi-core-${triple}${triple.includes('windows') ? '.exe' : ''}`);
 
-execSync('node build.mjs', { stdio: 'inherit' });
-execSync(`bun build --compile --target=${bunTarget} --minify dist/tibi-core.js --outfile "${outfile}"`, { stdio: 'inherit' });
+execFileSync(process.execPath, ['build.mjs'], { stdio: 'inherit' });
+execFileSync('bun', ['build', '--compile', `--target=${bunTarget}`, '--minify', 'dist/tibi-core.js', '--outfile', outfile], { stdio: 'inherit' });
 // macOS 上 bun --compile 写入 __BUN 段会使原 ad-hoc 签名失效；补一次 ad-hoc 签名，保证本地运行与冒烟测试不被系统 SIGKILL。
 // 正式发布时 Developer ID / App Store 签名会覆盖这里的临时签名。
 if (process.platform === 'darwin' && triple.includes('apple-darwin')) {

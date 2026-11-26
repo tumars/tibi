@@ -106,7 +106,7 @@ mod mac {
     struct HotKeySlot {
         handler_installed: bool,
         hotkey_ref: usize,
-        preset: String,
+        active_target: Option<(u32, u32)>,
     }
 
     static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
@@ -121,23 +121,25 @@ mod mac {
         event: EventRef,
         _user_data: *mut c_void,
     ) -> OSStatus {
-        let mut hk = EventHotKeyID::default();
-        let status = unsafe {
-            GetEventParameter(
-                event,
-                EVENT_PARAM_DIRECT_OBJECT,
-                TYPE_EVENT_HOT_KEY_ID,
-                std::ptr::null_mut(),
-                std::mem::size_of::<EventHotKeyID>(),
-                std::ptr::null_mut(),
-                (&mut hk as *mut EventHotKeyID).cast::<c_void>(),
-            )
-        };
-        if status == NO_ERR && hk.signature == HOTKEY_SIGNATURE && hk.id == HOTKEY_ID {
-            if let Some(app) = APP_HANDLE.get() {
-                crate::tray::toggle_from_hotkey(app);
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut hk = EventHotKeyID::default();
+            let status = unsafe {
+                GetEventParameter(
+                    event,
+                    EVENT_PARAM_DIRECT_OBJECT,
+                    TYPE_EVENT_HOT_KEY_ID,
+                    std::ptr::null_mut(),
+                    std::mem::size_of::<EventHotKeyID>(),
+                    std::ptr::null_mut(),
+                    (&mut hk as *mut EventHotKeyID).cast::<c_void>(),
+                )
+            };
+            if status == NO_ERR && hk.signature == HOTKEY_SIGNATURE && hk.id == HOTKEY_ID {
+                if let Some(app) = APP_HANDLE.get() {
+                    crate::tray::toggle_from_hotkey(app);
+                }
             }
-        }
+        }));
         NO_ERR
     }
 
@@ -156,14 +158,15 @@ mod mac {
         let (tx, rx) = std::sync::mpsc::sync_channel::<Result<String, String>>(1);
         let norm_for_main = normalized.clone();
         app.run_on_main_thread(move || {
-            let mut guard = slot().lock().unwrap();
+            let mut guard = crate::lock_or_recover(slot());
+            let prev_target = guard.active_target;
             unsafe {
                 if guard.hotkey_ref != 0 {
                     let _ = UnregisterEventHotKey(guard.hotkey_ref as EventHotKeyRef);
                     guard.hotkey_ref = 0;
+                    guard.active_target = None;
                 }
                 let Some((vk, mods)) = target else {
-                    guard.preset = "off".into();
                     let _ = tx.send(Ok("off".into()));
                     return;
                 };
@@ -201,12 +204,27 @@ mod mac {
                     &mut out_ref,
                 );
                 if st != NO_ERR || out_ref.is_null() {
-                    guard.preset = "off".into();
+                    // 新组合注册失败时恢复原快捷键，避免把用户置空
+                    if let Some((prev_vk, prev_mods)) = prev_target {
+                        let mut prev_ref: EventHotKeyRef = std::ptr::null_mut();
+                        let rst = RegisterEventHotKey(
+                            prev_vk,
+                            prev_mods,
+                            hk_id,
+                            GetApplicationEventTarget(),
+                            0,
+                            &mut prev_ref,
+                        );
+                        if rst == NO_ERR && !prev_ref.is_null() {
+                            guard.hotkey_ref = prev_ref as usize;
+                            guard.active_target = Some((prev_vk, prev_mods));
+                        }
+                    }
                     let _ = tx.send(Err("快捷键可能已被其他应用占用".into()));
                     return;
                 }
                 guard.hotkey_ref = out_ref as usize;
-                guard.preset = norm_for_main.clone();
+                guard.active_target = Some((vk, mods));
                 let _ = tx.send(Ok(norm_for_main));
             }
         })

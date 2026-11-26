@@ -36,9 +36,11 @@ export async function sectionContent(db: Database, section_id: string, opts: { t
   const inContext = await sentenceMeanings(db, section_id);
   // 行没存短释义（旧数据、标过已知 / 忽略又标回来的词）：当场查词典补上，不然高亮了却没有行间释义
   const dictGloss = new Map<string, string | undefined>();
-  if (opts.dict) for (const term of terms.values()) {
-    if (term.deleted_at || term.status < 0 || term.status > 4 || shortGloss(term.meaning) || term.short_gloss) continue;
-    dictGloss.set(term.text, shortGloss((await opts.dict.lookup(term.text))?.translation));
+  if (opts.dict) {
+    const need = [...terms.values()].filter(term => !term.deleted_at && term.status >= 0 && term.status <= 4 && !shortGloss(term.meaning) && !term.short_gloss);
+    await Promise.all(need.map(async term => {
+      dictGloss.set(term.text, shortGloss((await opts.dict!.lookup(term.text))?.translation));
+    }));
   }
   const sentences: Sentence[] = rows.map(r => {
     const tokens = j.parse<Token[]>(r.tokens, []).map(t => {
@@ -54,14 +56,24 @@ export async function sectionContent(db: Database, section_id: string, opts: { t
       }
       return out;
     });
-    // 短语标记：按文本位置给 token 打 phrase_id
+    // 短语标记：按文本位置与词边界给 token 打 phrase_id
     for (const ph of phraseMap.values()) {
-      if (!ph.sentence_ids.includes(r.id)) continue;
-      const lower = r.text.toLowerCase(); let from = 0;
-      while (true) {
+      if (!ph.text || !ph.sentence_ids.includes(r.id)) continue;
+      const lower = r.text.toLowerCase();
+      const leadAlnum = /^[a-z0-9]/.test(ph.text);
+      const tailAlnum = /[a-z0-9]$/.test(ph.text);
+      let from = 0;
+      while (from < lower.length) {
         const at = lower.indexOf(ph.text, from); if (at < 0) break;
-        for (const t of tokens) if (t.s >= at && t.e <= at + ph.text.length) t.phrase_id = ph.id;
-        from = at + ph.text.length;
+        const end = at + ph.text.length;
+        const leftOk = !leadAlnum || at === 0 || !/[a-z0-9]/.test(lower[at - 1]!);
+        const rightOk = !tailAlnum || end >= lower.length || !/[a-z0-9]/.test(lower[end]!);
+        if (leftOk && rightOk) {
+          for (const t of tokens) if (t.s >= at && t.e <= end) t.phrase_id = ph.id;
+          from = end;
+        } else {
+          from = at + 1;
+        }
       }
     }
     return {
@@ -107,7 +119,7 @@ async function recordReading(tx: Database, sec: { id: string; document_id: strin
 
 /** sections.progress：阅读位置（节流后调用）；同时更新文档级进度与 last_read_at，并记阅读时长 */
 export async function setProgress(db: Database, section_id: string, sentence_id: string, progress: number): Promise<void> {
-  const sec = await getSection(db, section_id); if (!sec) throw new TibiError('not_found', '找不到这一章');
+  const sec = await getSection(db, section_id); if (!sec || sec.deleted_at) throw new TibiError('not_found', '找不到这一章');
   const t = now(); const p = Math.max(0, Math.min(1, progress));
   await db.transaction(async tx => {
     await recordReading(tx, sec, Number(sec.progress), p, t);
@@ -123,7 +135,7 @@ export async function setProgress(db: Database, section_id: string, sentence_id:
  * sections.finish：读完一章。只记进度和事件，不改任何词的状态——生词都是用户自己标的，读完不等于认识了。
  */
 export async function finishSection(ctx: Ctx, section_id: string): Promise<{ ok: true }> {
-  const sec = await getSection(ctx.db, section_id); if (!sec) throw new TibiError('not_found', '找不到这一章');
+  const sec = await getSection(ctx.db, section_id); if (!sec || sec.deleted_at) throw new TibiError('not_found', '找不到这一章');
   const t = now();
   await ctx.db.transaction(async tx => {
     await recordReading(tx, sec, Number(sec.progress), 1, t);
@@ -131,10 +143,20 @@ export async function finishSection(ctx: Ctx, section_id: string): Promise<{ ok:
     const secs = await listSections(tx, sec.document_id);
     const allDone = secs.every(s => s.id === section_id || s.finished_at != null);
     await tx.run('UPDATE documents SET progress = ?, last_section_id = ?, last_read_at = ?, finished_at = CASE WHEN ? THEN COALESCE(finished_at, ?) ELSE finished_at END, updated_at = ? WHERE id = ?', [allDone ? 1 : secs.reduce((a, s) => a + (s.id === section_id ? 1 : Number(s.progress)) * Number(s.word_count), 0) / (secs.reduce((a, s) => a + Number(s.word_count), 0) || 1), section_id, t, allDone ? 1 : 0, t, t, sec.document_id]);
-    await tx.run('INSERT INTO learning_events(id, type, payload, created_at) VALUES (?,?,?,?)', [crypto.randomUUID(), 'section_finished', j.str({ document_id: sec.document_id, section_id, all_done: allDone }), t]);
+    await tx.run('INSERT INTO learning_events(id, type, payload, created_at) VALUES (?,?,?,?)', [uuidv7(), 'section_finished', j.str({ document_id: sec.document_id, section_id, all_done: allDone }), t]);
   });
   ctx.events.emit('data.changed', { table: 'documents', ids: [sec.document_id] });
   return { ok: true };
+}
+
+/** 恢复已软删的文章：若期间又重新导入了同内容文章（content_hash 冲突），给出清晰冲突提示 */
+export async function restoreDeletedDocument(db: Database, id: string, t: number = now()): Promise<void> {
+  try {
+    await db.run('UPDATE documents SET deleted_at = NULL, updated_at = ? WHERE id = ?', [t, id]);
+  } catch (e) {
+    if (e instanceof Error && /UNIQUE/i.test(e.message)) throw new TibiError('conflict', '书架里已经有相同内容的文章，无法撤销删除');
+    throw e;
+  }
 }
 
 /** documents.delete：软删，可撤销 */
@@ -147,6 +169,6 @@ export async function softDeleteDocument(ctx: Ctx, id: string) {
   return undo;
 }
 registerUndo<{ id: string }>('documents.delete', async (p, ctx) => {
-  await ctx.db.run('UPDATE documents SET deleted_at = NULL, updated_at = ? WHERE id = ?', [now(), p.id]);
+  await restoreDeletedDocument(ctx.db, p.id);
   ctx.events.emit('data.changed', { table: 'documents', ids: [p.id] });
 });

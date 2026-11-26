@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Dict, SectionContent, DocumentSummary, Core, Ctx } from '../../src/index.js';
-import { documentsMethods, pruneAssets } from '../../src/domain/documents/index.js';
+import { documentsCapabilities, documentsMethods, pruneAssets } from '../../src/domain/documents/index.js';
 import { termsMethods } from '../../src/domain/terms/index.js';
 import { undoMethods } from '../../src/domain/shared/undo.js';
 import { imported, makeCore } from '../helpers.js';
@@ -106,6 +106,17 @@ describe('导入文本', () => {
     expect((await core.call<{ total: number }>('documents.list', {})).total).toBe(1);
     await core.call('system.undo', { undo_id: undo.undo_id });
     expect((await core.call<{ total: number }>('documents.list', {})).total).toBe(2);
+  });
+
+  it('save_document 返回的 undo 凭证可正确撤销并软删文章，且不可重复撤销', async () => {
+    const saved = await documentsCapabilities.save_document!.run({
+      kind: 'article', genre: 'tech', title: 'Saved via Cap', source: 'chat', lang: 'en',
+      sections: [{ title: 'Body', paragraphs: [{ text: 'Ownership makes the compiler happy.', block_type: 'paragraph' }] }],
+    }, ctx) as { document_id: string; undo: { undo_id: string } };
+    expect((await core.call<{ total: number }>('documents.list', {})).total).toBe(1);
+    await core.call('system.undo', { undo_id: saved.undo.undo_id });
+    expect((await core.call<{ total: number }>('documents.list', {})).total).toBe(0);
+    await expect(core.call('system.undo', { undo_id: saved.undo.undo_id })).rejects.toThrow(/已经撤销/);
   });
 
   it('网址导入走平台抓取并标记不可信', async () => {
@@ -256,5 +267,29 @@ describe('改标签', () => {
 
     await core.call('documents.update', { id, patch: { tags: [] } });
     expect(await names()).toEqual([]);
+  });
+
+  it('reanalyze 后打开书的后几章不会重复累计遇见次数', async () => {
+    const r = await imported(await core.call<{ import_id: string }>('documents.import', {
+      source: { type: 'text', text: '# Ch 1\n\nOwnership holds.\n\n# Ch 2\n\nBorrowing holds.\n\n# Ch 3\n\nCollector appears here.' },
+      hints: { kind: 'book' },
+    })) as unknown as { document_id: string };
+    const document_id = r.document_id;
+    const doc = await core.call<{ sections: { id: string }[] }>('documents.get', { id: document_id });
+    expect(doc.sections.length).toBeGreaterThanOrEqual(3);
+    await core.call('terms.add', { entries: [{ text: 'collector' }] });
+    await core.call('sections.get', { id: doc.sections[2]!.id });
+    const before = await ctx.db.get<{ encounter_count: number }>("SELECT encounter_count FROM terms WHERE text = 'collector'");
+    const beforeForm = await ctx.db.get<{ encounter_count: number }>("SELECT tf.encounter_count FROM term_forms tf JOIN terms t ON t.id = tf.term_id WHERE t.text = 'collector'");
+    expect(Number(before?.encounter_count)).toBe(1);
+    expect(Number(beforeForm?.encounter_count)).toBe(1);
+
+    await core.call('documents.reanalyze', { id: document_id });
+    await settle();
+    await core.call('sections.get', { id: doc.sections[2]!.id });
+    const after = await ctx.db.get<{ encounter_count: number }>("SELECT encounter_count FROM terms WHERE text = 'collector'");
+    const afterForm = await ctx.db.get<{ encounter_count: number }>("SELECT tf.encounter_count FROM term_forms tf JOIN terms t ON t.id = tf.term_id WHERE t.text = 'collector'");
+    expect(Number(after?.encounter_count)).toBe(1);
+    expect(Number(afterForm?.encounter_count)).toBe(1);
   });
 });

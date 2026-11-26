@@ -1,4 +1,5 @@
 import { sync } from '@tibi/core';
+import { bytesToBase64 } from '../../lib/files';
 import type { Invoke } from './driver';
 
 /**
@@ -6,7 +7,6 @@ import type { Invoke } from './driver';
  * 读不到（含 iCloud 还没下载下来的占位文件）时返回 undefined，下次同步再读。
  */
 export function invokeFolderBackend(inv: Invoke, root: string, kind: 'icloud' | 'folder', readBytes: (cmd: string, args: Record<string, unknown>) => Promise<Uint8Array>): sync.SyncBackend {
-  const b64 = (d: Uint8Array) => { let s = ''; for (let i = 0; i < d.length; i += 0x8000) s += String.fromCharCode(...d.subarray(i, i + 0x8000)); return btoa(s); };
   return {
     kind,
     async read(path) {
@@ -14,7 +14,7 @@ export function invokeFolderBackend(inv: Invoke, root: string, kind: 'icloud' | 
       catch (e) { if (String(e).includes('ENOENT')) return undefined; throw new sync.SyncError('other', String(e)); }
     },
     async write(path, data) {
-      try { await inv('sync_fs_write', { root, path, data: b64(data) }); }
+      try { await inv('sync_fs_write', { root, path, data: bytesToBase64(data) }); }
       catch (e) { throw new sync.SyncError(String(e).includes('QUOTA') ? 'quota' : 'other', String(e).includes('QUOTA') ? '存储空间不够了。' : String(e)); }
     },
     list: dir => inv<string[]>('sync_fs_list', { root, dir }),

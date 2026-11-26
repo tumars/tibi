@@ -2,7 +2,7 @@
 // 在 tauri build 之后、最终签名之前运行：node scripts/appstore-icu.mjs <Tibi.app>
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { availableParallelism } from 'node:os';
@@ -25,10 +25,22 @@ const read = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8' });
 mkdirSync(root, { recursive: true });
 if (!existsSync(output)) {
   const archive = join(root, 'icu.tgz');
-  if (!existsSync(archive)) run('curl', ['--fail', '--location', '--connect-timeout', '20', '--max-time', '300', '--retry', '3', '-o', archive,
-    `https://github.com/unicode-org/icu/releases/download/release-${version}/icu4c-${version}-sources.tgz`]);
-  if (createHash('sha256').update(readFileSync(archive)).digest('hex') !== sha256) {
-    throw new Error('ICU 源码 SHA-256 不匹配');
+  if (!existsSync(archive)) {
+    const tmpArchive = archive + '.tmp';
+    rmSync(tmpArchive, { force: true });
+    try {
+      run('curl', ['--fail', '--location', '--connect-timeout', '20', '--max-time', '300', '--retry', '3', '-o', tmpArchive,
+        `https://github.com/unicode-org/icu/releases/download/release-${version}/icu4c-${version}-sources.tgz`]);
+      if (createHash('sha256').update(readFileSync(tmpArchive)).digest('hex') !== sha256) {
+        throw new Error('ICU 源码 SHA-256 不匹配');
+      }
+      renameSync(tmpArchive, archive);
+    } finally {
+      rmSync(tmpArchive, { force: true });
+    }
+  } else if (createHash('sha256').update(readFileSync(archive)).digest('hex') !== sha256) {
+    rmSync(archive, { force: true });
+    throw new Error('缓存的 ICU 源码 SHA-256 不匹配，已清理，请重试');
   }
   if (!existsSync(source)) run('tar', ['-xzf', archive, '-C', root]);
   mkdirSync(build, { recursive: true });

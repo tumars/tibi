@@ -15,6 +15,7 @@ input { font: inherit; }
 /* 在桌面浏览器里看时放在一个手机框里；真机上铺满 */
 .phone { position: relative; max-width: 430px; margin: 0 auto; height: 100vh; height: 100dvh; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
 @media (min-width: 520px) { :root { --sat: 50px; --sab: 16px; } body { background: #e5e5ea; padding: 24px 0; } :root[data-theme="dark"] body { background: #1c1c1e; } .phone { height: min(860px, 92vh); border-radius: 54px; box-shadow: 0 0 0 10px #1a1a1c, 0 0 0 11px #3a3a3c, 0 24px 60px -20px rgba(0,0,0,.5); } }
+@media (min-width: 520px) and (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body { background: #1c1c1e; } }
 .screen { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 0 calc(110px + var(--sab)); }
 .screen::-webkit-scrollbar { display: none; }
 svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
@@ -366,9 +367,11 @@ button.card { transition: transform .15s; } button.card:active { transform: scal
 .ui-tip-btn:active, .ui-tip-btn[aria-expanded="true"] { background: var(--fill); color: var(--ink); }
 .ui-tip-pop { position: fixed; z-index: 260; max-width: min(300px, calc(100vw - 24px)); padding: 10px 12px; border-radius: var(--r-l); background: var(--surface); color: var(--ink-2); font-size: 13px; line-height: 1.55; box-shadow: 0 0 0 .5px var(--line-2), var(--shadow-float); }
 .ui-alert { display: flex; align-items: flex-start; gap: 8px; padding: 12px; border-radius: var(--r-l); font-size: 13px; line-height: 1.5; color: var(--ink); background: var(--info-wash); }
-.ui-alert-icon { flex: none; margin-top: 2px; display: inline-flex; color: var(--info); }
+.ui-alert-ic { flex: none; margin-top: 2px; display: inline-flex; color: var(--info); }
 .ui-alert-body { flex: 1; min-width: 0; }
-.ui-alert-warn { background: var(--mid-wash); } .ui-alert-warn .ui-alert-icon { color: var(--mid); }
-.ui-alert-danger { background: var(--hard-wash); } .ui-alert-danger .ui-alert-icon { color: var(--hard); }
-.ui-alert-ok { background: var(--ok-wash); } .ui-alert-ok .ui-alert-icon { color: var(--ok); }
-.ui-alert-compact { padding: 8px 12px; }
+.ui-alert-hd { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.ui-alert-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.ui-alert.tone-warning { background: var(--mid-wash); } .ui-alert.tone-warning .ui-alert-ic { color: var(--mid); }
+.ui-alert.tone-danger { background: var(--hard-wash); } .ui-alert.tone-danger .ui-alert-ic { color: var(--hard); }
+.ui-alert.tone-success { background: var(--ok-wash); } .ui-alert.tone-success .ui-alert-ic { color: var(--ok); }
+.ui-alert.compact { padding: 8px 12px; align-items: center; } .ui-alert.compact .ui-alert-ic { margin-top: 0; }

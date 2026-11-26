@@ -3,10 +3,8 @@ import { capability, S, type CapabilityMap } from '../../rpc/define.js';
 import { TibiError, type Status, type TermContext } from '../../types.js';
 import { lemmatize } from '../text/lemma.js';
 import { getTerm, getTermByText } from './repo.js';
-import { addPhrase, addWords, applyStatus, removeTerms, setContextMeaning } from './service.js';
-import { listTerms, termDetail, VIEWS } from './views.js';
-
-const firstLine = (s: string) => s.split('\n')[0]!.trim();
+import { addPhrase, addWords, markTerm, removeTerms, setContextMeaning } from './service.js';
+import { firstLine, listTerms, termDetail, VIEWS } from './views.js';
 
 /** 能力层·词典与词汇（06 §5）：技能工具 / MCP 工具 / 界面直接调用共用 */
 export const termsCapabilities: CapabilityMap = {
@@ -19,12 +17,12 @@ export const termsCapabilities: CapabilityMap = {
       const term = await getTermByText(ctx.db, lemma);
       const examples = (await ctx.dict.examples?.(lemma)) ?? [];
       const live = term && !term.deleted_at ? term : undefined;
-      return { entry, lemma, status: live ? (live.status as Status) : undefined, term_id: term?.id, examples, in_wordbook: !!live?.in_wordbook && live.status >= 0 && live.status <= 4 };
+      return { entry, lemma, status: live ? (live.status as Status) : undefined, term_id: live?.id, examples, in_wordbook: !!live?.in_wordbook && live.status >= 0 && live.status <= 4 };
     },
     widget(r) {
       if (!r.entry) return undefined;
       const e = r.entry;
-      return { kind: 'word', summary: `${e.word}：${firstLine(e.translation)}`, data: { word: e.word, phonetic: e.phonetic, pos: e.pos, translation: e.translation, example: r.examples[0], in_wordbook: r.in_wordbook } };
+      return { kind: 'word', summary: `${e.word}：${firstLine(e.translation) ?? ''}`, data: { word: e.word, phonetic: e.phonetic, pos: e.pos, translation: e.translation, example: r.examples[0], in_wordbook: r.in_wordbook } };
     },
   }),
   compare_words: capability({
@@ -37,7 +35,7 @@ export const termsCapabilities: CapabilityMap = {
         const e = await ctx.dict.lookup(lemma); if (e) entries.push(e);
         collocations[lemma] = [];
         const term = await getTermByText(ctx.db, lemma);
-        if (term) {
+        if (term && !term.deleted_at) {
           const rows = await ctx.db.all<{ text: string; document_id: string | null }>('SELECT s.text, tc.document_id FROM term_contexts tc JOIN sentences s ON s.id = tc.sentence_id WHERE tc.term_id = ? AND tc.deleted_at IS NULL LIMIT 3', [term.id]);
           for (const r of rows) corpus_examples.push({ word: lemma, sentence: r.text, document_id: r.document_id ?? undefined });
         }
@@ -46,7 +44,7 @@ export const termsCapabilities: CapabilityMap = {
     },
     widget(r) {
       if (r.entries.length < 2) return undefined;
-      return { kind: 'compare', summary: `对比 ${r.entries.map(e => e.word).join('、')}`, data: { words: r.entries.map(e => ({ word: e.word, phonetic: e.phonetic, translation: firstLine(e.translation), example: r.corpus_examples.find(x => x.word === e.word)?.sentence })) } };
+      return { kind: 'compare', summary: `对比 ${r.entries.map(e => e.word).join('、')}`, data: { words: r.entries.map(e => ({ word: e.word, phonetic: e.phonetic, translation: firstLine(e.translation) ?? '', example: r.corpus_examples.find(x => x.word === e.word)?.sentence })) } };
     },
   }),
   get_term: capability({
@@ -54,7 +52,11 @@ export const termsCapabilities: CapabilityMap = {
     params: Type.Object({ text: Type.Optional(Type.String()), id: Type.Optional(S.id) }),
     async run(p, ctx) {
       if (!p.id && !p.text) throw new TibiError('invalid_params', 'text 和 id 要给一个');
-      const term = p.id ? await getTerm(ctx.db, p.id) : await getTermByText(ctx.db, await lemmatize(p.text!.toLowerCase(), ctx.dict));
+      const raw = p.text?.trim() ?? '';
+      const isPhrase = /\s/.test(raw);
+      const term = p.id
+        ? await getTerm(ctx.db, p.id)
+        : await getTermByText(ctx.db, isPhrase ? raw.toLowerCase().replace(/\s+/g, ' ') : await lemmatize(raw.toLowerCase(), ctx.dict), isPhrase ? 'phrase' : 'word');
       if (!term || term.deleted_at) throw new TibiError('not_found', '找不到这个词');
       return termDetail(ctx.db, ctx.dict, term);
     },
@@ -77,7 +79,7 @@ export const termsCapabilities: CapabilityMap = {
     name: 'get_term_contexts', description: '一个词遇到过的句子；prefer_i1 时只剩一个生词的句子排前面', perm: 'read',
     params: Type.Object({ term_id: S.id, limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })), prefer_i1: Type.Optional(Type.Boolean()) }),
     async run(p, ctx) {
-      const term = await getTerm(ctx.db, p.term_id); if (!term) throw new TibiError('not_found', '找不到这个词');
+      const term = await getTerm(ctx.db, p.term_id); if (!term || term.deleted_at) throw new TibiError('not_found', '找不到这个词');
       const d = await termDetail(ctx.db, ctx.dict, term);
       const list: TermContext[] = p.prefer_i1 === false ? [...d.contexts].sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0)) : d.contexts;
       return list.slice(0, p.limit ?? 10).map(c => ({ source: c.source, sentence_id: c.sentence_id, document_id: c.document_id, document_title: c.document_title, sentence: c.sentence, surface: c.surface, unknown_others: c.unknown_others, meaning_in_context: c.meaning_in_context }));
@@ -87,16 +89,9 @@ export const termsCapabilities: CapabilityMap = {
     name: 'mark_term', description: '改一个词的熟练度（0–5、97 标为已知、98 忽略）', perm: 'write', undoable: true,
     params: Type.Object({ term: Type.String(), status: S.status, sentence_id: Type.Optional(S.id) }),
     async run(p, ctx) {
-      const lemma = await lemmatize(p.term.toLowerCase(), ctx.dict);
-      let term = await getTermByText(ctx.db, lemma);
-      if (!term) {
-        const r = await addWords(ctx, [{ text: lemma, sentence_id: p.sentence_id }]);
-        term = r.created[0] ?? r.existed[0];
-        if (!term) throw new TibiError('not_found', '找不到这个词');
-      }
-      const previous = term.status as Status;
-      const r = await applyStatus(ctx, [term.id], p.status as Status, ctx.caller.origin === 'ui' ? 'user' : 'agent');
-      return { term_id: term.id, previous, undo: r.undo };
+      const source = ctx.caller.origin === 'ui' ? 'user' : 'agent';
+      const r = await markTerm(ctx, p.term, p.status as Status, p.sentence_id, source);
+      return { term_id: r.term.id, previous: r.previous ?? (0 as Status), undo: r.undo };
     },
   }),
   add_to_wordbook: capability({

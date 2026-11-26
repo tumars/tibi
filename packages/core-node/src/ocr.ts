@@ -3,15 +3,38 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { zlibSync } from 'fflate';
 import type { Worker } from 'tesseract.js';
+import { loadPdfjs } from './extract.js';
 
 /**
  * OCR（M4，D4：本地 Tesseract）。tesseract.js 在 Core 进程里跑；英文语言包（约 10 MB）第一次用时从 jsdelivr 下载，
- * 缓存在 app.db 旁边的 tessdata/。图片直接识别；扫描版 PDF 取每页嵌着的扫描图（pdfjs），编成 PNG 再识别。
+ * 缓存在 app.db 旁边的 tessdata/。图片直接识别；扫描版 PDF 逐页取最大扫描图并流式识别（避免整本 PNG 堆内存）。
  * 打包成单文件 sidecar 时 worker 脚本单独打成 tesseract-worker.cjs，放在可执行文件旁边（或 TIBI_TESSERACT_WORKER 指定）。
  */
+const MAX_OCR_PAGES = 200;
+const WORKER_IDLE_MS = 2 * 60_000;
+
 let worker: Promise<Worker> | undefined;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
+let ocrChain: Promise<unknown> = Promise.resolve();
 let dataDir = '';
 export function setOcrDataDir(dir: string) { dataDir = dir; }
+
+function scheduleWorkerIdleClose() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    const w = worker;
+    worker = undefined;
+    idleTimer = undefined;
+    if (w) void w.then(x => x.terminate()).catch(() => undefined);
+  }, WORKER_IDLE_MS);
+  idleTimer.unref?.();
+}
+
+function withWorkerLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = ocrChain.catch(() => undefined).then(fn);
+  ocrChain = run.catch(() => undefined);
+  return run;
+}
 
 function workerPath(): string | undefined {
   const env = process.env.TIBI_TESSERACT_WORKER; if (env && existsSync(env)) return env;
@@ -23,6 +46,7 @@ function workerPath(): string | undefined {
 }
 
 async function getWorker(): Promise<Worker> {
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = undefined; }
   if (!worker) {
     worker = (async () => {
       const { createWorker } = await import('tesseract.js');
@@ -36,60 +60,86 @@ async function getWorker(): Promise<Worker> {
   return worker;
 }
 
-/** 一张图 → 按段落拼好的文字 */
-async function recognize(img: Buffer | string): Promise<{ text: string; confidence: number }> {
-  const w = await getWorker();
-  const r = await w.recognize(img);
-  // 按行距分段：比这一页最小的行间空白明显大（1.7 倍以上）就另起一段；行尾连字符断词拼回去
-  const lines = (r.data.lines ?? []).map(l => ({ text: l.text.trim(), y0: l.bbox.y0, y1: l.bbox.y1 })).filter(l => l.text);
-  if (!lines.length) return { text: r.data.text.trim(), confidence: r.data.confidence };
-  const gaps = lines.slice(1).map((l, i) => l.y0 - lines[i]!.y1);
-  const base = Math.max(1, Math.min(...gaps.filter(g => g >= 0), Infinity));   // 段内行距：这一页最小的行间空白
-  const paras: string[] = []; let cur = '';
-  lines.forEach((l, i) => {
-    const prev = lines[i - 1];
-    if (prev && l.y0 - prev.y1 > base * 1.7 + 2) { paras.push(cur); cur = ''; }
-    cur = cur.endsWith('-') && /^[a-z]/.test(l.text) ? cur.slice(0, -1) + l.text : cur ? `${cur} ${l.text}` : l.text;
+/** 一张图 → 按段落拼好的文字（串行使用单个 Tesseract worker，空闲 2 分钟自动释放 WASM 内存） */
+function recognize(img: Buffer | string): Promise<{ text: string; confidence: number }> {
+  return withWorkerLock(async () => {
+    const w = await getWorker();
+    try {
+      const r = await w.recognize(img);
+      // 按行距分段：比这一页最小的行间空白明显大（1.7 倍以上）就另起一段；行尾连字符断词拼回去
+      const lines = (r.data.lines ?? []).map(l => ({ text: l.text.trim(), y0: l.bbox.y0, y1: l.bbox.y1 })).filter(l => l.text);
+      if (!lines.length) return { text: r.data.text.trim(), confidence: r.data.confidence };
+      const posGaps = lines.slice(1).map((l, i) => l.y0 - lines[i]!.y1).filter(g => g >= 0);
+      const base = posGaps.length ? Math.max(1, Math.min(...posGaps)) : 12;
+      const paras: string[] = []; let cur = '';
+      lines.forEach((l, i) => {
+        const prev = lines[i - 1];
+        if (prev && l.y0 - prev.y1 > base * 1.7 + 2) { paras.push(cur); cur = ''; }
+        cur = cur.endsWith('-') && /^[a-z]/.test(l.text) ? cur.slice(0, -1) + l.text : cur ? `${cur} ${l.text}` : l.text;
+      });
+      if (cur) paras.push(cur);
+      return { text: paras.join('\n\n').trim(), confidence: r.data.confidence };
+    } finally {
+      scheduleWorkerIdleClose();
+    }
   });
-  if (cur) paras.push(cur);
-  return { text: paras.join('\n\n').trim(), confidence: r.data.confidence };
 }
 
 export async function ocr(input: { images?: string[]; pdf?: string }, opts: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void } = {}): Promise<{ text: string; pages: number; confidence: number }> {
-  const sources: (Buffer | string)[] = input.images ? [...input.images] : input.pdf ? await pdfPageImages(input.pdf) : [];
-  if (!sources.length) throw new Error('没有可以识别的图片');
-  const out: string[] = []; let conf = 0;
-  for (let i = 0; i < sources.length; i++) {
-    if (opts.signal?.aborted) throw new Error('已取消');
-    opts.onProgress?.(i + 1, sources.length);
-    const r = await recognize(sources[i]!);
-    if (r.text) out.push(r.text); conf += r.confidence;
+  if (input.images) {
+    if (!input.images.length) throw new Error('没有可以识别的图片');
+    const out: string[] = []; let conf = 0;
+    for (let i = 0; i < input.images.length; i++) {
+      if (opts.signal?.aborted) throw new Error('已取消');
+      opts.onProgress?.(i + 1, input.images.length);
+      const r = await recognize(input.images[i]!);
+      if (r.text) out.push(r.text); conf += r.confidence;
+    }
+    return { text: out.join('\n\n'), pages: input.images.length, confidence: Math.round(conf / input.images.length) };
   }
-  return { text: out.join('\n\n'), pages: sources.length, confidence: Math.round(conf / sources.length) };
+  if (input.pdf) {
+    return ocrPdfStreaming(input.pdf, opts);
+  }
+  throw new Error('没有可以识别的图片');
 }
 
-/* ---------- 扫描版 PDF：取每页最大的那张图 ---------- */
-async function pdfPageImages(path: string): Promise<Buffer[]> {
-  const g = globalThis as { pdfjsWorker?: unknown };
-  if (!g.pdfjsWorker) g.pdfjsWorker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+/* ---------- 扫描版 PDF：逐页取最大的扫描图流式识别 ---------- */
+async function ocrPdfStreaming(path: string, opts: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void }): Promise<{ text: string; pages: number; confidence: number }> {
+  const pdfjs = await loadPdfjs();
   const doc = await pdfjs.getDocument({ data: new Uint8Array(await readFile(path)), isEvalSupported: false, disableFontFace: true, verbosity: 0 }).promise;
-  const out: Buffer[] = [];
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i);
-    const ops = await page.getOperatorList();
-    let best: { width: number; height: number; data: Uint8ClampedArray | Uint8Array; kind: number } | undefined;
-    for (let k = 0; k < ops.fnArray.length; k++) {
-      if (ops.fnArray[k] !== pdfjs.OPS.paintImageXObject) continue;
-      const name = ops.argsArray[k][0] as string;
-      const img = await new Promise<typeof best>(res => { try { (name.startsWith('g_') ? page.commonObjs : page.objs).get(name, (o: unknown) => res(o as typeof best)); } catch { res(undefined); } });
-      if (img?.data && (!best || img.width * img.height > best.width * best.height)) best = img;
+  try {
+    const totalPages = Math.min(doc.numPages, MAX_OCR_PAGES);
+    const out: string[] = []; let conf = 0; let pages = 0;
+    for (let i = 1; i <= totalPages; i++) {
+      if (opts.signal?.aborted) throw new Error('已取消');
+      opts.onProgress?.(i, totalPages);
+      const page = await doc.getPage(i);
+      let png: Buffer | undefined;
+      try {
+        const ops = await page.getOperatorList();
+        let best: { width: number; height: number; data: Uint8ClampedArray | Uint8Array; kind: number } | undefined;
+        for (let k = 0; k < ops.fnArray.length; k++) {
+          if (ops.fnArray[k] !== pdfjs.OPS.paintImageXObject) continue;
+          const name = ops.argsArray[k][0] as string;
+          const img = await new Promise<typeof best>(res => { try { (name.startsWith('g_') ? page.commonObjs : page.objs).get(name, (o: unknown) => res(o as typeof best)); } catch { res(undefined); } });
+          if (img?.data && (!best || img.width * img.height > best.width * best.height)) best = img;
+        }
+        if (best) png = encodePng(best);
+      } finally {
+        page.cleanup();
+      }
+      if (!png) continue;
+      if (opts.signal?.aborted) throw new Error('已取消');
+      const r = await recognize(png);
+      if (r.text) out.push(r.text);
+      conf += r.confidence;
+      pages++;
     }
-    if (best) out.push(encodePng(best));
-    page.cleanup();
+    if (!pages) throw new Error('没有可以识别的图片');
+    return { text: out.join('\n\n'), pages, confidence: Math.round(conf / pages) };
+  } finally {
+    await doc.destroy();
   }
-  await doc.destroy();
-  return out;
 }
 
 /** 极简 PNG 编码（灰度 / RGB / RGBA → RGBA 8 位） */

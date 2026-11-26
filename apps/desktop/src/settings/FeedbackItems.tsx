@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Modal } from '../components/Modal';
 import { SettingItem } from '../components/ui';
 import { diagText, feedbackLink, FEEDBACK_EMAIL, type Diag, type FeedbackKind, type FeedbackVia } from '../lib/feedback';
+import { openExternal } from '../lib/external';
 import { lang, tl } from '../lib/i18n';
 import { currentPlatform } from '../lib/notice';
 import { isTauri } from '../rpc';
@@ -20,12 +21,6 @@ async function isArm(): Promise<boolean | undefined> {
   if (!isTauri()) return undefined;
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<string>('update_installer_asset').then(a => a.includes('aarch64'), () => undefined);
-}
-
-async function open(url: string) {
-  if (!isTauri()) { window.open(url, '_blank', 'noopener'); return; }
-  const { openUrl } = await import('@tauri-apps/plugin-opener');
-  await openUrl(url);
 }
 
 /** 设置 → 关于：反馈与建议 */
@@ -60,7 +55,7 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
         await navigator.clipboard.writeText(link.copied);
         toast(tl('内容较长，已复制到剪贴板，打开后粘贴进去'), { ms: 8000 });
       }
-      await open(link.url);
+      await openExternal(link.url);
       onClose();
     } catch (e) {
       toast(via === 'mail' ? tl('没能打开邮件客户端，可以直接发邮件到 {v0}', { v0: FEEDBACK_EMAIL }) : String(e), { kind: 'err', ms: 8000 });

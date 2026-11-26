@@ -14,7 +14,7 @@
 没有 API Key 时，用 --print 把拼好的提示词打印出来，交给 Codex，或贴到 ChatGPT（附上设定图）。
 只用标准库，不依赖 openai 包。
 """
-import argparse, base64, json, os, pathlib, re, sys, time, urllib.request, uuid
+import argparse, base64, json, os, pathlib, re, sys, time, urllib.error, urllib.request, uuid
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DOC = ROOT / 'docs/design/07-mascot-assets.md'
@@ -39,17 +39,23 @@ def call(url, payload=None, files=None):
         sys.exit('需要 OPENAI_API_KEY；或用 --print 只看提示词')
     if files:
         boundary = '----tibi' + uuid.uuid4().hex
-        body = b''
+        parts = []
         for k, v in payload.items():
-            body += f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode()
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
         for k, (name, data, ctype) in files.items():
-            body += f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"; filename="{name}"\r\nContent-Type: {ctype}\r\n\r\n'.encode() + data + b'\r\n'
-        body += f'--{boundary}--\r\n'.encode()
-        req = urllib.request.Request(url, data=body, headers={'Authorization': f'Bearer {key}', 'Content-Type': f'multipart/form-data; boundary={boundary}'})
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"; filename="{name}"\r\nContent-Type: {ctype}\r\n\r\n'.encode())
+            parts.append(data)
+            parts.append(b'\r\n')
+        parts.append(f'--{boundary}--\r\n'.encode())
+        req = urllib.request.Request(url, data=b''.join(parts), headers={'Authorization': f'Bearer {key}', 'Content-Type': f'multipart/form-data; boundary={boundary}'})
     else:
         req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'})
-    with urllib.request.urlopen(req, timeout=600) as r:
-        return json.load(r)
+    try:
+        with urllib.request.urlopen(req, timeout=600) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode('utf-8', errors='replace')
+        sys.exit(f'Images API 请求失败（HTTP {e.code}）：{detail}')
 
 def generate(pid, prompt, args):
     size = SIZES.get(pid, '1024x1024')

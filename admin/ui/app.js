@@ -22,7 +22,10 @@ const jsonEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 async function api(path, { method = 'GET', data } = {}) {
   const response = await fetch('/api/' + path, { method, headers: { 'X-Tibi-Admin': '1', ...(data ? { 'Content-Type': 'application/json' } : {}) },
     ...(data ? { body: JSON.stringify(data) } : {}) });
-  const result = await response.json();
+  const text = await response.text();
+  let result;
+  try { result = text ? JSON.parse(text) : {}; }
+  catch { result = { error: text || '请求失败（' + response.status + '）' }; }
   if (!response.ok) throw new Error(result.error || '请求失败');
   return result;
 }
@@ -173,7 +176,7 @@ function renderNoticeCards() {
   state.notice.notices.forEach((n, index) => {
     const card = el('article', undefined, 'notice-card'); const header = el('div', undefined, 'notice-card-header');
     const remove = el('button', '移除', 'text-button delete-button');
-    remove.onclick = () => { state.notice.notices.splice(index, 1); markDirty(); renderNoticeCards(); };
+    remove.onclick = () => { state.notice.notices.splice(index, 1); state.dirty = true; renderNoticeCards(); };
     header.append(el('b', '公告 ' + String(index + 1).padStart(2, '0')), remove); card.append(header);
     card.append(inputField('公告 ID', n.id, v => { n.id = v; }, { placeholder: '例如 welcome-20261117' }),
       inputField('消息正文', fieldText(n.message), v => localized(n, 'message', 'zh', v), { area: true, placeholder: '写一句清晰、对用户有用的话。' }));
@@ -228,28 +231,33 @@ async function loadNotices() {
   state.revision = data.revision; state.dirty = false; renderNoticeCards();
   if (data.remoteError) showError(new Error('线上公告读取失败：' + data.remoteError));
 }
-async function pollJobs() {
-  const previouslyRunning = state.jobs.some(job => job.status === 'running');
-  const jobs = await api('jobs'); state.jobs = jobs;
-  const open = new Set([...document.querySelectorAll('.job[open]')].map(node => node.dataset.id));
-  const container = $('#jobs'); container.replaceChildren();
-  for (const job of jobs) {
-    const detail = el('details', undefined, 'job'); detail.dataset.id = job.id;
-    detail.open = open.has(job.id) || job.status === 'running';
-    const summary = el('summary'); summary.append(el('span', { running: '进行中', succeeded: '已完成', failed: '未完成' }[job.status], 'badge ' +
-      { running: 'running', succeeded: 'success', failed: 'failed' }[job.status]),
-    el('span', job.title, 'job-name'), el('span', date(job.started), 'job-date'), el('span', '⌄', 'muted'));
-    detail.append(summary, el('pre', job.lines.join('\n') || '正在开始…')); container.append(detail);
-  }
-  if (!jobs.length) container.append(el('div', '暂无后台任务记录。', 'empty'));
-  const running = jobs.find(job => job.status === 'running');
-  $('#running-status').textContent = running ? '任务执行中' : '空闲'; $('#running-status').className = 'badge' + (running ? ' running' : '');
-  syncButtons();
-  if (previouslyRunning && !running) {
-    await loadStatus();
-    if (state.page === 'storage') await loadStorage();
-    if (state.page === 'notices' && !state.dirty) await loadNotices();
-  }
+let pollInFlight = null;
+function pollJobs() {
+  if (pollInFlight) return pollInFlight;
+  pollInFlight = (async () => {
+    const previouslyRunning = state.jobs.some(job => job.status === 'running');
+    const jobs = await api('jobs'); state.jobs = jobs;
+    const open = new Set([...document.querySelectorAll('.job[open]')].map(node => node.dataset.id));
+    const container = $('#jobs'); container.replaceChildren();
+    for (const job of jobs) {
+      const detail = el('details', undefined, 'job'); detail.dataset.id = job.id;
+      detail.open = open.has(job.id) || job.status === 'running';
+      const summary = el('summary'); summary.append(el('span', { running: '进行中', succeeded: '已完成', failed: '未完成' }[job.status], 'badge ' +
+        { running: 'running', succeeded: 'success', failed: 'failed' }[job.status]),
+      el('span', job.title, 'job-name'), el('span', date(job.started), 'job-date'), el('span', '⌄', 'muted'));
+      detail.append(summary, el('pre', job.lines.join('\n') || '正在开始…')); container.append(detail);
+    }
+    if (!jobs.length) container.append(el('div', '暂无后台任务记录。', 'empty'));
+    const running = jobs.find(job => job.status === 'running');
+    $('#running-status').textContent = running ? '任务执行中' : '空闲'; $('#running-status').className = 'badge' + (running ? ' running' : '');
+    syncButtons();
+    if (previouslyRunning && !running) {
+      await loadStatus();
+      if (state.page === 'storage') await loadStorage();
+      if (state.page === 'notices' && !state.dirty) await loadNotices();
+    }
+  })().finally(() => { pollInFlight = null; });
+  return pollInFlight;
 }
 
 document.querySelectorAll('[data-page]').forEach(node => node.onclick = safely(() => switchPage(node.dataset.page)));
@@ -274,9 +282,13 @@ $('#upload-form').onsubmit = safely(async event => {
   try {
     await new Promise((resolve, reject) => {
       const request = new XMLHttpRequest(); request.open('PUT', '/api/storage?key=' + encodeURIComponent(key)); request.setRequestHeader('X-Tibi-Admin', '1');
+      request.timeout = 3_600_000;
       request.upload.onprogress = event => { if (event.lengthComputable) { const percent = Math.round(event.loaded / event.total * 100); $('#upload-progress').value = percent; $('#upload-status').textContent = percent === 100 ? '已传入本机，正在创建云端上传任务…' : '传入本机 ' + percent + '%'; } };
       request.onload = () => { try { const result = JSON.parse(request.responseText); if (request.status >= 400) reject(new Error(result.error)); else resolve(result); } catch { reject(new Error('上传响应异常')); } };
-      request.onerror = () => reject(new Error('本机连接中断，上传未完成')); request.send(file);
+      request.onerror = () => reject(new Error('本机连接中断，上传未完成'));
+      request.onabort = () => reject(new Error('上传已取消'));
+      request.ontimeout = () => reject(new Error('上传超时'));
+      request.send(file);
     });
     $('#upload-dialog').close(); $('#upload-file').value = ''; notify('正在上传至腾讯云，请查看最近操作'); await pollJobs();
   } finally { state.uploading = false; $('#upload-submit').disabled = false; $('#upload-close').disabled = false; $('#upload-progress').classList.add('hidden'); syncButtons(); }
@@ -299,13 +311,13 @@ $('#release-publish').onclick = safely(async () => {
 });
 $('#notice-add').onclick = () => {
   if (!state.notice) return;
-  state.notice.notices.push({ id: 'notice-' + Date.now(), message: '' }); markDirty(); renderNoticeCards();
+  state.notice.notices.push({ id: 'notice-' + Date.now(), message: '' }); state.dirty = true; renderNoticeCards();
 };
 $('#preview-language').onchange = renderNoticePreview;
 $('#notice-load-remote').onclick = safely(async () => {
   if (!state.remote) throw new Error('未读取到线上公告，请刷新后重试');
   if (state.dirty && !await confirmAction('载入线上公告？', '这会替换页面中尚未保存的编辑。', '载入')) return;
-  state.notice = structuredClone(state.remote); markDirty(); renderNoticeCards();
+  state.notice = structuredClone(state.remote); state.dirty = true; renderNoticeCards();
 });
 $('#notice-save').onclick = safely(async () => {
   const result = await api('notices', { method: 'PUT', data: { data: state.notice, revision: state.revision } });
@@ -357,5 +369,4 @@ document.addEventListener('click', event => { if (pinnedTip && !tipPop?.contains
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && pinnedTip) hideTip(); });
 
 await Promise.all([loadStatus(), pollJobs()]).catch(showError);
-let polling = false;
-setInterval(async () => { if (polling || document.hidden) return; polling = true; try { await pollJobs(); } catch (e) { showError(e); } finally { polling = false; } }, 2000);
+setInterval(() => { if (!document.hidden) pollJobs().catch(showError); }, 2000);

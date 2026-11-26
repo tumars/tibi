@@ -15,6 +15,7 @@ import type { Turns } from './turns.js';
 export interface TurnOptions { skill_id: SkillId; tier?: 'fast' | 'deep'; provider_id?: string }
 export interface KernelMethodDeps {
   db: Database; turns: Turns; registry: CapabilityRegistry; setUiContext: (c: UiContext | undefined) => void; engine?: AgentEngine;
+  device?: 'desktop' | 'mobile';
   /** 让已经写进库的这一轮（第一句用户消息）跑起来 */
   startTurn: (conversation_id: string, turn_id: string, o: TurnOptions & { tainted?: boolean }) => void;
 }
@@ -36,9 +37,18 @@ async function tellEngine(deps: KernelMethodDeps, conversation_id: string, text:
 
 export function chatMethods(deps: KernelMethodDeps): MethodMap {
   const convs = () => new Conversations(deps.db);
+  // 同一对话的 send/retry 串行排队，避免并发两次 chat.send 同时通过 activeIn 检查各自开一轮
+  const sendLocks = new Map<string, Promise<unknown>>();
+  const serializeConv = <T>(conversation_id: string, fn: () => Promise<T>): Promise<T> => {
+    const prev = sendLocks.get(conversation_id) ?? Promise.resolve();
+    const run = prev.catch(() => undefined).then(fn);
+    const tail = run.then(() => undefined, () => undefined).then(() => { if (sendLocks.get(conversation_id) === tail) sendLocks.delete(conversation_id); });
+    sendLocks.set(conversation_id, tail);
+    return run;
+  };
   return {
     'chat.open': method(Type.Object({ conversation_id: Type.Optional(Type.String()), document_id: Type.Optional(Type.String()), today: Type.Optional(Type.Boolean()) }), async (p, ctx) => {
-      const c = await convs().open({ ...p, device: ctx.platform.info().platform === 'ios' || ctx.platform.info().platform === 'android' ? 'mobile' : 'desktop' });
+      const c = await convs().open({ ...p, device: deps.device ?? (ctx.platform.info().platform === 'ios' || ctx.platform.info().platform === 'android' ? 'mobile' : 'desktop') });
       const { items, cursor } = await convs().history(c.id, { limit: 50 });
       return { ...c, messages: items, cursor, ...convs().activity(c.id, deps.turns) };
     }, '给 document_id 时续上该文章的线程；today 为 true 时打开或新建当天的对话；都不给则新建'),
@@ -46,7 +56,7 @@ export function chatMethods(deps: KernelMethodDeps): MethodMap {
       conversation_id: Type.String(), text: Type.String({ minLength: 1 }),
       context: Type.Optional(Type.Object({ page: Type.String(), document_id: Type.Optional(Type.String()), section_id: Type.Optional(Type.String()), sentence_id: Type.Optional(Type.String()), selection: Type.Optional(Type.String()), card_id: Type.Optional(Type.String()) })),
       skill: Type.Optional(skillIdSchema), tier: Type.Optional(Type.Union([Type.Literal('fast'), Type.Literal('deep')])), provider_id: Type.Optional(Type.String()),
-    }), async (p, ctx) => {
+    }), (p) => serializeConv(p.conversation_id, async () => {
       const conv = await convs().get(p.conversation_id);
       if (!conv) throw new TibiError('not_found', '找不到这个对话');
       if (p.context) deps.setUiContext(p.context);
@@ -69,12 +79,12 @@ export function chatMethods(deps: KernelMethodDeps): MethodMap {
       }
       const skill_id: SkillId = p.skill ?? 'tibi';
       return { submission_id: await submitTurn(deps, p.conversation_id, p.text, { skill_id, tier: p.tier, provider_id: p.provider_id, attachment }) };
-    }, '立即返回；文本增量与工具调用走事件。正在回答时再发，插进当前回答（steered = true）；Tibi 在等反问的回答时，这句就是回答（answered = true）'),
+    }), '立即返回；文本增量与工具调用走事件。正在回答时再发，插进当前回答（steered = true）；Tibi 在等反问的回答时，这句就是回答（answered = true）'),
     'chat.answer': method(Type.Object({ widget_id: Type.String(), option_ids: Type.Array(Type.String(), { maxItems: 8 }), text: Type.Optional(Type.String({ maxLength: 2000 })) }), async p => answerAsk(p), '回答反问卡：回答交给正在等的 ask_user，Tibi 在这一轮里接着做'),
     'chat.list': method(Type.Object({ limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })) }), async (p, _ctx) => convs().list(p.limit ?? 20), '左栏"最近"'),
     'chat.history': method(Type.Object({ conversation_id: Type.String(), cursor: Type.Optional(Type.String()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })) }), async (p) => convs().history(p.conversation_id, p)),
     'chat.cancel': method(Type.Object({ submission_id: Type.String() }), async (p) => { await deps.turns.cancel(p.submission_id); return { ok: true as const }; }, '停止这一轮回答（submission_id 就是 turn_id）'),
-    'chat.retry': method(Type.Object({ conversation_id: Type.String(), turn_id: Type.String() }), async (p) => {
+    'chat.retry': method(Type.Object({ conversation_id: Type.String(), turn_id: Type.String() }), (p) => serializeConv(p.conversation_id, async () => {
       if (deps.turns.activeIn(p.conversation_id).length) throw new TibiError('busy', 'Tibi 还在回答，说完再试');
       const turn = await convs().turn(p.turn_id);
       if (!turn || turn.conversation_id !== p.conversation_id) throw new TibiError('not_found', '找不到这一轮');
@@ -84,7 +94,7 @@ export function chatMethods(deps: KernelMethodDeps): MethodMap {
       deps.engine?.invalidate(p.conversation_id);
       deps.startTurn(p.conversation_id, p.turn_id, { skill_id: turn.skill, tainted: turn.tainted });
       return { submission_id: p.turn_id };
-    }, '停止或出错的那一轮重新回答：上次说了一半的作废，用户的话（含回答中补充的）留着'),
+    }), '停止或出错的那一轮重新回答：上次说了一半的作废，用户的话（含回答中补充的）留着'),
     'chat.widget_update': method(Type.Object({ message_id: Type.String(), widget_id: Type.String(), state: Type.Unknown(), result: Type.Optional(Type.String({ maxLength: 300 })) }), async (p) => {
       if (JSON.stringify(p.state ?? null).length > 8000) throw new TibiError('invalid_params', '卡片状态太大');
       await convs().updateWidget(p.message_id, p.widget_id, p.state, p.result);

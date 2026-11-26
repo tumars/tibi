@@ -10,7 +10,7 @@
  */
 import Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
@@ -24,43 +24,52 @@ mkdirSync(out, { recursive: true });
 
 const tmp = join(out, 'dict-lite.tmp.db');
 rmSync(tmp, { force: true });
+let raw, words;
 const db = new Database(tmp);
-db.exec(`ATTACH DATABASE '${src.replace(/'/g, "''")}' AS src`);
-const has = name => !!db.prepare("SELECT 1 FROM src.sqlite_master WHERE type = 'table' AND name = ?").get(name);
+try {
+  db.exec(`ATTACH DATABASE '${src.replace(/'/g, "''")}' AS src`);
+  const has = name => !!db.prepare("SELECT 1 FROM src.sqlite_master WHERE type = 'table' AND name = ?").get(name);
 
-// 表和索引按源库原样建
-const schema = db.prepare("SELECT type, name, sql FROM src.sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type = 'index'").all();
-for (const s of schema.filter(x => x.type === 'table')) db.exec(s.sql);
+  // 表和索引按源库原样建
+  const schema = db.prepare("SELECT type, name, sql FROM src.sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY type = 'index'").all();
+  for (const s of schema.filter(x => x.type === 'table')) db.exec(s.sql);
 
-db.exec(`
-  INSERT INTO main.stardict SELECT * FROM src.stardict
-   WHERE frq > 0 OR bnc > 0 OR collins > 0 OR oxford = 1 OR coalesce(tag, '') <> ''
-      OR lower(word) IN (SELECT lemma FROM src.lemma_map);
-  INSERT INTO main.lemma_map SELECT * FROM src.lemma_map;
-  INSERT INTO main.meta SELECT * FROM src.meta;
-`);
-if (has('word_atlas')) db.exec('INSERT INTO main.word_atlas SELECT * FROM src.word_atlas');
-if (has('wn_sense')) {
   db.exec(`
-    CREATE TEMP TABLE keep(word TEXT PRIMARY KEY COLLATE NOCASE);
-    INSERT OR IGNORE INTO keep SELECT word FROM main.stardict;
-    INSERT INTO main.wn_sense SELECT * FROM src.wn_sense WHERE word IN (SELECT word FROM keep);
-    INSERT INTO main.wn_synset SELECT * FROM src.wn_synset WHERE id IN (SELECT synset FROM main.wn_sense);
+    INSERT INTO main.stardict SELECT * FROM src.stardict
+     WHERE frq > 0 OR bnc > 0 OR collins > 0 OR oxford = 1 OR coalesce(tag, '') <> ''
+        OR lower(word) IN (SELECT lemma FROM src.lemma_map);
+    INSERT INTO main.lemma_map SELECT * FROM src.lemma_map;
+    INSERT INTO main.meta SELECT * FROM src.meta;
   `);
+  if (has('word_atlas')) db.exec('INSERT INTO main.word_atlas SELECT * FROM src.word_atlas');
+  if (has('wn_sense')) {
+    db.exec(`
+      CREATE TEMP TABLE keep(word TEXT PRIMARY KEY COLLATE NOCASE);
+      INSERT OR IGNORE INTO keep SELECT word FROM main.stardict;
+      INSERT INTO main.wn_sense SELECT * FROM src.wn_sense WHERE word IN (SELECT word FROM keep);
+      INSERT INTO main.wn_synset SELECT * FROM src.wn_synset WHERE id IN (SELECT synset FROM main.wn_sense);
+    `);
+  }
+  db.prepare("INSERT OR REPLACE INTO main.meta(key, value) VALUES ('variant', 'lite')").run();
+  for (const s of schema.filter(x => x.type === 'index')) db.exec(s.sql);
+  words = db.prepare('SELECT count(*) AS n FROM main.stardict').get().n;
+  db.exec('DETACH DATABASE src');
+  db.exec('VACUUM');
+  db.close();
+  raw = readFileSync(tmp);
+} finally {
+  if (db.open) db.close();
+  rmSync(tmp, { force: true });
 }
-db.prepare("INSERT OR REPLACE INTO main.meta(key, value) VALUES ('variant', 'lite')").run();
-for (const s of schema.filter(x => x.type === 'index')) db.exec(s.sql);
-const words = db.prepare('SELECT count(*) AS n FROM main.stardict').get().n;
-db.exec('DETACH DATABASE src');
-db.exec('VACUUM');
-db.close();
-
-const raw = readFileSync(tmp);
-rmSync(tmp, { force: true });
 const gz = gzipSync(raw, { level: 9 });
 const hash = createHash('sha256').update(gz).digest('hex').slice(0, 12);
 const file = `dict-lite-${hash}.db.gz`;
-for (const f of readdirSync(out)) if (/^dict-lite-.*\.db\.gz$/.test(f) && f !== file) rmSync(join(out, f));
-writeFileSync(join(out, file), gz);
-writeFileSync(join(out, 'manifest.json'), JSON.stringify({ file, bytes: gz.length, raw_bytes: raw.length, words }, null, 2) + '\n');
+const writeAtomic = (dest, data) => {
+  const part = `${dest}.tmp`;
+  writeFileSync(part, data);
+  renameSync(part, dest);
+};
+writeAtomic(join(out, file), gz);
+writeAtomic(join(out, 'manifest.json'), JSON.stringify({ file, bytes: gz.length, raw_bytes: raw.length, words }, null, 2) + '\n');
+for (const f of readdirSync(out)) if (/^dict-lite-.*\.db\.gz$/.test(f) && f !== file) rmSync(join(out, f), { force: true });
 console.log(`${file}：${words} 词，${(raw.length / 1048576).toFixed(1)} MB → gzip ${(gz.length / 1048576).toFixed(1)} MB（${out}）`);

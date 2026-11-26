@@ -2,14 +2,28 @@
 //! 每个库一条连接、加锁串行，BEGIN / COMMIT 跨多次调用也在同一条连接上（Core 的事务靠这个）。
 //! 库：app（app_data_dir/app.db，读写）、dict（随包资源 dict.db，只读，可能没有）。
 
+use crate::{lock_or_recover, Allowed};
 use rusqlite::{params_from_iter, types::Value as SqlV, Connection, OpenFlags};
 use serde_json::{json, Map, Value};
-use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
+/// app 与 dict 独立加锁，避免写事务阻塞只读词典查询
 #[derive(Default)]
-pub struct Dbs(Mutex<HashMap<String, Connection>>);
+pub struct Dbs {
+    app: Mutex<Option<Connection>>,
+    dict: Mutex<Option<Connection>>,
+}
+
+impl Dbs {
+    fn slot(&self, name: &str) -> Result<&Mutex<Option<Connection>>, String> {
+        match name {
+            "app" => Ok(&self.app),
+            "dict" => Ok(&self.dict),
+            _ => Err("unknown db".into()),
+        }
+    }
+}
 
 fn to_sql(v: &Value) -> SqlV {
     match v {
@@ -35,7 +49,8 @@ fn to_json(v: rusqlite::types::ValueRef) -> Value {
 /// 打开（或确认已打开）一个库；返回实际路径。dict 不存在时返回 { path: null }
 #[tauri::command]
 pub fn db_open(app: AppHandle, dbs: State<'_, Dbs>, name: String) -> Result<Value, String> {
-    let mut map = dbs.0.lock().unwrap();
+    let slot = dbs.slot(&name)?;
+    let mut guard = lock_or_recover(slot);
     let path = match name.as_str() {
         "app" => {
             let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -48,10 +63,10 @@ pub fn db_open(app: AppHandle, dbs: State<'_, Dbs>, name: String) -> Result<Valu
         },
         _ => return Err("unknown db".into()),
     };
-    if !map.contains_key(&name) {
+    if guard.is_none() {
         let conn = if name == "dict" { Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY) } else { Connection::open(&path) }.map_err(|e| e.to_string())?;
         conn.busy_timeout(std::time::Duration::from_secs(5)).map_err(|e| e.to_string())?;
-        map.insert(name, conn);
+        *guard = Some(conn);
     }
     Ok(json!({ "path": path.to_string_lossy() }))
 }
@@ -92,14 +107,14 @@ mod android_dict {
         let mut src = match app.fs().open(res.to_path_buf(), opts) {
             Ok(f) => f,
             Err(e) => {
-                eprintln!("词典资源打不开：{e}");
+                log::warn!("词典资源打不开：{e}");
                 return None;
             }
         };
         let tmp = dir.join("dict.db.tmp");
         let copied = std::fs::File::create(&tmp).and_then(|mut out| std::io::copy(&mut src, &mut out));
         if let Err(e) = copied {
-            eprintln!("拷贝词典失败：{e}");
+            log::warn!("拷贝词典失败：{e}");
             let _ = std::fs::remove_file(&tmp);
             return None;
         }
@@ -113,8 +128,9 @@ mod android_dict {
 }
 
 fn with<T>(dbs: &State<'_, Dbs>, name: &str, f: impl FnOnce(&Connection) -> rusqlite::Result<T>) -> Result<T, String> {
-    let map = dbs.0.lock().unwrap();
-    let conn = map.get(name).ok_or("db not open")?;
+    let slot = dbs.slot(name)?;
+    let guard = lock_or_recover(slot);
+    let conn = guard.as_ref().ok_or("db not open")?;
     f(conn).map_err(|e| e.to_string())
 }
 
@@ -173,12 +189,15 @@ pub async fn keyring_get(r#ref: String) -> Result<Value, String> {
     Ok(json!({ "secret": crate::keys::get(&r#ref).ok().flatten() }))
 }
 
-/// 存文档图片（EPUB 插图，Platform.saveAsset）：app_data_dir/assets/<key>/<name>，界面经 asset 协议读（范围 $APPDATA）
+/// 存文档图片（EPUB 插图，Platform.saveAsset）：app_data_dir/assets/<key>/<name>，界面经 asset 协议读（范围 $APPDATA/assets/**）
 #[tauri::command]
 pub fn asset_write(app: AppHandle, key: String, name: String, data: String) -> Result<Value, String> {
+    if !valid_asset_key(&key) || !valid_asset_name(&name) {
+        return Err("bad asset key or name".into());
+    }
     let root = app.path().app_data_dir().map_err(|e| e.to_string())?.join("assets");
     let rel = format!("{key}/{name}");
-    crate::sync_fs::sync_fs_write(root.to_string_lossy().into_owned(), rel.clone(), data)?;
+    crate::sync_fs::write_under_root(&root, &rel, &data)?;
     Ok(json!({ "uri": format!("asset:{rel}") }))
 }
 
@@ -216,9 +235,33 @@ fn valid_asset_key(key: &str) -> bool {
     !key.is_empty() && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
-/// 读用户在系统文件选择里挑的文件（手机导入 EPUB / PDF / Word / 图片）：原始字节，不过 JSON
+fn valid_asset_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.starts_with('.')
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.')
+}
+
+fn decode_file_uri(raw: &str) -> String {
+    if let Ok(url) = tauri::Url::parse(raw) {
+        if url.scheme() == "file" {
+            if let Ok(p) = url.to_file_path() {
+                return p.to_string_lossy().into_owned();
+            }
+        }
+    }
+    raw.strip_prefix("file://").unwrap_or(raw).to_string()
+}
+
+/// 读用户在系统文件选择里挑的文件（手机导入 EPUB / PDF / Word / 图片）：强制校验 Allowed 白名单
 #[tauri::command]
-pub fn read_file(path: String) -> Result<tauri::ipc::Response, String> {
-    let p = path.strip_prefix("file://").unwrap_or(&path);
-    std::fs::read(p).map(tauri::ipc::Response::new).map_err(|e| format!("读不了这个文件：{e}"))
+pub fn read_file(path: String, allowed: State<'_, Allowed>) -> Result<tauri::ipc::Response, String> {
+    let decoded = decode_file_uri(&path);
+    let ok = {
+        let guard = lock_or_recover(&allowed.0);
+        guard.contains(&path) || guard.contains(&decoded)
+    };
+    if !ok {
+        return Err("permission_denied".into());
+    }
+    std::fs::read(&decoded).map(tauri::ipc::Response::new).map_err(|e| format!("读不了这个文件：{e}"))
 }

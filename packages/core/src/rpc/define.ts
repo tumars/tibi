@@ -27,6 +27,8 @@ export interface Ctx {
   permission(): Promise<'ask' | 'default' | 'auto'>;
   /** 一次性模型调用（语境释义、测试连接）；组装时由内核提供，单测里可以不给 */
   ai?: { complete(o: CompleteOptions): Promise<CompleteResult> };
+  /** 可选取消信号（由正在运行的对话轮传入，用于中止长耗时工具） */
+  signal?: AbortSignal;
   /** 方法之间互相调用（如 review.answer → record_review 能力） */
   call<T = unknown>(method: string, params: unknown): Promise<T>;
 }

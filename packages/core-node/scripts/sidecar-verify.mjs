@@ -88,7 +88,9 @@ export async function smokeTestSidecar(binaryPath, { timeoutMs = 15_000 } = {}) 
       child.stdout.setEncoding('utf8');
       child.stdout.on('data', chunk => {
         stdout += chunk;
-        for (const line of stdout.split('\n')) {
+        const lines = stdout.split('\n');
+        stdout = lines.pop() ?? '';
+        for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed) continue;
           let frame;

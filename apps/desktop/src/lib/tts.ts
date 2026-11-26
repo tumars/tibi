@@ -78,7 +78,18 @@ function getWorker(): Worker {
       else if (m.type === 'error' && m.id === undefined) loadFail?.(new Error(m.message));
       else if (m.type !== 'loaded' && m.id !== undefined) jobsById.get(m.id)?.on(m);
     };
-    worker.onerror = e => { const err = new Error(e.message || 'Kokoro worker failed'); loadFail?.(err); for (const j of jobsById.values()) j.fail(err); };
+    worker.onerror = e => {
+      const err = new Error(e.message || 'Kokoro worker failed');
+      const failLoad = loadFail;
+      loadFail = undefined;
+      loaded = undefined;
+      worker?.terminate();
+      worker = undefined;
+      failLoad?.(err);
+      for (const j of [...jobsById.values()]) j.fail(err);
+      jobsById.clear();
+      for (const [k, j] of jobs) if (j.error) jobs.delete(k);
+    };
   }
   return worker;
 }
@@ -88,8 +99,10 @@ export function loadKokoro(onProgress?: (pct: number) => void): Promise<void> {
   if (!loaded) {
     loaded = new Promise<void>((resolve, reject) => {
       const w = getWorker();
-      loadFail = reject;
-      const onLoaded = (e: MessageEvent<Out>) => { if (e.data.type === 'loaded') { w.removeEventListener('message', onLoaded); resolve(); } };
+      const cleanup = () => { w.removeEventListener('message', onLoaded); if (loadFail === onFail) loadFail = undefined; };
+      const onFail = (err: Error) => { cleanup(); reject(err); };
+      const onLoaded = (e: MessageEvent<Out>) => { if (e.data.type === 'loaded') { cleanup(); resolve(); } };
+      loadFail = onFail;
       w.addEventListener('message', onLoaded);
       w.postMessage({ type: 'load' } satisfies In);
     });
@@ -104,7 +117,7 @@ export function kokoroDownloaded(): boolean { try { return localStorage.getItem(
 /** 一次合成：Worker 一句一句回音频，边收边放。合成好的留着当缓存（文字 + 音色 + 语速） */
 class Job {
   readonly id = ++jobSeq;
-  chunks: AudioBuffer[] = []; done = false; error?: Error;
+  chunks: AudioBuffer[] = []; done = false; cancelled = false; error?: Error;
   private wake = new Set<() => void>();
   on(m: Out) {
     if (m.type === 'chunk') { const b = new AudioBuffer({ length: m.audio.length, sampleRate: m.rate, numberOfChannels: 1 }); b.copyToChannel(m.audio as Float32Array<ArrayBuffer>, 0); this.chunks.push(b); }
@@ -113,14 +126,17 @@ class Job {
     if (this.done || this.error) jobsById.delete(this.id);
     this.wake.forEach(f => f()); this.wake.clear();
   }
+  cancel() {
+    this.cancelled = true;
+    jobsById.delete(this.id);
+    this.wake.forEach(f => f()); this.wake.clear();
+  }
   fail(e: Error) { this.on({ type: 'error', id: this.id, message: e.message }); }
-  async *[Symbol.asyncIterator](): AsyncGenerator<AudioBuffer> {
-    for (let i = 0; ; ) {
-      if (i < this.chunks.length) yield this.chunks[i++]!;
-      else if (this.error) throw this.error;
-      else if (this.done) return;
-      else await new Promise<void>(r => this.wake.add(r));
-    }
+  next(i: number): Promise<IteratorResult<AudioBuffer>> {
+    if (i < this.chunks.length) return Promise.resolve({ value: this.chunks[i]!, done: false });
+    if (this.error) return Promise.reject(this.error);
+    if (this.done || this.cancelled) return Promise.resolve({ value: undefined, done: true });
+    return new Promise<void>(r => this.wake.add(r)).then(() => this.next(i));
   }
 }
 const jobs = new Map<string, Job>();       // 缓存键 → 合成（做完的和正在做的）
@@ -138,17 +154,33 @@ function synth(text: string, r: number): Job {
 }
 /** 停下时扔掉还没合成完的（留着会堵住后面的），want 是马上要读的那条 */
 function cancelPending(want?: Job) {
-  for (const [k, j] of jobs) if (j !== want && !j.done && !j.error) { worker?.postMessage({ type: 'cancel', id: j.id } satisfies In); jobs.delete(k); jobsById.delete(j.id); }
+  for (const [k, j] of jobs) if (j !== want && !j.done && !j.error) { worker?.postMessage({ type: 'cancel', id: j.id } satisfies In); jobs.delete(k); j.cancel(); }
 }
 /** 提前合成下一句（全文朗读用），轮到它时不用再等 */
 export function prefetch(text: string, o: { rate?: number } = {}) { if (kokoroDownloaded()) synth(text, o.rate ?? rate); }
 
 let ctx: AudioContext | undefined; let playing: AudioBufferSourceNode | undefined; let stopResolve: (() => void) | undefined;
+const cancelWaiters = new Set<() => void>();
+function raceAbort<T>(p: Promise<T>, my: number): Promise<T | undefined> {
+  if (my !== seq) return Promise.resolve(undefined);
+  return new Promise<T | undefined>((resolve, reject) => {
+    const abort = () => resolve(undefined);
+    cancelWaiters.add(abort);
+    p.then(
+      v => { cancelWaiters.delete(abort); resolve(my === seq ? v : undefined); },
+      e => { cancelWaiters.delete(abort); if (my === seq) reject(e); else resolve(undefined); },
+    );
+  });
+}
 async function kokoroSay(job: Job, my: number): Promise<void> {
   ctx ??= new AudioContext();
+  if (ctx.state === 'suspended') await raceAbort(ctx.resume().catch(() => undefined), my);
+  if (my !== seq) return;
   setStatus(job.chunks.length ? 'speaking' : 'loading');
-  for await (const buf of job) {
-    if (my !== seq) return;
+  for (let i = 0; ; i++) {
+    const step = await raceAbort(job.next(i), my);
+    if (!step || step.done || my !== seq) return;
+    const buf = step.value;
     setStatus('speaking');
     await new Promise<void>(resolve => {
       const src = ctx!.createBufferSource(); src.buffer = buf; src.connect(ctx!.destination);
@@ -175,6 +207,7 @@ let paused = false;
 export function stop() { halt(); }
 function halt(want?: Job) {
   seq++; paused = false; cancelPending(want); setStatus('idle');
+  cancelWaiters.forEach(f => f()); cancelWaiters.clear();
   // 暂停着直接 cancel，Chrome 之后再 speak 不出声；要先 resume
   try { speechSynthesis.resume(); speechSynthesis.cancel(); } catch { /* 无语音 */ }
   try { playing?.stop(); } catch { /* 已停 */ }

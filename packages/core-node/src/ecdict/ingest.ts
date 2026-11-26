@@ -8,24 +8,16 @@
  * 同时写入词光和 Open English WordNet（extras.ts，T32）；--no-extras 只入 ECDICT。
  */
 import BetterSqlite3 from 'better-sqlite3';
-import { createReadStream, createWriteStream, existsSync, mkdirSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import { parseCsv } from './csv.js';
 import { ATLAS_URL, downloadTo, ingestAtlas, ingestWordnet, WORDNET_URL } from './extras.js';
 
 const CSV_URL = 'https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv';
-const COLS = ['word', 'phonetic', 'definition', 'translation', 'pos', 'collins', 'oxford', 'tag', 'bnc', 'frq', 'exchange'] as const;
 
 async function downloadCsv(dest: string, log: (s: string) => void = () => {}): Promise<string> {
-  if (existsSync(dest) && statSync(dest).size > 1_000_000) { log(`已有 ${dest}`); return dest; }
-  mkdirSync(dirname(dest), { recursive: true });
-  log(`下载 ${CSV_URL} …`);
-  const res = await fetch(CSV_URL);
-  if (!res.ok || !res.body) throw new Error(`下载失败：${res.status}`);
-  await pipeline(Readable.fromWeb(res.body as never), createWriteStream(dest));
-  log(`已保存到 ${dest}（${(statSync(dest).size / 1e6).toFixed(1)} MB）`);
+  await downloadTo(CSV_URL, dest, log, 1_000_000);
+  log(`已就绪 ${dest}（${(statSync(dest).size / 1e6).toFixed(1)} MB）`);
   return dest;
 }
 
@@ -56,7 +48,7 @@ export async function buildDict(csvPath: string, outPath: string, opts: BuildOpt
   const log = opts.log ?? (() => {});
   mkdirSync(dirname(outPath), { recursive: true });
   const tmp = outPath + '.tmp';
-  if (existsSync(tmp)) { const { unlinkSync } = await import('node:fs'); unlinkSync(tmp); }
+  if (existsSync(tmp)) unlinkSync(tmp);
   const db = new BetterSqlite3(tmp);
   db.pragma('journal_mode = OFF'); db.pragma('synchronous = OFF');
   db.exec(`
@@ -113,9 +105,7 @@ export async function buildDict(csvPath: string, outPath: string, opts: BuildOpt
   db.exec('CREATE INDEX stardict_word ON stardict(word COLLATE NOCASE); CREATE INDEX stardict_frq ON stardict(frq) WHERE frq > 0; CREATE INDEX lemma_map_form ON lemma_map(form);');
   db.exec('VACUUM');
   db.close();
-  const { renameSync } = await import('node:fs');
   renameSync(tmp, outPath);
-  void COLS;
   return { words: n, forms };
 }
 

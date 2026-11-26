@@ -2,7 +2,7 @@ import { Type } from '@sinclair/typebox';
 import { j, now, type Database } from '../../db/driver.js';
 import { uuidv7 } from '../../ids.js';
 import { capability, method, type CapabilityMap, type Ctx, type MethodMap } from '../../rpc/define.js';
-import { recordUndo, registerUndo } from '../shared/undo.js';
+import { recordUndo, registerUndo, UNDO_TTL_MS } from '../shared/undo.js';
 import { TibiError, type LearningEventType, type Memory } from '../../types.js';
 
 /**
@@ -43,17 +43,19 @@ export class Memories {
     });
     return (await this.get(id))!;
   }
-  async update(id: string, content: string): Promise<Memory> {
-    const r = await this.db.run("UPDATE memories SET content = ?, source_type = 'user', updated_at = ? WHERE id = ? AND deleted_at IS NULL", [content, now(), id]);
+  async update(id: string, content: string, source_type: Memory['source']['type'] = 'user'): Promise<Memory> {
+    const r = await this.db.run('UPDATE memories SET content = ?, source_type = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL', [content, source_type, now(), id]);
     if (!r.changes) throw new TibiError('not_found', '找不到这条记忆');
     return (await this.get(id))!;
   }
-  /** 硬删（隐私优先，01 §9），连同审计里的内容副本 */
+  /** 硬删（隐私优先，01 §9），连同审计里的旧内容副本以及已过撤销时限的记忆删除快照 */
   async remove(id: string): Promise<Memory | undefined> {
     const m = await this.get(id); if (!m) return undefined;
+    const cutoff = now() - UNDO_TTL_MS;
     await this.db.transaction(async tx => {
       await tx.run('DELETE FROM memories WHERE id = ?', [id]);
       await tx.run("UPDATE skill_audit SET args = '{}', undo_payload = NULL WHERE args LIKE ? OR undo_payload LIKE ?", [`%${id}%`, `%${id}%`]);
+      await tx.run("UPDATE skill_audit SET undo_payload = NULL WHERE tool IN ('memory.delete', 'memory.clear', 'forget') AND undo_payload IS NOT NULL AND created_at < ?", [cutoff]);
     });
     return m;
   }
@@ -71,22 +73,26 @@ export class Memories {
 registerUndo<{ memory: Memory }>('memory.delete', async (p, ctx) => {
   const m = p.memory; const t = now();
   await ctx.db.run('INSERT OR IGNORE INTO memories(id, type, content, subject, confidence, source_type, source_ref, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)', [m.id, m.type, m.content, m.subject ?? null, m.confidence, m.source.type, m.source.ref ?? null, m.status, m.created_at, t]);
+  changed(ctx, [m.id]);
 });
 registerUndo<{ memories: Memory[] }>('memory.clear', async (p, ctx) => {
   for (const m of p.memories) await ctx.db.run('INSERT OR IGNORE INTO memories(id, type, content, subject, confidence, source_type, source_ref, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)', [m.id, m.type, m.content, m.subject ?? null, m.confidence, m.source.type, m.source.ref ?? null, m.status, m.created_at, now()]);
+  changed(ctx, p.memories.map(m => m.id));
 });
 registerUndo<{ id: string; superseded?: string }>('remember', async (p, ctx) => {
   await ctx.db.run('DELETE FROM memories WHERE id = ?', [p.id]);
   if (p.superseded) await ctx.db.run("UPDATE memories SET status = 'active', superseded_by = NULL, updated_at = ? WHERE id = ?", [now(), p.superseded]);
+  changed(ctx, p.superseded ? [p.id, p.superseded] : [p.id]);
 });
 registerUndo<{ memory: Memory }>('forget', async (p, ctx) => {
   const m = p.memory;
   await ctx.db.run('INSERT OR IGNORE INTO memories(id, type, content, subject, confidence, source_type, source_ref, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)', [m.id, m.type, m.content, m.subject ?? null, m.confidence, m.source.type, m.source.ref ?? null, m.status, m.created_at, now()]);
+  changed(ctx, [m.id]);
 });
 
-registerUndo<{ id: string; content: string }>('update_memory', async (p, ctx) => {
-  await new Memories(ctx.db).update(p.id, p.content);
-  ctx.events.emit('data.changed', { table: 'memories', ids: [p.id] });
+registerUndo<{ id: string; content: string; source_type?: Memory['source']['type'] }>('update_memory', async (p, ctx) => {
+  await new Memories(ctx.db).update(p.id, p.content, p.source_type ?? 'user');
+  changed(ctx, [p.id]);
 });
 
 const changed = (ctx: Ctx, ids: string[]) => ctx.events.emit('data.changed', { table: 'memories', ids });
@@ -137,9 +143,10 @@ export const memoryCapabilities: CapabilityMap = {
     async run(p, ctx) {
       const repo = new Memories(ctx.db);
       const prev = await repo.get(p.id); if (!prev) throw new TibiError('not_found', '找不到这条记忆');
-      const memory = await repo.update(p.id, p.content);
+      const sourceType: Memory['source']['type'] = ctx.caller.skill_id === 'archivist' ? 'consolidation' : ctx.caller.origin === 'ui' ? 'user' : 'agent';
+      const memory = await repo.update(p.id, p.content, sourceType);
       changed(ctx, [p.id]);
-      return { memory, undo: await recordUndo(ctx.db, ctx, { tool: 'update_memory', args: { id: p.id }, undo_payload: { id: p.id, content: prev.content } }) };
+      return { memory, undo: await recordUndo(ctx.db, ctx, { tool: 'update_memory', args: { id: p.id }, undo_payload: { id: p.id, content: prev.content, source_type: prev.source.type } }) };
     },
   }),
   remember: capability({
@@ -170,7 +177,14 @@ function summarizeEvent(type: string, p: Record<string, unknown>): string {
     case 'document_imported': return `导入了文章 ${p['title'] ?? p['document_id'] ?? ''}`;
     case 'section_finished': return `读完了 ${p['title'] ?? p['section_id'] ?? ''}`;
     case 'term_marked': return `标记了 ${p['term'] ?? ''} 为 ${p['status'] ?? ''}`;
-    case 'review_session': return `复习了 ${p['count'] ?? ''} 张，首次正确率 ${p['accuracy'] ?? ''}`;
+    case 'review_session': {
+      const count = p['graded'] ?? p['count'] ?? p['steps'] ?? '';
+      let acc = p['accuracy'] ?? '';
+      if (acc === '' && typeof p['graded'] === 'number' && p['graded'] > 0 && typeof p['first_correct'] === 'number') {
+        acc = `${Math.round((p['first_correct'] / p['graded']) * 100)}%`;
+      }
+      return `复习了 ${count} 张，首次正确率 ${acc}`;
+    }
     case 'quiz_done': return `做了一组练习`;
     default: return type;
   }

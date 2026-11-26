@@ -1,22 +1,26 @@
 import { Type } from '@sinclair/typebox';
+import { j } from '../db/driver.js';
 import { method, type Ctx, type MethodMap } from '../rpc/define.js';
-import { TibiError } from '../types.js';
+import { TibiError, type SyncBackendCfg, type SyncStatus } from '../types.js';
 import { SyncError, webdavBackend, type SyncBackend } from './backend.js';
-import { dropTriggers } from './capture.js';
 import { SyncEngine } from './engine.js';
 
 /**
  * 同步的方法（06 sync 组，08 §10）。后端配置存在 sync_state.backend（不含密码；WebDAV 密码在壳的密钥存储，password_ref 指向它）。
  * 同一时间只跑一轮；自动同步（启动、每 5 分钟、改动后）走 sync.auto，没开时什么都不做。
  */
-export type BackendCfg = { kind: 'icloud' } | { kind: 'folder'; path: string } | { kind: 'webdav'; url: string; user: string; password_ref: string };
-export interface SyncStatus {
-  enabled: boolean; backend?: BackendCfg; state: 'off' | 'idle' | 'syncing' | 'error'; last_synced_at?: number; pending: number; sync_files: boolean;
-  device?: { id: string; name: string }; peers: { id: string; name: string; platform: string; last_seen_at?: number; removed: boolean }[];
-  error?: { code: string; message: string };
-}
+export type BackendCfg = SyncBackendCfg;
+export type { SyncStatus };
 
-let running: Promise<unknown> | undefined;
+let syncQueue: Promise<unknown> = Promise.resolve();
+let activeCount = 0;
+
+function enqueueSync<T>(fn: () => Promise<T>): Promise<T> {
+  activeCount++;
+  const next = syncQueue.catch(() => undefined).then(fn);
+  syncQueue = next.catch(() => undefined);
+  return next.finally(() => { activeCount = Math.max(0, activeCount - 1); });
+}
 
 async function backendFor(ctx: Ctx, cfg: BackendCfg): Promise<SyncBackend> {
   if (cfg.kind === 'webdav') {
@@ -29,7 +33,7 @@ async function backendFor(ctx: Ctx, cfg: BackendCfg): Promise<SyncBackend> {
   return ctx.platform.syncFolder(cfg);
 }
 const engine = async (ctx: Ctx, cfg?: BackendCfg) => {
-  const c = cfg ?? JSON.parse((await SyncEngine.get(ctx.db, 'backend')) ?? 'null') as BackendCfg | null;
+  const c = cfg ?? j.parse<BackendCfg | null>(await SyncEngine.get(ctx.db, 'backend'), null);
   if (!c) throw new TibiError('conflict', '同步还没有开启');
   const info = ctx.platform.info();
   return new SyncEngine(ctx.db, await backendFor(ctx, c), { platform: info.platform, app_version: info.app_version });
@@ -43,21 +47,29 @@ export async function syncStatus(ctx: Ctx): Promise<SyncStatus> {
   const peers = await ctx.db.all<{ device_id: string; name: string; platform: string; last_seen_at: number | null; removed: number }>('SELECT device_id, name, platform, last_seen_at, removed FROM sync_peers ORDER BY last_seen_at DESC');
   const id = await g('device_id');
   return {
-    enabled, backend: JSON.parse((await g('backend')) ?? 'null') ?? undefined,
-    state: !enabled ? 'off' : running ? 'syncing' : err ? 'error' : 'idle',
+    enabled, backend: j.parse<BackendCfg | undefined>(await g('backend'), undefined) ?? undefined,
+    state: !enabled ? 'off' : activeCount > 0 ? 'syncing' : err ? 'error' : 'idle',
     last_synced_at: Number(await g('last_synced_at')) || undefined,
-    pending: Number((await ctx.db.get<{ n: number }>('SELECT count(*) AS n FROM sync_outbox'))?.n ?? 0),
+    pending: await SyncEngine.outboxCount(ctx.db),
     sync_files: (await g('sync_files')) !== '0',
     device: id ? { id, name: (await g('device_name')) ?? '' } : undefined,
     peers: peers.map(p => ({ id: p.device_id, name: p.name, platform: p.platform, last_seen_at: p.last_seen_at ?? undefined, removed: !!p.removed })),
-    error: err ? JSON.parse(err) : undefined,
+    error: err ? j.parse<{ code: string; message: string } | undefined>(err, undefined) : undefined,
   };
 }
 
-/** 跑一轮（同一时间只一轮）；发 sync.update，拉到改动时发 data.changed */
-async function runSync(ctx: Ctx, fn: (e: SyncEngine) => Promise<{ pushed: number; pulled: number; tables: string[] }>, cfg?: BackendCfg) {
-  while (running) await running.catch(() => undefined);
-  const p = (async () => {
+/** 跑一轮（严格串行）；发 sync.update，拉到改动时发 data.changed */
+function runSync(
+  ctx: Ctx,
+  fn: (e: SyncEngine) => Promise<{ pushed: number; pulled: number; tables: string[] }>,
+  cfg?: BackendCfg,
+  opts?: { requireEnabled?: boolean },
+) {
+  return enqueueSync(async () => {
+    // 排队期间可能已调用 sync.disable：拿到执行权后必须先检查 enabled，再初始化后端
+    if (opts?.requireEnabled && (await SyncEngine.get(ctx.db, 'enabled')) !== '1') {
+      throw new TibiError('conflict', '同步还没有开启');
+    }
     ctx.events.emit('sync.update', { state: 'syncing' });
     try {
       const r = await fn(await engine(ctx, cfg));
@@ -71,9 +83,7 @@ async function runSync(ctx: Ctx, fn: (e: SyncEngine) => Promise<{ pushed: number
       ctx.events.emit('sync.update', { state: 'error', error: info });
       throw e;
     }
-  })();
-  running = p;
-  try { return await p; } finally { if (running === p) running = undefined; }
+  });
 }
 
 const S = {
@@ -107,14 +117,18 @@ export const syncMethods: MethodMap = {
 
   'sync.now': method(Type.Object({}), async (_p, ctx) => {
     if ((await SyncEngine.get(ctx.db, 'enabled')) !== '1') throw new TibiError('conflict', '同步还没有开启');
-    await runSync(ctx, e => e.sync()).catch(() => undefined);   // 失败原因记在状态里
+    await runSync(ctx, e => e.sync(), undefined, { requireEnabled: true }).catch(() => undefined);   // 失败原因记在状态里
     return syncStatus(ctx);
   }, '立即推送 + 拉取'),
 
   'sync.auto': method(Type.Object({}), async (_p, ctx) => {
-    if ((await SyncEngine.get(ctx.db, 'enabled')) !== '1' || running) return { ran: false };
-    await runSync(ctx, e => e.sync()).catch(() => undefined);
-    return { ran: true };
+    if ((await SyncEngine.get(ctx.db, 'enabled')) !== '1' || activeCount > 0) return { ran: false };
+    let ran = false;
+    await runSync(ctx, async e => {
+      ran = true;
+      return e.sync();
+    }, undefined, { requireEnabled: true }).catch(() => undefined);
+    return { ran };
   }, '自动同步的时机（启动、每 5 分钟、改动后）调用；没开或正在同步时直接返回'),
 
   'sync.setOptions': method(Type.Object({ sync_files: Type.Optional(Type.Boolean()), device_name: Type.Optional(Type.String({ minLength: 1 })) }), async (p, ctx) => {
@@ -124,15 +138,15 @@ export const syncMethods: MethodMap = {
   }),
 
   'sync.removeDevice': method(Type.Object({ device_id: Type.String() }), async (p, ctx) => {
-    await ctx.db.run('UPDATE sync_peers SET removed = 1 WHERE device_id = ?', [p.device_id]);
+    await SyncEngine.removeDevice(ctx.db, p.device_id);
     return syncStatus(ctx);
   }, '不再读这台设备的改动；它的文件夹保留'),
 
   'sync.disable': method(Type.Object({}), async (_p, ctx) => {
-    while (running) await running.catch(() => undefined);
-    const cfg = JSON.parse((await SyncEngine.get(ctx.db, 'backend')) ?? 'null') as BackendCfg | null;
-    if (cfg) { try { await (await engine(ctx, cfg)).disable(); } catch { await dropTriggers(ctx.db); } }
-    await SyncEngine.set(ctx.db, 'enabled', '0'); await SyncEngine.set(ctx.db, 'capture', '0'); await SyncEngine.set(ctx.db, 'last_error', null);
+    await enqueueSync(async () => {
+      await SyncEngine.disableLocal(ctx.db);
+      ctx.events.emit('sync.update', { state: 'idle', pushed: 0, pulled: 0 });
+    });
     return { ok: true as const };
   }, '停止同步；本机数据保留，云端文件不删'),
 };

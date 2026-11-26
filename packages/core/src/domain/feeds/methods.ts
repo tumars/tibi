@@ -127,9 +127,15 @@ async function removeFeed(ctx: Ctx, id: string) {
   return { ok: true as const, undo };
 }
 registerUndo<{ id: string }>('feeds.remove', async (p, ctx) => {
-  await ctx.db.run('UPDATE feeds SET deleted_at = NULL, next_fetch_at = NULL, updated_at = ? WHERE id = ?', [now(), p.id]);
+  try {
+    await ctx.db.run('UPDATE feeds SET deleted_at = NULL, next_fetch_at = NULL, updated_at = ? WHERE id = ?', [now(), p.id]);
+  } catch (e) {
+    if (e instanceof Error && /UNIQUE/i.test(e.message)) throw new TibiError('conflict', '已经重新订阅了这个源，无法撤销删除');
+    throw e;
+  }
   ctx.events.emit('data.changed', { table: 'feeds', ids: [p.id] });
-  void refreshFeeds({ ...ctx, db: ctx.db }, { feed_ids: [p.id], force: true }).catch(() => undefined);
+  const rootCtx: Ctx = { ...ctx, db: ctx.db.root };
+  queueMicrotask(() => { void refreshFeeds(rootCtx, { feed_ids: [p.id], force: true }).catch(() => undefined); });
 });
 
 async function markItems(ctx: Ctx, p: { ids?: string[]; feed_id?: string; kind?: FeedKind; all?: boolean; state: 'seen' | 'dismissed' | 'new' }) {
@@ -144,15 +150,27 @@ async function markItems(ctx: Ctx, p: { ids?: string[]; feed_id?: string; kind?:
     ids = (await ctx.db.all<{ id: string }>(`SELECT i.id FROM feed_items i JOIN feeds f ON f.id = i.feed_id WHERE ${conds.join(' AND ')}`, args)).map(r => r.id);
   }
   if (!ids.length) return { count: 0 };
-  const ph = ids.map(() => '?').join(',');
-  const before = await ctx.db.all<{ id: string; state: string }>(`SELECT id, state FROM feed_items WHERE id IN (${ph})`, ids);
-  // 已读不会把保存过的改回去；不感兴趣可以撤销
+  const before: { id: string; state: string }[] = [];
+  let changedCount = 0;
+  // 已读不会把保存过的改回去；改回未读时清 seen_at；按 400 条分批避免超 SQLite 绑定参数上限
   const cond = p.state === 'seen' ? "AND state = 'new'" : p.state === 'dismissed' ? "AND state != 'saved'" : '';
-  const r = await ctx.db.run(`UPDATE feed_items SET state = ?, seen_at = COALESCE(seen_at, ?), updated_at = ? WHERE id IN (${ph}) ${cond}`, [p.state, t, t, ...ids]);
+  await ctx.db.transaction(async tx => {
+    for (let i = 0; i < ids.length; i += 400) {
+      const chunk = ids.slice(i, i + 400);
+      const ph = chunk.map(() => '?').join(',');
+      if (p.state === 'dismissed') {
+        before.push(...await tx.all<{ id: string; state: string }>(`SELECT id, state FROM feed_items WHERE id IN (${ph})`, chunk));
+      }
+      const r = p.state === 'new'
+        ? await tx.run(`UPDATE feed_items SET state = ?, seen_at = NULL, updated_at = ? WHERE id IN (${ph})`, [p.state, t, ...chunk])
+        : await tx.run(`UPDATE feed_items SET state = ?, seen_at = COALESCE(seen_at, ?), updated_at = ? WHERE id IN (${ph}) ${cond}`, [p.state, t, t, ...chunk]);
+      changedCount += r.changes;
+    }
+  });
   ctx.events.emit('data.changed', { table: 'feed_items', ids });
-  if (p.state !== 'dismissed') return { count: r.changes };
+  if (p.state !== 'dismissed') return { count: changedCount };
   const undo = await recordUndo(ctx.db, ctx, { tool: 'feeds.mark', args: { ids, state: p.state }, undo_payload: { states: before.filter(b => b.state !== 'saved') } });
-  return { count: r.changes, undo };
+  return { count: changedCount, undo };
 }
 registerUndo<{ states: { id: string; state: string }[] }>('feeds.mark', async (p, ctx) => {
   for (const s of p.states) await ctx.db.run('UPDATE feed_items SET state = ?, updated_at = ? WHERE id = ?', [s.state, now(), s.id]);
@@ -185,7 +203,7 @@ export async function searchFeeds(ctx: Ctx, p: { interests?: string[]; since?: n
   const args: (string | number)[] = [since];
   if (p.unread_only) where.push("i.state = 'new'");
   if (p.feed_ids?.length) { where.push(`i.feed_id IN (${p.feed_ids.map(() => '?').join(',')})`); args.push(...p.feed_ids); }
-  if (p.q?.trim()) { where.push("(i.title LIKE ? OR i.excerpt LIKE ?)"); const q = `%${p.q.trim()}%`; args.push(q, q); }
+  if (p.q?.trim()) { where.push("(i.title LIKE ? ESCAPE '\\' OR i.excerpt LIKE ? ESCAPE '\\')"); const q = `%${p.q.trim().replace(/[\\%_]/g, m => `\\${m}`)}%`; args.push(q, q); }
   const rows = await ctx.db.all<ItemRow>(`${ITEM_SELECT} WHERE ${where.join(' AND ')} AND NOT EXISTS (SELECT 1 FROM documents x WHERE x.source_type = 'url' AND x.source_uri = i.url AND x.deleted_at IS NULL) ORDER BY COALESCE(i.published_at, i.created_at) DESC LIMIT 300`, args);
   const words = (p.interests ?? []).map(w => w.toLowerCase()).filter(Boolean);
   const t = now();

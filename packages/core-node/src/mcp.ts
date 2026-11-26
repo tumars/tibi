@@ -55,37 +55,68 @@ export function startMcpSocket(core: Core, dataDir: string): Server {
     sock.on('error', () => undefined);
   });
   server.on('error', e => console.error('[tibi-core] MCP socket 启动失败', e));
+  server.on('close', () => { if (process.platform !== 'win32' && existsSync(path)) { try { unlinkSync(path); } catch { /* 忽略 */ } } });
   server.listen(path, () => { if (process.platform !== 'win32') { try { chmodSync(path, 0o600); } catch { /* 忽略 */ } } });
   return server;
 }
 
 /* ---------- tibi-core --mcp：stdio MCP Server，转发给运行中的 Tibi ---------- */
 class SocketClient {
-  private sock?: Socket; private seq = 0; private waiting = new Map<number, (r: { result?: unknown; error?: { code: string; message: string } }) => void>();
-  constructor(private path: string, private token: string) {}
+  private sock?: Socket;
+  private connecting?: Promise<Socket>;
+  private seq = 0;
+  private waiting = new Map<number, (r: { result?: unknown; error?: { code: string; message: string } }) => void>();
+  private token = '';
+  constructor(private readonly path: string, private readonly readToken: () => string) {
+    this.token = readToken();
+  }
   private connect(): Promise<Socket> {
     if (this.sock && !this.sock.destroyed) return Promise.resolve(this.sock);
-    return new Promise((resolve, reject) => {
+    if (this.connecting) return this.connecting;
+    const p = new Promise<Socket>((resolve, reject) => {
       const s = createConnection(this.path, () => { this.sock = s; resolve(s); });
-      s.on('error', reject);
+      s.on('error', err => { if (!this.sock) reject(err); });
       createInterface({ input: s }).on('line', l => { try { const m = JSON.parse(l); this.waiting.get(m.id)?.(m); this.waiting.delete(m.id); } catch { /* 坏行 */ } });
-      s.on('close', () => { for (const w of this.waiting.values()) w({ error: { code: 'offline', message: 'Tibi 关掉了' } }); this.waiting.clear(); });
+      s.on('close', () => {
+        if (this.sock === s) this.sock = undefined;
+        for (const w of this.waiting.values()) w({ error: { code: 'offline', message: 'Tibi 关掉了' } });
+        this.waiting.clear();
+      });
+    }).finally(() => { if (this.connecting === p) this.connecting = undefined; });
+    this.connecting = p;
+    return p;
+  }
+  private sendOnce(sock: Socket, method: 'tools' | 'call', params?: unknown) {
+    const id = ++this.seq;
+    return new Promise<{ result?: unknown; error?: { code: string; message: string } }>(res => {
+      this.waiting.set(id, res);
+      sock.write(JSON.stringify({ id, token: this.token, method, params }) + '\n');
     });
   }
   async request(method: 'tools' | 'call', params?: unknown) {
+    if (!this.token) this.token = this.readToken();
     const sock = await this.connect().catch(() => { throw new Error('Tibi 没有在运行。先打开 Tibi 桌面应用，并在 设置 → 高级 → 其他 AI 工具 里打开 MCP'); });
-    const id = ++this.seq;
-    return new Promise<{ result?: unknown; error?: { code: string; message: string } }>(res => { this.waiting.set(id, res); sock.write(JSON.stringify({ id, token: this.token, method, params }) + '\n'); });
+    let r = await this.sendOnce(sock, method, params);
+    if (r.error?.code === 'permission_denied') {
+      const fresh = this.readToken();
+      if (fresh && fresh !== this.token) { this.token = fresh; r = await this.sendOnce(sock, method, params); }
+    }
+    return r;
+  }
+  close() {
+    try { this.sock?.destroy(); } catch { /* ignore */ }
+    this.sock = undefined;
   }
 }
 
 export async function runMcpStdio(dataDir: string, version: string) {
   const tp = tokenPath(dataDir);
-  const token = existsSync(tp) ? readFileSync(tp, 'utf8').trim() : '';
-  const client = new SocketClient(mcpSocketPath(dataDir), token);
+  const readToken = () => (existsSync(tp) ? readFileSync(tp, 'utf8').trim() : '');
+  const client = new SocketClient(mcpSocketPath(dataDir), readToken);
   let clientName = '外部工具';
   const out = (o: object) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...o }) + '\n');
   const rl = createInterface({ input: process.stdin });
+  rl.on('close', () => { client.close(); process.exit(0); });
   rl.on('line', async line => {
     let msg: { id?: string | number; method?: string; params?: Record<string, unknown> };
     try { msg = JSON.parse(line); } catch { return; }

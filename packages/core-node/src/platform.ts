@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from 'n
 import { dirname, join } from 'node:path';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { networkInterfaces } from 'node:os';
 import { TibiError, web, type BackupStore, type FetchedPage, type Platform } from '@tibi/core';
 import { linkedomParse } from './html2md.js';
 import { extractFile } from './extract.js';
@@ -18,24 +19,50 @@ export interface NodePlatformOptions {
   getSecret: (ref: string) => Promise<string | undefined>;
 }
 
-const PRIVATE_V4 = [/^10\./, /^127\./, /^169\.254\./, /^192\.168\./, /^172\.(1[6-9]|2\d|3[01])\./, /^0\./, /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./];
-function isPrivateAddress(ip: string): boolean {
-  if (isIP(ip) === 4) return PRIVATE_V4.some(r => r.test(ip));
-  const v6 = ip.toLowerCase();
-  return v6 === '::1' || v6 === '::' || v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe80') || v6.startsWith('::ffff:');
+const MAX_FETCH_BYTES = 10 * 1024 * 1024; // 网页/订阅响应上限 10 MB，防超大响应打爆内存
+
+function getLocalInterfaceIps(): Set<string> {
+  const ips = new Set<string>();
+  for (const list of Object.values(networkInterfaces())) {
+    if (!list) continue;
+    for (const info of list) {
+      if (info.address) ips.add(info.address.split('%')[0]!.toLowerCase());
+    }
+  }
+  return ips;
 }
 
-/** 校验网址：只收 http(s)，解析后拒绝回环、内网、链路本地地址 */
-export async function checkUrl(raw: string): Promise<URL> {
+export interface CheckUrlOptions {
+  /** 测试注入用，默认走 node:dns/promises 的 lookup */
+  lookupHost?: (host: string) => Promise<{ address: string }[]>;
+  /** 测试注入用，默认读取本机网卡地址，防止 DNS 解析到本机 TUN 网关等自身地址 */
+  localIps?: ReadonlySet<string>;
+}
+
+/** 校验网址：只收 http(s)，解析后拒绝回环、内网、链路本地与特殊保留地址（兼容 TUN 透明代理的 Fake-IP 解析结果） */
+export async function checkUrl(raw: string, opts?: CheckUrlOptions): Promise<URL> {
   let u: URL;
   try { u = new URL(raw); } catch { throw new TibiError('invalid_source', '网址格式不对'); }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new TibiError('invalid_source', '只支持 http 和 https 网址');
   const host = u.hostname.replace(/^\[|\]$/g, '');
-  if (host === 'localhost' || host.endsWith('.local')) throw new TibiError('invalid_source', '不能抓取本机或局域网地址');
-  if (isIP(host)) { if (isPrivateAddress(host)) throw new TibiError('invalid_source', '不能抓取本机或局域网地址'); return u; }
+  if (web.isBlockedHostname(host)) throw new TibiError('invalid_source', '不能抓取本机或局域网地址');
+  if (isIP(host)) { if (web.isPrivateIp(host)) throw new TibiError('invalid_source', '不能抓取本机或局域网地址'); return u; }
   try {
-    const addrs = await lookup(host, { all: true });
-    if (addrs.length === 0 || addrs.some(a => isPrivateAddress(a.address))) throw new TibiError('invalid_source', '不能抓取本机或局域网地址');
+    const addrs = opts?.lookupHost ? await opts.lookupHost(host) : await lookup(host, { all: true });
+    if (addrs.length === 0) throw new TibiError('invalid_source', '不能抓取本机或局域网地址');
+    if (addrs.some(a => web.isPrivateIp(a.address))) {
+      const localIps = opts?.localIps ?? getLocalInterfaceIps();
+      const hasFakeIpV4 = addrs.some(a => web.isFakeIpV4(a.address));
+      const hasLocalFakeIpTun = [...localIps].some(ip => web.isFakeIpV4(ip));
+      const allowFakeIpV6 = hasFakeIpV4 || hasLocalFakeIpTun;
+      const blocked = addrs.some(a => {
+        const addr = a.address.trim().replace(/^\[|\]$/g, '').split('%')[0]!.toLowerCase();
+        const embedded = web.extractEmbeddedIpv4(addr);
+        if (localIps.has(addr) || (embedded && localIps.has(embedded))) return true;
+        return web.isPrivateIp(addr, { allowFakeIp: true, allowFakeIpV6 });
+      });
+      if (blocked) throw new TibiError('invalid_source', '不能抓取本机或局域网地址');
+    }
   } catch (e) {
     if (e instanceof TibiError) throw e;
     throw new TibiError('offline', '解析不了这个域名。检查网络后再试');
@@ -43,8 +70,43 @@ export async function checkUrl(raw: string): Promise<URL> {
   return u;
 }
 
-/** 正文抽取前先删掉的块：导航、侧栏目录、面包屑、快捷键帮助、页脚 */
+async function readTextCapped(res: Response, maxBytes: number): Promise<string> {
+  const len = Number(res.headers.get('content-length') ?? 0);
+  if (Number.isFinite(len) && len > maxBytes) {
+    await res.body?.cancel().catch(() => undefined);
+    throw new TibiError('invalid_source', `响应内容超过 ${Math.round(maxBytes / (1 << 20))} MB 上限`);
+  }
+  if (!res.body) return res.text();
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new TibiError('invalid_source', `响应内容超过 ${Math.round(maxBytes / (1 << 20))} MB 上限`);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return new TextDecoder('utf-8').decode(Buffer.concat(chunks, total));
+}
 
+function stripSensitiveHeaders(headers: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(headers)) {
+    const lk = k.toLowerCase();
+    if (lk === 'authorization' || lk === 'cookie' || lk === 'proxy-authorization') continue;
+    out[k] = v;
+  }
+  return out;
+}
 
 /** 备份放在 app.db 旁边的 backups/ 目录；内存库（测试）没有 */
 function fileBackups(dbPath: string): BackupStore | undefined {
@@ -73,8 +135,10 @@ export function fileAssets(dbPath: string): Platform['saveAsset'] {
   return async (key, name, data) => {
     if (!/^[\w-]+$/.test(key) || !/^[\w-][\w.-]*$/.test(name)) throw new Error('图片名不对');
     const dir = join(root, key); const p = join(dir, name);
+    const tmp = `${p}.${process.pid}.${Date.now()}.tmp`;
     await mkdir(dir, { recursive: true });
-    await writeFile(p + '.tmp', data); await rename(p + '.tmp', p);
+    try { await writeFile(tmp, data); await rename(tmp, p); }
+    catch (e) { await unlink(tmp).catch(() => undefined); throw e; }
     return `asset:${key}/${name}`;
   };
 }
@@ -110,23 +174,32 @@ export function nodePlatform(opts: NodePlatformOptions): Platform {
     isPathAllowed(path) { return allowed.has(path) || !!process.env.TIBI_DEV_ALLOW_ANY_PATH; },
     async fetchUrl(url, o = {}): Promise<FetchedPage> {
       let current = await checkUrl(url);
+      let reqHeaders: Record<string, string> = { 'user-agent': `Tibi/${opts.app_version} (+https://github.com/tumars/tibi)`, accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5', ...o.headers, ...o.post?.headers };
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), o.timeout_ms ?? 20_000);
-      o.signal?.addEventListener('abort', () => ctrl.abort());
+      const onAbort = () => ctrl.abort();
+      if (o.signal?.aborted) ctrl.abort();
+      else o.signal?.addEventListener('abort', onAbort, { once: true });
       try {
         for (let hop = 0; hop < 5; hop++) {
-          const res = await fetch(current, { redirect: 'manual', signal: ctrl.signal, method: o.post ? 'POST' : 'GET', body: o.post?.body, headers: { 'user-agent': `Tibi/${opts.app_version} (+https://github.com/tumars/tibi)`, accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5', ...o.headers, ...o.post?.headers } });
+          const res = await fetch(current, { redirect: 'manual', signal: ctrl.signal, method: o.post ? 'POST' : 'GET', body: o.post?.body, headers: reqHeaders });
           if (!o.post && res.status >= 300 && res.status < 400 && res.headers.get('location')) {
-            current = await checkUrl(new URL(res.headers.get('location')!, current).toString());   // 重定向每跳重查
+            await res.body?.cancel().catch(() => undefined);
+            const next = await checkUrl(new URL(res.headers.get('location')!, current).toString());   // 重定向每跳重查
+            if (next.origin !== current.origin) reqHeaders = stripSensitiveHeaders(reqHeaders);
+            current = next;
             continue;
           }
           const content_type = res.headers.get('content-type') ?? '';
-          const body = res.status === 304 ? '' : await res.text();
+          const body = res.status === 304 ? '' : await readTextCapped(res, MAX_FETCH_BYTES);
           const etag = res.headers.get('etag') ?? undefined; const last_modified = res.headers.get('last-modified') ?? undefined;
           return { status: res.status, final_url: current.toString(), content_type, body, ...(etag || last_modified ? { headers: { ...(etag ? { etag } : {}), ...(last_modified ? { last_modified } : {}) } } : {}) };
         }
         throw new TibiError('invalid_source', '重定向次数太多');
-      } finally { clearTimeout(timer); }
+      } finally {
+        clearTimeout(timer);
+        o.signal?.removeEventListener('abort', onAbort);
+      }
     },
     extractReadable: (html, url) => web.extractReadable(html, url, linkedomParse),
     htmlToMarkdown: (html, url) => web.htmlToMarkdown(html, url, linkedomParse),

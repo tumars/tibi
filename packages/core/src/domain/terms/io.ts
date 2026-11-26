@@ -23,7 +23,7 @@ const day = (t?: number | null) => (t ? new Date(t).toISOString().slice(0, 10) :
 interface Row extends Record<string, string | number | null> { id: string; text: string; text_display: string; kind: string; status: number; meaning: string | null; short_gloss: string | null; encounter_count: number; created_at: number; due: number | null; sentence: string | null; surface: string | null; translation: string | null; title: string | null }
 
 export async function exportTerms(ctx: Ctx, o: { format: 'csv' | 'anki' | 'txt'; ids?: string[]; with_contexts?: boolean }): Promise<{ filename: string; text: string; count: number }> {
-  const where = o.ids?.length ? `t.id IN (${o.ids.map(() => '?').join(',')})` : 't.in_wordbook = 1';
+  const where = o.ids?.length ? `t.id IN (${o.ids.map(() => '?').join(',')})` : 't.in_wordbook = 1 AND t.status BETWEEN 0 AND 5';
   const rows = await ctx.db.all<Row>(`SELECT t.id, t.text, t.text_display, t.kind, t.status, t.meaning, t.short_gloss, t.encounter_count, t.created_at,
       (SELECT c.due FROM cards c WHERE c.term_id = t.id AND c.deleted_at IS NULL LIMIT 1) AS due,
       s.text AS sentence, tc.surface, s.translation, d.title
@@ -37,12 +37,15 @@ export async function exportTerms(ctx: Ctx, o: { format: 'csv' | 'anki' | 'txt';
   if (o.format === 'txt') return { filename: `tibi-words-${stamp}.txt`, text: rows.map(r => r.text_display || r.text).join('\n') + '\n', count: rows.length };
   // 用户写的释义优先，否则导出完整词典释义；短释义是行间注释用的，可能只剩一个义项
   const meanings = new Map<string, string>();
-  for (const r of rows) meanings.set(r.id, r.meaning || (r.kind === 'word' ? fullMeaning((await ctx.dict.lookup(r.text))?.translation) : undefined) || r.short_gloss || '');
+  await Promise.all(rows.map(async r => {
+    const dictTrans = !r.meaning && r.kind === 'word' ? fullMeaning((await ctx.dict.lookup(r.text))?.translation) : undefined;
+    meanings.set(r.id, r.meaning || dictTrans || r.short_gloss || '');
+  }));
   const meaning = (r: Row) => meanings.get(r.id) ?? '';
   if (o.format === 'csv') {
     const head = ['word', 'meaning', 'status', 'encounters', 'added', 'next_review', ...(withCtx ? ['sentence', 'translation', 'source'] : [])];
     const lines = rows.map(r => [r.text_display || r.text, meaning(r), STATUS[r.status] ?? r.status, r.encounter_count, day(r.created_at), day(r.due), ...(withCtx ? [r.sentence ?? '', r.translation ?? '', r.title ?? ''] : [])].map(csvCell).join(','));
-    return { filename: `tibi-words-${stamp}.csv`, text: '﻿' + [head.join(','), ...lines].join('\r\n') + '\r\n', count: rows.length };
+    return { filename: `tibi-words-${stamp}.csv`, text: '\uFEFF' + [head.join(','), ...lines].join('\r\n') + '\r\n', count: rows.length };
   }
   // Anki：正面 = 词；背面 = 释义 + 原句（词加粗）+ 译文；第 3 列标签
   const header = ['#separator:tab', '#html:true', '#columns:Front\tBack\tTags', '#tags column:3', '#deck:Tibi'];
@@ -63,7 +66,7 @@ export async function exportTerms(ctx: Ctx, o: { format: 'csv' | 'anki' | 'txt';
 /** 解析导入文件：每行一个词，可用制表符 / 逗号分出释义；# 开头的行（Anki 头）和表头 word 行跳过 */
 export function parseWordList(text: string): { text: string; meaning?: string }[] {
   const out: { text: string; meaning?: string }[] = []; const seen = new Set<string>();
-  for (const raw of text.replace(/^﻿/, '').split(/\r?\n/)) {
+  for (const raw of text.replace(/^\uFEFF/, '').split(/\r?\n/)) {
     const line = raw.trim(); if (!line || line.startsWith('#')) continue;
     const cells = line.includes('\t') ? line.split('\t') : line.match(/^"/) || line.includes(',') ? line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').replace(/""/g, '"')) : [line];
     const word = cells[0]!.replace(/<[^>]+>/g, '').trim();
@@ -97,6 +100,7 @@ export async function importTerms(ctx: Ctx, path: string, format: 'csv' | 'txt' 
         const row = await insertTerm(tx, { kind: isPhrase ? 'phrase' : 'word', text: lemma, display: e.text, status: 97, status_source: 'user', short_gloss: shortGloss(entry?.translation), seen_at: t });
         await logStatus(tx, row.id, 97, 'import'); known++;
       } else if (term.deleted_at || [0, 99].includes(term.status)) {   // 99：旧数据里的待确认，当作没有行
+        if (term.deleted_at) await tx.run('UPDATE terms SET deleted_at = NULL, in_wordbook = 0, updated_at = ? WHERE id = ?', [t, term.id]);
         await setTermStatus(tx, term, 97 as Status, 'import'); known++;
       } else skipped++;   // 学习中、已知、忽略的不动
     }

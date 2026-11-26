@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import type { SearchResult, Term } from '@tibi/core';
-import { BarChart3, BookA, BookOpen, Bookmark, CornerDownLeft, FileText, Home as HomeIcon, MessageSquare, Moon, Plus, RotateCcw, Search, Settings as SettingsIcon, Sparkles } from 'lucide-react';
+import { BarChart3, BookA, BookOpen, Bookmark, CornerDownLeft, FileText, Headphones, Home as HomeIcon, MessageSquare, Moon, Plus, RotateCcw, Rss, Search, Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { tl } from '../lib/i18n';
@@ -56,6 +56,7 @@ export function SearchPalette() {
     window.addEventListener('keydown', onKey); window.addEventListener('tibi:search', onOpen); window.addEventListener('tibi:search-toggle', onToggle);
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('tibi:search', onOpen); window.removeEventListener('tibi:search-toggle', onToggle); };
   }, []);
+  useEffect(() => { setOpen(false); }, [loc.pathname, loc.search]);
   useEffect(() => { if (!open) { setQ(''); setScope('all'); setRes(undefined); setResQ(''); } }, [open]);
   const searching = !!q.trim() && resQ !== q.trim();
   useEffect(() => {
@@ -76,13 +77,15 @@ export function SearchPalette() {
   const ACTIONS = useMemo(() => [
     { label: tl('首页'), kw: 'home', icon: <HomeIcon size={15} />, run: () => go('/') },
     { label: tl('书架'), kw: 'library 文章', icon: <BookOpen size={15} />, run: () => go('/library') },
+    { label: tl('订阅'), kw: 'feeds rss 订阅源', icon: <Rss size={15} />, run: () => go('/feeds') },
+    { label: tl('电台'), kw: 'radio podcast 播客 听力', icon: <Headphones size={15} />, run: () => go('/radio') },
     { label: tl('生词本'), kw: 'words 单词', icon: <Bookmark size={15} />, run: () => go('/words') },
     { label: tl('词典'), kw: 'dictionary dict 查词', icon: <BookA size={15} />, run: () => go(q.trim() && /^[a-z][a-z' -]*$/i.test(q.trim()) ? `/dict?w=${encodeURIComponent(q.trim())}` : '/dict') },
     { label: tl('开始复习'), kw: 'review 复习', icon: <RotateCcw size={15} />, run: () => go('/review?run=1') },
     { label: tl('练习'), kw: 'practice 听写 拼写', icon: <RotateCcw size={15} />, run: () => go('/review?tab=practice') },
     { label: tl('统计'), kw: 'stats', icon: <BarChart3 size={15} />, run: () => go('/stats') },
     { label: tl('设置'), kw: 'settings', icon: <SettingsIcon size={15} />, run: () => go('/settings') },
-    { label: tl('导入文章'), kw: 'import url 网址 导入', icon: <Plus size={15} />, run: () => { go('/'); setTimeout(() => (document.querySelector('.composer textarea, textarea') as HTMLTextAreaElement | null)?.focus(), 150); } },
+    { label: tl('导入文章'), kw: 'import url 网址 导入', icon: <Plus size={15} />, run: () => go('/?compose=1') },
     { label: tl('切换深浅色'), kw: 'dark light theme 深色 浅色', icon: <Moon size={15} />, run: () => { setOpen(false); setTheme(document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches) ? 'light' : 'dark'); } },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [q, recent]);
@@ -162,4 +165,4 @@ export function SearchPalette() {
   );
 }
 
-const SECTION_LABEL: Record<string, string> = { general: '通用', model: '模型', learning: '学习与复习', memory: '记忆', advanced: '高级', data: '数据' };
+const SECTION_LABEL: Record<string, string> = { general: '通用', model: '模型', learning: '学习与复习', memory: '记忆', advanced: '高级', data: '数据', about: '关于' };

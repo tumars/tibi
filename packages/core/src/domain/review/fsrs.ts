@@ -36,6 +36,7 @@ function getScheduler(params: FsrsParams): Promise<Scheduler> {
   if (!p) {
     p = DefaultScheduler({ desiredRetention: params.desired_retention, ...(params.weights ? { weights: params.weights } : {}) });
     cache.set(key, p);
+    p.catch(() => { if (cache.get(key) === p) cache.delete(key); });
   }
   return p;
 }

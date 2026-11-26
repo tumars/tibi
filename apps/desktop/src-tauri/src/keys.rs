@@ -14,16 +14,38 @@ mod keychain {
     const SERVICE: &str = "app.tibi";
 
     pub fn delete(r: &str) -> Result<(), String> {
-        match keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.delete_credential() {
+        let entry = match keyring::Entry::new(SERVICE, r) {
+            Ok(e) => e,
+            Err(e) => {
+                log::warn!("系统钥匙串不可用，跳过清理旧条目：{e}");
+                return Ok(());
+            }
+        };
+        match entry.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+            Err(keyring::Error::NoStorageAccess(e)) | Err(keyring::Error::PlatformFailure(e)) => {
+                log::warn!("系统钥匙串不可访问，跳过删除旧条目：{e}");
+                Ok(())
+            }
             Err(e) => Err(format!("删除钥匙串条目失败：{e}")),
         }
     }
 
     pub fn get(r: &str) -> Result<Option<String>, String> {
-        match keyring::Entry::new(SERVICE, r).map_err(|e| e.to_string())?.get_password() {
+        let entry = match keyring::Entry::new(SERVICE, r) {
+            Ok(e) => e,
+            Err(e) => {
+                log::warn!("系统钥匙串不可用，跳过旧密钥迁移：{e}");
+                return Ok(None);
+            }
+        };
+        match entry.get_password() {
             Ok(s) => Ok(Some(s)),
             Err(keyring::Error::NoEntry) => Ok(None),
+            Err(keyring::Error::NoStorageAccess(e)) | Err(keyring::Error::PlatformFailure(e)) => {
+                log::warn!("系统钥匙串不可访问，跳过旧密钥迁移：{e}");
+                Ok(None)
+            }
             Err(e) => Err(format!("读取钥匙串失败：{e}")),
         }
     }
@@ -137,14 +159,17 @@ pub mod keystore {
 }
 
 /// 文件存储（所有平台）
-#[allow(dead_code)]
 pub mod file_store {
+    use crate::lock_or_recover;
     use std::collections::BTreeMap;
+    use std::io::Write;
     use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Mutex, OnceLock};
 
     static DIR: OnceLock<PathBuf> = OnceLock::new();
     static LOCK: Mutex<()> = Mutex::new(());
+    static TMP_SEQ: AtomicU64 = AtomicU64::new(1);
 
     /// 启动时由壳设置（app_data_dir）
     pub fn init(dir: PathBuf) {
@@ -155,30 +180,58 @@ pub mod file_store {
         DIR.get().map(|d| d.join("secrets.json")).ok_or_else(|| "密钥存储还没初始化".to_string())
     }
 
-    fn load(p: &Path) -> BTreeMap<String, String> {
-        std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+    fn load(p: &Path) -> Result<BTreeMap<String, String>, String> {
+        match std::fs::read_to_string(p) {
+            Ok(s) => serde_json::from_str(&s).map_err(|e| format!("密钥文件已损坏：{e}")),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(BTreeMap::new()),
+            Err(e) => Err(format!("读取密钥文件失败：{e}")),
+        }
     }
 
     fn save(p: &Path, m: &BTreeMap<String, String>) -> Result<(), String> {
         if let Some(d) = p.parent() {
             std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
         }
-        let tmp = p.with_extension("tmp");
-        std::fs::write(&tmp, serde_json::to_string(m).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600));
+        let body = serde_json::to_string(m).map_err(|e| e.to_string())?;
+        let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
+        let tmp = p.with_file_name(format!("secrets.{}.{seq}.tmp", std::process::id()));
+        let write_res = (|| -> std::io::Result<()> {
+            let mut opts = std::fs::OpenOptions::new();
+            opts.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                opts.mode(0o600);
+            }
+            let mut f = opts.open(&tmp)?;
+            f.write_all(body.as_bytes())?;
+            f.sync_all()?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600));
+            }
+            Ok(())
+        })();
+        if let Err(e) = write_res {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e.to_string());
         }
-        std::fs::rename(&tmp, p).map_err(|e| e.to_string())
+        if let Err(e) = std::fs::rename(&tmp, p) {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e.to_string());
+        }
+        Ok(())
     }
 
     /// 加密层（Android 上是 Keystore；单测里没有，按明文存）
     static SEAL: OnceLock<Box<dyn Seal>> = OnceLock::new();
+    #[allow(dead_code)]
     pub trait Seal: Send + Sync {
         fn seal(&self, plain: &str) -> Result<String, String>;
         fn open(&self, sealed: &str) -> Result<String, String>;
     }
+    #[allow(dead_code)]
     pub fn set_seal(s: Box<dyn Seal>) {
         let _ = SEAL.set(s);
     }
@@ -191,17 +244,17 @@ pub mod file_store {
     }
 
     pub fn set(r: &str, secret: &str) -> Result<(), String> {
-        let _g = LOCK.lock().unwrap();
+        let _g = lock_or_recover(&LOCK);
         let p = path()?;
-        let mut m = load(&p);
+        let mut m = load(&p)?;
         m.insert(r.to_string(), seal(secret)?);
         save(&p, &m)
     }
 
     pub fn delete(r: &str) -> Result<(), String> {
-        let _g = LOCK.lock().unwrap();
+        let _g = lock_or_recover(&LOCK);
         let p = path()?;
-        let mut m = load(&p);
+        let mut m = load(&p)?;
         if m.remove(r).is_some() {
             save(&p, &m)?;
         }
@@ -209,9 +262,9 @@ pub mod file_store {
     }
 
     pub fn get(r: &str) -> Result<Option<String>, String> {
-        let _g = LOCK.lock().unwrap();
+        let _g = lock_or_recover(&LOCK);
         let p = path()?;
-        let mut m = load(&p);
+        let mut m = load(&p)?;
         let Some(v) = m.get(r).cloned() else { return Ok(None) };
         if let Some(sealed) = v.strip_prefix(PREFIX) {
             let s = SEAL.get().ok_or("这台设备上没有解密用的密钥")?;

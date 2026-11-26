@@ -159,15 +159,23 @@
     el.innerHTML = svg(base, opt);
     const node = () => el.querySelector('.fox');
     const apply = st => { const n = node(); if (n && n.getAttribute('data-state') !== st) { n.setAttribute('data-state', st); n.setAttribute('aria-label', `Tibi 吉祥物藏狐：${LABEL[st]}`); } };
+    let onClick = null, onEnter = null;
     const api = {
       el, get state() { return base; },
       set(st) { if (!STATES.includes(st)) return api; base = st; clearTimeout(timer); timer = null; apply(st); return api; },
       pulse(st, ms = 1800) { clearTimeout(timer); apply(st); timer = setTimeout(() => { timer = null; apply(base); }, ms); return api; },
+      destroy() {
+        clearTimeout(timer); timer = null;
+        if (onClick) { el.removeEventListener('click', onClick); onClick = null; }
+        if (onEnter) { el.removeEventListener('mouseenter', onEnter); onEnter = null; }
+      },
     };
     if (opt.interactive) {
       el.style.cursor = 'pointer'; el.title = el.title || '戳一下';
-      el.addEventListener('click', () => api.pulse(base === 'sleeping' ? 'surprised' : 'happy', 1600));
-      el.addEventListener('mouseenter', () => { if (base === 'sleeping' && !timer) api.pulse('listening', 1400); });
+      onClick = () => api.pulse(base === 'sleeping' ? 'surprised' : 'happy', 1600);
+      onEnter = () => { if (base === 'sleeping' && !timer) api.pulse('listening', 1400); };
+      el.addEventListener('click', onClick);
+      el.addEventListener('mouseenter', onEnter);
     }
     return api;
   }

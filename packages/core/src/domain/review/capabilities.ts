@@ -8,6 +8,9 @@ import { forecast, makeStep, pickCardType, pickDistractors, shuffle } from './qu
 import { getCard, getCardByTerm, getTerm, termContexts } from './repo.js';
 import { applyRating } from './session.js';
 import { startOfToday } from '../shared/cards.js';
+import { dateKey } from '../stats/rollup.js';
+
+const LIVE_CARD = 'c.deleted_at IS NULL AND c.suspended = 0 AND t.deleted_at IS NULL AND t.in_wordbook = 1 AND t.status <= 5 AND (t.paused_until IS NULL OR t.paused_until <= ?)';
 
 /** 复习相关的能力（06 §5）：技能、MCP、界面共用 */
 export const reviewCapabilities: CapabilityMap = {
@@ -17,17 +20,21 @@ export const reviewCapabilities: CapabilityMap = {
     async run(p, ctx) {
       const t = now(); const day = startOfToday(t); const range = p.range ?? 30;
       const q = async (sql: string, params: unknown[] = []) => Number((await ctx.db.get<{ n: number }>(sql, params as never))?.n ?? 0);
-      const due = await q('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND suspended = 0 AND state != 0 AND due <= ?', [t]);
-      const overdue = await q('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND suspended = 0 AND state != 0 AND due < ?', [day]);
-      const new_available = await q('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND suspended = 0 AND state = 0');
+      const FROM = 'FROM cards c JOIN terms t ON t.id = c.term_id';
+      const due = await q(`SELECT count(*) AS n ${FROM} WHERE ${LIVE_CARD} AND c.state != 0 AND c.due <= ?`, [t, t]);
+      const overdue = await q(`SELECT count(*) AS n ${FROM} WHERE ${LIVE_CARD} AND c.state != 0 AND c.due < ?`, [t, day]);
+      const new_available = await q(`SELECT count(*) AS n ${FROM} WHERE ${LIVE_CARD} AND c.state = 0`, [t]);
       const today_reviews = await q('SELECT count(*) AS n FROM review_logs_valid WHERE reviewed_at >= ?', [day]);
       const logs = await ctx.db.get<{ n: number; ok: number }>('SELECT count(*) AS n, COALESCE(sum(CASE WHEN rating > 1 THEN 1 ELSE 0 END), 0) AS ok FROM review_logs_valid WHERE reviewed_at >= ?', [t - range * 86_400_000]);
-      const leeches = await q('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND lapses >= 3');
-      const days = await ctx.db.all<{ d: number }>('SELECT DISTINCT (reviewed_at / 86400000) AS d FROM review_logs_valid ORDER BY d DESC LIMIT 400');
-      let streak = 0; let cur = Math.floor(day / 86_400_000);
-      const set = new Set(days.map(r => Math.floor(Number(r.d))));
-      if (!set.has(cur)) cur -= 1;
-      while (set.has(cur)) { streak++; cur--; }
+      const leeches = await q(`SELECT count(*) AS n ${FROM} WHERE ${LIVE_CARD} AND c.lapses >= 3`, [t]);
+      // 按本地日期算连续复习天数（避免 UTC 整除与本地 startOfToday 跨时区错位）
+      const reviewRows = await ctx.db.all<{ reviewed_at: number }>('SELECT reviewed_at FROM review_logs_valid WHERE reviewed_at >= ? ORDER BY reviewed_at DESC', [t - 400 * 86_400_000]);
+      const set = new Set(reviewRows.map(r => dateKey(Number(r.reviewed_at))));
+      const d = new Date(t);
+      let y = d.getFullYear(), m = d.getMonth(), dd = d.getDate();
+      if (!set.has(dateKey(new Date(y, m, dd).getTime()))) dd -= 1;
+      let streak = 0;
+      while (set.has(dateKey(new Date(y, m, dd).getTime()))) { streak++; dd -= 1; }
       return { due, overdue, new_available, today_reviews, retention: logs && Number(logs.n) ? Number(logs.ok) / Number(logs.n) : 0, streak, forecast: await forecast(ctx.db), leeches };
     },
   }),
@@ -76,6 +83,8 @@ export const reviewCapabilities: CapabilityMap = {
       const c = (p.context_id ? ctxs.find(x => x.id === p.context_id) : undefined) ?? ctxs[0];
       const stepLike = { card_id: card.id, card_type: p.card_type as CardType, term: { id: term.id } as never, context: { id: c?.id ?? '', sentence: c?.sentence_text ?? c?.text ?? '', answer: [term.text], translation: '', source: 'article' as const } };
       const applied = await ctx.db.transaction(tx => applyRating(tx, { ...ctx, db: tx }, stepLike, p.rating as Rating, { suggested: p.suggested_rating as Rating | undefined, hints: p.hints ?? 0, duration_ms: p.duration_ms ?? 0, auto: p.auto, correct: p.rating > 1, session_id: p.session_id, t: now() }));
+      ctx.events.emit('data.changed', { table: 'cards', ids: [card.id] });
+      if (applied.statusChanged) ctx.events.emit('data.changed', { table: 'terms', ids: [term.id] });
       return { step: -1, correct: p.rating > 1, near_miss: false, rating: p.rating as Rating, auto: p.auto, ...applied.result, undo: applied.result.undo! };
     },
   }),
@@ -87,7 +96,7 @@ export const reviewCapabilities: CapabilityMap = {
       let ids = p.term_ids ?? [];
       if (!ids.length) {
         const rows = p.document_id
-          ? await ctx.db.all<{ id: string }>('SELECT DISTINCT t.id FROM terms t JOIN term_contexts tc ON tc.term_id = t.id WHERE tc.document_id = ? AND t.deleted_at IS NULL AND t.status <= 5 ORDER BY random() LIMIT ?', [p.document_id, p.count ?? 5])
+          ? await ctx.db.all<{ id: string }>('SELECT DISTINCT t.id FROM terms t JOIN term_contexts tc ON tc.term_id = t.id WHERE tc.document_id = ? AND tc.deleted_at IS NULL AND t.deleted_at IS NULL AND t.status <= 5 ORDER BY random() LIMIT ?', [p.document_id, p.count ?? 5])
           : await ctx.db.all<{ id: string }>('SELECT id FROM terms WHERE in_wordbook = 1 AND deleted_at IS NULL AND status <= 5 ORDER BY random() LIMIT ?', [p.count ?? 5]);
         ids = rows.map(r => r.id);
       }
@@ -101,7 +110,8 @@ export const reviewCapabilities: CapabilityMap = {
         if (!allowed.includes(type)) type = allowed[0]!;
         const step = await makeStep(ctx.db, ctx.dict, { card, term }, type);
         type = step.card_type;
-        items.push({ term_id: id, term: term.text_display, card_type: type, prompt: type === 'cloze' ? step.context.sentence.replace(new RegExp(`\\b${term.text_display.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'), '____') : step.context.sentence, answer: type === 'choice' ? [step.options!.find(o => o.id === (step as { correct_option?: string }).correct_option)!.text] : step.context.answer, options: step.options?.map(o => ({ text: o.text, from: o.from })), context: step.context.id ? { sentence_id: step.context.id, sentence: step.context.sentence } : undefined });
+        const target = step.context.surface ?? term.text_display;
+        items.push({ term_id: id, term: term.text_display, card_type: type, prompt: type === 'cloze' ? step.context.sentence.replace(new RegExp(`\\b${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'), '____') : step.context.sentence, answer: type === 'choice' ? [step.options!.find(o => o.id === (step as { correct_option?: string }).correct_option)!.text] : step.context.answer, options: step.options?.map(o => ({ text: o.text, from: o.from })), context: step.context.id ? { sentence_id: step.context.id, sentence: step.context.sentence } : undefined });
       }
       return { items: shuffle(items) };
     },

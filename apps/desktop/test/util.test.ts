@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyInput, isImeKey, splitAnswer, wordClass } from '../src/lib/util';
+import { alignWords, classifyInput, isImeKey, splitAnswer, wordClass } from '../src/lib/util';
 
 describe('isImeKey', () => {
   const key = (isComposing: boolean, keyCode: number) => ({ isComposing, keyCode }) as KeyboardEvent;
@@ -48,5 +48,17 @@ describe('splitAnswer', () => {
   });
   it('句子里没有这个词时不切', () => {
     expect(splitAnswer('Nothing here.', ['do'])).toEqual({ before: 'Nothing here.', mid: '', after: '' });
+  });
+});
+
+describe('alignWords', () => {
+  it('带破折号等标点、弯撇号与独立连字符的句子均按自然词对齐', () => {
+    const r = alignWords('One—two three.', 'One—two three');
+    expect(r.accuracy).toBe(100);
+    expect(r.words.every(w => w.ok)).toBe(true);
+
+    const curly = alignWords("I don't - wait.", "I don’t wait");
+    expect(curly.accuracy).toBe(100);
+    expect(curly.words.every(w => w.ok)).toBe(true);
   });
 });

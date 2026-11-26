@@ -8,6 +8,7 @@ import type { RunContext, Turns } from './turns.js';
 import { resolveSkill, skillDef } from './skills.js';
 import { isChosen } from './ask.js';
 import { parseDeepLink } from '../deeplink.js';
+import { streaks } from '../domain/stats/methods.js';
 
 /**
  * 能力注册表（05 §4、06 §5、10 §3.2）：一份定义，三种出口。
@@ -24,7 +25,7 @@ const EXTERNAL = new Set(['fetch_url']);
 /** 结果带外部文本（网页、订阅、导入的正文和原句）的能力：调用后这一轮记为读过不可信内容 */
 const UNTRUSTED_RESULT = new Set(['fetch_url', 'web_search', 'search_feeds', 'get_document', 'search_documents', 'get_term', 'get_term_contexts']);
 /** 这些能力是技能内部调度用的，不暴露给 MCP */
-const INTERNAL = new Set(['run_skill', 'tool_search', 'ask_user']);
+export const INTERNAL_CAPABILITIES = new Set(['run_skill', 'tool_search', 'ask_user']);
 
 export type Authorization = { ok: true; approval: 'auto' | 'approved' | 'edited'; params: unknown } | { ok: false; reason: string };
 
@@ -45,7 +46,7 @@ export class CapabilityRegistry {
   get(name: string) { return this.caps.get(name); }
   has(name: string) { return this.caps.has(name); }
   list() { return [...this.caps.values()].map(c => ({ name: c.name, description: c.description, perm: c.perm })); }
-  listForMcp() { return this.list().filter(c => !INTERNAL.has(c.name) && this.caps.get(c.name)!.mcp !== false); }
+  listForMcp() { return this.list().filter(c => !INTERNAL_CAPABILITIES.has(c.name) && this.caps.get(c.name)!.mcp !== false); }
 
   /** 权限判定（02 §6、05 §8）；需要确认时在这里挂起等审批 */
   async authorize(def: CapabilityDef<any, any>, params: unknown, ctx: Ctx): Promise<Authorization> {
@@ -55,12 +56,14 @@ export class CapabilityRegistry {
     // 界面直接调用：用户自己点的，直接执行
     if (ctx.caller.origin === 'ui') return { ok: true, approval: 'auto', params };
     // 记忆这类 Tibi 自己的笔记：直接写，对话里给回执，用户随时撤销。
-    // 读过网页、文章正文的一轮：只能新记"观察"（不进系统提示），不能记成身份或指令，也不能自动改、删已有的（走下面的审批）——防注入的内容变成长期指令
+    // 读过网页、文章正文的一轮：只能新记"观察"（不进系统提示），不能记成身份或指令，也不能自动改、删或替换(supersedes)已有的（走下面的审批）——防注入的内容变成长期指令
     if (def.autoApprove && def.undoable && ctx.caller.origin === 'skill') {
       if (!tainted) return { ok: true, approval: 'auto', params };
       if (def.name === 'remember') {
-        const p = params as { type?: string };
-        return { ok: true, approval: 'auto', params: p.type === 'profile' || p.type === 'procedural' ? { ...p, type: 'semantic' } : params };
+        const p = params as { type?: string; supersedes?: string };
+        if (!p.supersedes) {
+          return { ok: true, approval: 'auto', params: p.type === 'profile' || p.type === 'procedural' ? { ...p, type: 'semantic' } : params };
+        }
       }
     }
     // 用户刚在反问卡上选中的网址：用户自己看着选的，这次不再问（模型换了网址照常走下面的审批）
@@ -125,7 +128,7 @@ export class CapabilityRegistry {
           const auth = await self.authorize(def, p, ctx);
           if (!auth.ok) throw new TibiError('permission_denied', auth.reason);
           if (UNTRUSTED_RESULT.has(def.name)) run.markTainted();
-          const out = await def.run(auth.params, { ...ctx, caller: { ...ctx.caller, call_id: name } });
+          const out = await def.run(auth.params, { ...ctx, signal: run.signal, caller: { ...ctx.caller, call_id: name } });
           const text = clip(JSON.stringify(out ?? null));
           run.seen.push(text);
           return { text, details: { out } };
@@ -187,9 +190,10 @@ export function builtinCapabilities(deps: BuiltinDeps): CapabilityMap {
         const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
         const minutes = await db.get<{ ms: number | null }>('SELECT sum(COALESCE(ended_at, started_at) - started_at) AS ms FROM reading_sessions WHERE started_at >= ?', [dayStart.getTime()]);
         const reviewed = await db.get<{ n: number }>('SELECT count(*) AS n FROM review_logs_valid WHERE reviewed_at >= ?', [dayStart.getTime()]);
-        const due = await db.get<{ n: number }>('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND suspended = 0 AND due <= ?', [now()]);
+        const t = now();
+        const due = await db.get<{ n: number }>('SELECT count(*) AS n FROM cards c JOIN terms t ON t.id = c.term_id WHERE c.deleted_at IS NULL AND c.suspended = 0 AND c.due <= ? AND t.deleted_at IS NULL AND t.in_wordbook = 1 AND t.status <= 5 AND (t.paused_until IS NULL OR t.paused_until <= ?)', [t, t]);
         const newWords = await db.get<{ n: number }>('SELECT count(*) AS n FROM terms WHERE created_at >= ? AND deleted_at IS NULL', [dayStart.getTime()]);
-        const streak = await db.get<{ n: number }>('SELECT count(*) AS n FROM daily_stats WHERE reading_ms > 0 OR reviews > 0');
+        const st = await streaks(db);
         const recent = await db.all<{ id: string; title: string }>('SELECT id, title FROM documents WHERE deleted_at IS NULL ORDER BY COALESCE(last_read_at, created_at) DESC LIMIT 3');
         let document: { id: string; title: string; section_id?: string; sentence_id?: string; progress: number } | undefined;
         if (ui?.document_id) {
@@ -204,7 +208,7 @@ export function builtinCapabilities(deps: BuiltinDeps): CapabilityMap {
         return {
           page: ui?.page ?? 'home', document, selection: ui?.selection && ui.sentence_id ? { text: ui.selection, sentence_id: ui.sentence_id } : undefined, card,
           profile: { interests: j.parse<string[]>(prof?.interests, []) },
-          today: { minutes: Math.round(Number(minutes?.ms ?? 0) / 60000), due: Number(due?.n ?? 0), reviewed: Number(reviewed?.n ?? 0), new_words: Number(newWords?.n ?? 0), streak: Number(streak?.n ?? 0) },
+          today: { minutes: Math.round(Number(minutes?.ms ?? 0) / 60000), due: Number(due?.n ?? 0), reviewed: Number(reviewed?.n ?? 0), new_words: Number(newWords?.n ?? 0), streak: st.streak },
           recent_documents: recent, permission: await ctx.permission(),
         };
       },

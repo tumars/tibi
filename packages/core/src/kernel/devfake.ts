@@ -93,8 +93,7 @@ const stream: StreamFn = (model, context, options) => {
     const pre: AssistantMessage['content'] = [];
     if (think) {
       s.push({ type: 'thinking_start', contentIndex: 0, partial: base });
-      let t = '';
-      for (const ch of think.match(/.{1,6}/gs) ?? []) { await new Promise(r => setTimeout(r, 25)); t += ch; s.push({ type: 'thinking_delta', contentIndex: 0, delta: ch, partial: base }); }
+      for (const ch of think.match(/.{1,6}/gs) ?? []) { await new Promise(r => setTimeout(r, 25)); s.push({ type: 'thinking_delta', contentIndex: 0, delta: ch, partial: base }); }
       s.push({ type: 'thinking_end', contentIndex: 0, content: think, partial: base });
       pre.push({ type: 'thinking', thinking: think });
     }

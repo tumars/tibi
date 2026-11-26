@@ -30,8 +30,9 @@ function ReviewSessionView({ ahead }: { ahead: boolean }) {
   // 键盘：空格显示答案、Enter 检查 / 继续、1–4 选项或评分、Z 撤销、P 播放
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!item || done || isImeKey(e)) return;
-      const inInput = e.target instanceof HTMLInputElement;
+      if (!item || done || isImeKey(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      const inInput = !!(t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || t.isContentEditable));
       if (e.key === 'Enter') {
         e.preventDefault();
         if (phase.kind === 'answered' || item.intro) void next();

@@ -1,5 +1,5 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -91,6 +91,45 @@ describe('电台媒体缓存与 MP3 帧切分', () => {
     expect(chunks[0]!.duration_ms).toBeLessThanOrEqual(1000);
     expect(chunks[1]!.offset_ms).toBeCloseTo(chunks[0]!.duration_ms, -1);
     expect(chunks.at(-1)!.offset_ms + chunks.at(-1)!.duration_ms).toBeCloseTo(2612, -1);
+  });
+  it('downloadMedia 流式写盘且不留临时文件，超限时清理 .tmp 并报错', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tibi-dl-'));
+    try {
+      const dbPath = join(dir, 'app.db');
+      const ops = createMediaOps(dbPath, '0.2.0-test');
+      const part1 = new Uint8Array([1, 2, 3, 4, 5]);
+      const part2 = new Uint8Array([6, 7, 8, 9, 10]);
+
+      vi.stubGlobal('fetch', vi.fn(async () => {
+        const stream = new ReadableStream<Uint8Array>({
+          start(ctrl) {
+            ctrl.enqueue(part1);
+            ctrl.enqueue(part2);
+            ctrl.close();
+          },
+        });
+        return new Response(stream, { status: 200, headers: { 'content-type': 'audio/mpeg', 'content-length': '10' } });
+      }));
+
+      const progress: [number, number | undefined][] = [];
+      const dl = await ops.downloadMedia!('https://1.1.1.1/ep.mp3', 'streamed-ep', {
+        maxBytes: 1024,
+        onProgress: (loaded, total) => progress.push([loaded, total]),
+      });
+      expect(dl.path).toBe('media:podcasts/streamed-ep.mp3');
+      expect(dl.bytes).toBe(10);
+      expect(progress.at(-1)).toEqual([10, 10]);
+      const saved = new Uint8Array(await readFile(join(dir, 'media', 'podcasts', 'streamed-ep.mp3')));
+      expect([...saved]).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      expect(readdirSync(join(dir, 'media', 'podcasts')).filter(n => n.endsWith('.tmp'))).toEqual([]);
+
+      // 超限应抛错并清理 .tmp
+      await expect(ops.downloadMedia!('https://1.1.1.1/ep.mp3', 'too-big', { maxBytes: 6 })).rejects.toThrow(/超过/);
+      expect(readdirSync(join(dir, 'media', 'podcasts')).filter(n => n.endsWith('.tmp'))).toEqual([]);
+    } finally {
+      vi.restoreAllMocks();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

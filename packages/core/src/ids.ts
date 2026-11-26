@@ -24,11 +24,13 @@ export function uuidv7(now: number = Date.now()): string {
     }
   } else if (now > lastMs) {
     lastMs = now;
-    seq = randomBytes(2)[0]! & 0x07ff;
+    const rb = randomBytes(2);
+    seq = ((rb[0]! << 8) | rb[1]!) & 0x07ff;
   } else {
-    // 时钟倒退：沿用上次的毫秒，继续递增
-    now = lastMs;
+    // 时钟倒退：沿用上次的毫秒，继续递增；序号溢出时推进 lastMs 保持严格单调
     seq = (seq + 1) & 0x0fff;
+    if (seq === 0) lastMs += 1;
+    now = lastMs;
   }
   const r = randomBytes(8);
   const b = new Uint8Array(16);

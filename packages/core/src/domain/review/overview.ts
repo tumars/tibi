@@ -50,8 +50,8 @@ export async function reviewOverview(db: Database, dict: Dict, t: number = now()
 
   const td = await db.get<{ n: number; ok: number; ms: number }>('SELECT count(*) AS n, COALESCE(sum(correct), 0) AS ok, COALESCE(sum(duration_ms), 0) AS ms FROM review_logs_valid WHERE reviewed_at >= ?', [dayStart]);
   const leeches = await n(`SELECT count(*) AS n ${FROM} WHERE ${LIVE} AND c.lapses >= 3`, [t]);
-  const mistakes = await db.all<{ term_id: string; display: string; meaning: string | null; short_gloss: string | null; lapses: number }>(
-    `SELECT t.id AS term_id, t.text_display AS display, t.meaning, t.short_gloss, c.lapses, max(l.reviewed_at) AS last
+  const mistakes = await db.all<{ term_id: string; text: string; display: string; meaning: string | null; short_gloss: string | null; lapses: number }>(
+    `SELECT t.id AS term_id, t.text, t.text_display AS display, t.meaning, t.short_gloss, c.lapses, max(l.reviewed_at) AS last
      FROM review_logs_valid l JOIN cards c ON c.id = l.card_id JOIN terms t ON t.id = c.term_id
      WHERE l.rating = 1 AND l.reviewed_at >= ? AND t.deleted_at IS NULL AND t.status <= 5
      GROUP BY t.id ORDER BY last DESC LIMIT 8`, [t - 7 * DAY]);
@@ -60,6 +60,6 @@ export async function reviewOverview(db: Database, dict: Dict, t: number = now()
     due, late, fresh, new_waiting, daily_new, ...(open ? { open } : {}),
     today: { reviews: Number(td?.n ?? 0), correct: Number(td?.ok ?? 0), minutes: Math.round(Number(td?.ms ?? 0) / 60000), new_learned },
     later_today, forecast: await forecast(db, 7, t), leeches,
-    mistakes: await Promise.all(mistakes.map(async m => ({ term_id: m.term_id, display: m.display, meaning: firstMeaning(m.meaning) || glossSummary((await dict.lookup(m.display.toLowerCase()))?.translation) || m.short_gloss || '', lapses: Number(m.lapses) }))),
+    mistakes: await Promise.all(mistakes.map(async m => ({ term_id: m.term_id, display: m.display, meaning: firstMeaning(m.meaning) || glossSummary((await dict.lookup(m.text))?.translation) || m.short_gloss || '', lapses: Number(m.lapses) }))),
   };
 }

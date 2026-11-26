@@ -2,9 +2,11 @@ import { BookOpen, CircleUserRound, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { Fox } from '../components/Fox';
+import { trackUsage } from '../lib/analytics';
 import { tl } from '../lib/i18n';
 import { presentNotice, startNoticeCheck } from '../lib/notice';
 import { scheduleMobile, type ReminderTime } from '../lib/reminder';
+import { syncTtsFromSettings } from '../lib/ttsConfig';
 import { startWidgetSnapshots, takeSharedImports } from './native';
 import { rpc } from '../rpc';
 import { bindCoreEvents, useCore } from '../store/core';
@@ -27,11 +29,14 @@ export function MobileApp() {
   const [imm, setImm] = useState(false);
   useEffect(() => {
     bindCoreEvents(); void useCore.getState().refresh();
-    const loadTts = () => void rpc.call('settings.get', { keys: ['tts.engine', 'tts.voice', 'tts.ai_voice', 'tts.rate'] }).then(s => void import('../lib/tts').then(t => t.configure({ engine: (s['tts.engine'] as 'system' | 'kokoro') ?? 'system', voice: (s['tts.voice'] as string) ?? '', aiVoice: (s['tts.ai_voice'] as string) || undefined, rate: Number(s['tts.rate'] ?? 1) })), () => undefined);
-    loadTts();
+    void syncTtsFromSettings();
     // Tibi 或别的设备改了语速，马上生效
-    const offTts = rpc.on('data.changed', d => { if (d.table === 'settings') loadTts(); });
-    const off = rpc.on('import.done', d => { if (d.origin === 'mcp' || d.origin === 'chat') return; if (d.ok) toast(d.summary || tl('导入完成')); else toast(d.error || tl('导入失败'), { kind: 'err' }); });
+    const offTts = rpc.on('data.changed', d => { if (d.table === 'settings') void syncTtsFromSettings(); });
+    const off = rpc.on('import.done', d => {
+      if (d.ok && d.document_id && !d.duplicate) trackUsage('import_succeeded');
+      if (d.origin === 'mcp' || d.origin === 'chat') return;
+      if (d.ok) toast(d.summary || tl('导入完成')); else toast(d.error || tl('导入失败'), { kind: 'err' });
+    });
     return () => { off(); offTts(); };
   }, []);
   useEffect(() => { setImm(false); }, [loc.pathname]);

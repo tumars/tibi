@@ -27,7 +27,7 @@ export interface RunContext {
 }
 
 interface Active { run: RunContext; ctrl: AbortController; promise: Promise<void>; chain: Promise<unknown> }
-interface Pending { approval: Approval; resolve(d: ApprovalDecision): void }
+interface Pending { approval: Approval; resolve(d: ApprovalDecision): void; cleanup: () => void }
 
 export class Turns {
   private active = new Map<string, Active>();
@@ -89,14 +89,17 @@ export class Turns {
       const rule = await this.db.get<{ value: string }>('SELECT value FROM settings WHERE key = ?', [autoRuleKey(req.skill_id, req.tool)]);
       if (rule && j.parse<boolean>(rule.value, false)) return { decision: 'allow' };
     }
+    if (run.signal.aborted) throw new TibiError('busy', '已取消');
     const approval: Approval = {
       ...req, id: `${run.id}:${uuidv7()}`, ...(run.conversation_id ? { conversation_id: run.conversation_id, turn_id: run.id } : {}), ...(client ? { client } : {}),
       untrusted: req.untrusted || run.tainted, requested_at: now(),
     };
     this.events.emit('approval.requested', { approval });
     return new Promise<ApprovalDecision>((resolve, reject) => {
-      this.pending.set(approval.id, { approval, resolve });
-      run.signal.addEventListener('abort', () => { this.drop(approval.id); reject(new TibiError('busy', '已取消')); }, { once: true });
+      const onAbort = () => { this.drop(approval.id); reject(new TibiError('busy', '已取消')); };
+      const cleanup = () => run.signal.removeEventListener('abort', onAbort);
+      this.pending.set(approval.id, { approval, resolve, cleanup });
+      run.signal.addEventListener('abort', onAbort, { once: true });
     });
   }
 
@@ -107,13 +110,17 @@ export class Turns {
     if (always && decision === 'allow' && !a.untrusted && !a.always_ask) {
       await this.db.run('INSERT INTO settings(key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at', [autoRuleKey(a.skill_id, a.tool), 'true', now()]);
     }
-    this.pending.delete(id);
+    if (!this.pending.delete(id)) return;
+    p.cleanup();
     this.events.emit('approval.resolved', { id, decision });
     p.resolve({ decision, edited });
   }
 
   private drop(id: string) {
-    if (!this.pending.delete(id)) return;
+    const p = this.pending.get(id);
+    if (!p) return;
+    this.pending.delete(id);
+    p.cleanup();
     this.events.emit('approval.resolved', { id, decision: 'deny' });
   }
 }

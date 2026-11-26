@@ -3,8 +3,7 @@ import { j, now, type Database } from '../../db/driver.js';
 import type { Dict } from '../../dict/types.js';
 import { uuidv7 } from '../../ids.js';
 import { method, S, type Ctx, type MethodMap } from '../../rpc/define.js';
-import { TibiError, type PracticeMode, type QueueItem, type Rating } from '../../types.js';
-import type { PracticeItem } from './practice-types.js';
+import { TibiError, type PracticeItem, type PracticeMode, type QueueItem, type Rating } from '../../types.js';
 import { loadParams, preview } from './fsrs.js';
 import { contextMeaning } from '../terms/service.js';
 import { glossSummary } from '../terms/views.js';
@@ -126,9 +125,9 @@ export const reviewMethods: MethodMap = {
   'practice.start': method(Type.Object({ mode: Type.Union(['dictation', 'spell', 'confusable', 'produce'].map(m => Type.Literal(m))), source: Type.Union(['recent', 'mistakes', 'leech', 'document'].map(m => Type.Literal(m))), document_id: Type.Optional(S.id), count: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, default: 5 })) }), async (p, ctx) => {
     const mode = p.mode as PracticeMode; const count = p.count ?? 5;
     let terms: TermRow[];
-    if (p.source === 'document' && p.document_id) terms = await ctx.db.all<TermRow>('SELECT DISTINCT t.* FROM terms t JOIN term_contexts tc ON tc.term_id = t.id WHERE tc.document_id = ? AND t.deleted_at IS NULL AND t.status <= 5 ORDER BY random() LIMIT ?', [p.document_id, count]);
-    else if (p.source === 'leech') terms = await ctx.db.all<TermRow>('SELECT t.* FROM terms t JOIN cards c ON c.term_id = t.id WHERE c.lapses >= 3 AND t.deleted_at IS NULL ORDER BY random() LIMIT ?', [count]);
-    else if (p.source === 'mistakes') terms = await ctx.db.all<TermRow>('SELECT DISTINCT t.* FROM terms t JOIN cards c ON c.term_id = t.id JOIN review_logs_valid l ON l.card_id = c.id WHERE l.rating = 1 AND l.reviewed_at >= ? AND t.deleted_at IS NULL ORDER BY random() LIMIT ?', [now() - 7 * 86_400_000, count]);
+    if (p.source === 'document' && p.document_id) terms = await ctx.db.all<TermRow>('SELECT DISTINCT t.* FROM terms t JOIN term_contexts tc ON tc.term_id = t.id WHERE tc.document_id = ? AND tc.deleted_at IS NULL AND t.deleted_at IS NULL AND t.status <= 5 ORDER BY random() LIMIT ?', [p.document_id, count]);
+    else if (p.source === 'leech') terms = await ctx.db.all<TermRow>('SELECT t.* FROM terms t JOIN cards c ON c.term_id = t.id WHERE c.lapses >= 3 AND c.deleted_at IS NULL AND t.deleted_at IS NULL ORDER BY random() LIMIT ?', [count]);
+    else if (p.source === 'mistakes') terms = await ctx.db.all<TermRow>('SELECT DISTINCT t.* FROM terms t JOIN cards c ON c.term_id = t.id JOIN review_logs_valid l ON l.card_id = c.id WHERE l.rating = 1 AND l.reviewed_at >= ? AND c.deleted_at IS NULL AND t.deleted_at IS NULL ORDER BY random() LIMIT ?', [now() - 7 * 86_400_000, count]);
     else terms = await ctx.db.all<TermRow>('SELECT t.* FROM terms t WHERE t.in_wordbook = 1 AND t.deleted_at IS NULL AND t.status <= 5 ORDER BY t.last_seen_at DESC, t.created_at DESC LIMIT ?', [count]);
     const items: PracticeItem[] = [];
     for (const t of terms) {
@@ -150,7 +149,9 @@ export const reviewMethods: MethodMap = {
       } else items.push({ ...base, sentence: sentence || meaning, explain: '用这个词写一句话' });
     }
     const practice_id = uuidv7();
-    await ctx.db.run('INSERT INTO settings(key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at', [`practice.pending.${practice_id}`, j.str({ mode, source: p.source, document_id: p.document_id ?? null, items: items.length, started_at: now() }), now()]);
+    const ts = now();
+    await ctx.db.run("DELETE FROM settings WHERE key LIKE 'practice.pending.%' AND updated_at < ?", [ts - 86_400_000]);
+    await ctx.db.run('INSERT INTO settings(key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at', [`practice.pending.${practice_id}`, j.str({ mode, source: p.source, document_id: p.document_id ?? null, items: items.length, started_at: ts }), ts]);
     return { practice_id, items };
   }, '句子来自用户读过的文章'),
 

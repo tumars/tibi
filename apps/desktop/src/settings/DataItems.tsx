@@ -5,6 +5,8 @@ import { Switch } from '../components/Switch';
 import { SettingItem } from '../components/ui';
 import { errorInfo, isTauri, rpc, type Result } from '../rpc';
 import { toast } from '../store/ui';
+import { copyToClipboard } from '../lib/external';
+import { saveText } from '../lib/files';
 import { locale, tl } from '../lib/i18n';
 
 /**
@@ -103,10 +105,12 @@ export function ExportSummaryItem() {
   const [sum, setSum] = useState<UsageSummary>();
   const text = sum ? JSON.stringify(sum, null, 2) : '';
   const open = async () => { try { setSum(await rpc.call('stats.export_summary', {})); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
-  const copy = async () => { try { await navigator.clipboard.writeText(text); toast(tl('已复制')); } catch { toast(tl('复制失败，可以手动选中文字'), { kind: 'err' }); } };
+  const copy = () => void copyToClipboard(text, { errorMsg: tl('复制失败，可以手动选中文字') });
   const save = async () => {
-    if (!isTauri()) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = 'tibi-summary.json'; a.click(); return; }
-    try { const r = await invoke<{ saved: boolean; path?: string }>('save_text_file', { defaultName: 'tibi-summary.json', text }); if (r.saved) toast(tl('已保存')); } catch (e) { toast(String(e), { kind: 'err' }); }
+    try {
+      const saved = await saveText('tibi-summary.json', text, 'application/json');
+      if (saved && isTauri()) toast(tl('已保存'));
+    } catch (e) { toast(String(e), { kind: 'err' }); }
   };
   return <>
     <SettingItem

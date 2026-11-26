@@ -1,3 +1,4 @@
+import { createWriteStream } from 'node:fs';
 import { copyFile, mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, join } from 'node:path';
 import { text as coreText, TibiError, type AsrConfig, type MediaCacheStats, type TimedSegment } from '@tibi/core';
@@ -113,7 +114,9 @@ export function createMediaOps(dbPath: string, appVersion: string) {
     const maxBytes = opts.maxBytes ?? 300 * 1024 * 1024;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 5 * 60_000);
-    opts.signal?.addEventListener('abort', () => ctrl.abort());
+    const onAbort = () => ctrl.abort();
+    if (opts.signal?.aborted) ctrl.abort();
+    else opts.signal?.addEventListener('abort', onAbort, { once: true });
     try {
       let res: Response | undefined;
       for (let hop = 0; hop < 6; hop++) {
@@ -122,51 +125,93 @@ export function createMediaOps(dbPath: string, appVersion: string) {
           headers: { 'user-agent': `Tibi/${appVersion} (+https://github.com/tumars/tibi)`, accept: 'audio/*,*/*;q=0.5' },
         });
         if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+          await res.body?.cancel().catch(() => undefined);
           current = await checkUrl(new URL(res.headers.get('location')!, current).toString());
           continue;
         }
         break;
       }
-      if (!res || res.status >= 400) throw new TibiError('invalid_source', `音频下载失败（${res?.status ?? '网络错误'}）`);
+      if (!res || res.status >= 300) {
+        await res?.body?.cancel().catch(() => undefined);
+        throw new TibiError('invalid_source', `音频下载失败（${res ? (res.status < 400 ? '重定向次数太多' : res.status) : '网络错误'}）`);
+      }
       const mime = (res.headers.get('content-type') ?? '').split(';')[0]!.trim() || 'audio/mpeg';
       const contentLen = Number(res.headers.get('content-length') ?? 0) || undefined;
-      if (contentLen && contentLen > maxBytes) throw new TibiError('invalid_source', `这期音频超过 ${(maxBytes / (1 << 20)).toFixed(0)} MB 上限`);
+      if (contentLen && contentLen > maxBytes) {
+        await res.body?.cancel().catch(() => undefined);
+        throw new TibiError('invalid_source', `这期音频超过 ${(maxBytes / (1 << 20)).toFixed(0)} MB 上限`);
+      }
 
       const ext = extFrom(current.toString(), mime);
       const fileName = `${safeKey(key)}${ext}`;
       const absPath = join(podDir, fileName);
+      const tmpPath = `${absPath}.${process.pid}.${Date.now()}.tmp`;
       await mkdir(podDir, { recursive: true });
 
-      const chunks: Uint8Array[] = [];
       let loaded = 0;
       let lastReport = 0;
       if (res.body) {
+        const ws = createWriteStream(tmpPath);
+        let writeErr: unknown;
+        ws.once('error', err => { writeErr = err; });
         const reader = res.body.getReader();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (!value) continue;
-          loaded += value.byteLength;
-          if (loaded > maxBytes) {
-            await reader.cancel().catch(() => undefined);
-            throw new TibiError('invalid_source', `音频体积超过 ${(maxBytes / (1 << 20)).toFixed(0)} MB 上限`);
+        try {
+          while (true) {
+            if (writeErr) throw writeErr;
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (!value) continue;
+            loaded += value.byteLength;
+            if (loaded > maxBytes) {
+              await reader.cancel().catch(() => undefined);
+              throw new TibiError('invalid_source', `音频体积超过 ${(maxBytes / (1 << 20)).toFixed(0)} MB 上限`);
+            }
+            if (!ws.write(value)) {
+              await new Promise<void>((resolve, reject) => {
+                if (writeErr) { reject(writeErr); return; }
+                const onDrain = () => { ws.off('error', onErr); resolve(); };
+                const onErr = (err: Error) => { ws.off('drain', onDrain); reject(err); };
+                ws.once('drain', onDrain);
+                ws.once('error', onErr);
+              });
+            }
+            const nowMs = Date.now();
+            if (opts.onProgress && nowMs - lastReport >= 250) { lastReport = nowMs; opts.onProgress(loaded, contentLen); }
           }
-          chunks.push(value);
-          const nowMs = Date.now();
-          if (opts.onProgress && nowMs - lastReport >= 250) { lastReport = nowMs; opts.onProgress(loaded, contentLen); }
+          if (writeErr) throw writeErr;
+          await new Promise<void>((resolve, reject) => {
+            ws.once('error', reject);
+            ws.end(() => resolve());
+          });
+        } catch (err) {
+          await reader.cancel().catch(() => undefined);
+          await new Promise<void>(resolve => {
+            if (ws.closed || ws.destroyed) { resolve(); return; }
+            ws.once('close', () => resolve());
+            ws.destroy();
+          });
+          await unlink(tmpPath).catch(() => undefined);
+          throw err;
         }
       } else {
         const buf = new Uint8Array(await res.arrayBuffer());
         loaded = buf.byteLength;
-        chunks.push(buf);
+        if (loaded > maxBytes) {
+          throw new TibiError('invalid_source', `音频体积超过 ${(maxBytes / (1 << 20)).toFixed(0)} MB 上限`);
+        }
+        await writeFile(tmpPath, buf);
       }
-      const combined = concatBytes(chunks, loaded);
-      await writeFile(absPath + '.tmp', combined);
-      await rename(absPath + '.tmp', absPath);
+      try {
+        await rename(tmpPath, absPath);
+      } catch (err) {
+        await unlink(tmpPath).catch(() => undefined);
+        throw err;
+      }
       opts.onProgress?.(loaded, contentLen ?? loaded);
       return { path: `media:podcasts/${fileName}`, bytes: loaded, mime: EXT_MIME[ext] ?? mime };
     } finally {
       clearTimeout(timer);
+      opts.signal?.removeEventListener('abort', onAbort);
     }
   } : undefined;
 
@@ -174,9 +219,15 @@ export function createMediaOps(dbPath: string, appVersion: string) {
     const ext = extFrom(srcPath);
     const fileName = `${safeKey(key)}${ext}`;
     const absPath = join(podDir, fileName);
+    const tmpPath = `${absPath}.${process.pid}.${Date.now()}.tmp`;
     await mkdir(podDir, { recursive: true });
-    await copyFile(srcPath, absPath + '.tmp');
-    await rename(absPath + '.tmp', absPath);
+    try {
+      await copyFile(srcPath, tmpPath);
+      await rename(tmpPath, absPath);
+    } catch (err) {
+      await unlink(tmpPath).catch(() => undefined);
+      throw err;
+    }
     const st = await stat(absPath);
     return { path: `media:podcasts/${fileName}`, bytes: st.size, mime: EXT_MIME[ext] ?? 'audio/mpeg' };
   } : undefined;
@@ -229,17 +280,26 @@ export function createMediaOps(dbPath: string, appVersion: string) {
   ): Promise<{ segments: TimedSegment[]; duration_ms?: number; engine: string }> => {
     if (!input.path) throw new TibiError('invalid_source', '缺少本地音频文件');
     const abs = resolveMediaFile(dbPath, input.path);
-    const bytes = new Uint8Array(await readFile(abs));
     const ext = extFrom(abs, input.mime);
     const mime = input.mime || EXT_MIME[ext] || 'audio/mpeg';
     const { config } = opts;
+    const isSiliconFlow = config.protocol === 'siliconflow_asr';
+    if (config.protocol !== 'deepgram' && ext !== '.mp3') {
+      const limit = isSiliconFlow ? SILICONFLOW_MAX_NON_MP3_BYTES : 24 * 1024 * 1024;
+      const st = await stat(abs);
+      if (st.size > limit) {
+        throw new TibiError('invalid_source', isSiliconFlow
+          ? '非 MP3 音频超过 48 MB，超出硅基流动单次上传上限；建议使用本地离线转写或 MP3 格式'
+          : '非 MP3 音频超过 24 MB，超出 Whisper 单次上传上限；建议使用本地离线转写、MP3 或 Deepgram');
+      }
+    }
+    const bytes = new Uint8Array(await readFile(abs));
 
     if (config.protocol === 'deepgram') {
       opts.onProgress?.('正在通过 Deepgram 转写逐字稿');
       return transcribeDeepgram(bytes, mime, config, opts.signal);
     }
 
-    const isSiliconFlow = config.protocol === 'siliconflow_asr';
     // 硅基流动 SenseVoiceSmall 无原生句级时间戳：MP3 按 ~45s 帧锚点分块并发转写以获得稳定时间定位；
     // Groq / OpenAI Whisper 支持精确 verbose_json，仅在超 19 MB 时按体积切块
     let chunks: { data: Uint8Array; offset_ms: number; duration_ms: number }[];
@@ -250,32 +310,39 @@ export function createMediaOps(dbPath: string, appVersion: string) {
           ? splitMp3BySize(bytes, MAX_WHISPER_CHUNK_BYTES)
           : [{ data: bytes, offset_ms: 0, duration_ms: measureMp3DurationMs(bytes) }];
     } else {
-      const limit = isSiliconFlow ? SILICONFLOW_MAX_NON_MP3_BYTES : 24 * 1024 * 1024;
-      if (bytes.byteLength > limit) {
-        throw new TibiError('invalid_source', isSiliconFlow
-          ? '非 MP3 音频超过 48 MB，超出硅基流动单次上传上限；建议使用本地离线转写或 MP3 格式'
-          : '非 MP3 音频超过 24 MB，超出 Whisper 单次上传上限；建议使用本地离线转写、MP3 或 Deepgram');
-      }
       chunks = [{ data: bytes, offset_ms: 0, duration_ms: 0 }];
     }
 
     const results: ({ segments: TimedSegment[]; duration_ms?: number } | undefined)[] = new Array(chunks.length);
     let completed = 0;
     const workers = Math.min(isSiliconFlow ? SILICONFLOW_CONCURRENCY : 1, chunks.length);
+    const batchCtrl = new AbortController();
+    const onOuterAbort = () => batchCtrl.abort();
+    if (opts.signal?.aborted) batchCtrl.abort();
+    else opts.signal?.addEventListener('abort', onOuterAbort, { once: true });
     let nextIdx = 0;
     const runWorker = async () => {
-      while (nextIdx < chunks.length) {
+      while (nextIdx < chunks.length && !batchCtrl.signal.aborted) {
         const i = nextIdx++;
         const ch = chunks[i]!;
         if (chunks.length === 1) opts.onProgress?.('正在 AI 转写逐字稿');
         else if (!isSiliconFlow) opts.onProgress?.(`正在 AI 转写第 ${i + 1} / ${chunks.length} 段`);
         else if (completed === 0) opts.onProgress?.(`正在通过硅基流动转写（共 ${chunks.length} 段）`);
-        results[i] = await transcribeOpenAiCompatible(ch.data, `chunk${i}${ext}`, mime, config, opts.signal, ch.duration_ms);
+        try {
+          results[i] = await transcribeOpenAiCompatible(ch.data, `chunk${i}${ext}`, mime, config, batchCtrl.signal, ch.duration_ms);
+        } catch (err) {
+          batchCtrl.abort();
+          throw err;
+        }
         completed++;
         if (isSiliconFlow && chunks.length > 1) opts.onProgress?.(`正在通过硅基流动转写第 ${completed} / ${chunks.length} 段`);
       }
     };
-    await Promise.all(Array.from({ length: workers }, () => runWorker()));
+    try {
+      await Promise.all(Array.from({ length: workers }, () => runWorker()));
+    } finally {
+      opts.signal?.removeEventListener('abort', onOuterAbort);
+    }
 
     const all: TimedSegment[] = [];
     let totalDuration = 0;
@@ -299,6 +366,11 @@ export function createMediaOps(dbPath: string, appVersion: string) {
   return { downloadMedia, copyMedia, mediaCacheInfo, pruneMediaCache, clearMediaCache, transcribeAudio, testAsr };
 }
 
+function asrSignal(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
 /** 轻量校验云端 ASR 接口鉴权与连通性（不消耗转写额度） */
 export async function testAsr(config: AsrConfig): Promise<{ ok: boolean; latency_ms?: number; error?: string }> {
   const t0 = Date.now();
@@ -306,14 +378,14 @@ export async function testAsr(config: AsrConfig): Promise<{ ok: boolean; latency
     if (config.protocol === 'deepgram') {
       const base = (config.base_url || DEFAULT_ASR_BASE.deepgram!).replace(/\/+$/, '');
       const u = await checkUrl(`${base}/v1/projects`);
-      const res = await fetch(u, { headers: { authorization: `Token ${config.api_key}` }, signal: AbortSignal.timeout(10_000) });
+      const res = await fetch(u, { redirect: 'manual', headers: { authorization: `Token ${config.api_key}` }, signal: AbortSignal.timeout(10_000) });
       if (!res.ok) return { ok: false, error: `鉴权失败（${res.status}）` };
       return { ok: true, latency_ms: Date.now() - t0 };
     }
     const defBase = DEFAULT_ASR_BASE[config.protocol] ?? DEFAULT_ASR_BASE.openai_whisper!;
     const base = (config.base_url || defBase).replace(/\/+$/, '');
     const u = await checkUrl(`${base}/models`);
-    const res = await fetch(u, { headers: { authorization: `Bearer ${config.api_key}` }, signal: AbortSignal.timeout(10_000) });
+    const res = await fetch(u, { redirect: 'manual', headers: { authorization: `Bearer ${config.api_key}` }, signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return { ok: false, error: `连接失败（${res.status}）` };
     return { ok: true, latency_ms: Date.now() - t0 };
   } catch (e) {
@@ -329,9 +401,7 @@ async function transcribeOpenAiCompatible(
   const base = (config.base_url || defBase).replace(/\/+$/, '');
   const url = await checkUrl(`${base}/audio/transcriptions`);
   const form = new FormData();
-  const ab = new ArrayBuffer(audio.byteLength);
-  new Uint8Array(ab).set(audio);
-  form.append('file', new Blob([ab], { type: mime }), fileName);
+  form.append('file', new Blob([audio as BlobPart], { type: mime }), fileName);
   form.append('model', config.model || DEFAULT_ASR_MODEL[config.protocol] || 'whisper-1');
   // 硅基流动 /v1/audio/transcriptions 文档仅定义 file + model，避免非标准参数引发 400
   if (!isSiliconFlow) {
@@ -340,9 +410,10 @@ async function transcribeOpenAiCompatible(
   }
   const res = await fetch(url, {
     method: 'POST',
+    redirect: 'manual',
     headers: { authorization: `Bearer ${config.api_key}` },
     body: form,
-    signal,
+    signal: asrSignal(signal, 180_000),
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
@@ -372,13 +443,12 @@ async function transcribeDeepgram(
   const model = config.model || 'nova-3';
   const lang = config.language || 'en';
   const url = await checkUrl(`${base}/v1/listen?model=${encodeURIComponent(model)}&smart_format=true&punctuate=true&utterances=true&diarize=true&language=${encodeURIComponent(lang)}`);
-  const ab = new ArrayBuffer(audio.byteLength);
-  new Uint8Array(ab).set(audio);
   const res = await fetch(url, {
     method: 'POST',
+    redirect: 'manual',
     headers: { authorization: `Token ${config.api_key}`, 'content-type': mime },
-    body: ab,
-    signal,
+    body: Buffer.from(audio.buffer, audio.byteOffset, audio.byteLength) as unknown as BodyInit,
+    signal: asrSignal(signal, 300_000),
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
@@ -408,13 +478,6 @@ async function transcribeDeepgram(
     ...(data.metadata?.duration ? { duration_ms: Math.round(data.metadata.duration * 1000) } : {}),
     engine: `deepgram:${model}`,
   };
-}
-
-function concatBytes(chunks: Uint8Array[], total: number): Uint8Array {
-  const out = new Uint8Array(total);
-  let off = 0;
-  for (const c of chunks) { out.set(c, off); off += c.byteLength; }
-  return out;
 }
 
 /* ==================== 纯 JS MPEG Audio (MP3) 帧切分器 ==================== */

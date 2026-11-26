@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fetchAudioArrayBuffer } from '../src/lib/localAsr';
 import { withModelScopeMirror } from '../src/lib/modelMirror';
 import { secretRef, siliconflowRegisterUrl } from '../src/lib/providers';
 import {
@@ -95,5 +96,74 @@ describe('硅基流动注册链接与非 ASCII 密钥引用名', () => {
     expect(secretRef('DeepSeek', 'llm', 'https://api.deepseek.com')).toBe('provider.deepseek.llm');
     expect(secretRef('硅基流动', 'llm', 'https://api.siliconflow.cn/v1')).toBe('provider.api-siliconflow-cn.llm');
     expect(secretRef('硅基流动 SenseVoice', 'asr', 'https://api.siliconflow.cn/v1')).toBe('provider.sensevoice.asr');
+  });
+});
+
+describe('本地离线转写音频拉取（64 MiB 整文件限制回退）', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('遇到 413 时自动改用 Range 206 分段拼接完整音频', async () => {
+    const full = new Uint8Array([10, 20, 30, 40, 50, 60]);
+    const mockFetch = vi.fn(async (_u: string, init?: RequestInit) => {
+      const range = (init?.headers as Record<string, string> | undefined)?.Range;
+      if (!range) return new Response('too large', { status: 413 });
+      expect(range).toBe(`bytes=0-${16 * 1024 * 1024 - 1}`);
+      return new Response(full, {
+        status: 206,
+        headers: { 'Content-Range': `bytes 0-${full.length - 1}/${full.length}` },
+      });
+    });
+    vi.stubGlobal('fetch', mockFetch);
+    const buf = await fetchAudioArrayBuffer('asset://localhost/podcasts/huge.mp3');
+    expect(new Uint8Array(buf)).toEqual(full);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('缺 Content-Range 或超过 300 MB 上限时拒绝', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init?: RequestInit) => {
+      const range = (init?.headers as Record<string, string> | undefined)?.Range;
+      if (!range) return new Response('too large', { status: 413 });
+      return new Response(new Uint8Array([1, 2, 3]), { status: 206 });
+    }));
+    await expect(fetchAudioArrayBuffer('asset://localhost/podcasts/bad.mp3')).rejects.toThrow('Content-Range');
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 200, headers: { 'Content-Length': String(301 * 1024 * 1024) } })));
+    await expect(fetchAudioArrayBuffer('asset://localhost/podcasts/over.mp3')).rejects.toThrow('300 MB');
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([1, 2]), { status: 206, headers: { 'Content-Range': 'bytes 0-1/10' } })));
+    await expect(fetchAudioArrayBuffer('asset://localhost/podcasts/partial.mp3')).rejects.toThrow('206');
+
+    let step = 0;
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init?: RequestInit) => {
+      const range = (init?.headers as Record<string, string> | undefined)?.Range;
+      if (!range) return new Response('too large', { status: 413 });
+      step++;
+      if (step === 1) return new Response(new Uint8Array(16 * 1024 * 1024), { status: 206, headers: { 'Content-Range': `bytes 0-${16 * 1024 * 1024 - 1}/${16 * 1024 * 1024 + 4}` } });
+      return new Response(new Uint8Array([1, 2, 3, 4, 5]), { status: 206, headers: { 'Content-Range': `bytes ${16 * 1024 * 1024}-${16 * 1024 * 1024 + 4}/${16 * 1024 * 1024 + 5}` } });
+    }));
+    await expect(fetchAudioArrayBuffer('asset://localhost/podcasts/drift.mp3')).rejects.toThrow('总长');
+
+    // 超出请求区间上限的分片必须拒绝
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init?: RequestInit) => {
+      const range = (init?.headers as Record<string, string> | undefined)?.Range;
+      if (!range) return new Response('too large', { status: 413 });
+      return new Response(new Uint8Array(16 * 1024 * 1024 + 1), {
+        status: 206,
+        headers: { 'Content-Range': `bytes 0-${16 * 1024 * 1024}/${16 * 1024 * 1024 + 5}` },
+      });
+    }));
+    await expect(fetchAudioArrayBuffer('asset://localhost/podcasts/overshoot.mp3')).rejects.toThrow('区间');
+
+    // total 为 * 时不把短分片直接当 EOF，需续拉并在 416 后收尾
+    let starStep = 0;
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init?: RequestInit) => {
+      const range = (init?.headers as Record<string, string> | undefined)?.Range;
+      if (!range) return new Response('too large', { status: 413 });
+      starStep++;
+      if (starStep === 1) return new Response(new Uint8Array([1, 2, 3]), { status: 206, headers: { 'Content-Range': 'bytes 0-2/*' } });
+      if (starStep === 2) return new Response(new Uint8Array([4, 5]), { status: 206, headers: { 'Content-Range': 'bytes 3-4/*' } });
+      return new Response('', { status: 416 });
+    }));
+    expect(new Uint8Array(await fetchAudioArrayBuffer('asset://localhost/podcasts/star.mp3'))).toEqual(new Uint8Array([1, 2, 3, 4, 5]));
   });
 });

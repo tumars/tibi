@@ -2,7 +2,7 @@ import { Mascot } from '../components/Mascot';
 import type { Profile } from '@tibi/core';
 import { Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { Top } from '../components/Shell';
 import { Switch } from '../components/Switch';
 import { InfoTip, PageFooter, SettingItem } from '../components/ui';
@@ -32,11 +32,20 @@ const SECTIONS = [['general', tl('通用')], ['model', tl('模型')], ['learning
 function Range({ label, value, min, max, step, unit, onChange, tip }: { label: string; value: number; min: number; max: number; step: number; unit: string; onChange: (v: number) => void; tip?: string }) {
   const [draft, setDraft] = useState(value);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const pendingVal = useRef<number | undefined>(undefined);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
   useEffect(() => { if (!timer.current) setDraft(value); }, [value]);
-  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => () => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = undefined;
+      if (pendingVal.current !== undefined) onChangeRef.current(pendingVal.current);
+    }
+  }, []);
   const change = (v: number) => {
-    setDraft(v); clearTimeout(timer.current);
-    timer.current = setTimeout(() => { timer.current = undefined; onChange(v); }, 300);
+    setDraft(v); pendingVal.current = v; clearTimeout(timer.current);
+    timer.current = setTimeout(() => { timer.current = undefined; pendingVal.current = undefined; onChangeRef.current(v); }, 300);
   };
   return (
     <SettingItem
@@ -48,7 +57,6 @@ function Range({ label, value, min, max, step, unit, onChange, tip }: { label: s
 }
 
 export function Settings() {
-  const nav = useNavigate();
   const [recognize, setRecognize] = useState(false);
   const [reminder, setReminder] = useState<string>('off');
   useEffect(() => { rpc.call('settings.get', { keys: ['reminder.time'] }).then(r => setReminder((r['reminder.time'] as string) ?? 'off'), () => undefined); }, []);

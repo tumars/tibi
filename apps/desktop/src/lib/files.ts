@@ -2,10 +2,19 @@ import { hasLocalCore, isTauri } from '../rpc';
 import { toast } from '../store/ui';
 import { tl } from './i18n';
 
-/** 另存为文本：桌面端弹保存对话框（壳的 save_text_file），浏览器里直接下载 */
-export async function saveText(defaultName: string, text: string): Promise<boolean> {
+/** Uint8Array → base64（分块转换，避免大数组 spread 爆调用栈） */
+export function bytesToBase64(data: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < data.length; i += 0x8000) bin += String.fromCharCode(...data.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+/** 另存为文本：桌面端弹保存对话框（壳的 save_text_file），浏览器里直接下载并释放 ObjectURL */
+export async function saveText(defaultName: string, text: string, mime = 'text/plain;charset=utf-8'): Promise<boolean> {
   if (!isTauri()) {
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' })); a.download = defaultName; a.click();
+    const url = URL.createObjectURL(new Blob([text], { type: mime }));
+    const a = document.createElement('a'); a.href = url; a.download = defaultName; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     return true;
   }
   const { invoke } = await import('@tauri-apps/api/core');

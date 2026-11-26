@@ -8,7 +8,9 @@ export function Fox({ size = 64, state = 'idle', className }: { size?: number; s
   useEffect(() => {
     if (!el.current || !window.Fox) return;
     el.current.innerHTML = '';
-    handle.current = window.Fox.mount(el.current, { state, size, interactive: true });
+    const h = window.Fox.mount(el.current, { state, size, interactive: true });
+    handle.current = h;
+    return () => { h.destroy?.(); if (handle.current === h) handle.current = undefined; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size]);
   useEffect(() => { handle.current?.set(state); }, [state]);

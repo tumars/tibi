@@ -12,7 +12,7 @@ const KINDS = ['article', 'book'];
 
 const defs = [];
 for (const id of readdirSync(dir).filter(d => statSync(join(dir, d)).isDirectory())) {
-  const text = readFileSync(join(dir, id, 'article.md'), 'utf8');
+  const text = readFileSync(join(dir, id, 'article.md'), 'utf8').replace(/\r\n/g, '\n');
   const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!m) throw new Error(`${id}/article.md 缺少 frontmatter`);
   const meta = Object.fromEntries(m[1].split('\n').filter(l => l.trim()).map(l => { const i = l.indexOf(':'); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; }));

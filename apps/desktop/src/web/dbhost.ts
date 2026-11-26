@@ -17,7 +17,16 @@ type Args = { name?: string; sql?: string; params?: unknown[] | null };
 export function createDbHost(src: DbSources) {
   let app: WasmDb | undefined; let appPath = '';
   let dict: Promise<WasmDb | undefined> | undefined;
-  const dictDb = () => (dict ??= src.dict().catch(e => { console.warn('[tibi] 词典打不开', e); return undefined; }));
+  const dictDb = () => {
+    if (!dict) {
+      const p = src.dict().then(
+        d => { if (!d && dict === p) dict = undefined; return d; },
+        e => { console.warn('[tibi] 词典打不开', e); if (dict === p) dict = undefined; return undefined; },
+      );
+      dict = p;
+    }
+    return dict;
+  };
   const dbOf = async (name?: string) => {
     if (name === 'app') { if (!app) ({ db: app, path: appPath } = src.app()); return app; }
     if (name === 'dict') return dictDb();

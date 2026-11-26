@@ -4,19 +4,20 @@ import { normalizeForHash, sha256Hex } from '../../hash.js';
 import type { Ctx } from '../../rpc/define.js';
 import type { TimedSegment } from '../../platform.js';
 import { TibiError, type Genre, type Kind, type Status, type Token, type TranscriptSource } from '../../types.js';
-import { alreadyDone, recordUndo } from '../shared/undo.js';
+import { checkUrlShape } from '../../web/url.js';
+import { alreadyDone, recordUndo, registerUndo } from '../shared/undo.js';
 import { annotateSentences } from '../text/annotate.js';
 import { cleanTitle, dropLeadingTitle } from '../text/title.js';
 import { levelOfRatio } from '../text/level.js';
 import { countWords, isTextBlock, segmentMarkdown, splitSentences, type Segmented } from '../text/segment.js';
-import { groupTranscriptParagraphs, mergeTimedSegments, parseJsonChapters, parseTranscript } from '../text/transcript.js';
-import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, upsertForm } from '../terms/repo.js';
+import { groupTranscriptParagraphs, mergeTimedSegments, parseJsonChapters, parseTranscript, type TranscriptParagraph } from '../text/transcript.js';
+import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, upsertForm, type TermRow } from '../terms/repo.js';
 import { prefersLocalAsr, resolveAsrConfig } from '../profile/methods.js';
 import { getSample, sampleUri, writeSampleAi } from './samples.js';
 import { linkImported, linkImportedItem } from '../feeds/repo.js';
 import { putAiResult } from './analyze.js';
 import { background } from './imports.js';
-import { getDocument, getDocumentByHash, getDocumentByMediaUrl, insertDocument, insertSection, insertSentence, listSections, listSentences, setDocumentTags, TOKENIZER_VERSION, WPM } from './repo.js';
+import { docMinutes, getDocument, getDocumentByHash, getDocumentByMediaUrl, insertDocument, insertSection, insertSentence, listSections, listSentences, setDocumentTags, TOKENIZER_VERSION } from './repo.js';
 
 /**
  * 导入流水线（00 §3.1、05 §4.3、17 §5.2：固定流水线，不是模型驱动的技能，R10）。
@@ -142,6 +143,7 @@ async function fetchPodcastItem(job: ImportRun, ctx: Ctx, itemId: string): Promi
   );
   if (!row) throw new TibiError('not_found', '找不到这期单集');
   if (!row.audio_url) throw new TibiError('invalid_source', '这期条目没有音频地址');
+  if (!checkUrlShape(row.audio_url).ok) throw new TibiError('invalid_source', '音频地址不对，或者是本机 / 局域网地址');
 
   const cover_path = row.artwork_url || row.feed_artwork || undefined;
   const author = row.author || row.feed_title;
@@ -155,11 +157,11 @@ async function fetchPodcastItem(job: ImportRun, ctx: Ctx, itemId: string): Promi
     cover_path,
     media_url: row.audio_url,
     duration_ms: row.duration_ms != null ? Number(row.duration_ms) : undefined,
-    chapters_url: row.chapters_url ?? undefined,
+    chapters_url: row.chapters_url && checkUrlShape(row.chapters_url).ok ? row.chapters_url : undefined,
   };
 
   // Tier 0：优先拉取官方 <podcast:transcript>（免费秒开）
-  if (row.transcript_url) {
+  if (row.transcript_url && checkUrlShape(row.transcript_url).ok) {
     job.progress('正在拉取官方逐字稿');
     try {
       const page = await ctx.platform.fetchUrl(row.transcript_url, { timeout_ms: 15_000, signal: job.signal });
@@ -280,6 +282,24 @@ export function guessGenre(md: string, source_uri?: string): Genre {
   return 'general';
 }
 
+async function insertTimedSentences(tx: Database, section_id: string, paras: TranscriptParagraph[]): Promise<void> {
+  let idx = 0;
+  for (const p of paras) {
+    for (const s of p.sentences) {
+      await insertSentence(tx, {
+        section_id, paragraph_idx: p.paragraph_idx, block_type: 'prose', idx: idx++, text: s.text,
+        start_ms: s.start_ms, end_ms: s.end_ms, speaker: s.speaker,
+      });
+    }
+  }
+}
+
+registerUndo<{ document_id: string }>('save_document', async (p, ctx) => {
+  const t = now();
+  await ctx.db.run('UPDATE documents SET deleted_at = ?, updated_at = ? WHERE id = ?', [t, t, p.document_id]);
+  ctx.events.emit('data.changed', { table: 'documents', ids: [p.document_id] });
+});
+
 interface SaveOut { document_id: string; section_ids: string[]; duplicate: boolean; /** 之前读过但不在书架里，这次导入把它放进了书架 */ shelvedNow?: boolean }
 
 /** 第三步：入库（documents / sections / sentences），内容哈希去重（播客优先按 media_url 去重） */
@@ -307,15 +327,7 @@ async function saveStep(job: ImportRun, ctx: Ctx, fetched: Fetched, seg: Segment
         duration_ms: fetched.duration_ms ?? (lastEnd > 0 ? lastEnd : undefined), transcript_source: fetched.transcript_source,
       });
       const section_id = await insertSection(tx, { document_id, idx: 0, title: fetched.title, content_md, word_count });
-      let idx = 0;
-      for (const p of paras) {
-        for (const s of p.sentences) {
-          await insertSentence(tx, {
-            section_id, paragraph_idx: p.paragraph_idx, block_type: 'prose', idx: idx++, text: s.text,
-            start_ms: s.start_ms, end_ms: s.end_ms, speaker: s.speaker,
-          });
-        }
-      }
+      await insertTimedSentences(tx, section_id, paras);
       if (input.hints?.tags?.length) await setDocumentTags(tx, document_id, input.hints.tags, { source: 'user' });
       await recordUndo(tx, ctx, { tool: 'save_document', args: { title: fetched.title }, undo_payload: { document_id }, idempotency_key: key });
       return { document_id, section_ids: [section_id], duplicate: false };
@@ -348,25 +360,39 @@ async function saveStep(job: ImportRun, ctx: Ctx, fetched: Fetched, seg: Segment
   return out;
 }
 
+/** 下载并落盘电台单集音频，同时按 2 GB LRU 清理旧缓存并更新 documents.media_path */
+async function cacheEpisodeMedia(
+  ctx: Ctx,
+  document_id: string,
+  media_url: string,
+  opts?: { onProgress?: (loaded: number, total?: number) => void },
+): Promise<string> {
+  if (!checkUrlShape(media_url).ok) throw new TibiError('invalid_source', '音频地址不对，或者是本机 / 局域网地址');
+  const dl = await ctx.platform.downloadMedia!(media_url, document_id, { maxBytes: MAX_AUDIO_BYTES, onProgress: opts?.onProgress });
+  const t = now();
+  await ctx.db.run('UPDATE documents SET media_path = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL', [dl.path, t, document_id]);
+  if (ctx.platform.pruneMediaCache) {
+    const { removed_paths } = await ctx.platform.pruneMediaCache(DEFAULT_CACHE_LIMIT);
+    for (const rp of removed_paths) {
+      if (rp !== dl.path) await ctx.db.run('UPDATE documents SET media_path = NULL, updated_at = ? WHERE media_path = ?', [t, rp]);
+    }
+  }
+  ctx.events.emit('data.changed', { table: 'documents', ids: [document_id] });
+  return dl.path;
+}
+
 /** 后台静默缓存音频（流式先播、后台落盘，并按 2 GB LRU 清理） */
 function scheduleSilentCache(ctx: Ctx, document_id: string, media_url: string) {
   if (!ctx.platform.downloadMedia) return;
   background(`media_cache:${document_id}`, async () => {
-    try {
-      const dl = await ctx.platform.downloadMedia!(media_url, document_id, { maxBytes: MAX_AUDIO_BYTES });
-      const t = now();
-      await ctx.db.run('UPDATE documents SET media_path = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL', [dl.path, t, document_id]);
-      if (ctx.platform.pruneMediaCache) {
-        const { removed_paths } = await ctx.platform.pruneMediaCache(DEFAULT_CACHE_LIMIT);
-        for (const rp of removed_paths) await ctx.db.run('UPDATE documents SET media_path = NULL, updated_at = ? WHERE media_path = ?', [t, rp]);
-      }
-      ctx.events.emit('data.changed', { table: 'documents', ids: [document_id] });
-    } catch { /* 静默缓存失败不影响流式播放 */ }
+    try { await cacheEpisodeMedia(ctx, document_id, media_url); }
+    catch { /* 静默缓存失败不影响流式播放 */ }
   });
 }
 
 /** 后台拉取 Podcasting 2.0 官方 JSON 章节 */
 function scheduleFetchChapters(ctx: Ctx, document_id: string, chapters_url: string) {
+  if (!checkUrlShape(chapters_url).ok) return;
   background(`chapters:${document_id}`, async () => {
     try {
       const page = await ctx.platform.fetchUrl(chapters_url, { timeout_ms: 10_000 });
@@ -382,14 +408,21 @@ function scheduleFetchChapters(ctx: Ctx, document_id: string, chapters_url: stri
 /**
  * 第四步：分词、还原、按词库标状态；写 sentences.tokens、term_forms、term_contexts（R7：不碰 FSRS）。
  */
-export async function annotateSection(db: Database, ctx: Ctx, section_id: string, opts: { document_id: string }): Promise<{ counts: { total: number; new: number; learning: number }; rare: number }> {
+export async function annotateSection(db: Database, ctx: Ctx, section_id: string, opts: { document_id: string; bumpEncounters?: boolean }): Promise<{ counts: { total: number; new: number; learning: number }; rare: number }> {
   const sentences = await listSentences(db, section_id);
   const texts = sentences.map(s => s.text);
   const phrases = (await db.all<{ text: string }>("SELECT text FROM terms WHERE kind = 'phrase' AND deleted_at IS NULL")).map(r => r.text);
-  const first = await annotateSentences({ sentences: texts, dict: ctx.dict, statusOf: () => undefined, phrases, ignoreProperNouns: true });
-  const lemmas = [...new Set(first.sentences.flatMap(s => s.tokens.map(t => t.l)))];
-  const known = await getTermsByTexts(db, lemmas);
-  const res = await annotateSentences({ sentences: texts, dict: ctx.dict, statusOf: l => { const r = known.get(l); return r && !r.deleted_at ? (r.status as Status) : undefined; }, phrases, ignoreProperNouns: true });
+  let known = new Map<string, TermRow>();
+  const res = await annotateSentences({
+    sentences: texts, dict: ctx.dict, phrases, ignoreProperNouns: true,
+    statusesOf: async lemmas => {
+      known = await getTermsByTexts(db, lemmas);
+      const out = new Map<string, Status | undefined>();
+      for (const [k, r] of known) if (!r.deleted_at) out.set(k, r.status as Status);
+      return out;
+    },
+  });
+  const bump = opts.bumpEncounters !== false;
   const t = now();
   await db.transaction(async tx => {
     const encounters = new Map<string, number>();
@@ -400,18 +433,20 @@ export async function annotateSection(db: Database, ctx: Ctx, section_id: string
       const seen = new Set<string>();
       for (const tk of a.tokens) {
         const row = known.get(tk.l); if (!row || tk.status === undefined) continue;
-        encounters.set(row.id, (encounters.get(row.id) ?? 0) + 1);
-        await upsertForm(tx, row.id, tk.t.toLowerCase(), t);
+        if (bump) {
+          encounters.set(row.id, (encounters.get(row.id) ?? 0) + 1);
+          await upsertForm(tx, row.id, tk.t.toLowerCase(), t);
+        }
         if (seen.has(row.id)) continue; seen.add(row.id);
         if (!(await contextExists(tx, row.id, s.id))) await insertContext(tx, { term_id: row.id, source: 'article', document_id: opts.document_id, sentence_id: s.id, surface: tk.t, is_primary: !(await hasPrimaryContext(tx, row.id)) });
       }
     }
-    for (const [term_id, n] of encounters) await bumpEncounter(tx, term_id, n, t);
+    if (bump) for (const [term_id, n] of encounters) await bumpEncounter(tx, term_id, n, t);
     for (const ph of res.phrases) {
       const row = await tx.get<{ id: string }>("SELECT id FROM terms WHERE kind = 'phrase' AND text = ? AND deleted_at IS NULL", [ph.text]);
       if (!row) continue;
       for (const si of ph.sentence_idx) { const s = sentences[si]!; if (!(await contextExists(tx, row.id, s.id))) await insertContext(tx, { term_id: row.id, source: 'article', document_id: opts.document_id, sentence_id: s.id, is_primary: !(await hasPrimaryContext(tx, row.id)) }); }
-      await bumpEncounter(tx, row.id, ph.sentence_idx.length, t);
+      if (bump) await bumpEncounter(tx, row.id, ph.sentence_idx.length, t);
     }
     await tx.run('UPDATE sections SET status = ?, tokenizer_version = ?, updated_at = ? WHERE id = ?', ['ready', TOKENIZER_VERSION, t, section_id]);
   });
@@ -420,25 +455,38 @@ export async function annotateSection(db: Database, ctx: Ctx, section_id: string
 
 const LAZY_EAGER = 2;
 
-export async function ensureAnnotated(ctx: Ctx, section_id: string): Promise<boolean> {
-  const sec = await ctx.db.get<{ status: string; document_id: string }>('SELECT status, document_id FROM sections WHERE id = ? AND deleted_at IS NULL', [section_id]);
-  if (!sec || sec.status !== 'pending') return false;
-  const doc = await getDocument(ctx.db, sec.document_id); if (!doc || doc.status !== 'ready') return false;
-  const inflight = ANNOTATING.get(section_id); if (inflight) { await inflight; return true; }
-  const p = (async () => { await annotateSection(ctx.db, ctx, section_id, { document_id: doc.id }); })().finally(() => ANNOTATING.delete(section_id));
-  ANNOTATING.set(section_id, p); await p;
-  ctx.events.emit('data.changed', { table: 'terms' });
-  return true;
-}
-const ANNOTATING = new Map<string, Promise<void>>();
+const ANNOTATING = new Map<string, Promise<unknown>>();
 
-async function annotateDocument(job: ImportRun | undefined, ctx: Ctx, document_id: string, section_ids: string[]): Promise<{ level?: string }> {
+function withSectionLock<T>(section_id: string, fn: () => Promise<T>): Promise<T> {
+  const prev = ANNOTATING.get(section_id) ?? Promise.resolve();
+  const next = prev.catch(() => undefined).then(fn);
+  // tracked 只负责清理槽位，吞掉副本的拒绝状态以免产生 UnhandledPromiseRejection 弄挂进程
+  const tracked = next.catch(() => undefined).finally(() => { if (ANNOTATING.get(section_id) === tracked) ANNOTATING.delete(section_id); });
+  ANNOTATING.set(section_id, tracked);
+  return next;
+}
+
+export async function ensureAnnotated(ctx: Ctx, section_id: string): Promise<boolean> {
+  const pre = await ctx.db.get<{ status: string }>('SELECT status FROM sections WHERE id = ? AND deleted_at IS NULL', [section_id]);
+  if (!pre || pre.status !== 'pending') return false;
+  const ran = await withSectionLock(section_id, async () => {
+    const sec = await ctx.db.get<{ status: string; document_id: string; tokenizer_version: string | null }>('SELECT status, document_id, tokenizer_version FROM sections WHERE id = ? AND deleted_at IS NULL', [section_id]);
+    if (!sec || sec.status !== 'pending') return false;
+    const doc = await getDocument(ctx.db, sec.document_id); if (!doc || doc.status !== 'ready') return false;
+    await annotateSection(ctx.db, ctx, section_id, { document_id: doc.id, bumpEncounters: !sec.tokenizer_version });
+    return true;
+  });
+  if (ran) ctx.events.emit('data.changed', { table: 'terms' });
+  return ran;
+}
+
+async function annotateDocument(job: ImportRun | undefined, ctx: Ctx, document_id: string, section_ids: string[], opts: { bumpEncounters?: boolean } = {}): Promise<{ level?: string }> {
   const doc = await getDocument(ctx.db, document_id); if (!doc) throw new TibiError('not_found', '文章不在了');
   let total = 0, rare = 0, hasFreq = true;
   const eager = doc.kind === 'book' ? section_ids.slice(0, LAZY_EAGER) : section_ids;
   for (let i = 0; i < eager.length; i++) {
     job?.progress(eager.length > 1 ? `正在分析第 ${i + 1} / ${eager.length} 章` : '正在分析');
-    const r = await annotateSection(ctx.db, ctx, section_ids[i]!, { document_id });
+    const r = await withSectionLock(section_ids[i]!, () => annotateSection(ctx.db, ctx, section_ids[i]!, { document_id, bumpEncounters: opts.bumpEncounters }));
     total += r.counts.total; if (r.rare < 0) hasFreq = false; else rare += r.rare;
   }
   const rare_ratio = hasFreq && total ? rare / total : null;
@@ -478,12 +526,12 @@ async function importOnce(job: ImportRun, ctx: Ctx, input: ImportInput): Promise
   const saved = await saveStep(job, ctx, fetched, seg, input);
   if (saved.duplicate) {
     const d = (await getDocument(ctx.db, saved.document_id))!;
-    const mins = d.kind === 'episode' && d.duration_ms ? Math.max(1, Math.round(Number(d.duration_ms) / 60_000)) : Math.max(1, Math.round(Number(d.word_count) / WPM));
+    const mins = docMinutes(d);
     return { summary: saved.shelvedNow ? `已放进书架：${d.title}` : Number(d.shelved) ? '这篇已经在书架里' : `可以听读了：${d.title}`, action: { label: '打开', route: `/read/${saved.document_id}` }, document_id: saved.document_id, duplicate: true, title: d.title, level: d.difficulty_cefr ?? undefined, minutes: mins };
   }
   const ann = await annotateDocument(job, ctx, saved.document_id, saved.section_ids);
   const wordCount = isTimedEpisode ? countWords(fetched.markdown) : seg!.word_count;
-  const minutes = fetched.kind === 'episode' && fetched.duration_ms ? Math.max(1, Math.round(fetched.duration_ms / 60_000)) : Math.max(1, Math.round(wordCount / WPM));
+  const minutes = docMinutes({ kind: fetched.kind ?? 'article', duration_ms: fetched.duration_ms ?? null, word_count: wordCount });
   await ctx.db.run('INSERT INTO learning_events(id, type, payload, created_at) VALUES (?,?,?,?)', [uuidv7(), 'document_imported', j.str({ document_id: saved.document_id, source_type: fetched.source_type, title: fetched.title, word_count: wordCount }), now()]);
   if (fetched.chapters_url) scheduleFetchChapters(ctx, saved.document_id, fetched.chapters_url);
   if (fetched.need_silent_cache && fetched.media_url) scheduleSilentCache(ctx, saved.document_id, fetched.media_url);
@@ -514,17 +562,8 @@ export async function ensureEpisodeMedia(ctx: Ctx, document_id: string): Promise
   if (!ctx.platform.downloadMedia) {
     return { media_url: doc.media_url, ...(duration_ms ? { duration_ms } : {}) };
   }
-  const dl = await ctx.platform.downloadMedia(doc.media_url, doc.id, { maxBytes: MAX_AUDIO_BYTES });
-  const t = now();
-  await ctx.db.run('UPDATE documents SET media_path = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL', [dl.path, t, doc.id]);
-  if (ctx.platform.pruneMediaCache) {
-    const { removed_paths } = await ctx.platform.pruneMediaCache(DEFAULT_CACHE_LIMIT);
-    for (const rp of removed_paths) {
-      if (rp !== dl.path) await ctx.db.run('UPDATE documents SET media_path = NULL, updated_at = ? WHERE media_path = ?', [t, rp]);
-    }
-  }
-  ctx.events.emit('data.changed', { table: 'documents', ids: [doc.id] });
-  return { media_path: dl.path, media_url: doc.media_url, ...(duration_ms ? { duration_ms } : {}) };
+  const mediaPath = await cacheEpisodeMedia(ctx, doc.id, doc.media_url);
+  return { media_path: mediaPath, media_url: doc.media_url, ...(duration_ms ? { duration_ms } : {}) };
 }
 
 /** 对已有电台单集事后补跑云端 ASR 转写、写入本地离线转写结果，或导入本地 .vtt / .srt 字幕文件 */
@@ -561,12 +600,9 @@ export async function transcribeEpisode(
     if (!mediaPath) {
       if (!doc.media_url || !ctx.platform.downloadMedia) throw new TibiError('invalid_source', '缺少音频文件，无法转写');
       p.onProgress?.('正在下载音频准备转写');
-      const dl = await ctx.platform.downloadMedia(doc.media_url, doc.id, {
-        maxBytes: MAX_AUDIO_BYTES,
+      mediaPath = await cacheEpisodeMedia(ctx, doc.id, doc.media_url, {
         onProgress: (loaded, total) => p.onProgress?.(`正在下载音频${total ? ` ${Math.min(99, Math.round((loaded / total) * 100))}%` : ''}`),
       });
-      mediaPath = dl.path;
-      await ctx.db.run('UPDATE documents SET media_path = ?, updated_at = ? WHERE id = ?', [mediaPath, now(), doc.id]);
     }
     p.onProgress?.('正在 AI 转写逐字稿');
     const tr = await ctx.platform.transcribeAudio({ path: mediaPath, url: doc.media_url ?? undefined }, { config: asrCfg, onProgress: p.onProgress });
@@ -587,25 +623,21 @@ export async function transcribeEpisode(
   const sectionId = sections[0]?.id;
   if (!sectionId) throw new TibiError('not_found', '缺少章节记录');
 
-  await ctx.db.transaction(async tx => {
-    await tx.run('UPDATE sentences SET deleted_at = ?, updated_at = ? WHERE section_id = ? AND deleted_at IS NULL', [t, t, sectionId]);
-    await tx.run('UPDATE term_contexts SET deleted_at = ?, updated_at = ? WHERE document_id = ? AND deleted_at IS NULL', [t, t, doc.id]);
-    await tx.run('UPDATE sections SET content_md = ?, word_count = ?, status = ?, updated_at = ? WHERE id = ?', [content_md, word_count, 'pending', t, sectionId]);
-    let idx = 0;
-    for (const para of paras) {
-      for (const s of para.sentences) {
-        await insertSentence(tx, {
-          section_id: sectionId, paragraph_idx: para.paragraph_idx, block_type: 'prose', idx: idx++, text: s.text,
-          start_ms: s.start_ms, end_ms: s.end_ms, speaker: s.speaker,
-        });
-      }
-    }
-    await tx.run('UPDATE documents SET word_count = ?, duration_ms = COALESCE(?, duration_ms), transcript_source = ?, ai_status = ?, updated_at = ? WHERE id = ?',
-      [word_count, finalDuration, source, 'deferred', t, doc.id]);
-    await tx.run("UPDATE ai_results SET deleted_at = ?, updated_at = ? WHERE scope = 'document' AND target_id = ? AND model != 'rss' AND deleted_at IS NULL", [t, t, doc.id]);
+  await withSectionLock(sectionId, async () => {
+    await ctx.db.transaction(async tx => {
+      await tx.run('UPDATE sentences SET deleted_at = ?, updated_at = ? WHERE section_id = ? AND deleted_at IS NULL', [t, t, sectionId]);
+      await tx.run('UPDATE term_contexts SET deleted_at = ?, updated_at = ? WHERE document_id = ? AND deleted_at IS NULL', [t, t, doc.id]);
+      await tx.run('UPDATE sections SET content_md = ?, word_count = ?, status = ?, tokenizer_version = NULL, updated_at = ? WHERE id = ?', [content_md, word_count, 'pending', t, sectionId]);
+      await insertTimedSentences(tx, sectionId, paras);
+      await tx.run('UPDATE documents SET word_count = ?, duration_ms = COALESCE(?, duration_ms), transcript_source = ?, ai_status = ?, updated_at = ? WHERE id = ?',
+        [word_count, finalDuration, source, 'deferred', t, doc.id]);
+      await tx.run("UPDATE ai_results SET deleted_at = ?, updated_at = ? WHERE scope = 'document' AND target_id = ? AND model != 'rss' AND deleted_at IS NULL", [t, t, doc.id]);
+    });
+    const r = await annotateSection(ctx.db, ctx, sectionId, { document_id: doc.id });
+    const rare_ratio = r.rare < 0 || !r.counts.total ? null : r.rare / r.counts.total;
+    const level = rare_ratio === null ? null : levelOfRatio(rare_ratio);
+    await ctx.db.run('UPDATE documents SET status = ?, rare_ratio = ?, difficulty_cefr = ?, updated_at = ? WHERE id = ?', ['ready', rare_ratio, level, now(), doc.id]);
   });
-
-  await annotateDocument(undefined, ctx, doc.id, [sectionId]);
   ctx.events.emit('data.changed', { table: 'documents', ids: [doc.id] });
   ctx.events.emit('data.changed', { table: 'sentences', ids: [sectionId] });
   return { sentences: segs.length, transcript_source: source };
@@ -616,8 +648,12 @@ export async function runReanalyze(ctx: Ctx, input: { document_id: string; ai?: 
   const doc = await getDocument(ctx.db, input.document_id); if (!doc || doc.deleted_at) throw new TibiError('not_found', '文章不在了');
   const sections = await listSections(ctx.db, doc.id);
   const t = now();
-  await ctx.db.run('UPDATE term_contexts SET deleted_at = ?, updated_at = ? WHERE document_id = ? AND deleted_at IS NULL', [t, t, doc.id]);
-  const ann = await annotateDocument(undefined, ctx, doc.id, sections.map(s => s.id));
+  await ctx.db.transaction(async tx => {
+    // 保留用户收藏或写了语境义的句子；其余由重新标注重建，并把全部章节置回 pending（书的后几章打开时懒重标）
+    await tx.run('UPDATE term_contexts SET deleted_at = ?, updated_at = ? WHERE document_id = ? AND deleted_at IS NULL AND is_favorite = 0 AND meaning_in_context IS NULL', [t, t, doc.id]);
+    await tx.run("UPDATE sections SET status = 'pending', updated_at = ? WHERE document_id = ? AND deleted_at IS NULL", [t, doc.id]);
+  });
+  const ann = await annotateDocument(undefined, ctx, doc.id, sections.map(s => s.id), { bumpEncounters: false });
   if (input.ai) await markDeferred(ctx.db, doc.id);
   ctx.events.emit('data.changed', { table: 'documents', ids: [doc.id] });
   return { document_id: doc.id, level: ann.level };

@@ -1,6 +1,6 @@
 import { j, now, type Database } from '../../db/driver.js';
 import type { Dict } from '../../dict/types.js';
-import type { CardState, CardType, Rating, Status, Term, TermContext, TermDetail } from '../../types.js';
+import type { CardState, CardType, DictEntry, Rating, Status, Term, TermContext, TermDetail } from '../../types.js';
 import { TERM_COLS, type TermRow } from './repo.js';
 import { startOfToday } from '../shared/cards.js';
 
@@ -60,8 +60,8 @@ export async function listTerms(db: Database, dict: Dict, opts: ListOpts): Promi
     }
   }
   if (opts.q) {
-    conds.push('(tm.text LIKE ? OR tm.text_display LIKE ? OR tm.meaning LIKE ? OR EXISTS (SELECT 1 FROM term_forms f WHERE f.term_id = tm.id AND f.form LIKE ?) OR EXISTS (SELECT 1 FROM term_contexts tc JOIN sentences s ON s.id = tc.sentence_id WHERE tc.term_id = tm.id AND s.text LIKE ?))');
-    const like = `%${opts.q.toLowerCase()}%`; params.push(like, like, like, like, like);
+    conds.push("(tm.text LIKE ? ESCAPE '\\' OR tm.text_display LIKE ? ESCAPE '\\' OR tm.meaning LIKE ? ESCAPE '\\' OR EXISTS (SELECT 1 FROM term_forms f WHERE f.term_id = tm.id AND f.form LIKE ? ESCAPE '\\') OR EXISTS (SELECT 1 FROM term_contexts tc JOIN sentences s ON s.id = tc.sentence_id WHERE tc.term_id = tm.id AND tc.deleted_at IS NULL AND s.deleted_at IS NULL AND s.text LIKE ? ESCAPE '\\'))");
+    const like = `%${opts.q.toLowerCase().replace(/[\\%_]/g, m => `\\${m}`)}%`; params.push(like, like, like, like, like);
   }
   const where = conds.join(' AND ');
   const order = { due: 'COALESCE(c.due, 9e15) ASC, tm.text', added: 'tm.created_at DESC', enc: 'tm.encounter_count DESC, tm.text', alpha: 'tm.text ASC', stage: 'tm.status ASC, tm.text', freq: 'tm.encounter_count DESC, tm.text' }[opts.sort ?? 'due'];
@@ -77,11 +77,18 @@ export async function listTerms(db: Database, dict: Dict, opts: ListOpts): Promi
   return { items, total, cursor: offset + rows.length < total ? String(offset + rows.length) : undefined, counts };
 }
 
-export async function toTerm(db: Database, dict: Dict, r: ListRow | TermRow, opts: { withDict?: boolean } = { withDict: true }): Promise<Term> {
+export async function toTerm(
+  db: Database,
+  dict: Dict,
+  r: ListRow | TermRow,
+  opts: { withDict?: boolean; preloadedEntry?: DictEntry | null; preloadedCard?: { card_id: string; due: number; lapses: number; stability: number } | null } = { withDict: true },
+): Promise<Term> {
   const forms = (await db.all<{ form: string }>('SELECT form FROM term_forms WHERE term_id = ? ORDER BY encounter_count DESC', [r.id])).map(f => f.form);
-  const entry = opts.withDict && r.kind === 'word' ? await dict.lookup(r.text) : undefined;
+  const entry = opts.preloadedEntry !== undefined ? (opts.preloadedEntry ?? undefined) : (opts.withDict !== false && r.kind === 'word' ? await dict.lookup(r.text) : undefined);
   const tags = (await db.all<{ name: string }>('SELECT DISTINCT tg.name FROM term_contexts tc JOIN document_tags dt ON dt.document_id = tc.document_id AND dt.deleted_at IS NULL JOIN tags tg ON tg.id = dt.tag_id WHERE tc.term_id = ? AND tc.deleted_at IS NULL', [r.id])).map(x => x.name);
-  const card = 'card_id' in r && r.card_id ? r : await db.get<{ card_id: string; due: number; lapses: number; stability: number }>('SELECT id AS card_id, due, lapses, stability FROM cards WHERE term_id = ? AND deleted_at IS NULL', [r.id]);
+  const card = opts.preloadedCard !== undefined
+    ? (opts.preloadedCard ?? undefined)
+    : ('card_id' in r && r.card_id ? r : await db.get<{ card_id: string; due: number; lapses: number; stability: number }>('SELECT id AS card_id, due, lapses, stability FROM cards WHERE term_id = ? AND deleted_at IS NULL', [r.id]));
   const doc_count = 'doc_count' in r ? Number(r.doc_count) : Number((await db.get<{ n: number }>('SELECT count(DISTINCT document_id) AS n FROM term_contexts WHERE term_id = ? AND document_id IS NOT NULL AND deleted_at IS NULL', [r.id]))?.n ?? 0);
   return {
     id: r.id, kind: r.kind, text: r.text, display: r.text_display, ipa: entry?.phonetic, meaning: r.meaning ?? fullMeaning(entry?.translation) ?? '', short_gloss: r.short_gloss ?? undefined,
@@ -123,26 +130,32 @@ export function shortGloss(translation: string | undefined | null): string | und
 }
 
 export async function termDetail(db: Database, dict: Dict, r: TermRow): Promise<TermDetail> {
-  const base = await toTerm(db, dict, r);
-  const entry = r.kind === 'word' ? await dict.lookup(r.text) : undefined;
-  const ctxRows = await db.all<{ id: string; source: 'article' | 'dictionary' | 'manual'; document_id: string | null; sentence_id: string | null; text: string | null; surface: string | null; meaning_in_context: string | null; is_primary: number; is_favorite: number; sentence_text: string | null; tokens: string | null; document_title: string | null }>(
-    `SELECT tc.id, tc.source, tc.document_id, tc.sentence_id, tc.text, tc.surface, tc.meaning_in_context, tc.is_primary, tc.is_favorite, s.text AS sentence_text, s.tokens, d.title AS document_title
-     FROM term_contexts tc LEFT JOIN sentences s ON s.id = tc.sentence_id LEFT JOIN documents d ON d.id = tc.document_id WHERE tc.term_id = ? AND tc.deleted_at IS NULL ORDER BY tc.created_at`, [r.id]);
-  // i+1：句子里其它词都认识的排前面（Migaku）
-  const contexts: TermContext[] = [];
-  for (const c of ctxRows) {
-    const toks = j.parse<{ l: string; status?: number }[]>(c.tokens, []);
-    const others = toks.filter(tk => tk.l !== r.text);
-    const lemmas = [...new Set(others.map(tk => tk.l))];
-    let unknown_others = 0;
-    if (lemmas.length) {
-      const rows = await db.all<{ text: string; status: number }>(`SELECT text, status FROM terms WHERE kind = 'word' AND deleted_at IS NULL AND text IN (${lemmas.map(() => '?').join(',')})`, lemmas);
-      unknown_others = rows.filter(x => x.status === 0 || x.status === 1).length;
-    }
-    contexts.push({ id: c.id, source: c.source, document_id: c.document_id ?? undefined, document_title: c.document_title ?? undefined, sentence_id: c.sentence_id ?? undefined, sentence: c.sentence_text ?? c.text ?? '', surface: c.surface ?? undefined, meaning_in_context: c.meaning_in_context ?? undefined, is_primary: !!c.is_primary, is_favorite: !!c.is_favorite, unknown_others });
+  const [entry, cardRow, ctxRows] = await Promise.all([
+    r.kind === 'word' ? dict.lookup(r.text) : Promise.resolve(undefined),
+    db.get<{ id: string; state: number; due: number; stability: number; difficulty: number; reps: number; lapses: number; suspended: number; forced_type: string | null }>('SELECT id, state, due, stability, difficulty, reps, lapses, suspended, forced_type FROM cards WHERE term_id = ? AND deleted_at IS NULL', [r.id]),
+    db.all<{ id: string; source: 'article' | 'dictionary' | 'manual'; document_id: string | null; sentence_id: string | null; text: string | null; surface: string | null; meaning_in_context: string | null; is_primary: number; is_favorite: number; sentence_text: string | null; tokens: string | null; document_title: string | null }>(
+      `SELECT tc.id, tc.source, tc.document_id, tc.sentence_id, tc.text, tc.surface, tc.meaning_in_context, tc.is_primary, tc.is_favorite, s.text AS sentence_text, s.tokens, d.title AS document_title
+       FROM term_contexts tc LEFT JOIN sentences s ON s.id = tc.sentence_id LEFT JOIN documents d ON d.id = tc.document_id WHERE tc.term_id = ? AND tc.deleted_at IS NULL ORDER BY tc.created_at`, [r.id]),
+  ]);
+  const base = await toTerm(db, dict, r, {
+    preloadedEntry: entry ?? null,
+    preloadedCard: cardRow ? { card_id: cardRow.id, due: cardRow.due, lapses: cardRow.lapses, stability: cardRow.stability } : null,
+  });
+  // i+1：一次性查出所有例句中其它生词的状态，按未知词数排序（避免 N+1 查询）
+  const perCtxLemmas = ctxRows.map(c => [...new Set(j.parse<{ l: string }[]>(c.tokens, []).filter(tk => tk.l !== r.text).map(tk => tk.l))]);
+  const allOtherLemmas = [...new Set(perCtxLemmas.flat())];
+  const unknownSet = new Set<string>();
+  for (let i = 0; i < allOtherLemmas.length; i += 400) {
+    const chunk = allOtherLemmas.slice(i, i + 400);
+    const rows = await db.all<{ text: string }>(`SELECT text FROM terms WHERE kind = 'word' AND deleted_at IS NULL AND status IN (0, 1) AND text IN (${chunk.map(() => '?').join(',')})`, chunk);
+    for (const x of rows) unknownSet.add(x.text);
   }
+  const contexts: TermContext[] = ctxRows.map((c, idx) => {
+    let unknown_others = 0;
+    for (const l of perCtxLemmas[idx]!) if (unknownSet.has(l)) unknown_others++;
+    return { id: c.id, source: c.source, document_id: c.document_id ?? undefined, document_title: c.document_title ?? undefined, sentence_id: c.sentence_id ?? undefined, sentence: c.sentence_text ?? c.text ?? '', surface: c.surface ?? undefined, meaning_in_context: c.meaning_in_context ?? undefined, is_primary: !!c.is_primary, is_favorite: !!c.is_favorite, unknown_others };
+  });
   contexts.sort((a, b) => a.unknown_others - b.unknown_others || (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0));
-  const cardRow = await db.get<{ id: string; state: number; due: number; stability: number; difficulty: number; reps: number; lapses: number; suspended: number; forced_type: string | null }>('SELECT id, state, due, stability, difficulty, reps, lapses, suspended, forced_type FROM cards WHERE term_id = ? AND deleted_at IS NULL', [r.id]);
   const card: CardState | undefined = cardRow ? { card_id: cardRow.id, term_id: r.id, state: cardRow.state as 0 | 1 | 2 | 3, due: Number(cardRow.due), stability: Number(cardRow.stability), difficulty: Number(cardRow.difficulty), reps: Number(cardRow.reps), lapses: Number(cardRow.lapses), suspended: !!cardRow.suspended, forced_type: (cardRow.forced_type as CardType | null) ?? undefined } : undefined;
   const reviews = cardRow ? (await db.all<{ rating: number; card_type: string; reviewed_at: number }>('SELECT rating, card_type, reviewed_at FROM review_logs_valid WHERE card_id = ? ORDER BY reviewed_at DESC LIMIT 20', [cardRow.id])).map(x => ({ rating: x.rating as Rating, card_type: x.card_type as CardType, reviewed_at: Number(x.reviewed_at) })) : [];
   const history = (await db.all<{ status: number; created_at: number; source: string }>('SELECT status, created_at, source FROM term_status_log WHERE term_id = ? ORDER BY created_at', [r.id])).map(x => ({ status: x.status as Status, at: Number(x.created_at), source: x.source }));

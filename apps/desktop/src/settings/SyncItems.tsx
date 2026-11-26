@@ -31,7 +31,7 @@ export function SyncItems() {
 
   const load = useCallback(() => { rpc.call('sync.status', {}).then(setSt, () => undefined); }, []);
   useEffect(() => { load(); return rpc.on('sync.update', () => load()); }, [load]);
-  useEffect(() => { setProbe(undefined); }, [kind, path, dav.url, dav.user]);
+  useEffect(() => { setProbe(undefined); }, [kind, path, dav.url, dav.user, dav.pw]);
 
   const cfg = (): SyncBackendCfg | undefined => {
     if (kind === 'icloud') return { kind };

@@ -252,7 +252,7 @@ export async function decodeAudioTo16kMono(buf: ArrayBuffer): Promise<{ pcm: Flo
   if (!Ctx) throw new Error('当前环境不支持 Web Audio 解码');
   const ctx = new Ctx();
   try {
-    const decoded = await ctx.decodeAudioData(buf.slice(0));
+    const decoded = await ctx.decodeAudioData(buf);
     const durationMs = Math.round(decoded.duration * 1000);
     const frameCount = Math.max(1, Math.ceil(decoded.duration * TARGET_SAMPLE_RATE));
     if (decoded.sampleRate === TARGET_SAMPLE_RATE && decoded.numberOfChannels === 1) {
@@ -272,6 +272,98 @@ export async function decodeAudioTo16kMono(buf: ArrayBuffer): Promise<{ pcm: Flo
 
 /* ---------- 端到端本地离线转写 ---------- */
 
+const AUDIO_CHUNK_BYTES = 16 * 1024 * 1024;
+const MAX_LOCAL_ASR_AUDIO_BYTES = 300 * 1024 * 1024;
+
+async function readLimitedResponse(res: Response): Promise<ArrayBuffer> {
+  const hdrLen = Number(res.headers.get('content-length') ?? 0);
+  if (Number.isFinite(hdrLen) && hdrLen > MAX_LOCAL_ASR_AUDIO_BYTES) {
+    throw new Error('本地音频超过 300 MB，无法离线转写');
+  }
+  if (!res.body) {
+    const full = await res.arrayBuffer();
+    if (full.byteLength > MAX_LOCAL_ASR_AUDIO_BYTES) throw new Error('本地音频超过 300 MB，无法离线转写');
+    return full;
+  }
+  const reader = res.body.getReader();
+  const parts: Uint8Array[] = [];
+  let loaded = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      loaded += value.byteLength;
+      if (loaded > MAX_LOCAL_ASR_AUDIO_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error('本地音频超过 300 MB，无法离线转写');
+      }
+      parts.push(value);
+    }
+  } catch (e) {
+    await reader.cancel().catch(() => undefined);
+    throw e;
+  }
+  const out = new Uint8Array(loaded);
+  let pos = 0;
+  for (const p of parts) { out.set(p, pos); pos += p.byteLength; }
+  return out.buffer;
+}
+
+/** 拉取音频字节：仅整文件 200 直接流式限额读取；遇到 asset:// 413 时按 16 MiB Range 分段并校验总长与区间一致。 */
+export async function fetchAudioArrayBuffer(audioUrl: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+  const res = await fetch(audioUrl, { signal });
+  if (res.status === 200) return readLimitedResponse(res);
+  if (res.status === 206) throw new Error('读取本地音频失败（返回了不完整的 206 分段）');
+  if (res.status !== 413) throw new Error(`读取本地音频失败（${res.status}）`);
+
+  const chunks: Uint8Array[] = [];
+  let offset = 0;
+  let total: number | undefined;
+  while (total === undefined || offset < total) {
+    if (offset >= MAX_LOCAL_ASR_AUDIO_BYTES) throw new Error('本地音频超过 300 MB，无法离线转写');
+    const end = Math.min(offset + AUDIO_CHUNK_BYTES, MAX_LOCAL_ASR_AUDIO_BYTES) - 1;
+    const part = await fetch(audioUrl, { signal, headers: { Range: `bytes=${offset}-${end}` } });
+    if (part.status === 200) {
+      // 服务端忽略 Range 返回整文件时：必须在首片时处理（且流式限额），绝不和已有分片混拼
+      if (chunks.length > 0) throw new Error('分段读取本地音频失败（响应模式切换）');
+      return readLimitedResponse(part);
+    }
+    if (part.status === 416 && total === undefined && chunks.length > 0) break;
+    if (part.status !== 206) throw new Error(`读取本地音频失败（${part.status}）`);
+    const cr = part.headers.get('content-range');
+    const m = cr && /^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i.exec(cr.trim());
+    if (!m) throw new Error('分段读取本地音频失败（缺少 Content-Range）');
+    const rangeStart = Number(m[1]);
+    const rangeEnd = Number(m[2]);
+    if (rangeStart !== offset || rangeEnd < rangeStart || rangeEnd > end) {
+      throw new Error('分段读取本地音频区间不一致');
+    }
+    if (m[3] !== '*') {
+      const parsedTotal = Number(m[3]);
+      if (!Number.isFinite(parsedTotal) || parsedTotal <= 0) throw new Error('分段读取本地音频总长无效');
+      if (parsedTotal > MAX_LOCAL_ASR_AUDIO_BYTES) throw new Error('本地音频超过 300 MB，无法离线转写');
+      if (total !== undefined && parsedTotal !== total) throw new Error('分段读取本地音频总长发生变化');
+      total = parsedTotal;
+    }
+    const buf = new Uint8Array(await part.arrayBuffer());
+    const expectedSpan = rangeEnd - rangeStart + 1;
+    if (!buf.byteLength || buf.byteLength !== expectedSpan) {
+      throw new Error('分段读取本地音频长度异常');
+    }
+    chunks.push(buf);
+    offset += buf.byteLength;
+  }
+  const len = chunks.reduce((s, c) => s + c.byteLength, 0);
+  if (total !== undefined && len !== total) {
+    throw new Error('分段读取本地音频不完整');
+  }
+  const out = new Uint8Array(len);
+  let pos = 0;
+  for (const c of chunks) { out.set(c, pos); pos += c.byteLength; }
+  return out.buffer;
+}
+
 export async function transcribeAudioUrlLocally(
   audioUrl: string,
   opts: { modelId?: LocalAsrModelId; signal?: AbortSignal; onStage?: (stage: LocalAsrStage) => void } = {},
@@ -283,13 +375,30 @@ export async function transcribeAudioUrlLocally(
   if (!isLocalAsrDownloaded(modelId)) {
     opts.onStage?.({ phase: 'downloading', pct: 0 });
   }
-  await loadLocalAsr(modelId, pct => opts.onStage?.({ phase: 'downloading', pct }));
+  const onProgress = (pct: number) => { if (!opts.signal?.aborted) opts.onStage?.({ phase: 'downloading', pct }); };
+  const loadPromise = loadLocalAsr(modelId, onProgress);
+  if (opts.signal) {
+    let onAbort: (() => void) | undefined;
+    try {
+      await Promise.race([
+        loadPromise,
+        new Promise<never>((_, reject) => {
+          onAbort = () => reject(new Error('已取消转写'));
+          if (opts.signal!.aborted) onAbort();
+          else opts.signal!.addEventListener('abort', onAbort, { once: true });
+        }),
+      ]);
+    } finally {
+      if (onAbort) opts.signal.removeEventListener('abort', onAbort);
+      downloadSubs.get(modelId)?.delete(onProgress);
+    }
+  } else {
+    await loadPromise;
+  }
   checkAbort();
 
   opts.onStage?.({ phase: 'decoding' });
-  const res = await fetch(audioUrl, { signal: opts.signal });
-  if (!res.ok) throw new Error(`读取本地音频失败（${res.status}）`);
-  const arrBuf = await res.arrayBuffer();
+  const arrBuf = await fetchAudioArrayBuffer(audioUrl, opts.signal);
   checkAbort();
 
   const { pcm, durationMs } = await decodeAudioTo16kMono(arrBuf);

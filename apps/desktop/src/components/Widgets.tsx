@@ -114,7 +114,15 @@ function AskCard({ b, state, answer }: { b: Of<'ask'>; state?: AskState; answer?
   const [picks, setPicks] = useState<string[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const submit = async (ids: string[], t?: string) => { setBusy(true); const ok = await answer!(b.id, ids, t); setBusy(false); if (ok) setText(''); };
+  const submit = async (ids: string[], t?: string) => {
+    setBusy(true);
+    try {
+      const ok = await answer!(b.id, ids, t);
+      if (ok) setText('');
+    } finally {
+      setBusy(false);
+    }
+  };
   const chosen = state?.answered?.option_ids ?? picks;
   return <div className="wg wg-ask">
     <div className="wg-hd"><b>{d.question}</b>{d.multi && !closed && <span className="wg-k">{tl('可以多选')}</span>}</div>
@@ -161,12 +169,17 @@ function LinkCard({ b }: { b: Of<'link'> }) {
   </div>;
 }
 
-/** 导入的最新进度和结果：卡片是导入开始后才显示的，开头几步的事件比卡片早，先记在这里 */
+/** 导入的最新进度和结果：卡片是导入开始后才显示的，开头几步的事件比卡片早，先记在这里（惰性订阅，避免模块加载时抢先初始化 RPC） */
 const importSeen = new Map<string, { label?: string; done?: ImportCardState }>();
 const doneOf = (d: { ok: boolean; document_id?: string; title: string; duplicate?: boolean; minutes?: number; level?: string; error?: string }): ImportCardState =>
   d.ok && d.document_id ? { status: 'done', document_id: d.document_id, title: d.title, ...(d.duplicate ? { duplicate: true } : {}), ...(d.minutes ? { minutes: d.minutes } : {}), ...(d.level ? { level: d.level } : {}) } : { status: 'failed', error: d.error || tl('导入失败') };
-rpc.on('import.progress', d => { if (d.origin === 'chat') importSeen.set(d.import_id, { ...importSeen.get(d.import_id), label: d.label }); });
-rpc.on('import.done', d => { if (d.origin === 'chat') importSeen.set(d.import_id, { done: doneOf(d) }); if (importSeen.size > 50) importSeen.delete(importSeen.keys().next().value!); });
+let importTrackingBound = false;
+export function ensureImportTracking() {
+  if (importTrackingBound) return;
+  importTrackingBound = true;
+  rpc.on('import.progress', d => { if (d.origin === 'chat') importSeen.set(d.import_id, { ...importSeen.get(d.import_id), label: d.label }); });
+  rpc.on('import.done', d => { if (d.origin === 'chat') importSeen.set(d.import_id, { done: doneOf(d) }); if (importSeen.size > 50) importSeen.delete(importSeen.keys().next().value!); });
+}
 
 /** Tibi 在对话里起的导入：跟着导入事件走进度，结束后给「开始阅读」 */
 function ImportCard({ b }: { b: Of<'import'> }) {
@@ -175,6 +188,7 @@ function ImportCard({ b }: { b: Of<'import'> }) {
   const [label, setLabel] = useState(importSeen.get(id)?.label);
   useEffect(() => { const s = b.state as ImportCardState | undefined; if (s && s.status !== 'running') setSt(s); }, [b.state]);
   useEffect(() => {
+    ensureImportTracking();
     const off1 = rpc.on('import.progress', d => { if (d.import_id === id) setLabel(d.label); });
     const off2 = rpc.on('import.done', d => { if (d.import_id === id) setSt(doneOf(d)); });
     return () => { off1(); off2(); };

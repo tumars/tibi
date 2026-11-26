@@ -1,4 +1,5 @@
 import { Type } from '@sinclair/typebox';
+import { toBrief } from '../../dict/sqlite.js';
 import { method, type MethodMap } from '../../rpc/define.js';
 import type { DictBrief, DictEntry, DictExtras, Id, Term } from '../../types.js';
 import { getTermByText } from '../terms/repo.js';
@@ -37,7 +38,6 @@ export interface DictEntryResult {
 
 const CJK = /[\u3400-\u9fff]/;
 const clean = (s: string) => s.trim().replace(/\s+/g, ' ');
-const toBrief = (e: DictEntry): DictBrief => ({ word: e.word, phonetic: e.phonetic, gloss: (e.translation || e.definition || '').trim().split('\n').slice(0, 2).join('；') });
 
 /** ECDICT 的词性分布 `n:46/v:54` 里占比大的在前，WordNet 自己只在同词性内排序 */
 function sortSenses(x: DictExtras, pos?: string): DictExtras {
@@ -98,7 +98,7 @@ export const dictionaryMethods: MethodMap = {
     return {
       available: !!d.prefix, entry, lemma, via: !exact && entry ? q : undefined,
       term: row && !row.deleted_at ? await toTerm(ctx.db, d, row) : undefined,
-      in_wordbook: !!row && !row.deleted_at && !!row.in_wordbook,
+      in_wordbook: !!row && !row.deleted_at && !!row.in_wordbook && row.status >= 0 && row.status <= 4,
       readings: await findReadings(ctx.db, forms, 5),
       similar: entry || row ? [] : await d.similar?.(q, 6) ?? [],
       extras: extras && sortSenses(extras, base?.pos),

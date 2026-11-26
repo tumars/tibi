@@ -4,7 +4,7 @@ import { PracticeConfusableIcon, PracticeDictationIcon, PracticeProduceIcon, Pra
 import { Alert, InfoTip } from '../components/ui';
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { useNavigate } from 'react-router';
-import { speak, isImeKey } from '../lib/util';
+import { alignWords, speak, isImeKey } from '../lib/util';
 import { errorInfo, rpc, type Result } from '../rpc';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
@@ -25,18 +25,6 @@ export const MODES: { key: Mode; label: string; desc: string; icon: ComponentTyp
 ];
 export const SOURCES: { key: Source; label: string }[] = [{ key: 'recent', label: tl('最近的词') }, { key: 'mistakes', label: tl('这周答错的') }, { key: 'leech', label: tl('难词') }];
 
-/** 听写：按词对齐（LCS），返回每个原词是否写对，和准确率 */
-function alignWords(target: string, typed: string): { words: { w: string; ok: boolean }[]; accuracy: number } {
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ').split(/\s+/).filter(Boolean);
-  const a = target.split(/\s+/).filter(Boolean); const an = norm(target); const b = norm(typed);
-  const dp = Array.from({ length: an.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
-  for (let i = an.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) dp[i]![j] = an[i] === b[j] ? dp[i + 1]![j + 1]! + 1 : Math.max(dp[i + 1]![j]!, dp[i]![j + 1]!);
-  const hit = new Set<number>(); let i = 0, j = 0;
-  while (i < an.length && j < b.length) { if (an[i] === b[j]) { hit.add(i); i++; j++; } else if (dp[i + 1]![j]! >= dp[i]![j + 1]!) i++; else j++; }
-  const words = a.map((w, k) => ({ w, ok: an[k] === undefined || hit.has(k) }));
-  return { words, accuracy: an.length ? Math.round((hit.size / an.length) * 100) : 0 };
-}
-
 export function Practice({ initialMode = 'dictation', initialSource = 'recent' }: { initialMode?: Mode; initialSource?: Source } = {}) {
   const nav = useNavigate();
   const modelOk = useCore(s => !!s.status?.models.ok);
@@ -50,15 +38,19 @@ export function Practice({ initialMode = 'dictation', initialSource = 'recent' }
   const [gradeIssue, setGradeIssue] = useState<'nomodel' | 'failed'>();
   const [skipped, setSkipped] = useState(0);
   const t0 = useRef(Date.now());
+  const busyLock = useRef(false);
   const item = run?.items[run.idx];
 
   const start = async () => {
+    if (busyLock.current) return;
+    busyLock.current = true;
     setDone(undefined); setChecked(undefined); setAnswer(''); setGradeIssue(undefined);
     try {
       const r = await rpc.call('practice.start', { mode, source, count: 5 });
       if (!r.items.length) { toast(source === 'recent' ? tl('生词本里还没有能练的词（听写和易混词需要读过的句子）') : tl('这里还没有能练的词')); return; }
       setRun({ id: r.practice_id, items: r.items, idx: 0, results: [] }); t0.current = Date.now();
     } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
+    finally { busyLock.current = false; }
   };
   useEffect(() => { if (item && mode === 'dictation' && !checked) speak(item.sentence); if (item && mode === 'spell' && !checked && item.answer) speak(item.answer); }, [item, mode, checked]);
 
@@ -90,9 +82,27 @@ export function Practice({ initialMode = 'dictation', initialSource = 'recent' }
     setRun({ ...cur, idx: cur.idx + 1, results }); setAnswer(''); setChecked(undefined); t0.current = Date.now();
   };
   const next = async () => {
-    if (!run || !item || !checked) return;
-    await advance(run, [...run.results, { item_id: item.id, accuracy: checked.accuracy, duration_ms: Date.now() - t0.current }]);
+    if (!run || !item || !checked || busyLock.current) return;
+    busyLock.current = true;
+    try {
+      await advance(run, [...run.results, { item_id: item.id, accuracy: checked.accuracy, duration_ms: Date.now() - t0.current }]);
+    } finally {
+      busyLock.current = false;
+    }
   };
+  // 判完后输入框处于 disabled 态不会触发 onKeyDown，在窗口上接 Enter 进入下一题
+  useEffect(() => {
+    if (!checked || !run || !item) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && !isImeKey(e)) {
+        e.preventDefault();
+        void next();
+      }
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checked, run, item]);
   const connectModel = () => nav('/welcome?step=3&back=%2Freview%3Ftab%3Dpractice');
 
   if (done) return <div className="rvcard pdone">

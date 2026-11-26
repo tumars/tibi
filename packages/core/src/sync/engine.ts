@@ -33,9 +33,19 @@ export interface SyncRunResult { pushed: number; pulled: number; tables: string[
 
 const enc = (o: unknown) => strToU8(JSON.stringify(o));
 const dec = <T>(d: Uint8Array | undefined): T | undefined => { if (!d) return undefined; try { return JSON.parse(strFromU8(d)) as T; } catch { return undefined; } };
+const SAFE_DEVICE_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
+function matchesLocalGlobs(globs: string[] | undefined, key: string): boolean {
+  if (!globs?.length) return false;
+  return globs.some(g => {
+    const re = new RegExp('^' + g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
+    return re.test(key);
+  });
+}
 
 export class SyncEngine {
   private colsCache = new Map<string, string[]>();
+  private tableColsCache = new Map<string, Set<string>>();
   constructor(private db: Database, private backend: SyncBackend, private info: { platform: string; app_version: string }, private wall: () => number = Date.now) {}
 
   /* ---------- 状态 ---------- */
@@ -47,7 +57,15 @@ export class SyncEngine {
     const id = await this.get('device_id'); if (!id) throw new SyncError('other', '同步还没有开启');
     return { id, node: (await this.get('node'))!, name: (await this.get('device_name')) ?? '' };
   }
-  private async cols(t: string) { let c = this.colsCache.get(t); if (!c) { c = await syncedColumns(this.db, SPEC.get(t)!); this.colsCache.set(t, c); } return c; }
+  private async cols(t: string, db: Database = this.db) { let c = this.colsCache.get(t); if (!c) { c = await syncedColumns(db, SPEC.get(t)!); this.colsCache.set(t, c); } return c; }
+  async allColumns(t: string, db: Database = this.db): Promise<Set<string>> {
+    let s = this.tableColsCache.get(t);
+    if (!s) {
+      s = new Set((await db.all<{ name: string }>(`PRAGMA table_info(${t})`)).map(c => c.name));
+      this.tableColsCache.set(t, s);
+    }
+    return s;
+  }
 
   /** 看文件夹里有没有资料库（08 §10 开启流程） */
   async probe(): Promise<{ library?: LibraryFile & { devices: number; updated_at: number } }> {
@@ -62,13 +80,15 @@ export class SyncEngine {
     const out: DeviceFile[] = [];
     for (const name of await this.backend.list('devices')) {
       if (!name.endsWith('.json')) continue;
-      const d = dec<DeviceFile>(await this.backend.read(`devices/${name}`)); if (d?.device_id) out.push(d);
+      const d = dec<DeviceFile>(await this.backend.read(`devices/${name}`));
+      if (d?.device_id && SAFE_DEVICE_ID.test(d.device_id)) out.push(d);
     }
     return out;
   }
 
   /** 开启：没有资料库就新建；本机已有的数据作为第一批改动推送（字段时钟取各行的 updated_at），再拉一次 */
   async enable(o: { device_name: string; sync_files?: boolean }): Promise<SyncRunResult> {
+    const wasEnabled = (await this.get('enabled')) === '1';
     let lib = dec<LibraryFile>(await this.backend.read('library.json'));
     if (lib && lib.format > FORMAT) throw new SyncError('format_newer', '另一台设备的 Tibi 版本更新。升级后才能继续同步。');
     let id = await this.get('device_id');
@@ -83,15 +103,36 @@ export class SyncEngine {
     await this.set('sync_files', o.sync_files === false ? '0' : '1');
     await ensureTriggers(this.db);
     await this.set('enabled', '1'); await this.set('capture', '1');
-    if ((await this.get('exported')) !== lib.library_id) { await this.exportAll(); await this.set('exported', lib.library_id); }
-    return this.sync();
+    try {
+      const wasExported = (await this.get('exported')) === lib.library_id;
+      if (!wasExported) await this.exportAll();
+      const res = await this.sync();
+      if (!wasExported) await this.set('exported', lib.library_id);
+      return res;
+    } catch (e) {
+      // 首次开启阶段失败：拆掉触发器并复位状态，避免卡死在"触发器开着但没有 backend"的半开启状态
+      if (!wasEnabled) {
+        await dropTriggers(this.db).catch(() => undefined);
+        await this.set('enabled', '0').catch(() => undefined);
+        await this.set('capture', '0').catch(() => undefined);
+        await this.db.run('DELETE FROM sync_outbox').catch(() => undefined);
+      }
+      throw e;
+    }
+  }
+
+  /** 停止同步：按契约停止变更捕获并清空本机未推队列；不依赖后端、不清除 exported（避免重开时整行覆盖他端字段） */
+  static async disableLocal(db: Database) {
+    await dropTriggers(db);
+    await SyncEngine.set(db, 'enabled', '0');
+    await SyncEngine.set(db, 'capture', '0');
+    await SyncEngine.set(db, 'last_error', null);
+    await db.run('DELETE FROM sync_outbox');
   }
 
   /** 停止同步：本机数据保留，云端文件不删 */
   async disable() {
-    await dropTriggers(this.db);
-    await this.set('enabled', '0'); await this.set('capture', '0');
-    await this.db.run('DELETE FROM sync_outbox');
+    await SyncEngine.disableLocal(this.db);
   }
 
   /** 启动时：同步开着就按当前表结构重建触发器（迁移加了列也能记上） */
@@ -112,10 +153,14 @@ export class SyncEngine {
     };
     for (const spec of TABLES) {
       const cols = await this.cols(spec.t);
-      const local = (spec.localGlobs ?? []).map(g => `key NOT GLOB '${g}'`).join(' AND ');
+      const conds: string[] = [];
+      for (const g of spec.localGlobs ?? []) conds.push(`key NOT GLOB '${g}'`);
+      // 0011 系统裁剪的本地默认源不作为 deleted_at 墓碑全量导出；仅当 deleted_at 与 0011 记下的时间戳一致时跳过，保留后续用户手动删除
+      if (spec.t === 'feeds') conds.push("NOT (deleted_at IS NOT NULL AND EXISTS (SELECT 1 FROM sync_state WHERE key = 'pruned_0011.' || feeds.id AND value = CAST(feeds.deleted_at AS TEXT)))");
+      const where = conds.length ? ` WHERE ${conds.join(' AND ')}` : '';
       const has = new Set((await this.db.all<{ name: string }>(`PRAGMA table_info(${spec.t})`)).map(c => c.name));
       const ts = has.has('updated_at') ? 'updated_at' : has.has('created_at') ? 'created_at' : '0';
-      const rows = await this.db.all<Record<string, SqlValue>>(`SELECT ${spec.pk.join(" || '|' || ")} AS __id, ${ts} AS __ts, ${cols.join(', ')} FROM ${spec.t}${local ? ` WHERE ${local}` : ''}`);
+      const rows = await this.db.all<Record<string, SqlValue>>(`SELECT ${spec.pk.join(" || '|' || ")} AS __id, ${ts} AS __ts, ${cols.join(', ')} FROM ${spec.t}${where}`);
       for (const r of rows) {
         const { __id, __ts, ...f } = r;
         if (spec.kind === 'add') batch.push({ op: 'add', t: spec.t, row: f });
@@ -288,12 +333,14 @@ export class SyncEngine {
     return { applied, tables, errors };
   }
 
-  /** 给 Merger 用 */
-  columns(t: string) { return this.cols(t); }
+  /** 给 Merger 用（传入事务句柄 tx，避免在事务内重入外层锁） */
+  columns(t: string, db: Database = this.db) { return this.cols(t, db); }
 
   /* ---------- 设备 ---------- */
-  async removeDevice(device_id: string) { await this.db.run('UPDATE sync_peers SET removed = 1 WHERE device_id = ?', [device_id]); }
-  async outboxCount() { return Number((await this.db.get<{ n: number }>('SELECT count(*) AS n FROM sync_outbox'))?.n ?? 0); }
+  static async removeDevice(db: Database, device_id: string) { await db.run('UPDATE sync_peers SET removed = 1 WHERE device_id = ?', [device_id]); }
+  static async outboxCount(db: Database) { return Number((await db.get<{ n: number }>('SELECT count(*) AS n FROM sync_outbox'))?.n ?? 0); }
+  async removeDevice(device_id: string) { return SyncEngine.removeDevice(this.db, device_id); }
+  async outboxCount() { return SyncEngine.outboxCount(this.db); }
 }
 
 const baseOf = (files: string[]) => Math.max(0, ...files.map(f => /^base-(\d+)\.jsonl\.gz$/.exec(f)).filter((m): m is RegExpExecArray => !!m).map(m => Number(m[1])));
@@ -343,7 +390,19 @@ class Merger {
   private async mapRefs(t: string, obj: Record<string, unknown>) {
     for (const [target, refs] of Object.entries(REFS)) for (const r of refs) if (r.t === t && typeof obj[r.col] === 'string') obj[r.col] = await this.alias(target, obj[r.col] as string);
   }
-  private where(spec: TableSpec, id: string) { const parts = spec.pk.length > 1 ? id.split('|') : [id]; return { sql: spec.pk.map(k => `${k} = ?`).join(' AND '), params: parts }; }
+  private where(spec: TableSpec, id: string) {
+    let parts: string[];
+    if (spec.pk.length <= 1) {
+      parts = [id];
+    } else if (spec.pk.length === 2) {
+      // 两列复合主键（如 term_forms(term_id, form)）：只按第一个 '|' 拆分，避免第二列本身含 '|' 时错位
+      const cut = id.indexOf('|');
+      parts = cut >= 0 ? [id.slice(0, cut), id.slice(cut + 1)] : [id, ''];
+    } else {
+      parts = id.split('|');
+    }
+    return { sql: spec.pk.map(k => `${k} = ?`).join(' AND '), params: parts };
+  }
   private async clockOf(t: string, id: string, f: string): Promise<string> {
     return (await this.db.get<{ c: string }>("SELECT c FROM sync_clocks WHERE t = ? AND id = ? AND f IN (?, '*') ORDER BY f = '*' LIMIT 1", [t, id, f]))?.c ?? '';
   }
@@ -359,12 +418,13 @@ class Merger {
     const spec = SPEC.get(ch.t)!;
     if (ch.op === 'add') {
       const row = { ...ch.row }; await this.mapRefs(ch.t, row);
-      const cols = (await this.eng.columns(ch.t)).filter(c => c in row);
+      const cols = (await this.eng.columns(ch.t, this.db)).filter(c => c in row);
       const r = await this.db.run(`INSERT OR IGNORE INTO ${ch.t}(${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`, cols.map(c => row[c] as SqlValue));
       if (ch.t === 'review_logs' && typeof row.card_id === 'string') this.touchedCards.add(row.card_id);
       return r.changes > 0;
     }
     if (ch.op === 'del') {
+      if (spec.localGlobs && matchesLocalGlobs(spec.localGlobs, ch.id)) return false;
       const id = spec.pk.length === 1 ? await this.alias(ch.t, ch.id) : ch.id;
       const max = (await this.db.get<{ c: string | null }>('SELECT max(c) AS c FROM sync_clocks WHERE t = ? AND id = ?', [ch.t, id]))?.c ?? '';
       if (max && max >= ch.c) return false;
@@ -376,12 +436,13 @@ class Merger {
     }
     // put
     const f: Record<string, unknown> = { ...ch.f };
+    if (spec.localGlobs && matchesLocalGlobs(spec.localGlobs, String(f.key ?? ch.id))) return false;
     // 重复文章里输掉的那份：它的章节、句子不要（留下的那份有自己的），记成"丢弃"（to_id = ''）
     if (ch.t === 'sections' && (await this.alias('sections', ch.id) === '' || (typeof f.document_id === 'string' && await this.alias('documents', f.document_id) !== f.document_id))) { await this.drop('sections', ch.id); return false; }
     if (ch.t === 'sentences' && (await this.alias('sentences', ch.id) === '' || (typeof f.section_id === 'string' && await this.alias('sections', f.section_id) === ''))) { await this.drop('sentences', ch.id); return false; }
     if (ch.t === 'term_contexts' && typeof f.sentence_id === 'string' && await this.alias('sentences', f.sentence_id) === '') f.sentence_id = null;
     await this.mapRefs(ch.t, f);
-    const avail = await this.eng.columns(ch.t);
+    const avail = await this.eng.columns(ch.t, this.db);
     for (const k of Object.keys(f)) if (!avail.includes(k)) delete f[k];
     const clockFor = (k: string) => (typeof ch.c === 'string' ? ch.c : ch.c[k] ?? '');
     let id = spec.pk.length === 1 ? await this.alias(ch.t, ch.id) : spec.pk.every(k => k in f) ? spec.pk.map(k => String(f[k])).join('|') : ch.id;
@@ -391,7 +452,8 @@ class Merger {
     // 两台设备各建了"同一个"：按自然键认作一条，ID 小（更早建）的留下（08 §4）
     if (!exists && spec.natural && spec.natural.cols.every(c => c in f)) {
       const nk = spec.natural;
-      const local = await this.db.get<{ id: string }>(`SELECT id FROM ${ch.t} WHERE ${nk.cols.map(c => `${c} IS ?`).join(' AND ')}${nk.where ? ` AND ${nk.where}` : ''} AND id != ?`, [...nk.cols.map(c => f[c] as SqlValue), id]);
+      const cond = nk.cols.map(c => (nk.nocase ? `lower(${c}) IS lower(?)` : `${c} IS ?`)).join(' AND ');
+      const local = await this.db.get<{ id: string }>(`SELECT id FROM ${ch.t} WHERE ${cond}${nk.where ? ` AND ${nk.where}` : ''} AND id != ?`, [...nk.cols.map(c => f[c] as SqlValue), id]);
       if (local) {
         if (local.id < id) { await this.db.run('INSERT OR REPLACE INTO sync_aliases(t, from_id, to_id) VALUES (?, ?, ?)', [ch.t, id, local.id]); id = local.id; }
         else await this.rename(ch.t, local.id, id);
@@ -401,9 +463,16 @@ class Merger {
     if (ch.t === 'cards') this.touchedCards.add(id);
 
     if (!exists) {
+      // 防止乱序旧 put 复活已被墓碑删除的行，或局部字段 put 触发 NOT NULL 异常
+      const maxIncoming = typeof ch.c === 'string' ? ch.c : Object.values(ch.c).reduce((a, b) => (a > b ? a : b), '');
+      const existingClock = (await this.db.get<{ c: string | null }>('SELECT max(c) AS c FROM sync_clocks WHERE t = ? AND id = ?', [ch.t, id]))?.c ?? '';
+      if (existingClock && existingClock >= maxIncoming) return false;
+      const whole = avail.every(c => c in f);
+      if (!whole && existingClock) return false;
+
       const row: Record<string, unknown> = { ...f };
       if (spec.pk.length === 1) row[spec.pk[0]!] = id;
-      const all = new Set((await this.db.all<{ name: string }>(`PRAGMA table_info(${ch.t})`)).map(c => c.name));
+      const all = await this.eng.allColumns(ch.t, this.db);
       if (all.has('updated_at')) row.updated_at = now();
       if (ch.t === 'cards' && row.due === undefined) row.due = row.created_at ?? now();
       const cols = Object.keys(row);
@@ -413,7 +482,6 @@ class Merger {
         // 每个词只能有一条主语境：对方也有时，这条降为普通语境
         if (ch.t === 'term_contexts' && row.is_primary) { row.is_primary = 0; await ins(row); } else throw e;
       }
-      const whole = avail.every(c => c in f);
       if (whole && typeof ch.c === 'string') await this.db.run("INSERT OR REPLACE INTO sync_clocks(t, id, f, c) VALUES (?, ?, '*', ?)", [ch.t, id, ch.c]);
       else for (const k of Object.keys(f)) await this.db.run('INSERT OR REPLACE INTO sync_clocks(t, id, f, c) VALUES (?, ?, ?, ?)', [ch.t, id, k, clockFor(k)]);
       return true;
@@ -429,17 +497,22 @@ class Merger {
       const c = clockFor(k);
       // 熟练度：系统自动推断的改动不覆盖用户亲手做的，用户亲手做的总覆盖自动推断的（08 §4）；两边同类才比时钟
       if (ch.t === 'terms' && (k === 'status' || k === 'status_source') && local) {
-        const remoteAuto = String(ch.src?.status ?? f.status_source ?? '').startsWith('auto'), localAuto = local.status_source.startsWith('auto');
+        const remoteSrc = String(ch.src?.status ?? f.status_source ?? '');
+        const remoteAuto = remoteSrc.startsWith('auto'), localAuto = local.status_source.startsWith('auto');
         if (remoteAuto && !localAuto) continue;
-        if (!remoteAuto && localAuto) { set[k] = v; continue; }
+        if (!remoteAuto && localAuto) {
+          set[k] = v;
+          if (k === 'status' && !('status_source' in f) && remoteSrc && !pend.has('status_source')) set.status_source = remoteSrc;
+          continue;
+        }
       }
       if (c <= await this.clockOf(ch.t, id, k)) continue;
       set[k] = v;
     }
     const keys = Object.keys(set); if (!keys.length) return false;
-    const all = new Set((await this.db.all<{ name: string }>(`PRAGMA table_info(${ch.t})`)).map(c => c.name));
+    const all = await this.eng.allColumns(ch.t, this.db);
     await this.db.run(`UPDATE ${ch.t} SET ${keys.map(k => `${k} = ?`).join(', ')}${all.has('updated_at') ? ', updated_at = ?' : ''} WHERE ${w.sql}`, [...keys.map(k => set[k] as SqlValue), ...(all.has('updated_at') ? [now()] : []), ...w.params]);
-    for (const k of keys) { const c = clockFor(k), lc = await this.clockOf(ch.t, id, k); await this.db.run('INSERT OR REPLACE INTO sync_clocks(t, id, f, c) VALUES (?, ?, ?, ?)', [ch.t, id, k, c > lc ? c : lc]); }
+    for (const k of keys) { const c = clockFor(k) || clockFor('status'), lc = await this.clockOf(ch.t, id, k); await this.db.run('INSERT OR REPLACE INTO sync_clocks(t, id, f, c) VALUES (?, ?, ?, ?)', [ch.t, id, k, c > lc ? c : lc]); }
     return true;
   }
 
@@ -458,10 +531,19 @@ class Merger {
       }
       await this.db.run('DELETE FROM sections WHERE document_id = ?', [from]);
       await this.db.run('UPDATE documents SET last_section_id = NULL WHERE id = ?', [from]);
+      await this.db.run("UPDATE OR IGNORE ai_results SET target_id = ? WHERE scope = 'document' AND target_id = ?", [to, from]);
+      await this.db.run("DELETE FROM ai_results WHERE scope = 'document' AND target_id = ?", [from]);
     }
-    for (const r of REFS[t] ?? []) await this.db.run(`UPDATE ${r.t} SET ${r.col} = ? WHERE ${r.col} = ?`, [to, from]);
+    for (const r of REFS[t] ?? []) {
+      // 对带唯一约束的关联表（document_tags / term_forms / cards / engine_sessions）避免唯一键冲突中止整批
+      await this.db.run(`UPDATE OR IGNORE ${r.t} SET ${r.col} = ? WHERE ${r.col} = ?`, [to, from]);
+      if (['document_tags', 'term_forms', 'engine_sessions'].includes(r.t)) {
+        await this.db.run(`DELETE FROM ${r.t} WHERE ${r.col} = ?`, [from]);
+      }
+    }
     await this.db.run(`UPDATE ${t} SET id = ? WHERE id = ?`, [to, from]);
-    await this.db.run('UPDATE sync_clocks SET id = ? WHERE t = ? AND id = ?', [to, t, from]);
+    await this.db.run('UPDATE OR IGNORE sync_clocks SET id = ? WHERE t = ? AND id = ?', [to, t, from]);
+    await this.db.run('DELETE FROM sync_clocks WHERE t = ? AND id = ?', [t, from]);
     await this.db.run('UPDATE sync_outbox SET id = ? WHERE t = ? AND id = ?', [to, t, from]);
     await this.db.run('INSERT OR REPLACE INTO sync_aliases(t, from_id, to_id) VALUES (?, ?, ?)', [t, from, to]);
     if (t === 'cards') this.touchedCards.add(to);

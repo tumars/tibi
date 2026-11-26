@@ -4,10 +4,10 @@
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const triple = execSync('rustc -vV').toString().match(/host: (\S+)/)?.[1];
+const triple = execFileSync('rustc', ['-vV'], { encoding: 'utf8' }).match(/host: (\S+)/)?.[1];
 if (!triple) throw new Error('rustc -vV 里没有 host');
 const dir = join(here, '../src-tauri/binaries');
 mkdirSync(dir, { recursive: true });
@@ -19,7 +19,8 @@ if (process.platform === 'win32') {
   console.log('Windows：请用 Bun --compile 产出 sidecar');
 } else {
   const p = join(dir, `tibi-core-${triple}`);
-  writeFileSync(p, `#!/bin/sh\nexec node "${script}" "$@"\n`);
+  const shQuote = s => `'${s.replace(/'/g, "'\\''")}'`;
+  writeFileSync(p, `#!/bin/sh\nexec node ${shQuote(script)} "$@"\n`);
   chmodSync(p, 0o755);
   console.log('写入', p);
 }

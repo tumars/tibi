@@ -150,7 +150,6 @@ export async function resolveAsrConfig(ctx: Ctx): Promise<import('../../platform
 }
 
 async function listProviders(db: Database): Promise<Provider[]> {
-  const month = new Date(); month.setDate(1); month.setHours(0, 0, 0, 0);
   const rows = await db.all<{ id: string; kind: string; name: string; protocol: string; base_url: string | null; tier: string | null; model: string; secret_ref: string | null; is_default: number }>('SELECT id, kind, name, protocol, base_url, tier, model, secret_ref, is_default FROM providers WHERE deleted_at IS NULL ORDER BY created_at');
   return rows.map(r => ({ id: r.id, kind: r.kind as Provider['kind'], name: r.name, protocol: r.protocol, base_url: r.base_url ?? undefined, auth: 'api_key' as const, tier: (r.tier as Provider['tier']) ?? undefined, model: r.model, has_secret: !!r.secret_ref, is_default: !!r.is_default }));
 }

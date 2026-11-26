@@ -3,9 +3,10 @@
  */
 import type {
   Answer, AnswerResult, MessageBlock, MessageStep, WidgetBlock, Conversation, Document, DocumentSummary, FeedKind, Genre, Id, IntervalPreview, Kind, MediaCacheStats, Memory, Message, Ok, Page, PodcastSearchResult, Profile, Provider, Rating, ReviewSession, Skill,
-  DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, TimedSegment, TranscriptSource, TurnId, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval, AskState,
+  DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, SyncBackendCfg, SyncStatus, TimedSegment, TranscriptSource, TurnId, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval, AskState,
   FeedView, FeedItemView, FeedCandidate, RefreshResult,
 } from '@tibi/core';
+export type { SyncBackendCfg, SyncStatus };
 
 export interface WebSearchConfig { provider: 'deepseek' | 'tavily' | 'off'; deepseek_ready: boolean; tavily_ready: boolean }
 
@@ -58,7 +59,7 @@ export interface MethodTable {
   'review.preview': { params: { card_id: Id }; result: IntervalPreview };
   'review.answer': { params: { session_id: Id; step: number; answer: Answer; hints: number; duration_ms: number }; result: AnswerResult };
   'review.override': { params: { session_id: Id; step: number; rating: Rating }; result: AnswerResult };
-  'review.next': { params: { session_id: Id; step: number }; result: Ok };
+  'review.next': { params: { session_id: Id; step: number }; result: Ok & { finished?: boolean } };
   'review.undo': { params: { session_id: Id }; result: AnswerResult };
   'review.pause': { params: { session_id: Id }; result: Ok };
   'review.overview': { params: Record<string, never>; result: { due: number; late: number; fresh: number; new_waiting: number; daily_new: number; open?: { session_id: Id; total: number; left: number; started_at: number; updated_at: number }; today: { reviews: number; correct: number; minutes: number; new_learned: number }; later_today: number; forecast: number[]; leeches: number; mistakes: { term_id: Id; display: string; meaning: string; lapses: number }[] } };
@@ -127,12 +128,6 @@ export type Params<M extends MethodName> = MethodTable[M]['params'];
 export type Result<M extends MethodName> = MethodTable[M]['result'];
 
 /** Core → 界面事件（06 §4） */
-export type SyncBackendCfg = { kind: 'icloud' } | { kind: 'folder'; path: string } | { kind: 'webdav'; url: string; user: string; password_ref: string };
-export interface SyncStatus {
-  enabled: boolean; backend?: SyncBackendCfg; state: 'off' | 'idle' | 'syncing' | 'error'; last_synced_at?: number; pending: number; sync_files: boolean;
-  device?: { id: string; name: string }; peers: { id: string; name: string; platform: string; last_seen_at?: number; removed: boolean }[]; error?: { code: string; message: string };
-}
-
 export interface EventTable {
   /** origin = chat：Tibi 在对话里起的导入，进度和结果显示在对话的导入卡上，不弹全局提示 */
   'import.progress': { import_id: Id; title: string; label: string; origin: 'user' | 'deeplink' | 'mcp' | 'share' | 'chat' };
@@ -140,7 +135,7 @@ export interface EventTable {
   'chat.end': { conversation_id: Id; submission_id: TurnId; state: 'done' | 'error' | 'cancel'; error?: string };
   'approval.requested': { approval: Approval };
   'approval.resolved': { id: Id; decision: 'allow' | 'deny' | 'edit' };
-  'data.changed': { table: 'documents' | 'terms' | 'cards' | 'memories' | 'skills' | 'settings' | 'sentences' | 'feeds' | 'feed_items'; ids?: Id[] };
+  'data.changed': { table: 'documents' | 'terms' | 'term_contexts' | 'cards' | 'memories' | 'skills' | 'settings' | 'sentences' | 'feeds' | 'feed_items'; ids?: Id[] };
   'model.status': { ok: boolean; reason?: 'offline' | 'unauthorized' };
   'chat.delta': { conversation_id: Id; submission_id: TurnId; delta: string; done?: boolean };
   'chat.block': { conversation_id: Id; submission_id: TurnId; block: WidgetBlock };

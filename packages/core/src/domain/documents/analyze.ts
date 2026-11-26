@@ -101,7 +101,6 @@ async function runTask(ctx: Ctx, document_id: string, task: AnyTask, text: strin
       if (typeof data.summary !== 'string' || !data.summary.trim()) return 'failed';
       await putAiResult(ctx.db, document_id, 'summary', data.summary.trim(), r.model);
       if (typeof data.advice === 'string' && data.advice.trim()) await putAiResult(ctx.db, document_id, 'advice', data.advice.trim(), r.model);
-      if (Array.isArray(data.keywords)) await putAiResult(ctx.db, document_id, 'keywords', data.keywords.filter(x => typeof x === 'string').slice(0, 8), r.model);
     } else if (task === 'phrases') {
       const lower = text.toLowerCase();
       const list = (Array.isArray(data.phrases) ? data.phrases : []).filter((x): x is { text: string; zh: string } => !!x && typeof x.text === 'string' && typeof x.zh === 'string' && lower.includes(x.text.toLowerCase())).slice(0, 10);
@@ -116,7 +115,8 @@ async function runTask(ctx: Ctx, document_id: string, task: AnyTask, text: strin
         if (!item || typeof item !== 'object') continue;
         const c = item as Record<string, unknown>;
         const startSec = Number(c.start_sec ?? c.start ?? 0);
-        const startMs = Number.isFinite(Number(c.start_ms)) ? Number(c.start_ms) : (Number.isFinite(startSec) ? Math.round(startSec * 1000) : 0);
+        const hasStartMs = c.start_ms !== undefined && c.start_ms !== null && c.start_ms !== '' && Number.isFinite(Number(c.start_ms));
+        const startMs = hasStartMs ? Number(c.start_ms) : (Number.isFinite(startSec) ? Math.round(startSec * 1000) : 0);
         const title_zh = typeof c.title_zh === 'string' ? c.title_zh.trim() : '';
         if (!title_zh) continue;
         list.push({

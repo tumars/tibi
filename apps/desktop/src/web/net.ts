@@ -36,8 +36,10 @@ export function webFetch(pageFetch: typeof fetch): typeof fetch {
     try { return await pageFetch(input, init); }
     catch (e) {
       if (init?.signal?.aborted || (e as Error).name === 'AbortError') throw e;
-      viaProxy.add(host);
-      return throughProxy(pageFetch, input, init);
+      const res = await throughProxy(pageFetch, input, init);
+      // 仅在在线且中转确实通了时才记住走中转，避免短暂断网把本可直连的站点永久锁进中转
+      if (typeof navigator === 'undefined' || navigator.onLine !== false) viaProxy.add(host);
+      return res;
     }
   };
 }

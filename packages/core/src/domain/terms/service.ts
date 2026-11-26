@@ -71,11 +71,12 @@ registerUndo<{ changes: StatusChange[] }>('terms.setStatus', async (p, ctx) => {
   for (const c of p.changes) {
     const t = now();
     await ctx.db.run('UPDATE terms SET status = ?, status_source = ?, in_wordbook = ?, status_changed_at = ?, updated_at = ? WHERE id = ?', [c.from, c.from_source, c.in_wordbook, t, t, c.id]);
-    await ctx.db.run('INSERT INTO term_status_log(id, term_id, status, source, created_at) VALUES (?,?,?,?,?)', [crypto.randomUUID(), c.id, c.from, 'undo', t]);
+    await ctx.db.run('INSERT INTO term_status_log(id, term_id, status, source, created_at) VALUES (?,?,?,?,?)', [uuidv7(), c.id, c.from, 'undo', t]);
     if (c.card_suspended !== null) await ctx.db.run('UPDATE cards SET suspended = ?, updated_at = ? WHERE term_id = ? AND deleted_at IS NULL', [c.card_suspended, t, c.id]);
     else await ctx.db.run('UPDATE cards SET deleted_at = ?, updated_at = ? WHERE term_id = ? AND deleted_at IS NULL AND reps = 0', [t, t, c.id]);
   }
   ctx.events.emit('data.changed', { table: 'terms', ids: p.changes.map(c => c.id) });
+  ctx.events.emit('data.changed', { table: 'cards', ids: p.changes.map(c => c.id) });
 });
 
 /**
@@ -83,12 +84,12 @@ registerUndo<{ changes: StatusChange[] }>('terms.setStatus', async (p, ctx) => {
  * 0–4 走加入生词本（建卡、记语境）再改到目标状态；5 / 97 / 98 只建行记状态，不进生词本、不建卡。
  * 返回的撤销：新建的行整条撤掉，已有的行退回原状态。
  */
-export async function markTerm(ctx: Ctx, text: string, status: Status, sentence_id?: string): Promise<{ term: TermRow; previous?: Status; undo: Undo }> {
+export async function markTerm(ctx: Ctx, text: string, status: Status, sentence_id?: string, source: string = 'user'): Promise<{ term: TermRow; previous?: Status; undo: Undo }> {
   const raw = text.trim(); const isPhrase = /\s/.test(raw); const kind = isPhrase ? 'phrase' : 'word';
   const lemma = isPhrase ? raw.toLowerCase().replace(/\s+/g, ' ') : await lemmatize(raw.toLowerCase(), ctx.dict);
   const existing = await getTermByText(ctx.db, lemma, kind);
   if (existing && !existing.deleted_at) {
-    const r = await applyStatus(ctx, [existing.id], status, 'user');
+    const r = await applyStatus(ctx, [existing.id], status, source);
     return { term: (await getTerm(ctx.db, existing.id))!, previous: existing.status as Status, undo: r.undo };
   }
   if (status >= 0 && status <= 4) {
@@ -97,7 +98,7 @@ export async function markTerm(ctx: Ctx, text: string, status: Status, sentence_
     const added = await addWords(ctx, [{ text: raw, sentence_id, ...(status !== 0 ? { skipLog: true } : {}) }]);
     const term = added.created[0] ?? added.existed[0];
     if (!term) throw new TibiError('not_found', '找不到这个词');
-    if (status !== 0) await applyStatus(ctx, [term.id], status, 'user');
+    if (status !== 0) await applyStatus(ctx, [term.id], status, source);
     const undo = await recordUndo(ctx.db, ctx, { tool: 'terms.mark', args: { text, status }, undo_payload: { id: term.id } });
     return { term: (await getTerm(ctx.db, term.id))!, undo };
   }
@@ -105,11 +106,11 @@ export async function markTerm(ctx: Ctx, text: string, status: Status, sentence_
   let term: TermRow;
   if (existing) {
     await ctx.db.run('UPDATE terms SET deleted_at = NULL, in_wordbook = 0, updated_at = ? WHERE id = ?', [now(), existing.id]);
-    await setTermStatus(ctx.db, (await getTerm(ctx.db, existing.id))!, status, 'user');
+    await setTermStatus(ctx.db, (await getTerm(ctx.db, existing.id))!, status, source);
     term = (await getTerm(ctx.db, existing.id))!;
   } else {
-    term = await insertTerm(ctx.db, { kind, text: lemma, display: isPhrase ? raw : lemma, status, status_source: 'user', short_gloss: shortGloss(entry?.translation), seen_at: now() });
-    await ctx.db.run('INSERT INTO term_status_log(id, term_id, status, source, created_at) VALUES (?,?,?,?,?)', [uuidv7(), term.id, status, 'user', now()]);
+    term = await insertTerm(ctx.db, { kind, text: lemma, display: isPhrase ? raw : lemma, status, status_source: source, short_gloss: shortGloss(entry?.translation), seen_at: now() });
+    await ctx.db.run('INSERT INTO term_status_log(id, term_id, status, source, created_at) VALUES (?,?,?,?,?)', [uuidv7(), term.id, status, source, now()]);
   }
   const undo = await recordUndo(ctx.db, ctx, { tool: 'terms.mark', args: { text, status }, undo_payload: { id: term.id } });
   ctx.events.emit('data.changed', { table: 'terms', ids: [term.id] });
@@ -121,6 +122,7 @@ registerUndo<{ id: string }>('terms.mark', async (p, ctx) => {
   await ctx.db.run('UPDATE cards SET deleted_at = ?, updated_at = ? WHERE term_id = ? AND deleted_at IS NULL', [t, t, p.id]);
   await ctx.db.run('UPDATE term_contexts SET deleted_at = ?, updated_at = ? WHERE term_id = ? AND deleted_at IS NULL', [t, t, p.id]);
   ctx.events.emit('data.changed', { table: 'terms', ids: [p.id] });
+  ctx.events.emit('data.changed', { table: 'cards', ids: [p.id] });
 });
 
 /** 生词本"添加"（terms.add / add_to_wordbook）：查词典补释义，用词典例句做语境 */
@@ -137,9 +139,10 @@ export async function addWords(ctx: Ctx, entries: { text: string; meaning?: stri
       const entry = isPhrase ? undefined : await ctx.dict.lookup(lemma);
       if (!term) {
         term = await insertTerm(tx, { kind: isPhrase ? 'phrase' : 'word', text: lemma, display: isPhrase ? raw : lemma, status: 0, status_source: 'user', meaning: e.meaning, short_gloss: shortGloss(entry?.translation), in_wordbook: true });
-        if (!e.skipLog) await tx.run('INSERT INTO term_status_log(id, term_id, status, source, created_at) VALUES (?,?,?,?,?)', [crypto.randomUUID(), term.id, 0, 'user', now()]);
+        if (!e.skipLog) await tx.run('INSERT INTO term_status_log(id, term_id, status, source, created_at) VALUES (?,?,?,?,?)', [uuidv7(), term.id, 0, 'user', now()]);
       } else {
-        await setTermStatus(tx, term, term.status >= 0 && term.status <= 4 ? (term.status as Status) : 0, 'user', { in_wordbook: true });
+        if (term.deleted_at != null) await tx.run('UPDATE terms SET deleted_at = NULL, updated_at = ? WHERE id = ?', [now(), term.id]);
+        await setTermStatus(tx, term, term.deleted_at == null && term.status >= 0 && term.status <= 4 ? (term.status as Status) : 0, 'user', { in_wordbook: true });
         if (e.meaning) await tx.run('UPDATE terms SET meaning = ?, updated_at = ? WHERE id = ?', [e.meaning, now(), term.id]);
         // 旧行可能没存短释义（标过已知 / 忽略的词），补上，行间释义要用
         const sg = term.short_gloss ? undefined : shortGloss(entry?.translation);
@@ -230,6 +233,7 @@ export async function pauseTerms(ctx: Ctx, ids: string[], days: number): Promise
 }
 registerUndo<{ prev: { id: string; paused_until: number | null }[] }>('terms.pause', async (p, ctx) => {
   for (const r of p.prev) await ctx.db.run('UPDATE terms SET paused_until = ?, updated_at = ? WHERE id = ?', [r.paused_until, now(), r.id]);
+  ctx.events.emit('data.changed', { table: 'terms', ids: p.prev.map(r => r.id) });
 });
 
 /** 移出生词本：in_wordbook = 0，卡片软删，review_logs 保留 */
@@ -251,6 +255,9 @@ registerUndo<{ prev: { id: string; in_wordbook: number }[] }>('terms.remove', as
     await ctx.db.run('UPDATE terms SET in_wordbook = ?, updated_at = ? WHERE id = ?', [r.in_wordbook, t, r.id]);
     await ctx.db.run('UPDATE cards SET deleted_at = NULL, updated_at = ? WHERE term_id = ?', [t, r.id]);
   }
+  const ids = p.prev.map(r => r.id);
+  ctx.events.emit('data.changed', { table: 'terms', ids });
+  ctx.events.emit('data.changed', { table: 'cards', ids });
 });
 
 /** 讲解技能把语境释义写回（set_context_meaning） */
@@ -272,7 +279,7 @@ export async function cacheSentenceMeaning(db: Database, sentence_id: string, le
   const t = now();
   const row = await db.get<{ id: string; output: string }>("SELECT id, output FROM ai_results WHERE scope = 'sentence' AND target_id = ? AND task = 'context_meanings' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1", [sentence_id]);
   if (row) { await db.run('UPDATE ai_results SET output = ?, updated_at = ? WHERE id = ?', [j.str({ ...j.parse<Record<string, string>>(row.output, {}), [lemma]: meaning }), t, row.id]); return; }
-  await db.run("INSERT INTO ai_results(id, scope, target_id, task, prompt_version, model, output, created_at, updated_at) VALUES (?, 'sentence', ?, 'context_meanings', '1', 'lookup', ?, ?, ?)", [uuidv7(), sentence_id, j.str({ [lemma]: meaning }), t, t]);
+  await db.run("INSERT OR REPLACE INTO ai_results(id, scope, target_id, task, prompt_version, model, output, created_at, updated_at, deleted_at) VALUES (?, 'sentence', ?, 'context_meanings', '1', 'lookup', ?, ?, ?, NULL)", [uuidv7(), sentence_id, j.str({ [lemma]: meaning }), t, t]);
 }
 
 /** 语境释义缓存：先看 term_contexts，再看内置示例预生成的 ai_results（scope = sentence, task = context_meanings） */

@@ -1,5 +1,5 @@
 import { Type } from '@sinclair/typebox';
-import { j, now, type Database } from '../db/driver.js';
+import { now, type Database } from '../db/driver.js';
 import { method, type MethodMap } from '../rpc/define.js';
 import { TibiError, type Skill, type SkillId, type Tier } from '../types.js';
 import { SKILL_DEFS } from './skills.gen.js';
@@ -66,4 +66,3 @@ export function makeSkillMethods(runNow: (skill_id: SkillId, input: string) => P
 }
 
 export const skillIdSchema = Type.Union(SKILL_IDS.map(s => Type.Literal(s)));
-export { j as _j };

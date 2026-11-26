@@ -2,6 +2,7 @@
 //! 新版本的来源和签名校验都在插件里（tauri.conf.json 的 endpoints、pubkey），界面只能问"有没有"和"装不装"。
 
 use crate::core::CoreProcess;
+use crate::lock_or_recover;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -29,7 +30,7 @@ pub async fn update_check(app: AppHandle, pending: State<'_, Pending>) -> Result
         Some(u) => json!({ "available": true, "version": u.version }),
         None => json!({ "available": false }),
     };
-    *pending.0.lock().unwrap() = update.map(|update| Staged { update, bytes: None });
+    *lock_or_recover(&pending.0) = update.map(|update| Staged { update, bytes: None });
     Ok(info)
 }
 
@@ -59,7 +60,7 @@ async fn backup(core: Arc<CoreProcess>) -> Option<String> {
 /// 备份失败时不停 Core、不安装，把决定交给用户；用户确认后带 skip_backup 再调（Core 坏了也要能更新，新版本可能正是修它的）。
 #[tauri::command]
 pub async fn update_install(app: AppHandle, pending: State<'_, Pending>, skip_backup: Option<bool>) -> Result<(), String> {
-    let Staged { update, bytes } = pending.0.lock().unwrap().take().ok_or("先检查更新")?;
+    let Staged { update, bytes } = lock_or_recover(&pending.0).take().ok_or("先检查更新")?;
     let bytes = match bytes {
         Some(b) => b,
         None => {
@@ -78,7 +79,7 @@ pub async fn update_install(app: AppHandle, pending: State<'_, Pending>, skip_ba
             match downloaded {
                 Ok(b) => b,
                 Err(e) => {
-                    *pending.0.lock().unwrap() = Some(Staged { update, bytes: None });
+                    *lock_or_recover(&pending.0) = Some(Staged { update, bytes: None });
                     return Err(e.to_string());
                 }
             }
@@ -92,7 +93,7 @@ pub async fn update_install(app: AppHandle, pending: State<'_, Pending>, skip_ba
         let _ = app.emit("update_progress", json!({ "stage": "backing_up" }));
         if let Some(reason) = backup(core.clone()).await {
             log::warn!("更新前备份失败：{reason}");
-            *pending.0.lock().unwrap() = Some(Staged { update, bytes: Some(bytes) });
+            *lock_or_recover(&pending.0) = Some(Staged { update, bytes: Some(bytes) });
             return Err(format!("{BACKUP_FAILED}{reason}"));
         }
     }

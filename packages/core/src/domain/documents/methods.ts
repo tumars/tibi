@@ -6,22 +6,14 @@ import { recordUndo, registerUndo } from '../shared/undo.js';
 import { ensureAnnotated, ensureEpisodeMedia, runReanalyze, transcribeEpisode, type ImportInput } from './pipeline.js';
 import { analyzeDocument, translateSection } from './analyze.js';
 import { background, isRunning, startImport, type ImportOutcome } from './imports.js';
-import { DOC_COLS, getDocument, listSections, listSentences, setDocumentTags, toDocument, toSummary, type DocumentRow } from './repo.js';
+import { DOC_COLS, docMinutes, getDocument, listSections, setDocumentTags, toDocument, toSummary, type DocumentRow } from './repo.js';
 import { finishSection, sectionContent, setProgress, softDeleteDocument } from './sections.js';
 import { getSample, listSamples } from './samples.js';
 
-/** documents.* / sections.*（06 §3） */
+import { checkUrlShape } from '../../web/url.js';
 
-/** 校验网址（不抓内容）：只收 http(s)，拒绝本机与内网字面地址；域名解析由平台在抓取时再查 */
-export function checkUrlShape(raw: string): { ok: boolean; url?: string; host?: string; error?: 'invalid_source' } {
-  let u: URL;
-  try { u = new URL(raw.trim()); } catch { return { ok: false, error: 'invalid_source' }; }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return { ok: false, error: 'invalid_source' };
-  const host = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
-  if (host === 'localhost' || host.endsWith('.local') || host.endsWith('.localhost') || /^(127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host) || host === '::1' || host.startsWith('fe80') || host.startsWith('fc') || host.startsWith('fd')) return { ok: false, error: 'invalid_source' };
-  u.hash = '';
-  return { ok: true, url: u.toString(), host: host.replace(/^www\./, '') };
-}
+/** documents.* / sections.*（06 §3） */
+export { checkUrlShape };
 
 const sourceSchema = Type.Union([
   Type.Object({ type: Type.Literal('text'), text: Type.String({ minLength: 1 }), title: Type.Optional(Type.String()), generated: Type.Optional(Type.Boolean()) }),
@@ -41,7 +33,13 @@ export async function submitImport(ctx: Ctx, input: ImportInput): Promise<{ impo
     input.source = { type: 'url', url: c.url!, ...(input.source.title?.trim() ? { title: input.source.title.trim() } : {}) };
   }
   if (input.source.type === 'file' && !ctx.platform.isPathAllowed(input.source.path)) throw new TibiError('permission_denied', '这个文件没有经过选择或拖入');
-  if (input.source.type === 'audio' && !ctx.platform.isPathAllowed(input.source.path)) throw new TibiError('permission_denied', '这个音频文件没有经过选择或拖入');
+  if (input.source.type === 'audio') {
+    if (!ctx.platform.isPathAllowed(input.source.path)) throw new TibiError('permission_denied', '这个音频文件没有经过选择或拖入');
+    if (input.source.transcript_path && !ctx.platform.isPathAllowed(input.source.transcript_path)) throw new TibiError('permission_denied', '字幕文件没有经过选择或拖入');
+  }
+  if (input.source.type === 'images') {
+    for (const imgPath of input.source.paths) if (!ctx.platform.isPathAllowed(imgPath)) throw new TibiError('permission_denied', '有图片没有经过选择或拖入');
+  }
   let title = '图片';
   if (input.source.type === 'url') title = checkUrlShape(input.source.url).host ?? '网页';
   else if (input.source.type === 'text') title = input.source.title || '粘贴的文字';
@@ -72,7 +70,7 @@ export async function listDocuments(ctx: Ctx, opts: ListOpts): Promise<{ items: 
   if (opts.status === 'reading') conds.push('d.last_read_at IS NOT NULL AND d.finished_at IS NULL');
   if (opts.status === 'done') conds.push('d.finished_at IS NOT NULL');
   for (const tag of opts.tags ?? []) { conds.push('EXISTS (SELECT 1 FROM document_tags dt JOIN tags tg ON tg.id = dt.tag_id WHERE dt.document_id = d.id AND dt.deleted_at IS NULL AND tg.name = ? COLLATE NOCASE)'); params.push(tag); }
-  if (opts.q) { conds.push('(d.title LIKE ? OR d.author LIKE ? OR d.source_uri LIKE ?)'); const like = `%${opts.q}%`; params.push(like, like, like); }
+  if (opts.q) { conds.push("(d.title LIKE ? ESCAPE '\\' OR d.author LIKE ? ESCAPE '\\' OR d.source_uri LIKE ? ESCAPE '\\')"); const like = `%${opts.q.replace(/[\\%_]/g, m => `\\${m}`)}%`; params.push(like, like, like); }
   const where = conds.join(' AND ');
   const rows = await ctx.db.all<DocumentRow>(`SELECT ${DOC_COLS.split(', ').map(c => 'd.' + c).join(', ')} FROM documents d WHERE ${where}`, params);
   const sort = opts.sort ?? 'fit';
@@ -80,7 +78,7 @@ export async function listDocuments(ctx: Ctx, opts: ListOpts): Promise<{ items: 
     if (sort === 'opened') return Number(b.last_read_at ?? 0) - Number(a.last_read_at ?? 0) || Number(b.created_at) - Number(a.created_at);
     if (sort === 'added') return Number(b.created_at) - Number(a.created_at);
     if (sort === 'progress') return Number(b.progress) - Number(a.progress);
-    if (sort === 'minutes') return Number(a.word_count) - Number(b.word_count);
+    if (sort === 'minutes') return docMinutes(a) - docMinutes(b);
     // fit：读到一半的靠前（最近读的在前），读完的放最后，其余新加的在前
     const ga = a.finished_at ? 2 : Number(a.progress) > 0 ? 0 : 1, gb = b.finished_at ? 2 : Number(b.progress) > 0 ? 0 : 1;
     return ga - gb || (ga === 0 ? Number(b.last_read_at ?? 0) - Number(a.last_read_at ?? 0) : Number(b.created_at) - Number(a.created_at));
@@ -199,5 +197,3 @@ registerUndo<{ id: string; prev: { title: string; genre: string; is_favorite: nu
   if (p.prev.tags) await setDocumentTags(ctx.db, p.id, p.prev.tags, { replace: true });
   ctx.events.emit('data.changed', { table: 'documents', ids: [p.id] });
 });
-
-export { listSentences };

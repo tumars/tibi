@@ -33,5 +33,16 @@ describe('同步：文件夹后端 + sync.* 方法（M7）', () => {
     await A.call('sync.disable', {});
     await A.db.run("UPDATE terms SET meaning = 'x' WHERE text = 'compiler'");
     expect((await A.call<sync.SyncStatus>('sync.status', {})).pending).toBe(0);
+
+    // 停用期间在队里的 sync.now / sync.auto 被取消执行，不会在 enabled=0 时拉取他端改名
+    await A.call('sync.enable', { backend: { kind: 'folder', path: folder }, device_name: 'Mac' });
+    await B.db.run("UPDATE terms SET meaning = '停用后新值（B）' WHERE text = 'compiler'");
+    await B.call('sync.now', {});
+    const autoP = A.call<{ ran: boolean }>('sync.auto', {});
+    await Promise.all([A.call('sync.disable', {}), A.call('sync.now', {}), autoP]);
+    const stAfter = await A.call<sync.SyncStatus>('sync.status', {});
+    expect(stAfter.enabled).toBe(false);
+    expect(await autoP).toEqual({ ran: false });
+    expect((await A.db.get<{ meaning: string }>("SELECT meaning FROM terms WHERE text = 'compiler'"))?.meaning).toBe('x');
   }, 30_000);
 });

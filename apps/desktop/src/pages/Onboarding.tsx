@@ -10,6 +10,7 @@ import { InfoTip } from '../components/ui';
 import { PRESETS, saveProvider, saveSiliconFlowBundle } from '../lib/providers';
 import { classifyInput, GENRE_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, isWeb, rpc } from '../rpc';
+import { AnalyticsItem } from '../settings/AnalyticsItem';
 import { useCore } from '../store/core';
 import { toast } from '../store/ui';
 import { tl } from '../lib/i18n';
@@ -73,6 +74,7 @@ export function Onboarding() {
             </div>
             <div className="f"><label className="t" htmlFor="nick">{tl('Tibi 怎么称呼你')}</label><input id="nick" className="input" value={nick} maxLength={20} placeholder={tl('比如：小孟')} onFocus={() => setFox('listening')} onBlur={() => setFox('idle')} onChange={e => { setNick(e.target.value); if (e.target.value.trim()) setSay(tl('{v0}，你好。', { v0: e.target.value.trim() })); }} /></div>
             <div className="f"><span className="t">{tl('你平时常读的材料（可多选）')}</span><div className="opts">{MATS.map(([v, l]) => <button key={v} className={`chip${mats.includes(v) ? ' on' : ''}`} onClick={() => setMats(m => m.includes(v) ? m.filter(x => x !== v) : [...m, v])}>{l}</button>)}</div></div>
+            <AnalyticsItem firstRun />
           </div>}
           {step === 3 && <ConnectModel onFox={setFox} onSay={setSay} onDone={() => { if (single) leave(backTo); else go(4); }} onCancel={() => { toast(tl('已跳过，之后可在设置里连接')); if (single) nav(backTo, { replace: true }); else go(4); }} doneLabel={single ? tl('保存并回到{backLabel}', { backLabel }) : tl('继续')} onBack={single ? undefined : () => go(1)} />}
           {step === 4 && <FirstRead onFox={setFox} onSay={setSay} onOpen={id => { void markDone(); leave(`/read/${id}`); }} onSkip={() => { void markDone(); leave('/'); }} onBack={() => go(modelOk ? 1 : 3)} />}
@@ -95,21 +97,41 @@ function FirstRead({ onFox, onSay, onOpen, onSkip, onBack }: { onFox: (s: string
   const [state, setState] = useState<{ title: string; sample: boolean; running: boolean; doc?: { id: string; level?: string }; error?: string }>();
   const started = useRef(false);
   const openWhenDone = useRef(false);   // 点了「开始阅读」才导入的：好了直接打开
+  const activeCleanup = useRef<(() => void) | undefined>(undefined);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; activeCleanup.current?.(); activeCleanup.current = undefined; };
+  }, []);
 
   const run = async (source: { type: 'sample'; id: string } | { type: 'url'; url: string } | { type: 'text'; text: string }, title: string) => {
+    activeCleanup.current?.();
     setState({ title, sample: source.type === 'sample', running: true }); onFox('reading');
     let importId: string | undefined; const early = new Map<string, { id?: string; error?: string }>();
     const finish = (r: { id?: string; error?: string }) => {
-      offDone(); offFail();
-      if (r.id) { if (openWhenDone.current) { onOpen(r.id); return; } void rpc.call('documents.get', { id: r.id }).then(d => { setState(s => s && { ...s, title: d.title, running: false, doc: { id: d.id, level: d.level } }); onFox('happy'); onSay(tl('第一篇准备好了。')); }); }
-      else { setState(s => s && { ...s, running: false, error: r.error ?? tl('导入失败') }); onFox('idle'); }
+      offDone();
+      if (activeCleanup.current === offDone) activeCleanup.current = undefined;
+      if (!mounted.current) return;
+      if (r.id) {
+        if (openWhenDone.current) { onOpen(r.id); return; }
+        void rpc.call('documents.get', { id: r.id }).then(
+          d => { if (!mounted.current) return; setState(s => s && { ...s, title: d.title, running: false, doc: { id: d.id, level: d.level } }); onFox('happy'); onSay(tl('第一篇准备好了。')); },
+          e => { if (!mounted.current) return; setState(s => s && { ...s, running: false, error: errorInfo(e).message }); onFox('idle'); },
+        );
+      } else {
+        setState(s => s && { ...s, running: false, error: r.error ?? tl('导入失败') }); onFox('idle');
+      }
     };
     const offDone = rpc.on('import.done', d => { const r = d.ok ? { id: d.document_id } : { error: d.error }; if (!importId) early.set(d.import_id, r); else if (d.import_id === importId) finish(r); });
-    const offFail = () => undefined;
+    activeCleanup.current = offDone;
     try {
       const id = importId = (await rpc.call('documents.import', { source })).import_id;
       const e = early.get(id); if (e) finish(e);
-    } catch (e) { offDone(); offFail(); setState(s => s && { ...s, running: false, error: errorInfo(e).message }); }
+    } catch (e) {
+      offDone();
+      if (activeCleanup.current === offDone) activeCleanup.current = undefined;
+      if (mounted.current) setState(s => s && { ...s, running: false, error: errorInfo(e).message });
+    }
   };
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { now, type Database, type Row } from '../../db/driver.js';
 import type { Dict } from '../../dict/types.js';
-import type { CardType, QueueItem, Status } from '../../types.js';
+import type { CardType, QueueItem } from '../../types.js';
 import { startOfToday } from '../shared/cards.js';
 import { contextMeaning } from '../terms/service.js';
 import { fullMeaning, glossSummary } from '../terms/views.js';
@@ -72,11 +72,20 @@ export async function makeStep(db: Database, dict: Dict, cw: CardWithTerm, card_
   };
   let options: { id: string; text: string; from?: string }[] | undefined;
   if (card_type === 'choice' && !opts.intro && meaning) {
-    const distractors = await pickDistractors(db, dict, term, 3, ctx?.document_id ?? undefined, meaning);
-    if (distractors.length >= 2) {
-      // 正确项只有一个义项（如语境义）时，干扰项也只留首义：不能靠长短认出答案
-      const single = !/[，；]/.test(meaning);
-      options = shuffle([{ id: 'x', text: meaning }, ...distractors.map(d => ({ id: 'x', text: single ? d.text.split(/[，；]/)[0]! : d.text, from: d.from }))]);
+    const distractors = await pickDistractors(db, dict, term, 5, ctx?.document_id ?? undefined, meaning);
+    // 正确项只有一个义项（如语境义）时，干扰项也只留首义；截断后再次去重，避免重复选项
+    const single = !/[，；]/.test(meaning);
+    const seenOpt = new Set<string>([meaning]);
+    const list: { id: string; text: string; from?: string }[] = [{ id: 'x', text: meaning }];
+    for (const d of distractors) {
+      if (list.length >= 4) break;
+      const text = single ? d.text.split(/[，；]/)[0]!.trim() : d.text;
+      if (!text || seenOpt.has(text)) continue;
+      seenOpt.add(text);
+      list.push({ id: 'x', text, from: d.from });
+    }
+    if (list.length >= 3) {
+      options = shuffle(list);
       options.forEach((o, i) => { o.id = 'abcd'[i]!; });
     }
   }
@@ -125,7 +134,7 @@ export async function pickDistractors(db: Database, dict: Dict, term: TermRow, c
   };
   if (document_id) {
     const sameDoc = await db.all<TermRow>(`SELECT DISTINCT t.* FROM terms t JOIN term_contexts tc ON tc.term_id = t.id
-      WHERE tc.document_id = ? AND t.id != ? AND t.deleted_at IS NULL AND t.status <= 5 ORDER BY random() LIMIT 40`, [document_id, term.id]);
+      WHERE tc.document_id = ? AND tc.deleted_at IS NULL AND t.id != ? AND t.deleted_at IS NULL AND t.status <= 5 ORDER BY random() LIMIT 40`, [document_id, term.id]);
     await take(sameDoc, '同一篇文章');
   }
   if (picked.length < count) {
@@ -189,17 +198,27 @@ export async function buildSteps(db: Database, dict: Dict, opts: BuildOptions = 
   return steps.map((s, i) => ({ ...s, step: i }));
 }
 
-/** 未来 n 天每天到期的卡数 */
+/** 未来 n 天每天到期的卡数（第 0 天含逾期；一次查询 + 本地日历分桶，避免 DST 偏移与 N 次查询） */
 export async function forecast(db: Database, days = 7, from: number = now()): Promise<number[]> {
-  const out: number[] = [];
-  let start = startOfToday(from);
-  for (let i = 0; i < days; i++) {
-    const end = start + 86_400_000;
-    const r = await db.get<{ n: number }>('SELECT count(*) AS n FROM cards WHERE deleted_at IS NULL AND suspended = 0 AND due >= ? AND due < ?', [i === 0 ? 0 : start, end]);
-    out.push(Number(r?.n ?? 0));
-    start = end;
+  const out = new Array<number>(days).fill(0);
+  if (days <= 0) return out;
+  const d0 = new Date(from);
+  const y = d0.getFullYear(), m = d0.getMonth(), dd = d0.getDate();
+  const bounds: number[] = [];
+  for (let i = 0; i <= days; i++) bounds.push(new Date(y, m, dd + i).getTime());
+  const rows = await db.all<{ due: number }>(
+    `SELECT c.due FROM cards c JOIN terms t ON t.id = c.term_id
+     WHERE c.deleted_at IS NULL AND c.suspended = 0 AND c.due < ?
+       AND t.deleted_at IS NULL AND t.in_wordbook = 1 AND t.status <= 5
+       AND (t.paused_until IS NULL OR t.paused_until <= ?)`,
+    [bounds[days]!, from],
+  );
+  for (const r of rows) {
+    const due = Number(r.due);
+    if (due < bounds[1]!) { out[0]!++; continue; }
+    for (let i = 1; i < days; i++) {
+      if (due >= bounds[i]! && due < bounds[i + 1]!) { out[i]!++; break; }
+    }
   }
   return out;
 }
-
-export type { Status };

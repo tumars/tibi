@@ -6,8 +6,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SpeakButtons, stopSpeaking } from '../components/Speak';
 import { Toasts } from '../components/Toasts';
+import { TRAY_LOOKUP_USED } from '../lib/analytics';
 import { clearRecentLookups, EXAM_NAMES, INFLECTION_NAMES, loadRecentLookups, parseGloss, rememberLookup } from '../lib/dict';
 import { tl } from '../lib/i18n';
+import { listenSafe } from '../lib/tauriEvents';
+import { applyTtsSettings } from '../lib/ttsConfig';
 import { fmtPct, isImeKey, STATUS_NAMES } from '../lib/util';
 import { errorInfo, isTauri, rpc } from '../rpc';
 import { toast } from '../store/ui';
@@ -95,12 +98,7 @@ export function TrayApp() {
     });
     if (settings) {
       if (typeof settings['tray.hotkey'] === 'string') setHotkey(settings['tray.hotkey']);
-      void import('../lib/tts').then(t => t.configure({
-        engine: (settings['tts.engine'] as 'system' | 'kokoro') ?? 'system',
-        voice: (settings['tts.voice'] as string) ?? '',
-        aiVoice: (settings['tts.ai_voice'] as string) || undefined,
-        rate: Number(settings['tts.rate'] ?? 1) || 1,
-      }));
+      applyTtsSettings(settings);
     }
   }, []);
 
@@ -125,11 +123,15 @@ export function TrayApp() {
       }
     });
     const offProg = rpc.on('import.progress', d => {
-      setImporting(cur => (cur && (!cur.id || cur.id === d.import_id) ? { ...cur, id: d.import_id, label: d.label } : cur));
+      setImporting(cur => (cur?.id && cur.id === d.import_id ? { ...cur, label: d.label } : cur));
     });
     const offDone = rpc.on('import.done', d => {
+      if (startingImport.current) {
+        earlyImportDone.current.set(d.import_id, { ok: d.ok, summary: d.summary, document_id: d.document_id, error: d.error });
+        if (earlyImportDone.current.size > 16) earlyImportDone.current.delete(earlyImportDone.current.keys().next().value!);
+      }
       setImporting(cur => {
-        if (!cur || (cur.id && cur.id !== d.import_id)) return cur;
+        if (!cur?.id || cur.id !== d.import_id) return cur;
         return d.ok
           ? { id: d.import_id, label: d.summary || tl('导入完成'), docId: d.document_id }
           : { id: d.import_id, label: tl('导入失败'), err: d.error || tl('导入失败') };
@@ -149,40 +151,42 @@ export function TrayApp() {
     };
     window.addEventListener('storage', onStorage);
 
-    let unlisten: (() => void)[] = [];
-    if (isTauri()) {
-      void import('@tauri-apps/api/event').then(async ({ listen }) => {
-        const u1 = await listen('tray_opened', () => {
-          void refreshSnapshot();
-          void refreshClipboard();
-          requestAnimationFrame(() => {
-            const el = inputRef.current;
-            if (el) { el.focus({ preventScroll: true }); el.select(); }
-          });
-        });
-        const u2 = await listen('tray_hidden', () => {
-          stopSpeaking();
-        });
-        const u3 = await listen<{ theme?: string }>('tray_theme', e => {
-          const t = e.payload?.theme;
-          if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-          else delete document.documentElement.dataset.theme;
-        });
-        unlisten = [u1, u2, u3];
+    const offOpened = listenSafe('tray_opened', () => {
+      void refreshSnapshot();
+      void refreshClipboard();
+      requestAnimationFrame(() => {
+        const el = inputRef.current;
+        if (el) { el.focus({ preventScroll: true }); el.select(); }
       });
-    }
+    });
+    const offHidden = listenSafe('tray_hidden', () => { stopSpeaking(); });
+    const offTheme = listenSafe<{ theme?: string }>('tray_theme', payload => {
+      const t = payload?.theme;
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      else delete document.documentElement.dataset.theme;
+    });
 
     return () => {
       offData(); offProg(); offDone();
       window.removeEventListener('storage', onStorage);
-      unlisten.forEach(fn => fn());
+      offOpened(); offHidden(); offTheme();
     };
   }, [refreshSnapshot, refreshClipboard]);
 
   // 词典联想
   const skipNextAutoPick = useRef(false);
+  const importingFor = useRef<string | undefined>(undefined);
+  const startingImport = useRef(0);
+  const earlyImportDone = useRef(new Map<string, { ok: boolean; summary?: string; document_id?: string; error?: string }>());
+  const wordRef = useRef<string | undefined>(undefined);
+  wordRef.current = word;
+  const entryReq = useRef(0);
   useEffect(() => {
-    setImporting(undefined);
+    const curKey = intent.kind === 'url' ? intent.url : intent.kind === 'passage' ? intent.text : undefined;
+    if (!curKey || importingFor.current !== curKey) {
+      importingFor.current = undefined;
+      setImporting(undefined);
+    }
     if (intent.kind !== 'dict') {
       setSug(undefined);
       setWord(undefined);
@@ -206,17 +210,26 @@ export function TrayApp() {
   }, [intent]);
 
   // 词条加载
-  const loadEntry = useCallback((w: string, isLive: () => boolean = () => true) => (
-    rpc.call('dict.entry', { word: w }).then(
-      r => { if (isLive()) setData(r); },
-      e => { if (isLive()) { setData(undefined); toast(errorInfo(e).message, { kind: 'err' }); } },
-    )
-  ), []);
+  const loadEntry = useCallback((w: string, isLive: () => boolean = () => true, recordLookup = false) => {
+    const req = ++entryReq.current;
+    return rpc.call('dict.entry', { word: w }).then(
+      r => {
+        if (!isLive() || req !== entryReq.current || wordRef.current !== w) return;
+        setData(r);
+        if (recordLookup && (r.entry || r.term) && isTauri()) {
+          void import('@tauri-apps/api/event')
+            .then(({ emitTo }) => emitTo('main', TRAY_LOOKUP_USED))
+            .catch(() => undefined);
+        }
+      },
+      e => { if (isLive() && req === entryReq.current && wordRef.current === w) { setData(undefined); toast(errorInfo(e).message, { kind: 'err' }); } },
+    );
+  }, []);
 
   useEffect(() => {
     if (!word) { setData(undefined); return; }
     let live = true;
-    void loadEntry(word, () => live);
+    void loadEntry(word, () => live, true);
     const off = rpc.on('data.changed', d => { if (d.table === 'terms') void loadEntry(word, () => live); });
     return () => { live = false; off(); };
   }, [word, loadEntry]);
@@ -259,18 +272,36 @@ export function TrayApp() {
   }, [word, loadEntry]);
 
   const startImport = useCallback(async (source: { type: 'url'; url: string } | { type: 'text'; text: string }) => {
+    const key = source.type === 'url' ? source.url : source.text;
+    if (startingImport.current > 0 || (importingFor.current === key && importing && !importing.err && !importing.docId)) return;
+    importingFor.current = key;
+    startingImport.current++;
     setImporting({ label: tl('开始导入…') });
     try {
       const { import_id } = await rpc.call('documents.import', { source, origin: 'user' });
+      if (importingFor.current !== key) return;
+      const early = earlyImportDone.current.get(import_id);
+      if (early) {
+        earlyImportDone.current.delete(import_id);
+        setImporting(early.ok
+          ? { id: import_id, label: early.summary || tl('导入完成'), docId: early.document_id }
+          : { id: import_id, label: tl('导入失败'), err: early.error || tl('导入失败') });
+        if (early.ok) void refreshSnapshot();
+        return;
+      }
       setImporting(cur => (cur?.docId || cur?.err ? cur : { id: import_id, label: tl('正在导入…') }));
     } catch (e) {
+      if (importingFor.current !== key) return;
       const msg = errorInfo(e).message;
       setImporting({ label: tl('导入失败'), err: msg });
       toast(msg, { kind: 'err' });
+    } finally {
+      startingImport.current = Math.max(0, startingImport.current - 1);
     }
-  }, []);
+  }, [importing, refreshSnapshot]);
 
   const items = sug?.items ?? [];
+  const visibleItems = items.slice(0, 5);
   const onInputKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (isImeKey(e.nativeEvent)) return;
     if (e.key === 'Escape') {
@@ -293,25 +324,25 @@ export function TrayApp() {
       return;
     }
     if (intent.kind === 'dict') {
-      if (e.key === 'ArrowDown' && items.length) {
+      if (e.key === 'ArrowDown' && visibleItems.length) {
         e.preventDefault();
         setLocked(false);
-        const next = Math.min(items.length - 1, sel + 1);
+        const next = Math.min(visibleItems.length - 1, sel + 1);
         setSel(next);
-        setWord(items[next]!.word);
+        setWord(visibleItems[next]!.word);
         return;
       }
-      if (e.key === 'ArrowUp' && items.length) {
+      if (e.key === 'ArrowUp' && visibleItems.length) {
         e.preventDefault();
         setLocked(false);
         const next = Math.max(0, sel - 1);
         setSel(next);
-        setWord(items[next]!.word);
+        setWord(visibleItems[next]!.word);
         return;
       }
       if (e.key === 'Enter') {
         e.preventDefault();
-        const target = sug?.mode === 'similar' ? intent.text : items[sel]?.word ?? intent.text;
+        const target = sug?.mode === 'similar' ? intent.text : visibleItems[sel]?.word ?? intent.text;
         if (target) lookWord(target, true);
         return;
       }

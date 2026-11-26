@@ -4,7 +4,7 @@
  * 署名：Word Atlas contributors（CC BY 4.0）；Open English WordNet（CC BY 4.0）。入库时只筛字段、合并存放，不改文字。
  */
 import type BetterSqlite3 from 'better-sqlite3';
-import { createWriteStream, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -13,13 +13,20 @@ import { strFromU8, unzipSync } from 'fflate';
 export const ATLAS_URL = 'https://raw.githubusercontent.com/designfuchen/word-atlas/19a9bd889d2f642fef1d8d0eef85a3f35e1a66ff/data/word-atlas.json';
 export const WORDNET_URL = 'https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025-json.zip';
 
-export async function downloadTo(url: string, dest: string, log: (s: string) => void = () => {}): Promise<string> {
-  if (existsSync(dest) && statSync(dest).size > 0) { log(`已有 ${dest}`); return dest; }
+export async function downloadTo(url: string, dest: string, log: (s: string) => void = () => {}, minBytes = 1): Promise<string> {
+  if (existsSync(dest) && statSync(dest).size >= minBytes) { log(`已有 ${dest}`); return dest; }
   mkdirSync(dirname(dest), { recursive: true });
   log(`下载 ${url} …`);
   const res = await fetch(url);
   if (!res.ok || !res.body) throw new Error(`下载失败：${res.status}`);
-  await pipeline(Readable.fromWeb(res.body as never), createWriteStream(dest));
+  const tmp = `${dest}.${process.pid}.tmp`;
+  try {
+    await pipeline(Readable.fromWeb(res.body as never), createWriteStream(tmp));
+    renameSync(tmp, dest);
+  } catch (err) {
+    try { unlinkSync(tmp); } catch { /* ignore */ }
+    throw err;
+  }
   return dest;
 }
 

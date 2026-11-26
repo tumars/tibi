@@ -76,7 +76,7 @@ export function createKernel(db: Database, initialEvents: EventSink, opts: Kerne
 
   /** 让这一轮跑起来；结束时把结果记在第一句用户消息上，并告诉界面 */
   const startTurn = (conversation_id: string, turn_id: string, o: TurnOptions & { tainted?: boolean }) => {
-    turns.start({ id: turn_id, conversation_id, tainted: o.tainted, onTaint: () => void convs.setTurn(turn_id, { tainted: true }) }, async run => {
+    turns.start({ id: turn_id, conversation_id, tainted: o.tainted, onTaint: () => void convs.setTurn(turn_id, { tainted: true }).catch(() => undefined) }, async run => {
       let state: 'done' | 'error' | 'cancel' = 'done'; let error: string | undefined;
       try { await runSkill(agentDeps, { skill_id: o.skill_id, input: '', conversation_id, run, tier: o.tier, provider_id: o.provider_id }); } catch (e) {
         if (run.signal.aborted) state = 'cancel';
@@ -100,7 +100,7 @@ export function createKernel(db: Database, initialEvents: EventSink, opts: Kerne
   registry.register(askCapabilities({ turns }));
   registry.register(memoryCapabilities);
 
-  const methodDeps = { db, turns, registry, engine: opts.engine, startTurn, setUiContext: (c: UiContext | undefined) => { ui = c; } };
+  const methodDeps = { db, turns, registry, engine: opts.engine, device: opts.device, startTurn, setUiContext: (c: UiContext | undefined) => { ui = c; } };
   const send: Kernel['send'] = (conversation_id, text, o = {}) => submitTurn(methodDeps, conversation_id, text, { skill_id: o.skill_id ?? 'tibi', tier: o.tier, provider_id: o.provider_id });
   const methods: MethodMap = {
     ...chatMethods(methodDeps),
@@ -123,5 +123,3 @@ export function createKernel(db: Database, initialEvents: EventSink, opts: Kerne
     complete: (ctx, o) => completeOnce(ctx, opts.resolveModel ?? resolveModelFromProviders, o),
   };
 }
-
-export type { ResolvedModel as KernelResolvedModel };

@@ -1,6 +1,6 @@
 import type { EventName, EventTable, MethodName, Params, Result } from './methods';
 import { tl } from '../lib/i18n';
-import { startUsageAnalytics, trackUsage } from '../lib/analytics';
+import { trackUsage } from '../lib/analytics';
 
 /**
  * RPC 客户端（06 §1）：
@@ -64,7 +64,12 @@ function wsTransport(url: string): Transport {
       const s = new WebSocket(url);
       s.onopen = () => { ws = s; opening = undefined; resolve(s); };
       s.onerror = () => { opening = undefined; reject(new RpcError(tl('连不上 Tibi Core。先运行 pnpm core:dev'), 'offline', -32006)); };
-      s.onclose = () => { ws = undefined; for (const p of pending.values()) p.reject(new RpcError(tl('Core 断开了'), 'offline', -32006)); pending.clear(); };
+      s.onclose = () => {
+        ws = undefined;
+        if (opening) { opening = undefined; reject(new RpcError(tl('Core 断开了'), 'offline', -32006)); }
+        for (const p of pending.values()) p.reject(new RpcError(tl('Core 断开了'), 'offline', -32006));
+        pending.clear();
+      };
       s.onmessage = ev => {
         let f: Frame; try { f = JSON.parse(String(ev.data)); } catch { return; }
         if (f.method === 'event') { const p = f.params as { event: string; data: unknown }; for (const l of listeners) l(p.event, p.data); return; }
@@ -92,18 +97,28 @@ class Rpc {
 
   private get t(): Promise<Transport> {
     if (!this.transport) {
-      const mock = new URLSearchParams(location.search).get('mock');
-      this.transport = mock ? import('../mock').then(m => m.mockTransport()) : isWeb() ? import('../web/runtime').then(m => m.webTransport()) : flags().__TIBI_LOCAL_CORE__ ? import('../mobile/local/runtime').then(m => m.localTransport()) : isTauri() ? tauriTransport() : Promise.resolve(wsTransport(import.meta.env.VITE_CORE_WS ?? 'ws://127.0.0.1:3456'));
-      void this.transport.then(tr => {
+      const mock = import.meta.env.DEV && new URLSearchParams(location.search).get('mock');
+      const p = mock
+        ? import('../mock').then(m => m.mockTransport())
+        : isWeb()
+          ? import('../web/runtime').then(m => m.webTransport())
+          : flags().__TIBI_LOCAL_CORE__
+            ? import('../mobile/local/runtime').then(m => m.localTransport())
+            : isTauri()
+              ? tauriTransport()
+              : Promise.resolve(wsTransport(import.meta.env.VITE_CORE_WS ?? 'ws://127.0.0.1:3456'));
+      this.transport = p;
+      void p.then(tr => {
         this.kind = tr.kind;
         if (!this.bound) {
           this.bound = true;
-          startUsageAnalytics();
           tr.onEvent((e, d) => {
-            if (e === 'import.done') { const done = d as EventTable['import.done']; if (done.ok && !done.duplicate) trackUsage('import_succeeded'); }
             this.listeners.get(e)?.forEach(fn => fn(d));
           });
         }
+      }, () => {
+        // 启动失败时清除缓存，允许后续重试
+        if (this.transport === p) this.transport = undefined;
       });
     }
     return this.transport;
@@ -112,7 +127,6 @@ class Rpc {
   async call<M extends MethodName>(method: M, params: Params<M>): Promise<Result<M>> {
     const tr = await this.t;
     const result = (await tr.call(method, params)) as Result<M>;
-    if (method === 'terms.lookup') trackUsage('word_lookup_used');
     if (method === 'review.answer') trackUsage('review_answered');
     return result;
   }

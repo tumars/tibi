@@ -11,11 +11,11 @@ export interface DocumentRow extends Row {
   media_url: string | null; media_path: string | null; duration_ms: number | null; playback_ms: number; transcript_source: string | null;
   created_at: number; updated_at: number; last_read_at: number | null; finished_at: number | null; deleted_at: number | null;
 }
-export interface SectionRow extends Row { id: string; document_id: string; idx: number; title: string; content_md: string; word_count: number; status: string; ai_status: string; tokenizer_version: string | null; progress: number; last_sentence_id: string | null; finished_at: number | null }
+export interface SectionRow extends Row { id: string; document_id: string; idx: number; title: string; content_md: string; word_count: number; status: string; ai_status: string; tokenizer_version: string | null; progress: number; last_sentence_id: string | null; finished_at: number | null; deleted_at: number | null }
 export interface SentenceRow extends Row { id: string; section_id: string; paragraph_idx: number; block_type: string; idx: number; text: string; tokens: string; translation: string | null; start_ms: number | null; end_ms: number | null; speaker: string | null }
 
 export const DOC_COLS = 'id, title, author, kind, genre, source_type, source_uri, lang, content_hash, original_path, cover_path, published_at, word_count, section_count, status, process_error, ai_status, difficulty_cefr, rare_ratio, progress, last_section_id, is_favorite, is_archived, shelved, media_url, media_path, duration_ms, playback_ms, transcript_source, created_at, updated_at, last_read_at, finished_at, deleted_at';
-const SEC_COLS = 'id, document_id, idx, title, content_md, word_count, status, ai_status, tokenizer_version, progress, last_sentence_id, finished_at';
+const SEC_COLS = 'id, document_id, idx, title, content_md, word_count, status, ai_status, tokenizer_version, progress, last_sentence_id, finished_at, deleted_at';
 export const TOKENIZER_VERSION = 'tibi-1';
 export const WPM = 200;
 
@@ -81,11 +81,15 @@ export async function excerptOf(db: Database, document_id: string): Promise<stri
   return r?.text ?? '';
 }
 
-export async function toSummary(db: Database, d: DocumentRow): Promise<DocumentSummary> {
-  const tags = await documentTags(db, d.id);
-  const minutes = d.kind === 'episode' && d.duration_ms && d.duration_ms > 0
+export function docMinutes(d: Pick<DocumentRow, 'kind' | 'duration_ms' | 'word_count'>): number {
+  return d.kind === 'episode' && d.duration_ms && d.duration_ms > 0
     ? Math.max(1, Math.round(Number(d.duration_ms) / 60_000))
     : Math.max(1, Math.round(Number(d.word_count) / WPM));
+}
+
+export async function toSummary(db: Database, d: DocumentRow, preloadedSections?: SectionRow[]): Promise<DocumentSummary> {
+  const tags = await documentTags(db, d.id);
+  const minutes = docMinutes(d);
   const out: DocumentSummary = {
     id: d.id, kind: d.kind, genre: d.genre, title: d.title, author: d.author ?? undefined, source: sourceOf(d), source_type: d.source_type,
     source_url: (d.source_type === 'url' || d.source_type === 'podcast') && d.source_uri && /^https?:\/\//i.test(d.source_uri) ? d.source_uri : undefined,
@@ -94,7 +98,7 @@ export async function toSummary(db: Database, d: DocumentRow): Promise<DocumentS
     excerpt: await excerptOf(db, d.id), cover_path: d.cover_path ?? undefined, added_at: Number(d.created_at), opened_at: d.last_read_at != null ? Number(d.last_read_at) : undefined, finished_at: d.finished_at != null ? Number(d.finished_at) : undefined,
   };
   if (d.kind === 'book') {
-    const secs = await listSections(db, d.id);
+    const secs = preloadedSections ?? await listSections(db, d.id);
     const cur = secs.find(s => s.id === d.last_section_id) ?? secs[0];
     out.book = { chapter: (cur?.idx ?? 0) + 1, chapters: secs.length, chapter_progress: Number(cur?.progress ?? 0) };
   }
@@ -110,13 +114,24 @@ export async function toSummary(db: Database, d: DocumentRow): Promise<DocumentS
   return out;
 }
 
+const DOC_AI_TASKS = ['summary', 'advice', 'phrases', 'hard_sentences', 'glossary', 'characters', 'chapters', 'pre_vocab', 'spoken_expressions'] as const;
+type DocAiTask = (typeof DOC_AI_TASKS)[number];
+const DOC_AI_TASK_SET = new Set<string>(DOC_AI_TASKS);
+
 export async function toDocument(db: Database, d: DocumentRow): Promise<Document> {
-  const base = await toSummary(db, d);
-  const sections = (await listSections(db, d.id)).map(s => ({ id: s.id, idx: s.idx, title: s.title, status: s.status, progress: Number(s.progress), word_count: Number(s.word_count), finished_at: s.finished_at != null ? Number(s.finished_at) : undefined }));
+  const secRows = await listSections(db, d.id);
+  const base = await toSummary(db, d, secRows);
+  const sections = secRows.map(s => ({ id: s.id, idx: s.idx, title: s.title, status: s.status, progress: Number(s.progress), word_count: Number(s.word_count), finished_at: s.finished_at != null ? Number(s.finished_at) : undefined }));
   const ai: Document['ai'] = {};
-  for (const task of ['summary', 'advice', 'phrases', 'hard_sentences', 'glossary', 'characters', 'chapters', 'pre_vocab', 'spoken_expressions'] as const) {
-    const r = await db.get<{ output: string; model: string; prompt_version: string; created_at: number }>("SELECT output, model, prompt_version, created_at FROM ai_results WHERE scope = 'document' AND target_id = ? AND task = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1", [d.id, task]);
-    if (r) ai[task] = { task, output: j.parse(r.output, null), model: r.model, prompt_version: r.prompt_version, created_at: Number(r.created_at) };
+  const aiRows = await db.all<{ task: string; output: string; model: string; prompt_version: string; created_at: number }>(
+    `SELECT task, output, model, prompt_version, created_at FROM ai_results
+     WHERE scope = 'document' AND target_id = ? AND task IN (${DOC_AI_TASKS.map(() => '?').join(',')}) AND deleted_at IS NULL
+     ORDER BY created_at DESC`,
+    [d.id, ...DOC_AI_TASKS],
+  );
+  for (const r of aiRows) {
+    if (!DOC_AI_TASK_SET.has(r.task) || ai[r.task as DocAiTask]) continue;
+    ai[r.task as DocAiTask] = { task: r.task, output: j.parse(r.output, null), model: r.model, prompt_version: r.prompt_version, created_at: Number(r.created_at) };
   }
   return { ...base, sections, ai: Object.keys(ai).length ? ai : undefined };
 }

@@ -1,6 +1,6 @@
 import type { Document, EpisodeChapter, SectionContent } from '@tibi/core';
 import { Eye, EyeOff, LoaderCircle, Pause, Play, Repeat, RotateCcw, RotateCw, SkipBack, SkipForward } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, type RefObject } from 'react';
 import { Badge, InfoTip } from '../components/ui';
 import { tl } from '../lib/i18n';
 import { fmtClock, useMediaSrcReady } from '../lib/mediaSrc';
@@ -15,7 +15,7 @@ import { useAudio } from '../store/audio';
 const SPEEDS = [0.6, 0.75, 0.9, 1, 1.15, 1.25, 1.5, 1.75, 2];
 const GAPS = [0, 1, 2, 3];
 
-export function EpisodePlayer({ doc, content, scroller }: { doc: Document; content?: SectionContent; scroller: HTMLElement | null }) {
+export function EpisodePlayer({ doc, content, scrollerRef }: { doc: Document; content?: SectionContent; scrollerRef: RefObject<HTMLElement | null> }) {
   const mediaReady = useMediaSrcReady();
   const docId = useAudio(s => s.docId);
   const playing = useAudio(s => s.playing);
@@ -38,6 +38,7 @@ export function EpisodePlayer({ doc, content, scroller }: { doc: Document; conte
 
   // 当前播放句自动高亮并平滑滚到视野中间
   useEffect(() => {
+    const scroller = scrollerRef.current;
     if (!scroller || docId !== doc.id) return;
     scroller.querySelectorAll('.speaking').forEach(e => e.classList.remove('speaking'));
     if (!activeSentenceId) return;
@@ -46,7 +47,7 @@ export function EpisodePlayer({ doc, content, scroller }: { doc: Document; conte
       el.classList.add('speaking');
       if (playing) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
-  }, [activeSentenceId, playing, scroller, docId, doc.id]);
+  }, [activeSentenceId, playing, scrollerRef, docId, doc.id]);
 
   // 键盘快捷键（避开输入框与修饰键）
   useEffect(() => {
@@ -59,8 +60,8 @@ export function EpisodePlayer({ doc, content, scroller }: { doc: Document; conte
       if (st.docId !== doc.id) return;
       const k = e.key.toLowerCase();
       if (e.key === ' ' && !t?.closest('button, a')) { e.preventDefault(); st.toggle(); }
-      else if (k === '[') { e.preventDefault(); st.skip(-5000); }
-      else if (k === ']') { e.preventDefault(); st.skip(5000); }
+      else if (k === '[' || (e.key === 'ArrowLeft' && !t?.closest('[data-reader-body], [role="slider"]'))) { e.preventDefault(); st.skip(-5000); }
+      else if (k === ']' || (e.key === 'ArrowRight' && !t?.closest('[data-reader-body], [role="slider"]'))) { e.preventDefault(); st.skip(5000); }
       else if (k === 'r') { e.preventDefault(); st.replaySentence(); }
       else if (k === 'l') { e.preventDefault(); st.toggleLoopSentence(); }
       else if (k === 'b') { e.preventDefault(); st.toggleBlind(); }
@@ -93,6 +94,13 @@ export function EpisodePlayer({ doc, content, scroller }: { doc: Document; conte
             const r = e.currentTarget.getBoundingClientRect();
             const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
             useAudio.getState().seek(Math.round(ratio * durationMs));
+          }}
+          onKeyDown={e => {
+            if (!durationMs) return;
+            if (e.key === 'ArrowLeft') { e.preventDefault(); useAudio.getState().skip(-5000); }
+            else if (e.key === 'ArrowRight') { e.preventDefault(); useAudio.getState().skip(5000); }
+            else if (e.key === 'Home') { e.preventDefault(); useAudio.getState().seek(0); }
+            else if (e.key === 'End') { e.preventDefault(); useAudio.getState().seek(durationMs); }
           }}
         >
           <div className="epbar-fill" style={{ width: `${pct}%` }} />

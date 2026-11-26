@@ -76,7 +76,12 @@ export class PiEngine implements AgentEngine {
       this.drop(live);
       live = undefined;
     }
+    if (req.signal.aborted) return { status: 'aborted' };
     live ??= await this.create(req, key);
+    if (req.signal.aborted) {
+      if (!key) this.drop(live);
+      return { status: 'aborted' };
+    }
     if (key) this.live.set(key, live);
 
     const run: RunState = { req, turn: 0, tools: new Map(req.config.tools.map(t => [t.name, t])), pendingUserIds: req.inputMessageId ? [req.inputMessageId] : [], chain: Promise.resolve() };
@@ -86,6 +91,7 @@ export class PiEngine implements AgentEngine {
     let outcome: EngineOutcome = { status: 'error', error: '模型没有回复' };
     try {
       await this.useModel(live, req);
+      if (req.signal.aborted) { outcome = { status: 'aborted' }; return outcome; }
       const text = typeof req.input === 'string' ? req.input : req.input.map(p => p.text).join('\n\n');
       try { await live.session.prompt(text); } catch (e) { run.stopError ??= e instanceof Error ? e.message : String(e); }
       await run.chain;
@@ -110,7 +116,7 @@ export class PiEngine implements AgentEngine {
     const live = this.live.get(conversation_id);
     if (!live?.run || !live.session.isStreaming) return false;
     live.run.pendingUserIds.push(messageId);
-    void live.session.steer(text);
+    void live.session.steer(text).catch(() => { live.stale = true; });
     return true;
   }
 
@@ -155,8 +161,12 @@ export class PiEngine implements AgentEngine {
   }
 
   private getRuntime(): Promise<ModelRuntime> {
-    // 内存凭据、不读 models.json、不联网刷新模型目录
-    this.runtime ??= ModelRuntime.create({ credentials: new InMemoryCredentialStore(), modelsPath: null, allowModelNetwork: false, refreshOnCreate: false });
+    // 内存凭据、不读 models.json、不联网刷新模型目录；创建失败时清掉缓存以便重试
+    if (!this.runtime) {
+      const p = ModelRuntime.create({ credentials: new InMemoryCredentialStore(), modelsPath: null, allowModelNetwork: false, refreshOnCreate: false });
+      p.catch(() => { if (this.runtime === p) this.runtime = undefined; });
+      this.runtime = p;
+    }
     return this.runtime;
   }
 
@@ -226,7 +236,15 @@ export class PiEngine implements AgentEngine {
     const run = live.run;
     const hooks = run?.req.hooks ?? live.hooks;
     if (!hooks) return;
-    const persist = (fn: () => Promise<void>) => { if (run) run.chain = run.chain.then(fn, fn); else void fn(); };
+    const persist = (fn: () => Promise<void>) => {
+      const safe = () => fn().catch(e => {
+        console.error('[pi-engine] 写入对话记录失败', e);
+        if (run) run.stopError ??= e instanceof Error ? e.message : String(e);
+        live.stale = true;
+      });
+      if (run) run.chain = run.chain.then(safe);
+      else void safe();
+    };
     switch (ev.type) {
       case 'message_update':
         if (ev.assistantMessageEvent.type === 'text_delta') hooks.onEvent({ type: 'text_delta', delta: ev.assistantMessageEvent.delta });
@@ -297,13 +315,23 @@ function toEntries(history: StoredMessage[]): object[] {
   const out: object[] = [];
   let parent: string | null = null;
   let pending: { id: string; name: string }[] = [];
+  const deferredNotes: Record<string, unknown>[] = [];
   const push = (e: Record<string, unknown>) => { out.push({ ...e, parentId: parent }); parent = e.id as string; };
+  const flushNotes = () => { while (deferredNotes.length) push(deferredNotes.shift()!); };
   const close = (at: number) => {
     for (const c of pending) push({ type: 'message', id: `${c.id}_missing`, timestamp: new Date(at).toISOString(), message: { role: 'toolResult', toolCallId: c.id, toolName: c.name, content: [{ type: 'text', text: '错误：这一步没有执行完（中断了）' }], isError: true, timestamp: at } });
     pending = [];
+    flushNotes();
   };
   for (const m of history) {
     const ts = new Date(m.created_at).toISOString();
+    if (m.role === 'note') {
+      const b = m.body as { customType?: string; content?: string };
+      const entry = { type: 'custom_message', id: m.id, timestamp: ts, customType: b.customType ?? 'tibi.note', content: b.content ?? '', display: false };
+      // note 夹在 assistant(toolCall) 与 tool_result 之间时不提前终止 toolCall，等这批 tool_result 收齐再放
+      if (pending.length) deferredNotes.push(entry); else push(entry);
+      continue;
+    }
     if (m.role !== 'tool_result') close(m.created_at);
     if (m.role === 'user' || m.role === 'assistant' || m.role === 'tool_result') {
       const body = m.body as { role?: string; content?: unknown; toolCallId?: string };
@@ -314,13 +342,11 @@ function toEntries(history: StoredMessage[]): object[] {
       }
       if (m.role === 'tool_result') pending = pending.filter(c => c.id !== body.toolCallId);
       push({ type: 'message', id: m.id, timestamp: ts, message: body });
+      if (m.role === 'tool_result' && !pending.length) flushNotes();
     } else if (m.role === 'compaction') {
       const b = m.body as CompactionBody;
       const { summary, first_kept_id, tokens_before, ...rest } = b;
       push({ ...rest, type: 'compaction', id: m.id, timestamp: ts, summary, firstKeptEntryId: first_kept_id, tokensBefore: tokens_before });
-    } else if (m.role === 'note') {
-      const b = m.body as { customType?: string; content?: string };
-      push({ type: 'custom_message', id: m.id, timestamp: ts, customType: b.customType ?? 'tibi.note', content: b.content ?? '', display: false });
     }
   }
   close(Date.now());

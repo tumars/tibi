@@ -1,7 +1,7 @@
 import type { DocumentSummary } from '@tibi/core';
 import { ArrowUp, Clipboard, Plus, RotateCcw, Search, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { tl } from '../lib/i18n';
 import { classifyInput, fmtMinutes, fmtPct, GENRE_NAMES, isImeKey } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
@@ -13,17 +13,27 @@ import { Ring, Thread } from './ui';
 /** 今天（00 §3.13 J2、J9）：一行进度、继续读、复习卡、两条建议；下面接今天的对话，输入条常驻在标签栏上方 */
 export function Today() {
   const nav = useNavigate();
-  const { todayMinutes, goal, streak, due } = useCore();
+  const [params] = useSearchParams();
+  const requestedConv = params.get('conv') ?? undefined;
+  const todayMinutes = useCore(s => s.todayMinutes);
+  const goal = useCore(s => s.goal);
+  const streak = useCore(s => s.streak);
+  const due = useCore(s => s.due);
   const [lead, setLead] = useState<DocumentSummary>();
-  const [conv, setConv] = useState<string>();
+  const [conv, setConv] = useState<string | undefined>(requestedConv);
   const [text, setText] = useState('');
   const [imp, setImp] = useState(false);
   const askRef = useRef<((t: string) => Promise<boolean>) | undefined>(undefined);
 
   useEffect(() => {
     rpc.call('documents.list', { sort: 'opened', limit: 12 }).then(r => setLead(r.items.find(d => d.progress > 0 && d.progress < 1) ?? r.items.find(d => d.progress === 0)), () => undefined);
-    rpc.call('chat.open', { today: true }).then(c => setConv(c.id), () => undefined);
   }, []);
+  useEffect(() => {
+    if (requestedConv) { setConv(requestedConv); return; }
+    let alive = true;
+    rpc.call('chat.open', { today: true }).then(c => { if (alive) setConv(c.id); }, () => undefined);
+    return () => { alive = false; };
+  }, [requestedConv]);
   const onAsk = useCallback((send: (t: string) => Promise<boolean>) => { askRef.current = send; }, []);
 
   const submit = async (raw = text) => {
@@ -31,8 +41,9 @@ export function Today() {
     setText('');
     const k = classifyInput(t);
     if (k === 'ask') {
+      if (!askRef.current) { setText(cur => cur || t); return; }
       requestAnimationFrame(() => document.querySelector('#s-home')?.scrollTo({ top: 1e6, behavior: 'smooth' }));
-      if (await askRef.current?.(t) === false) setText(cur => cur || t);   // 没发出去：把话还给输入框
+      if (!(await askRef.current(t))) setText(cur => cur || t);   // 没发出去：把话还给输入框
       return;
     }
     try { await rpc.call('documents.import', { source: k === 'url' ? { type: 'url', url: t } : { type: 'text', text: t } }); toast(tl('正在导入，好了会放进书架'), { action: { label: tl('去书架'), run: () => nav('/library') } }); }

@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir, hostname } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { sync } from '@tibi/core';
 type SyncBackend = sync.SyncBackend;
 
@@ -11,15 +11,27 @@ type SyncBackend = sync.SyncBackend;
  * 需要签名并带 iCloud 权限的版本才有这个容器；没有时提示改用 WebDAV 或自选文件夹。
  */
 export function folderBackend(root: string, kind: 'folder' | 'icloud' = 'folder'): SyncBackend {
-  const abs = (p: string) => join(root, ...p.split('/'));
+  const base = resolve(root);
+  const abs = (p: string) => {
+    if (!p || p.includes('\0') || p.includes('\\') || p.startsWith('/')) throw new sync.SyncError('other', '同步路径非法');
+    const segs = p.split('/');
+    if (segs.some(s => !s || s === '.' || s === '..')) throw new sync.SyncError('other', '同步路径非法');
+    const target = resolve(base, ...segs);
+    if (target !== base && !target.startsWith(base + sep)) throw new sync.SyncError('other', '同步路径越界');
+    return target;
+  };
   return {
     kind,
     async read(p) { try { return new Uint8Array(await readFile(abs(p))); } catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw e; } },
     async write(p, d) {
       const f = abs(p); await mkdir(dirname(f), { recursive: true });
-      const tmp = `${f}.tmp-${process.pid}`;
+      const tmp = `${f}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       try { await writeFile(tmp, d); await rename(tmp, f); }
-      catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOSPC') throw new sync.SyncError('quota', '磁盘空间不够了。'); throw e; }
+      catch (e) {
+        await rm(tmp, { force: true }).catch(() => undefined);
+        if ((e as NodeJS.ErrnoException).code === 'ENOSPC') throw new sync.SyncError('quota', '磁盘空间不够了。');
+        throw e;
+      }
     },
     async list(dir) { try { return (await readdir(abs(dir), { withFileTypes: true })).filter(e => e.isFile() && !e.name.includes('.tmp-')).map(e => e.name); } catch { return []; } },
     async remove(p) { await rm(abs(p), { force: true }); },

@@ -49,7 +49,8 @@ export const termsMethods: MethodMap = {
     const isPhrase = /\s/.test(raw);
     const lemma = isPhrase ? raw.toLowerCase().replace(/\s+/g, ' ') : await lemmatize(normalizeCase(raw, true), ctx.dict);
     const term = await getTermByText(ctx.db, lemma, isPhrase ? 'phrase' : 'word');
-    const cached = await contextMeaning(ctx.db, term?.id, lemma, p.sentence_id);
+    const live = term && !term.deleted_at ? term : undefined;
+    const cached = await contextMeaning(ctx.db, live?.id, lemma, p.sentence_id);
     if (cached) return { meaning: cached, cached: true };
     const sent = await ctx.db.get<{ text: string; kind: string | null }>('SELECT s.text, d.kind FROM sentences s JOIN sections sec ON sec.id = s.section_id JOIN documents d ON d.id = sec.document_id WHERE s.id = ? AND s.deleted_at IS NULL', [p.sentence_id]);
     if (!sent) throw new TibiError('not_found', '句子不在了');
@@ -64,7 +65,7 @@ export const termsMethods: MethodMap = {
     });
     const meaning = cleanMeaning(r.text);
     if (!meaning) throw new TibiError('model_unavailable', '模型没有给出释义');
-    if (term) await setContextMeaning(ctx.db, term.id, p.sentence_id, meaning);
+    if (live) await setContextMeaning(ctx.db, live.id, p.sentence_id, meaning);
     else await cacheSentenceMeaning(ctx.db, p.sentence_id, lemma, meaning);
     return { meaning, cached: false };
   }, 'M1：词卡的语境释义。先查缓存（预生成结果、term_contexts）；没有就用快速档模型现写一条并缓存。没连模型返回 model_unavailable'),
@@ -76,7 +77,11 @@ export const termsMethods: MethodMap = {
   }), async (p, ctx) => listTerms(ctx.db, ctx.dict, p as never), '生词本列表与视图计数'),
 
   'terms.get': method(Type.Union([Type.Object({ id: S.id }), Type.Object({ text: Type.String() })]), async (p, ctx) => {
-    const term = 'id' in p ? await requireTerm(ctx.db, p.id) : await getTermByText(ctx.db, /\s/.test(p.text) ? p.text.toLowerCase().replace(/\s+/g, ' ') : await lemmatize(p.text.toLowerCase(), ctx.dict), /\s/.test(p.text) ? 'phrase' : 'word');
+    const raw = 'text' in p ? p.text.trim() : '';
+    const isPhrase = /\s/.test(raw);
+    const term = 'id' in p
+      ? await requireTerm(ctx.db, p.id)
+      : await getTermByText(ctx.db, isPhrase ? raw.toLowerCase().replace(/\s+/g, ' ') : await lemmatize(raw.toLowerCase(), ctx.dict), isPhrase ? 'phrase' : 'word');
     if (!term || term.deleted_at) throw new TibiError('not_found', '找不到这个词');
     return termDetail(ctx.db, ctx.dict, term);
   }, '详情抽屉'),

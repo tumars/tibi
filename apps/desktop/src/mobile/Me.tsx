@@ -16,9 +16,17 @@ import { AnalyticsItem } from '../settings/AnalyticsItem';
 
 type SheetKind = 'dict' | 'words' | 'chats' | 'memory' | 'sync' | 'model' | 'look' | 'remind';
 
+function MenuItem({ k, icon, color, label, right, onPick }: { k: SheetKind; icon: ReactNode; color: string; label: string; right?: ReactNode; onPick: (k: SheetKind) => void }) {
+  return <a href="#" onClick={e => { e.preventDefault(); onPick(k); }}><span className="ti" style={{ ['--c' as string]: color }}>{icon}</span>{label}<span className="r">{right && <em>{right}</em>}<ChevronRight size={18} /></span></a>;
+}
+
 /** 我（00 §3.13）：连续天数圆环、生词本、对话记录、记忆、同步、模型、外观与语言 */
 export function Me() {
-  const { streak, todayMinutes, goal, wordCount, status } = useCore();
+  const streak = useCore(s => s.streak);
+  const todayMinutes = useCore(s => s.todayMinutes);
+  const goal = useCore(s => s.goal);
+  const wordCount = useCore(s => s.wordCount);
+  const status = useCore(s => s.status);
   const [sheet, setSheet] = useState<SheetKind>();
   const [sync, setSync] = useState<SyncStatus>();
   const nav = useNavigate();
@@ -26,32 +34,30 @@ export function Me() {
     const load = () => rpc.call('sync.status', {}).then(setSync, () => undefined);
     void load(); return rpc.on('sync.update', () => void load());
   }, []);
-  const Item = ({ k, icon, color, label, right }: { k: SheetKind; icon: ReactNode; color: string; label: string; right?: ReactNode }) =>
-    <a href="#" onClick={e => { e.preventDefault(); setSheet(k); }}><span className="ti" style={{ ['--c' as string]: color }}>{icon}</span>{label}<span className="r">{right && <em>{right}</em>}<ChevronRight size={18} /></span></a>;
   return (
     <div className="screen me" id="s-me">
       <div className="topgap" />
       <div className="head"><Ring value={goal ? todayMinutes / goal : 0} size={64} stroke={6} /><div><b>{tl('连续 {n} 天', { n: streak })}</b><span>{tl('今日 {m} / {g} 分钟', { m: todayMinutes, g: goal })}</span></div></div>
       <div className="pad sec">
         <div className="card menu">
-          <Item k="words" icon={<Bookmark />} color="#f5a043" label={tl('生词本')} right={wordCount || undefined} />
-          <Item k="dict" icon={<BookA />} color="#0f8b8d" label={tl('词典')} />
-          <Item k="chats" icon={<MessageSquare />} color="#3d52e0" label={tl('对话记录')} />
-          <Item k="memory" icon={<Brain />} color="#8e5cd9" label={tl('Tibi 记忆')} />
+          <MenuItem k="words" onPick={setSheet} icon={<Bookmark />} color="#f5a043" label={tl('生词本')} right={wordCount || undefined} />
+          <MenuItem k="dict" onPick={setSheet} icon={<BookA />} color="#0f8b8d" label={tl('词典')} />
+          <MenuItem k="chats" onPick={setSheet} icon={<MessageSquare />} color="#3d52e0" label={tl('对话记录')} />
+          <MenuItem k="memory" onPick={setSheet} icon={<Brain />} color="#8e5cd9" label={tl('Tibi 记忆')} />
         </div>
       </div>
       <div className="pad sec">
         <div className="card menu">
-          <Item k="sync" icon={<Cloud />} color="#0a84ff" label={tl('同步')} right={sync?.enabled ? (sync.last_synced_at ? fmtAgo(sync.last_synced_at) : tl('已开启')) : tl('关')} />
-          <Item k="model" icon={<KeyRound />} color="#c98a1b" label={tl('模型')} right={status?.models.ok ? status.models.fast : tl('未连接')} />
-          <Item k="remind" icon={<Bell />} color="#c2452d" label={tl('每日提醒')} />
-          <Item k="look" icon={<Moon />} color="#636366" label={tl('外观与语言')} />
+          <MenuItem k="sync" onPick={setSheet} icon={<Cloud />} color="#0a84ff" label={tl('同步')} right={sync?.enabled ? (sync.last_synced_at ? fmtAgo(sync.last_synced_at) : tl('已开启')) : tl('关')} />
+          <MenuItem k="model" onPick={setSheet} icon={<KeyRound />} color="#c98a1b" label={tl('模型')} right={status?.models.ok ? status.models.fast : tl('未连接')} />
+          <MenuItem k="remind" onPick={setSheet} icon={<Bell />} color="#c2452d" label={tl('每日提醒')} />
+          <MenuItem k="look" onPick={setSheet} icon={<Moon />} color="#636366" label={tl('外观与语言')} />
           <AnalyticsItem />
         </div>
       </div>
       <Sheet open={sheet === 'words'} onClose={() => setSheet(undefined)} tall><WordsList /></Sheet>
       <Sheet open={sheet === 'dict'} onClose={() => setSheet(undefined)} tall full>{sheet === 'dict' && <><h2>{tl('词典')}</h2><Dictionary compact onOpenDoc={id => nav(`/read/${id}`)} /></>}</Sheet>
-      <Sheet open={sheet === 'chats'} onClose={() => setSheet(undefined)} tall><Chats onOpen={() => setSheet(undefined)} /></Sheet>
+      <Sheet open={sheet === 'chats'} onClose={() => setSheet(undefined)} tall><Chats onOpen={id => { setSheet(undefined); nav(`/?conv=${encodeURIComponent(id)}`); }} /></Sheet>
       <Sheet open={sheet === 'memory'} onClose={() => setSheet(undefined)} tall><Memories /></Sheet>
       <Sheet open={sheet === 'sync'} onClose={() => setSheet(undefined)} tall><SyncPanel st={sync} onChange={setSync} /></Sheet>
       <Sheet open={sheet === 'model'} onClose={() => setSheet(undefined)} tall><ModelPanel onDone={() => setSheet(undefined)} /></Sheet>
@@ -68,12 +74,11 @@ function WordsList() {
     <div className="card">{items?.map(t => <div key={t.id} className="doc"><span className="b"><span className="t">{t.display}</span><span className="m">{t.meaning || t.short_gloss || ''}</span></span><span className={`stage s${t.status}`}>{STATUS_NAMES[t.status]}</span></div>)}</div>}</>;
 }
 
-function Chats({ onOpen }: { onOpen: () => void }) {
-  const nav = useNavigate(); void nav; void onOpen;
+function Chats({ onOpen }: { onOpen: (id: string) => void }) {
   const [items, setItems] = useState<Conversation[]>();
   useEffect(() => { rpc.call('chat.list', { limit: 50 }).then(setItems, () => setItems([])); }, []);
   return <><h2>{tl('对话记录')}</h2>{items && !items.length ? <Empty title={tl('还没有对话')} /> :
-    <div className="card">{items?.map(c => <div key={c.id} className="doc"><span className="b"><span className="t">{c.kind === 'day' && c.day ? tl('{d} · 今天的对话', { d: fmtDate(new Date(c.day).getTime()) }) : c.title || tl('对话')}</span><span className="m">{fmtAgo(c.updated_at)}</span></span></div>)}</div>}</>;
+    <div className="card">{items?.map(c => <button key={c.id} className="doc" style={{ width: '100%', textAlign: 'left' }} onClick={() => onOpen(c.id)}><span className="b"><span className="t">{c.kind === 'day' && c.day ? tl('{d} · 今天的对话', { d: fmtDate(new Date(c.day).getTime()) }) : c.title || tl('对话')}</span><span className="m">{fmtAgo(c.updated_at)}</span></span><ChevronRight size={16} /></button>)}</div>}</>;
 }
 
 function Memories() {

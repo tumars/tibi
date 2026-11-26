@@ -10,7 +10,7 @@ const ORDER = ['tibi', 'scout', 'tutor', 'coach', 'insight', 'archivist'];
 
 /** 只支持 SKILL.md 用到的 YAML 子集：key: value、key: [a, b]、两空格缩进的一层嵌套 */
 function parseFrontmatter(text) {
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  const m = text.replace(/\r\n/g, '\n').match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!m) throw new Error('SKILL.md 缺少 frontmatter');
   const meta = {}; let current = null;
   for (const raw of m[1].split('\n')) {
@@ -24,8 +24,9 @@ function parseFrontmatter(text) {
   return { meta, body: m[2].trim() };
 }
 
+const rank = id => { const i = ORDER.indexOf(id); return i < 0 ? ORDER.length : i; };
 const defs = [];
-for (const id of readdirSync(dir).filter(d => statSync(join(dir, d)).isDirectory()).sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))) {
+for (const id of readdirSync(dir).filter(d => statSync(join(dir, d)).isDirectory()).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))) {
   const { meta, body } = parseFrontmatter(readFileSync(join(dir, id, 'SKILL.md'), 'utf8'));
   if (meta.name !== id) throw new Error(`${id}/SKILL.md 的 name 与目录不一致`);
   defs.push({

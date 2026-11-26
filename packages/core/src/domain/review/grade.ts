@@ -1,4 +1,5 @@
 import type { CardType, PracticeMode, Rating, Status } from '../../types.js';
+import { damerauLevenshtein } from '../text/distance.js';
 
 /**
  * 评分规则（G1，00 §3.3）：用户只管答题，评分交给系统。
@@ -13,20 +14,7 @@ export function normalizeAnswer(s: string): string {
 
 /** 编辑距离（相邻两个字母写反算 1 步，Damerau 最优串对齐） */
 export function levenshtein(a: string, b: string): number {
-  if (a === b) return 0;
-  const m = a.length, n = b.length;
-  if (!m) return n; if (!n) return m;
-  const d: number[][] = Array.from({ length: m + 1 }, (_, i) => { const r = new Array<number>(n + 1).fill(0); r[0] = i; return r; });
-  for (let j = 0; j <= n; j++) d[0]![j] = j;
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      let v = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + cost);
-      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, d[i - 2]![j - 2]! + 1);
-      d[i]![j] = v;
-    }
-  }
-  return d[m]![n]!;
+  return damerauLevenshtein(a, b);
 }
 
 export interface Judged { correct: boolean; near_miss: boolean; distance?: number }

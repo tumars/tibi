@@ -1,15 +1,16 @@
 import type { FeedCandidate, FeedItemView, FeedView } from '@tibi/core';
 import { BookmarkCheck, BookmarkPlus, Check, ExternalLink, Plus, RefreshCw, Settings2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { NavLink, useNavigate, useSearchParams } from 'react-router';
+import { NavLink } from 'react-router';
 import { Empty } from '../components/Empty';
 import { Modal } from '../components/Modal';
 import { Pager } from '../components/Pager';
 import { Top } from '../components/Shell';
 import { ObjectMenuButton, useObjectMenu } from '../components/ObjectMenu';
-import { Alert, SettingItem } from '../components/ui';
+import { Alert } from '../components/ui';
+import { FeedManageView } from '../feeds/FeedManageView';
+import { useFeedBrowser } from '../feeds/useFeedBrowser';
 import { copyText, openSource } from '../lib/contextActions';
-import { Switch } from '../components/Switch';
 import { tl } from '../lib/i18n';
 import { fmtAgo, fmtMinutes } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
@@ -23,88 +24,24 @@ type Filter = 'unread' | 'all' | 'saved';
 const PAGE = 30;
 
 export function Feeds() {
-  const nav = useNavigate();
-  const [params, setParams] = useSearchParams();
-  const feedId = params.get('feed') ?? undefined; const folder = params.get('folder') ?? undefined;
   const [filter, setFilter] = useState<Filter>('unread');
-  const [feeds, setFeeds] = useState<FeedView[]>([]);
-  const [items, setItems] = useState<FeedItemView[]>();
-  const [count, setCount] = useState(0);
-  // 换源、换筛选回到第一页
-  const key = `${feedId}|${folder}|${filter}`;
-  const [pg, setPg] = useState({ key, n: 0 });
-  const page = pg.key === key ? pg.n : 0;
-  const scroller = useRef<HTMLDivElement>(null);
-  const asOf = useRef(0);   // 第一页拿到的时刻；往后翻都按这一刻算，滚过去标了已读也不错位
-  const [refreshing, setRefreshing] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [busy, setBusy] = useState<Record<string, string>>({});   // 条目 → 导入进度
-  const pending = useRef(new Map<string, { item: string; open: boolean }>());   // import_id → 条目
-
-  const loadFeeds = useCallback(() => rpc.call('feeds.list', { kind: 'article' }).then(setFeeds, () => setFeeds([])), []);
-  const loadItems = useCallback(async () => {
-    try {
-      if (!page) asOf.current = Date.now();
-      const r = await rpc.call('feeds.items', { kind: 'article', feed_id: feedId, folder, filter, ...(page ? { cursor: String(page * PAGE), as_of: asOf.current } : {}), limit: PAGE });
-      // 这一页清空了（都标已读、都不感兴趣）就往前翻
-      if (r.items.length === 0 && page > 0) { setPg({ key, n: Math.max(0, Math.ceil(r.total / PAGE) - 1) }); return; }
-      // 旧版 core 不给 total：按有没有下一页估，至少能往后翻
-      setItems(r.items); setCount(r.total ?? page * PAGE + r.items.length + (r.next_cursor ? 1 : 0));
-    } catch { setItems([]); setCount(0); }
-  }, [feedId, folder, filter, page, key]);
-  useEffect(() => { void loadFeeds(); }, [loadFeeds]);
-  useEffect(() => { void loadItems(); }, [loadItems]);
-  const turn = (n: number) => { setPg({ key, n }); scroller.current?.scrollTo({ top: 0 }); };
-  /** 刷新、全部已读之后从第一页重新看 */
-  const restart = async () => { if (page) turn(0); else await loadItems(); };
-  // 源的未读数跟着变；条目列表只在空着的时候自动刷新
-  useEffect(() => rpc.on('data.changed', d => {
-    if (d.table !== 'feeds' && d.table !== 'feed_items') return;
-    void loadFeeds();
-    setItems(cur => { if (cur && cur.length === 0) void loadItems(); return cur; });
-  }), [loadFeeds, loadItems]);
-
-  useEffect(() => {
-    const off1 = rpc.on('import.progress', d => { const p = pending.current.get(d.import_id); if (p) setBusy(b => ({ ...b, [p.item]: d.label })); });
-    const off2 = rpc.on('import.done', d => {
-      const p = pending.current.get(d.import_id); if (!p) return;
-      pending.current.delete(d.import_id);
-      setBusy(b => { const n = { ...b }; delete n[p.item]; return n; });
-      // 成功和失败的提示由 App 统一给
-      if (!d.ok) return;
-      setItems(cur => cur?.map(i => (i.id === p.item ? { ...i, state: p.open ? 'seen' : 'saved', document_id: d.document_id, in_library: !p.open || i.in_library } : i)));
-      if (p.open) nav(`/read/${d.document_id}`);
-    });
-    return () => { off1(); off2(); };
-  }, [nav]);
+  const refreshFailToast = useCallback((n: number) => tl('{n} 个源没刷新成功，在管理里看原因', { n }), []);
+  const {
+    feedId, folder, feeds, items, setItems, count, loadError, key, page, scroller, refreshing, busy,
+    loadFeeds, loadItems, turn, restart, refresh, openOrImport, dismiss, pickFeed,
+  } = useFeedBrowser({
+    kind: 'article',
+    filter,
+    pageSize: PAGE,
+    dismissToast: tl('不再显示这篇'),
+    refreshFailToast,
+  });
 
   // 读：同一个阅读器打开，但不进书架（11 §5.2）；加入书架：放进书架，不跳转
-  const read = async (it: FeedItemView, open: boolean) => {
-    if (it.document_id && open) { nav(`/read/${it.document_id}`); return; }
-    if (it.document_id) { await shelve(it); return; }
-    if (busy[it.id]) return;
-    try {
-      setBusy(b => ({ ...b, [it.id]: open ? tl('正在打开…') : tl('正在加入书架…') }));
-      const { import_id } = await rpc.call('documents.import', { source: { type: 'url', url: it.url, title: it.title }, shelve: !open });
-      pending.current.set(import_id, { item: it.id, open });
-    } catch (e) { setBusy(b => { const n = { ...b }; delete n[it.id]; return n; }); toast(errorInfo(e).message, { kind: 'err' }); }
-  };
-  /** 读过但没进书架的：放进书架 */
-  const shelve = async (it: FeedItemView) => {
-    if (!it.document_id) return;
-    try {
-      await rpc.call('documents.update', { id: it.document_id, patch: { shelved: true } });
-      setItems(cur => cur?.map(i => (i.id === it.id ? { ...i, in_library: true } : i)));
-      toast(tl('已放进书架：{title}', { title: it.title }));
-    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  };
-  const dismiss = async (it: FeedItemView) => {
-    try {
-      const r = await rpc.call('feeds.mark', { ids: [it.id], state: 'dismissed' });
-      setItems(cur => cur?.filter(i => i.id !== it.id));
-      if (r.undo) toast(tl('不再显示这篇'), { action: { label: tl('撤销'), run: () => void rpc.call('system.undo', { undo_id: r.undo!.undo_id }).then(() => loadItems(), e => toast(errorInfo(e).message, { kind: 'err' })) } });
-    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  };
+  const read = (it: FeedItemView, open: boolean) =>
+    openOrImport(it, open, { type: 'url', url: it.url, title: it.title }, open ? tl('正在打开…') : tl('正在加入书架…'));
+
   const menu = useObjectMenu<FeedItemView>(it => [
     { label: tl('阅读'), enabled: !busy[it.id], run: () => void read(it, true) },
     { label: it.in_library ? tl('在书架里') : tl('加入书架'), enabled: !it.in_library && !busy[it.id], run: () => void read(it, false) }, null,
@@ -113,12 +50,6 @@ export function Feeds() {
     ...(it.comments_url ? [{ label: tl('看讨论'), run: () => void openSource(it.comments_url!) }] : []),
     ...(!it.document_id && !busy[it.id] ? [null, { label: tl('不感兴趣'), run: () => void dismiss(it) }] : []),
   ], `${key}|${page}`);
-  const refresh = async () => {
-    setRefreshing(true);
-    try { const r = await rpc.call('feeds.refresh', { ...(feedId ? { feed_ids: [feedId] } : { kind: 'article' }), force: true }); await restart(); if (r.failed) toast(tl('{n} 个源没刷新成功，在管理里看原因', { n: r.failed })); }
-    catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-    setRefreshing(false);
-  };
   const markAll = async () => {
     try { await rpc.call('feeds.mark', feedId ? { feed_id: feedId, state: 'seen' } : { kind: 'article', all: true, state: 'seen' }); await restart(); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
   };
@@ -148,7 +79,7 @@ export function Feeds() {
       if (seenQueue.current.size) void rpc.call('feeds.mark', { ids: [...seenQueue.current], state: 'seen' }).catch(() => undefined);
       seenQueue.current.clear();
     };
-  }, []);
+  }, [scroller, setItems]);
   const watch = (el: HTMLElement | null, g: FeedItemView[]) => { if (el && g.some(i => i.state === 'new')) observer.current?.observe(el); };
   const [variant, setVariant] = useState<Record<string, string>>({});   // 分级稿：卡片 → 选中的那一版
   useEffect(() => { menu.close(); }, [items, variant, menu.close]);
@@ -157,7 +88,7 @@ export function Feeds() {
   const folders = [...new Set(feeds.filter(f => f.enabled && f.folder).map(f => f.folder!))];
   const enabled = feeds.filter(f => f.enabled);
   const total = enabled.reduce((a, f) => a + f.unread, 0);
-  const go = (p: { feed?: string; folder?: string }) => setParams(Object.fromEntries(Object.entries(p).filter(([, v]) => v)) as Record<string, string>);
+  const go = (p: { feed?: string; folder?: string }) => pickFeed(p.feed, p.folder);
   const title = current?.title ?? folder ?? tl('全部');
 
   return (
@@ -190,7 +121,9 @@ export function Feeds() {
             </Alert>
           )}
           {items === undefined ? null : items.length === 0
-            ? (feeds.length === 0 || enabled.length === 0
+            ? (loadError
+              ? <Empty image="error-generic" title={loadError} action={<button className="btn" onClick={() => void loadItems()}>{tl('重试')}</button>} />
+              : feeds.length === 0 || enabled.length === 0
               ? <Empty image="empty-library" title={tl('暂无文章订阅源。')} action={<button className="btn pri" onClick={() => setAdding(true)}>{tl('添加订阅')}</button>} />
               : current?.error && !current.last_ok_at
               ? <Empty image="error-generic" title={tl('尚未获取到该订阅源的文章。')} action={<button className="btn" disabled={refreshing} onClick={() => void refresh()}>{tl('重试')}</button>} />
@@ -254,7 +187,7 @@ function groupLevels(items: FeedItemView[]): FeedItemView[][] {
     const g = at.get(key); if (g) { g.push(it); continue; }
     const ng = [it]; at.set(key, ng); out.push(ng);
   }
-  for (const g of out) if (g.length > 1) g.sort((a, b) => levelNo(a.title).localeCompare(levelNo(b.title)));
+  for (const g of out) if (g.length > 1) g.sort((a, b) => levelNo(a.title).localeCompare(levelNo(b.title), undefined, { numeric: true }));
   return out;
 }
 
@@ -276,10 +209,19 @@ function AddFeedModal({ onClose, onAdded }: { onClose: () => void; onAdded: (f: 
   const [pick, setPick] = useState<string>();
   const [folder, setFolder] = useState('');
   const [busy, setBusy] = useState(false);
+  const discoverSeq = useRef(0);
   const discover = async () => {
+    const seq = ++discoverSeq.current;
     setBusy(true);
-    try { const c = await rpc.call('feeds.discover', { url: url.trim() }); setFound(c); setPick(c[0]?.url); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-    setBusy(false);
+    try {
+      const c = await rpc.call('feeds.discover', { url: url.trim() });
+      if (seq !== discoverSeq.current) return;
+      setFound(c); setPick(c[0]?.url);
+    } catch (e) {
+      if (seq === discoverSeq.current) toast(errorInfo(e).message, { kind: 'err' });
+    } finally {
+      if (seq === discoverSeq.current) setBusy(false);
+    }
   };
   const add = async () => {
     if (!pick) return;
@@ -291,8 +233,9 @@ function AddFeedModal({ onClose, onAdded }: { onClose: () => void; onAdded: (f: 
       actions={<><button className="btn" onClick={onClose}>{tl('取消')}</button>
         {found ? <button className="btn pri" disabled={!pick || busy} onClick={() => void add()}>{busy ? tl('订阅中…') : tl('订阅')}</button>
           : <button className="btn pri" disabled={!url.trim() || busy} onClick={() => void discover()}>{busy ? tl('检查中…') : tl('查找订阅源')}</button>}</>}>
-      <input className="input" autoFocus style={{ width: '100%' }} value={url} onChange={e => { setUrl(e.target.value); setFound(undefined); }} onKeyDown={e => { if (e.key === 'Enter' && url.trim() && !busy && !found) void discover(); }} placeholder={tl('网站地址或 RSS / Atom 链接')} aria-label={tl('网址')} />
+      <input className="input" autoFocus style={{ width: '100%' }} value={url} onChange={e => { discoverSeq.current++; setBusy(false); setUrl(e.target.value); setFound(undefined); }} onKeyDown={e => { if (e.key === 'Enter' && url.trim() && !busy && !found) void discover(); }} placeholder={tl('网站地址或 RSS / Atom 链接')} aria-label={tl('网址')} />
       {found && <div className="feedcands">
+        {found.length === 0 && <p className="lbl">{tl('没有找到')}</p>}
         {found.length > 1 && <p className="lbl">{tl('检测到 {n} 个订阅源，请选择：', { n: found.length })}</p>}
         {found.map(c => <label key={c.url} className={`cand${pick === c.url ? ' on' : ''}`}>
           <input type="radio" name="feedcand" checked={pick === c.url} onChange={() => setPick(c.url)} />
@@ -306,48 +249,17 @@ function AddFeedModal({ onClose, onAdded }: { onClose: () => void; onAdded: (f: 
 
 /** 管理订阅：开关、改名、分组、删除（可撤销），看出错原因；自动刷新开关是本机设置 */
 export function FeedsManage() {
-  const [feeds, setFeeds] = useState<FeedView[]>();
-  const [auto, setAuto] = useState<boolean>();
-  const [adding, setAdding] = useState(false);
-  const load = useCallback(() => rpc.call('feeds.list', { kind: 'article' }).then(setFeeds, () => setFeeds([])), []);
-  useEffect(() => { void load(); rpc.call('feeds.status', {}).then(s => setAuto(s.auto_refresh), () => undefined); return rpc.on('data.changed', d => { if (d.table === 'feeds') void load(); }); }, [load]);
-  const update = async (p: { id: string; title?: string; folder?: string; enabled?: boolean }) => {
-    try { const f = await rpc.call('feeds.update', p); setFeeds(cur => cur?.map(x => (x.id === f.id ? f : x))); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  };
-  const remove = async (f: FeedView) => {
-    try {
-      const r = await rpc.call('feeds.remove', { id: f.id }); await load();
-      toast(tl('已删除订阅 {title}', { title: f.title }), { action: { label: tl('撤销'), run: () => void rpc.call('system.undo', { undo_id: r.undo.undo_id }).then(() => load(), e => toast(errorInfo(e).message, { kind: 'err' })) } });
-    } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); }
-  };
-  const setAutoRefresh = async (v: boolean) => { try { setAuto((await rpc.call('feeds.configure', { auto_refresh: v })).auto_refresh); } catch (e) { toast(errorInfo(e).message, { kind: 'err' }); } };
-
   return (
-    <>
-      <Top crumbs={[{ label: tl('订阅'), to: '/feeds' }, { label: tl('管理') }]} right={<button className="btn sm" onClick={() => setAdding(true)}><Plus />{tl('添加订阅')}</button>} />
-      <div className="scroll"><div className="page feedmanage">
-        {auto !== undefined && (
-          <div className="group">
-            <SettingItem
-              title={tl('自动刷新订阅')}
-              tip={tl('应用运行时每 30 分钟检查更新，同一订阅源至少间隔 2 小时；关闭后仅手动刷新。仅对本机生效。')}
-              control={<Switch label={tl('自动刷新订阅')} checked={auto} onChange={v => void setAutoRefresh(v)} />}
-            />
-          </div>
-        )}
-        {feeds?.length === 0 && <Empty image="empty-library" title={tl('暂无文章订阅源。')} action={<button className="btn pri" onClick={() => setAdding(true)}>{tl('添加订阅')}</button>} />}
-        <div className="feedrows">{feeds?.map(f => <div key={f.id} className={`feedrow${f.enabled ? '' : ' off'}`}>
-          <Switch label={f.title} checked={f.enabled} onChange={v => void update({ id: f.id, enabled: v })} />
-          <div className="fmain">
-            <input className="input ftitle" defaultValue={f.title} aria-label={tl('名字')} onBlur={e => { const v = e.target.value.trim(); if (v && v !== f.title) void update({ id: f.id, title: v }); }} />
-            <span className="lbl fu">{f.url}</span>
-            <span className={`lbl${f.error ? ' bad' : ''}`}>{f.error ? tl('上次刷新失败：{error}', { error: f.error }) : f.last_ok_at ? tl('{ago}刷新过', { ago: fmtAgo(f.last_ok_at) }) : tl('尚未刷新')}</span>
-          </div>
-          <input className="input ffolder" defaultValue={f.folder ?? ''} placeholder={tl('分组')} aria-label={tl('分组')} onBlur={e => { if (e.target.value.trim() !== (f.folder ?? '')) void update({ id: f.id, folder: e.target.value }); }} />
-          <button className="linkbtn danger" onClick={() => void remove(f)}>{tl('删除')}</button>
-        </div>)}</div>
-      </div></div>
-      {adding && <AddFeedModal onClose={() => setAdding(false)} onAdded={() => { setAdding(false); void load(); }} />}
-    </>
+    <FeedManageView
+      kind="article"
+      crumbLabel={tl('订阅')}
+      crumbTo="/feeds"
+      addLabel={tl('添加订阅')}
+      autoTitle={tl('自动刷新订阅')}
+      autoTip={tl('应用运行时每 30 分钟检查更新，同一订阅源至少间隔 2 小时；关闭后仅手动刷新。仅对本机生效。')}
+      emptyTitle={tl('暂无文章订阅源。')}
+      deletedToast={title => tl('已删除订阅 {title}', { title })}
+      renderAddModal={({ onClose, onAdded }) => <AddFeedModal onClose={onClose} onAdded={() => onAdded()} />}
+    />
   );
 }

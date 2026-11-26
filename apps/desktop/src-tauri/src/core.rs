@@ -10,6 +10,7 @@
 //! 启动顺序：先找随包的 sidecar（`tibi-core` 同目录 / `binaries/tibi-core-<triple>`），
 //! 没有就（开发）用 `node ../../packages/core-node/dist/tibi-core.js`。
 
+use crate::lock_or_recover;
 use serde_json::{json, Value};
 use std::collections::{HashMap, VecDeque};
 use std::io::{BufRead, BufReader, Write};
@@ -59,27 +60,33 @@ fn format_exit_reason(tail: &[String]) -> String {
     }
 }
 
+type PendingMap = Arc<Mutex<HashMap<u64, (u64, mpsc::Sender<Value>)>>>;
+
 pub struct CoreProcess {
-    child: Mutex<Option<Child>>,
-    stdin: Mutex<Option<std::process::ChildStdin>>,
-    pending: Arc<Mutex<HashMap<u64, mpsc::Sender<Value>>>>,
+    lifecycle: Mutex<()>,
+    child: Arc<Mutex<Option<Child>>>,
+    stdin: Arc<Mutex<Option<(u64, std::process::ChildStdin)>>>,
+    pending: PendingMap,
     seq: AtomicU64,
     started_at: Mutex<Instant>,
-    generation: Arc<AtomicU64>,
+    generation: Arc<Mutex<u64>>,
     exit_reason: Arc<Mutex<Option<String>>>,
+    fatal_db_error: Mutex<Option<String>>,
     app: AppHandle,
 }
 
 impl CoreProcess {
     pub fn new(app: AppHandle) -> Self {
         Self {
-            child: Mutex::new(None),
-            stdin: Mutex::new(None),
+            lifecycle: Mutex::new(()),
+            child: Arc::new(Mutex::new(None)),
+            stdin: Arc::new(Mutex::new(None)),
             pending: Arc::new(Mutex::new(HashMap::new())),
             seq: AtomicU64::new(1),
             started_at: Mutex::new(Instant::now()),
-            generation: Arc::new(AtomicU64::new(0)),
+            generation: Arc::new(Mutex::new(0)),
             exit_reason: Arc::new(Mutex::new(None)),
+            fatal_db_error: Mutex::new(None),
             app,
         }
     }
@@ -106,14 +113,17 @@ impl CoreProcess {
                 return Some(p);
             }
         }
-        let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../data/ecdict/dict.db");
-        if usable(&dev) {
-            return Some(dev);
+        #[cfg(debug_assertions)]
+        {
+            let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../data/ecdict/dict.db");
+            if usable(&dev) {
+                return Some(dev);
+            }
         }
         None
     }
 
-    /// 找 sidecar：随包二进制 → 开发时的 node 脚本
+    /// 找 sidecar：随包二进制 →（仅开发模式）本地构建二进制 / node 脚本
     fn command(&self) -> Result<Command, String> {
         let exe_name = if cfg!(windows) { "tibi-core.exe" } else { "tibi-core" };
         if let Ok(exe) = std::env::current_exe() {
@@ -124,23 +134,39 @@ impl CoreProcess {
                 }
             }
         }
-        let triple = tauri::utils::platform::target_triple().unwrap_or_default();
-        let dev_bin = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries").join(format!("tibi-core-{triple}{}", if cfg!(windows) { ".exe" } else { "" }));
-        if dev_bin.exists() {
-            return Ok(Command::new(dev_bin));
-        }
-        let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/core-node/dist/tibi-core.js");
-        if script.exists() {
-            let mut c = Command::new("node");
-            c.arg(script);
-            return Ok(c);
+        #[cfg(debug_assertions)]
+        {
+            let triple = tauri::utils::platform::target_triple().unwrap_or_default();
+            let dev_bin = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries").join(format!("tibi-core-{triple}{}", if cfg!(windows) { ".exe" } else { "" }));
+            if dev_bin.exists() {
+                return Ok(Command::new(dev_bin));
+            }
+            let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../packages/core-node/dist/tibi-core.js");
+            if script.exists() {
+                let mut c = Command::new("node");
+                c.arg(script);
+                return Ok(c);
+            }
         }
         Err("找不到 Tibi Core。先运行 pnpm --filter @tibi/core-node build".into())
     }
 
     pub fn start(&self) -> Result<(), String> {
-        let gen = self.generation.fetch_add(1, Ordering::SeqCst) + 1;
-        *self.exit_reason.lock().unwrap() = None;
+        let _life = lock_or_recover(&self.lifecycle);
+        self.start_locked()
+    }
+
+    fn start_locked(&self) -> Result<(), String> {
+        if let Some(fatal) = lock_or_recover(&self.fatal_db_error).clone() {
+            *lock_or_recover(&self.exit_reason) = Some(fatal.clone());
+            return Err(fatal);
+        }
+        let gen = {
+            let mut g = lock_or_recover(&self.generation);
+            *g += 1;
+            *lock_or_recover(&self.exit_reason) = None;
+            *g
+        };
         let mut cmd = self.command()?;
         cmd.arg("--stdio").arg("--db").arg(self.db_path());
         #[cfg(feature = "app-store")]
@@ -163,16 +189,16 @@ impl CoreProcess {
             Ok(c) => c,
             Err(e) => {
                 let msg = format!("启动 Tibi Core 失败：{e}");
-                *self.exit_reason.lock().unwrap() = Some(msg.clone());
+                *lock_or_recover(&self.exit_reason) = Some(msg.clone());
                 return Err(msg);
             }
         };
         let stdout = child.stdout.take().ok_or("拿不到 Core 的 stdout")?;
         let stdin = child.stdin.take().ok_or("拿不到 Core 的 stdin")?;
         let stderr = child.stderr.take().ok_or("拿不到 Core 的 stderr")?;
-        *self.stdin.lock().unwrap() = Some(stdin);
-        *self.child.lock().unwrap() = Some(child);
-        *self.started_at.lock().unwrap() = Instant::now();
+        *lock_or_recover(&self.stdin) = Some((gen, stdin));
+        *lock_or_recover(&self.child) = Some(child);
+        *lock_or_recover(&self.started_at) = Instant::now();
 
         // 捕获 stderr 到应用数据目录 core.log，并保留最后若干行，方便崩溃时立刻告诉界面原因
         let log_path = self.log_path();
@@ -201,6 +227,8 @@ impl CoreProcess {
         let pending = self.pending.clone();
         let generation = self.generation.clone();
         let exit_reason = self.exit_reason.clone();
+        let child_slot = self.child.clone();
+        let stdin_slot = self.stdin.clone();
         let app = self.app.clone();
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout);
@@ -221,19 +249,30 @@ impl CoreProcess {
                         }
                     }
                     Some("secret.get") => {
-                        // 反向请求：只给 sidecar，WebView 不能调
+                        // 反向请求：只给 sidecar，WebView 不能调；放到工作线程执行避免阻塞 stdout 读循环
                         let id = v.get("id").cloned().unwrap_or(Value::Null);
-                        let r = v.get("params").and_then(|p| p.get("ref")).and_then(Value::as_str).unwrap_or("");
-                        let secret = crate::keys::get(r).ok().flatten();
-                        let reply = json!({ "jsonrpc": "2.0", "id": id, "result": { "secret": secret } });
-                        if let Some(core) = app.try_state::<Arc<CoreProcess>>() {
-                            let _ = core.write_line(&reply.to_string());
-                        }
+                        let r = v.get("params").and_then(|p| p.get("ref")).and_then(Value::as_str).unwrap_or("").to_string();
+                        let app_clone = app.clone();
+                        tauri::async_runtime::spawn_blocking(move || {
+                            let secret = crate::keys::get(&r).ok().flatten();
+                            let reply = json!({ "jsonrpc": "2.0", "id": id, "result": { "secret": secret } });
+                            if let Some(core) = app_clone.try_state::<Arc<CoreProcess>>() {
+                                let _ = core.write_line_for_gen(gen, &reply.to_string());
+                            }
+                        });
                     }
                     Some(other) => log::warn!("Core 发来不认识的请求：{other}"),
                     None => {
                         if let Some(id) = v.get("id").and_then(Value::as_u64) {
-                            if let Some(tx) = pending.lock().unwrap().remove(&id) {
+                            let matched = {
+                                let mut map = lock_or_recover(&pending);
+                                if map.get(&id).is_some_and(|(req_gen, _)| *req_gen == gen) {
+                                    map.remove(&id).map(|(_, tx)| tx)
+                                } else {
+                                    None
+                                }
+                            };
+                            if let Some(tx) = matched {
                                 let _ = tx.send(v);
                             }
                         }
@@ -241,26 +280,48 @@ impl CoreProcess {
                 }
             }
             let tail = stderr_handle.join().unwrap_or_default();
-            if generation.load(Ordering::SeqCst) != gen {
-                return;
+            // 按严格单向清理，绝不在持有一把锁时回取另一把锁（generation -> child -> exit_reason -> pending；stdin 单独带代次清理）
+            let exited_child = {
+                let g = lock_or_recover(&generation);
+                if *g != gen {
+                    return;
+                }
+                let c = lock_or_recover(&child_slot).take();
+                let reason = format_exit_reason(&tail);
+                log::warn!("Tibi Core 已退出：{reason}");
+                *lock_or_recover(&exit_reason) = Some(reason.clone());
+                let mut map = lock_or_recover(&pending);
+                let ids: Vec<u64> = map.iter().filter(|(_, (rg, _))| *rg == gen).map(|(id, _)| *id).collect();
+                for id in ids {
+                    if let Some((_, tx)) = map.remove(&id) {
+                        let _ = tx.send(core_exited_error(id, &reason));
+                    }
+                }
+                let _ = app.emit("core_event", json!({ "event": "core.exited", "data": { "message": reason } }));
+                c
+            };
+            {
+                let mut guard = lock_or_recover(&stdin_slot);
+                if guard.as_ref().is_some_and(|(sg, _)| *sg == gen) {
+                    *guard = None;
+                }
             }
-            let reason = format_exit_reason(&tail);
-            log::warn!("Tibi Core 已退出：{reason}");
-            *exit_reason.lock().unwrap() = Some(reason.clone());
-            // 立刻唤醒所有等待中的调用，不再干等 60 秒超时
-            for (id, tx) in pending.lock().unwrap().drain() {
-                let _ = tx.send(core_exited_error(id, &reason));
+            if let Some(mut c) = exited_child {
+                let _ = c.wait();
             }
-            let _ = app.emit("core_event", json!({ "event": "core.exited", "data": { "message": reason } }));
         });
         Ok(())
     }
 
-    fn write_line(&self, line: &str) -> bool {
-        let mut guard = self.stdin.lock().unwrap();
-        let Some(stdin) = guard.as_mut() else {
+    fn write_line_for_gen(&self, expected_gen: u64, line: &str) -> bool {
+        // 仅锁 stdin，并在管线内直接比对代次元组，彻底消除与 generation 锁的锁序反转
+        let mut guard = lock_or_recover(&self.stdin);
+        let Some((stdin_gen, stdin)) = guard.as_mut() else {
             return false;
         };
+        if *stdin_gen != expected_gen {
+            return false;
+        }
         if stdin.write_all(line.as_bytes()).is_err() || stdin.write_all(b"\n").is_err() || stdin.flush().is_err() {
             *guard = None;
             return false;
@@ -271,26 +332,33 @@ impl CoreProcess {
     /// 发请求并等响应（阻塞，调用方放在 spawn_blocking 里）
     pub fn call(&self, method: &str, params: Value, timeout: Duration) -> Value {
         let id = self.seq.fetch_add(1, Ordering::SeqCst);
-        if let Some(reason) = self.exit_reason.lock().unwrap().clone() {
+        let gen = *lock_or_recover(&self.generation);
+        if let Some(reason) = lock_or_recover(&self.exit_reason).clone() {
             return core_exited_error(id, &reason);
         }
         let (tx, rx) = mpsc::channel();
-        self.pending.lock().unwrap().insert(id, tx);
-        if let Some(reason) = self.exit_reason.lock().unwrap().clone() {
-            self.pending.lock().unwrap().remove(&id);
+        {
+            let cur_gen = *lock_or_recover(&self.generation);
+            if cur_gen != gen || gen == 0 {
+                return core_exited_error(id, "Tibi Core 正在重启");
+            }
+            lock_or_recover(&self.pending).insert(id, (gen, tx));
+        }
+        if let Some(reason) = lock_or_recover(&self.exit_reason).clone() {
+            lock_or_recover(&self.pending).remove(&id);
             return core_exited_error(id, &reason);
         }
         let req = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
-        if !self.write_line(&req.to_string()) {
-            self.pending.lock().unwrap().remove(&id);
-            let reason = self.exit_reason.lock().unwrap().clone().unwrap_or_else(|| "Tibi Core 已退出".to_string());
+        if !self.write_line_for_gen(gen, &req.to_string()) {
+            lock_or_recover(&self.pending).remove(&id);
+            let reason = lock_or_recover(&self.exit_reason).clone().unwrap_or_else(|| "Tibi Core 已退出".to_string());
             return core_exited_error(id, &reason);
         }
         match rx.recv_timeout(timeout) {
             Ok(v) => v,
             Err(_) => {
-                self.pending.lock().unwrap().remove(&id);
-                if let Some(reason) = self.exit_reason.lock().unwrap().clone() {
+                lock_or_recover(&self.pending).remove(&id);
+                if let Some(reason) = lock_or_recover(&self.exit_reason).clone() {
                     return core_exited_error(id, &reason);
                 }
                 json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32000, "message": "Tibi Core 没有回应", "data": { "code": "busy" } } })
@@ -299,25 +367,61 @@ impl CoreProcess {
     }
 
     pub fn status(&self) -> Value {
-        let pid = self.child.lock().unwrap().as_ref().map(|c| c.id()).unwrap_or(0);
-        let uptime = self.started_at.lock().unwrap().elapsed().as_millis() as u64;
-        let error = self.exit_reason.lock().unwrap().clone();
+        let pid = lock_or_recover(&self.child).as_ref().map(|c| c.id()).unwrap_or(0);
+        let uptime = lock_or_recover(&self.started_at).elapsed().as_millis() as u64;
+        let error = lock_or_recover(&self.exit_reason).clone();
         json!({ "pid": pid, "uptime_ms": uptime, "error": error })
     }
 
     pub fn restart(&self) -> Result<(), String> {
-        self.stop();
-        self.start()
+        let _life = lock_or_recover(&self.lifecycle);
+        self.stop_locked();
+        self.start_locked()
     }
 
     pub fn stop(&self) {
-        self.generation.fetch_add(1, Ordering::SeqCst);
-        if let Some(mut c) = self.child.lock().unwrap().take() {
+        let _life = lock_or_recover(&self.lifecycle);
+        self.stop_locked();
+    }
+
+    pub fn set_fatal_db_error(&self, msg: String) {
+        *lock_or_recover(&self.fatal_db_error) = Some(msg.clone());
+        *lock_or_recover(&self.exit_reason) = Some(msg);
+    }
+
+    /// 独占 Core 生命周期执行停机替换（如恢复备份）：`Err((fatal, msg))` 中 `fatal == true` 表示新旧状态可能不兼容，不再自动重启。
+    pub fn replace_db<F>(&self, f: F) -> Result<(), String>
+    where
+        F: FnOnce() -> Result<(), (bool, String)>,
+    {
+        let _life = lock_or_recover(&self.lifecycle);
+        self.stop_locked();
+        match f() {
+            Ok(()) => self.start_locked(),
+            Err((fatal, e)) => {
+                if fatal {
+                    *lock_or_recover(&self.fatal_db_error) = Some(e.clone());
+                    *lock_or_recover(&self.exit_reason) = Some(e.clone());
+                } else {
+                    let _ = self.start_locked();
+                }
+                Err(e)
+            }
+        }
+    }
+
+    fn stop_locked(&self) {
+        let prev_child = {
+            let mut g = lock_or_recover(&self.generation);
+            *g += 1;
+            lock_or_recover(&self.child).take()
+        };
+        if let Some(mut c) = prev_child {
             let _ = c.kill();
             let _ = c.wait();
         }
-        *self.stdin.lock().unwrap() = None;
-        for (id, tx) in self.pending.lock().unwrap().drain() {
+        *lock_or_recover(&self.stdin) = None;
+        for (id, (_, tx)) in lock_or_recover(&self.pending).drain() {
             let _ = tx.send(core_exited_error(id, "Tibi Core 已停止"));
         }
     }

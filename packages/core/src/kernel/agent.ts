@@ -7,7 +7,7 @@ import { friendlyModelError, retryReason } from './model-errors.js';
 import { j, type Database } from '../db/driver.js';
 import { uuidv7 } from '../ids.js';
 import type { Ctx } from '../rpc/define.js';
-import { TibiError, type MessageBlock, type MessageReceipt, type MessageStep, type SkillId, type Tier, type Undo, type WidgetBlock, type WidgetSpec } from '../types.js';
+import { TibiError, type MessageBlock, type MessageStep, type SkillId, type Tier, type Undo, type WidgetBlock } from '../types.js';
 import type { CapabilityRegistry, UiContext } from './capabilities.js';
 import { Conversations, liveAnswers, presenters, type ToolResultUi } from './conversations.js';
 import type { AgentEngine, EngineTool } from './engine.js';
@@ -69,9 +69,20 @@ export async function resolveModelFromProviders(ctx: Ctx, tier: Tier, provider_i
   let provider: Provider;
   if (isDeepseek) {
     const p = deepseekProvider();
-    model = p.getModels().find(m => m.id === row.model) ?? { ...(p.getModels()[0] as Model<Api>), id: row.model, name: row.model };
-    // 目录里没有这个模型名（DeepSeek 新出的）：照目录第一个的形状建一个
-    provider = p.getModels().some(m => m.id === row.model) ? p : createProvider({ id: 'deepseek', name: 'DeepSeek', baseUrl: p.baseUrl, auth: p.auth, models: [model], api: openAICompletionsApi() });
+    const defaultBase = p.baseUrl ?? 'https://api.deepseek.com';
+    const customBase = row.base_url?.trim();
+    const sameBase = !customBase || customBase.replace(/\/+$/, '') === defaultBase.replace(/\/+$/, '');
+    const matched = p.getModels().find(m => m.id === row.model);
+    if (sameBase && matched) {
+      model = matched;
+      provider = p;
+    } else {
+      const baseUrl = customBase || defaultBase;
+      const pid = sameBase ? p.id : row.id;
+      const template = (matched ?? p.getModels()[0]) as Model<Api>;
+      model = { ...template, id: row.model, name: row.model, provider: pid, baseUrl } as Model<Api>;
+      provider = createProvider({ id: pid, name: row.name || 'DeepSeek', baseUrl, auth, models: [model] as never, api: openAICompletionsApi() });
+    }
   } else {
     const baseUrl = row.base_url ?? 'http://127.0.0.1:11434/v1';
     model = { id: row.model, name: row.model, api: 'openai-completions', provider: row.id, baseUrl, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128_000, maxTokens: 8192 } as unknown as Model<Api>;
@@ -107,16 +118,13 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
   }
 
   run.seen.push(...input.map(i => i.text));   // 用户自己给的网址可以放进反问卡
-  // 用户在对话里自己发来的网址（不含附件里的文章内容）：这一轮导入不再审批
-  if (conv) for (const part of input) if (!part.text.startsWith('<attachment>')) for (const url of part.text.match(/https?:\/\/[^\s<>"'）)]+/g) ?? []) choose(run.id, url);
-
   const systemPrompt = await buildSystemPrompt(deps, skill);
-  const maxTurns = j.parse<number>((await db.get<{ value: string }>("SELECT value FROM settings WHERE key = 'agent.max_turns'"))?.value, DEFAULT_MAX_TURNS) || DEFAULT_MAX_TURNS;
+  const rawMax = j.parse<number>((await db.get<{ value: string }>("SELECT value FROM settings WHERE key = 'agent.max_turns'"))?.value, DEFAULT_MAX_TURNS);
+  const maxTurns = Math.max(1, Math.min(50, Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : DEFAULT_MAX_TURNS));
 
   // 这次运行在界面上的样子：文字、卡片、步骤、回执（进行中时给 activity().live）
   const blocks: MessageBlock[] = [];
   const steps: MessageStep[] = [];
-  const receipts: MessageReceipt[] = [];
   const uiByCall = new Map<string, ToolResultUi>();
   const briefs = new Map<string, string>();
   const started = new Map<string, number>();
@@ -129,20 +137,6 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
   // 工具执行中就要显示的卡片（反问）：显示在这一轮的回答里；子技能和主对话共用这一个（子技能的不带 step）
   const shownBy = new Map<string, WidgetBlock>();
   const loose: WidgetBlock[] = [];   // 子技能显示过来的卡片：跟着 run_skill 的结果存
-  if (conv) presenters.set(run.id, (spec, step) => {
-    const block: WidgetBlock = { ...spec, type: 'widget', id: uuidv7(), v: 1 };
-    blocks.push(block);
-    if (step) shownBy.set(step, block); else loose.push(block);
-    events.emit('chat.block', { conversation_id: conv, submission_id: run.id, block });
-    return {
-      block, conversation_id: conv,
-      async update(state, result) {
-        block.state = state; if (result) block.result = result;
-        // 工具结果写库时带的就是这个对象；之后才变的（比如导入超过等待时间才结束）改库里那条
-        await convs.patchWidget(conv, block.id, state, result).catch(() => undefined);
-      },
-    };
-  });
   // 子技能的流式文字和步骤不显示：它的结果作为 run_skill 的工具结果交回主对话
   const emit: EventSink['emit'] = (event, data) => { if (conv) events.emit(event, data); };
 
@@ -165,7 +159,7 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
       if (conv && loose.length && t.name === 'run_skill') ui.widgets = loose.splice(0);
       if (status === 'ok') {
         const undo = (d.out as { undo?: Undo } | undefined)?.undo;
-        if (undo?.undo_id) { const receipt = { summary: `已${brief}`, undo }; receipts.push(receipt); ui.receipt = receipt; }
+        if (undo?.undo_id) ui.receipt = { summary: `已${brief}`, undo };
         if (conv && !shown) {
           const block = toWidgetBlock(registry, t.name, d.out, params, blocks);
           if (block) { blocks.push(block); ui.widget = block; events.emit('chat.block', { conversation_id: conv, submission_id: run.id, block }); }
@@ -176,8 +170,26 @@ export async function runSkill(deps: AgentDeps, args: RunSkillArgs): Promise<Run
     },
   }));
 
-  if (conv) liveAnswers.set(run.id, () => ({ blocks: streamed ? [...blocks, { type: 'text', text: streamed }] : [...blocks], steps: [...steps], ...(thinking ? { thinking } : {}) }));
   try {
+    // 挂全局映射与 URL 白名单放在 try 内，确保任何异常都能在 finally 清理
+    if (conv) {
+      for (const part of input) if (!part.text.startsWith('<attachment>')) for (const url of part.text.match(/https?:\/\/[^\s<>"'）)]+/g) ?? []) choose(run.id, url);
+      presenters.set(run.id, (spec, step) => {
+        const block: WidgetBlock = { ...spec, type: 'widget', id: uuidv7(), v: 1 };
+        blocks.push(block);
+        if (step) shownBy.set(step, block); else loose.push(block);
+        events.emit('chat.block', { conversation_id: conv, submission_id: run.id, block });
+        return {
+          block, conversation_id: conv,
+          async update(state, result) {
+            block.state = state; if (result) block.result = result;
+            // 工具结果写库时带的就是这个对象；之后才变的（比如导入超过等待时间才结束）改库里那条
+            await convs.patchWidget(conv, block.id, state, result).catch(() => undefined);
+          },
+        };
+      });
+      liveAnswers.set(run.id, () => ({ blocks: streamed ? [...blocks, { type: 'text', text: streamed }] : [...blocks], steps: [...steps], ...(thinking ? { thinking } : {}) }));
+    }
     const out = await deps.engine.run({
       conversation_id: conv,
       config: {

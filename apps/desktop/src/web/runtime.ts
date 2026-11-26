@@ -12,23 +12,32 @@ import { throughProxy, webFetch } from './net';
 let started: Promise<Transport> | undefined;
 
 export function webTransport(): Promise<Transport> {
-  started ??= start();
+  if (!started) {
+    const p = start();
+    started = p;
+    p.catch(() => { if (started === p) started = undefined; });
+  }
   return started;
 }
 
 async function start(): Promise<Transport> {
   const worker = new Worker(new URL('./db.worker.ts', import.meta.url), { type: 'module' });
   const pageFetch = globalThis.fetch.bind(globalThis);
-  return startLocalCore({
-    invoke: workerInvoke(worker),
-    httpFetch: (input, init) => throughProxy(pageFetch, input, init),
-    apiFetch: webFetch(pageFetch),
-    async readFile(p) { const b = takeMemFile(p); if (!b) throw new Error('这个文件已经不在了，请重新选一次'); return b; },
-    platform: 'web',
-    device: isMobileUi() ? 'mobile' : 'desktop',
-    deviceName: browserName(navigator.userAgent),
-    userAgent: navigator.userAgent,
-  });
+  try {
+    return await startLocalCore({
+      invoke: workerInvoke(worker),
+      httpFetch: (input, init) => throughProxy(pageFetch, input, init),
+      apiFetch: webFetch(pageFetch),
+      async readFile(p) { const b = takeMemFile(p); if (!b) throw new Error('这个文件已经不在了，请重新选一次'); return b; },
+      platform: 'web',
+      device: isMobileUi() ? 'mobile' : 'desktop',
+      deviceName: browserName(navigator.userAgent),
+      userAgent: navigator.userAgent,
+    });
+  } catch (e) {
+    worker.terminate();
+    throw e;
+  }
 }
 
 function workerInvoke(w: Worker): Invoke {
