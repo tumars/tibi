@@ -1,0 +1,27 @@
+apps/desktop/package.json
+  s_2be9a567832442::t_70a1cc65e7b6c4 3
+apps/desktop/src-tauri/Cargo.toml
+  s_2be9a567832442::t_74f2425c3f06ad 3
+apps/desktop/src-tauri/tauri.conf.json
+  s_2be9a567832442::t_13b5fc9daaf120 4
+docs/CHANGELOG.md
+  s_2be9a567832442::t_e50cc63b9f1541 7
+notice.json
+  s_2be9a567832442::t_d34b2096e5c4d0 4,6-7,12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f2c02092dcc2809e1f71e110411e3370df192557",
+  "prompts": {},
+  "sessions": {
+    "s_2be9a567832442": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a216da-f9fb-7443-93ea-d9c056fdc160",
+        "model": "gpt-6.2-astra"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
