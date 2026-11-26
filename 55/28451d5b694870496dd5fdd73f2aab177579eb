@@ -1,0 +1,99 @@
+apps/desktop/src/settings/AnalyticsItem.tsx
+  s_e0e9b8964b40b3::t_3133bf68f18bb2 4-5,8,10-18,20-31,34-36,39
+apps/desktop/src/mobile/Reader.tsx
+  s_e0e9b8964b40b3::t_e84e2e2285dc2c 6,15,37,74-82,99-103,211,214-215,218-221
+apps/desktop/src/main.tsx
+  s_e0e9b8964b40b3::t_e84e2e2285dc2c 5,9
+apps/desktop/src/mobile/MobileApp.tsx
+  s_e0e9b8964b40b3::t_e84e2e2285dc2c 5,9,32,34-39
+apps/desktop/src/pages/Reader.tsx
+  s_e0e9b8964b40b3::t_e84e2e2285dc2c 28,51
+apps/desktop/src/lib/analytics.ts
+  s_e0e9b8964b40b3::t_f6c0d7113340de 72,120,122,125,173
+  s_e0e9b8964b40b3::t_9cbfa418022e5b 42-43,55-56,152
+  s_e0e9b8964b40b3::t_1d01de95771ad7 110,180-181
+  s_e3bdebb7097f5f::t_1308af301d9376 24,111
+  s_e0e9b8964b40b3::t_3d1d41e6c3eb0c 1,4,6-23,25-27,29-31,33-41,44-54,57,60-61,64-71,73-109,112-119,121,123-124,126-138,142-151,153-155,159,166,169-172,174-179,182,184
+apps/desktop/src/rpc/client.ts
+  s_e0e9b8964b40b3::t_e84e2e2285dc2c 3
+apps/desktop/src/components/Dictionary.tsx
+  s_e0e9b8964b40b3::t_3133bf68f18bb2 6,39,41,63-69,73
+apps/desktop/src/rpc/methods.ts
+  s_e0e9b8964b40b3::t_e84e2e2285dc2c 62
+apps/desktop/src/review/useReviewSession.ts
+  s_e0e9b8964b40b3::t_e84e2e2285dc2c 3,25-26,55-56,59,62-78,80,84-100,128
+  s_e0e9b8964b40b3::t_a4a22bd156293d 101-103
+  s_e0e9b8964b40b3::t_cb493d1df2f896 126-127
+  s_e0e9b8964b40b3::t_fa75e9f2cab559 129-131
+docs/CHANGELOG.md
+  s_e0e9b8964b40b3::t_f6c0d7113340de 8
+  s_e0e9b8964b40b3::t_8755235a49868e 7
+  s_e0e9b8964b40b3::t_013404b1fa88e8 9
+apps/desktop/src/tray/TrayApp.tsx
+  s_e0e9b8964b40b3::t_3133bf68f18bb2 9,216-227,232
+  s_e0e9b8964b40b3::t_f6c0d7113340de 213
+  s_e0e9b8964b40b3::t_61a79b7036ed1b 214-215
+apps/desktop/src/mobile/main.tsx
+  s_e0e9b8964b40b3::t_e84e2e2285dc2c 4,8-12,14-15
+  s_e0e9b8964b40b3::t_d271d5500ac4c0 16-18
+apps/desktop/src/store/audio.ts
+  s_e0e9b8964b40b3::t_3133bf68f18bb2 3-4,70,74-87,93-95,97-111,114,117-127,134,147-148,150-154,156,159-160,228-231,233-234,237,285-292,303-304,306,315,360,388
+  s_e0e9b8964b40b3::t_e7aac021a4a557 357-359
+  s_e0e9b8964b40b3::t_6a5f5d6523ac5f 361
+  s_e0e9b8964b40b3::t_70c151171bd73d 385-387
+apps/desktop/src/pages/Onboarding.tsx
+  s_e0e9b8964b40b3::t_3133bf68f18bb2 13,77
+apps/desktop/src/components/Switch.tsx
+  s_e0e9b8964b40b3::t_3133bf68f18bb2 3,5
+PRIVACY.md
+  s_e0e9b8964b40b3::t_f6c0d7113340de 7,46
+  s_e0e9b8964b40b3::t_24935f8a9a7f08 9
+apps/desktop/src/App.tsx
+  s_e0e9b8964b40b3::t_e84e2e2285dc2c 20,27-28,58-59,70-71,82,88,91,96,98,101,104
+apps/desktop/src/reader/useReaderUsage.ts
+  s_e0e9b8964b40b3::t_e84e2e2285dc2c 1-12
+docs/design/15-usage-analytics.md
+  s_e0e9b8964b40b3::t_bdfd50632a0bb8 13,43,45-50,53
+  s_e0e9b8964b40b3::t_1d01de95771ad7 23,27
+  s_e0e9b8964b40b3::t_63658cd2bc9ea3 51-52
+  s_e0e9b8964b40b3::t_4c6843956789bf 1,3,5,7,9-11,15-22,24-26,28-30,32-34,39-42,44
+  s_e0e9b8964b40b3::t_24935f8a9a7f08 12,31,35-38
+apps/desktop/src/mobile/Welcome.tsx
+  s_e0e9b8964b40b3::t_3133bf68f18bb2 5,54
+apps/desktop/src/vite-env.d.ts
+  s_e0e9b8964b40b3::t_f6c0d7113340de 3-8
+apps/desktop/test/analytics.test.ts
+  s_e3bdebb7097f5f::t_1308af301d9376 85
+  s_e0e9b8964b40b3::t_5417721f1ad1ef 1-84,86-138
+apps/desktop/src/reader/WordCard.tsx
+  s_e0e9b8964b40b3::t_e84e2e2285dc2c 9,29,33-34,37-38
+docs/guide/README.md
+  s_e0e9b8964b40b3::t_24935f8a9a7f08 135
+apps/desktop/src-tauri/src/lib.rs
+  s_e0e9b8964b40b3::t_c0173a0d2d7cd2 35-36
+  s_e0e9b8964b40b3::t_57c3f1ace7e8a7 34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5528451d5b694870496dd5fdd73f2aab177579eb",
+  "prompts": {},
+  "sessions": {
+    "s_e0e9b8964b40b3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a213ed-17b7-7a33-ad7d-1b37c5ca252a",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    },
+    "s_e3bdebb7097f5f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a213cf-24c4-7c42-bfd9-5e4479cbbea7",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "tumars <9925509+tumars@users.noreply.github.com>"
+    }
+  }
+}
