@@ -20,7 +20,12 @@ export { Memories, memoryMethods, memoryCapabilities } from './domain/memory/ind
 export * as text from './domain/text/index.js';
 export * as documents from './domain/documents/index.js';
 export * as feeds from './domain/feeds/index.js';
-export type { FeedView, FeedCandidate, PodcastSearchResult, RefreshResult } from './domain/feeds/index.js';
+export type {
+  CatalogPodcast, FeedCandidate, FeedView, OpmlImportResult,
+  PodcastChartCountry, PodcastChartGenre, PodcastChartItem,
+  PodcastPreviewEpisode, PodcastPreviewResult, PodcastSearchResult,
+  RadioAccent, RadioCatalog, RadioCatalogResult, RadioLevel, RadioSceneId, RefreshResult,
+} from './domain/feeds/index.js';
 export type { FeedItemView } from './domain/feeds/methods.js';
 export type { SearchResult } from './domain/search/methods.js';
 export type { DictSuggestResult, DictEntryResult } from './domain/dictionary/methods.js';

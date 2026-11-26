@@ -180,7 +180,7 @@ export interface PodcastSearchResult {
 const GUESS = ['/feed', '/rss', '/feed.xml', '/rss.xml', '/atom.xml', '/index.xml'];
 
 /** Apple Podcasts 链接（podcasts.apple.com/.../id123456）反查真实 RSS 地址 */
-async function resolveApplePodcastUrl(ctx: Ctx, url: string): Promise<string | undefined> {
+export async function resolveApplePodcastUrl(ctx: Ctx, url: string): Promise<string | undefined> {
   const m = url.match(/podcasts\.apple\.com\/.*\/id(\d+)/i);
   if (!m) return undefined;
   try {

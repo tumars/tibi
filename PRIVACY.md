@@ -8,7 +8,7 @@ Tibi 是一个本地应用，不需要账号。学习内容保存在本机；使
 
 首次引导提供默认关闭的开关。电脑和宽屏 Web 可在“设置 → 数据”调整，手机和窄屏 Web 可在“我”调整。关闭会停止新采集，并清除本机统计标识和待发队列。浏览器启用 Do Not Track 或 Global Privacy Control 时暂停采集。已发送数据按 Mixpanel 的数据保留设置处理，需要协助时请联系作者。Mixpanel 接收请求时会看到连接 IP 和常规 HTTP 请求头。地理位置解析已关闭，事件用户代理字段设为固定值 `Tibi`。详见 [Mixpanel 隐私政策](https://mixpanel.com/legal/privacy-policy/)。
 
-Mac App Store 版本的数据保存在 macOS 沙盒容器 `~/Library/Containers/app.tibi/Data/Library/Application Support/app.tibi/`，与官网版的应用数据目录分开。商店版通过 Mac App Store 更新，不连接下文所列的 Tibi 更新源或公告源。
+Mac App Store 版本的数据保存在 macOS 沙盒容器 `~/Library/Containers/app.tibi/Data/Library/Application Support/app.tibi/`，与官网版的应用数据目录分开。商店版通过 Mac App Store 更新，不连接下文所列的 Tibi 更新源或公告源；在主动打开「发现电台」时按需拉取精选电台目录（`dl.ferecord.com/radio-catalog.json`）。
 
 首个 Mac App Store 版本仅提供 WebDAV 同步，不提供 iCloud、本地文件夹同步或外部 MCP 接入。商店版连接第三方 AI 模型前会说明数据接收方及发送内容，并征求同意；取消不会保存连接。可在设置中删除模型连接以停止后续发送，已经发送的数据由对应服务商按其政策处理。
 
@@ -29,7 +29,8 @@ Mac App Store 版本的数据保存在 macOS 沙盒容器 `~/Library/Containers/
 | 使用统计（默认关闭，主动开启后） | api-js.mixpanel.com（Mixpanel，美国） | 上述有限功能事件与随机标识，不含学习内容 |
 | 导入网址、剪藏 | 那个网页 | 普通的网页请求 |
 | 订阅（RSS / Atom）与电台（播客 RSS）：加订阅、点刷新；自动刷新默认开，Tibi 开着时每 30 分钟看一次，同一个源至少隔 2 小时（侧栏「订阅 / 电台」→ 管理 里可关，只对这台设备生效；只拉元数据，不自动下音频） | 你订阅的网站与播客源（内置源可关闭或删除） | 普通的订阅请求，带上次的 ETag / Last-Modified 让对方只在有更新时才返回内容 |
-| 电台搜播客与解析 Apple Podcasts 链接（仅在你主动搜索或粘贴 Apple Podcasts 链接时） | itunes.apple.com（Apple iTunes Search / Lookup API） | 你输入的搜索词或节目 ID |
+| 电台发现广场、搜播客与解析 Apple Podcasts 链接（仅在你主动打开「发现电台」、搜索或粘贴 Apple Podcasts 链接时） | dl.ferecord.com（腾讯云 COS，取公开的 `radio-catalog.json`）与 itunes.apple.com（Apple iTunes 公开榜单 / Search / Lookup API） | 普通的公开目录或榜单拉取请求、你输入的搜索词或节目 ID（不含学习数据或用户画像） |
+| 电台预览单集（仅在你主动点开未订阅播客查看单集时） | 该播客的 RSS 源地址 | 普通的 RSS 抓取请求 |
 | 电台听读音频与官方字幕（仅在你点开单集听读时） | 该播客节目的音频、官方字幕与章节托管地址 | 普通的流式播放 / 静默缓存下载请求（缓存仅保存在本机 `media/podcasts/`，不同步） |
 | 电台云端语音转写（ASR，可选，仅在你主动配置并触发云端转写时） | 你配置的语音转写服务（如硅基流动 / Groq / OpenAI / Deepgram），用你自己的 API Key | 该单集的音频数据（用于生成逐字稿） |
 | 第一次用本地离线转写（Whisper，可选） | modelscope.cn（魔搭），连不上时 huggingface.co | 仅下载离线语音识别模型（约 41–249 MB，默认 base.en 约 77 MB）；下载后转写全程在本机完成，音频不会上传 |

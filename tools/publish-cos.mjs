@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AWS_S3_CONFIG_INI, buildAwsEnv, validateCosConfig } from '../admin/cos.mjs';
 import { parseNotices } from '../apps/desktop/src/lib/notice-schema.ts';
+import { parseRadioCatalog } from '../packages/core/src/domain/feeds/catalog-schema.ts';
 import { verifyMacAppArchive } from '../packages/core-node/scripts/sidecar-verify.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -13,8 +14,8 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const localConfig = join(root, '.env.cos');
 if (existsSync(localConfig)) process.loadEnvFile(localConfig);
 const [mode, dist, tag] = process.argv.slice(2);
-if ((mode !== 'release' && mode !== 'notice') || (mode === 'release' && (!dist || !tag))) {
-  throw new Error('用法：node tools/publish-cos.mjs release <产物目录> <v版本号> | notice');
+if ((mode !== 'release' && mode !== 'notice' && mode !== 'catalog') || (mode === 'release' && (!dist || !tag))) {
+  throw new Error('用法：node tools/publish-cos.mjs release <产物目录> <v版本号> | notice [文件路径] | catalog [文件路径]');
 }
 const { bucket: bucketName, endpoint, base } = validateCosConfig(process.env, '见 docs/dev/tencent-distribution.md');
 const bucket = `s3://${bucketName}`;
@@ -52,6 +53,12 @@ try {
     parseNotices(JSON.parse(readFileSync(notice, 'utf8')));
     s3('cp', notice, `${bucket}/notice.json`, '--cache-control', 'no-cache', '--content-type', 'application/json');
     if (await (await readPublic('notice.json')).text() !== readFileSync(notice, 'utf8')) throw new Error('线上 notice.json 与本地不一致');
+  } else if (mode === 'catalog') {
+    const catalogFile = dist || join(root, 'packages/core/src/domain/feeds/catalog.default.json');
+    const body = readFileSync(catalogFile, 'utf8');
+    parseRadioCatalog(JSON.parse(body));
+    s3('cp', catalogFile, `${bucket}/radio-catalog.json`, '--cache-control', 'max-age=3600', '--content-type', 'application/json');
+    if (await (await readPublic('radio-catalog.json')).text() !== body) throw new Error('线上 radio-catalog.json 与本地不一致');
   } else {
     run(process.execPath, [join(root, '.github/scripts/cn-mirror-prep.mjs'), dist, out, base, tag]);
     const manifest = readFileSync(join(out, 'latest.json'), 'utf8');

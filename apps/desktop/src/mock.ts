@@ -108,6 +108,22 @@ export function mockTransport(): Transport {
     'documents.ensureMedia': () => ({ media_path: undefined, media_url: 'https://example.com/audio.mp3', duration_ms: 60_000 }),
     'documents.transcribe': (p) => ({ sentences: Array.isArray(p.segments) ? p.segments.length : 10, transcript_source: p.transcript_source ?? 'cloud_asr' }),
     'podcasts.search': (p) => [{ title: `Mock Podcast: ${p.q}`, author: 'Tibi Demo', feed_url: 'https://example.com/podcast.xml', genre: 'Technology', episode_count: 42 }],
+    'podcasts.catalog': () => ({
+      source: 'bundled', version: 1, updated_at: '2026-11-26',
+      podcasts: [
+        { id: 'bbc-6min', title: '6 Minute English', author: 'BBC Radio', feed_url: 'https://podcasts.files.bbci.co.uk/p02pc9tn.rss', artwork_url: '', scene: 'intensive', level: 'B1', accent: 'UK', avg_minutes: 7, has_transcript: false, summary_zh: '每期 6 分钟聊日常与科技话题，语速适中。', summary_en: '6-minute topical discussions in clear British English.' },
+        { id: 'changelog', title: 'The Changelog', author: 'Changelog Media', feed_url: 'https://changelog.com/podcast/feed', artwork_url: '', scene: 'tech', level: 'B2', accent: 'US', avg_minutes: 60, has_transcript: true, summary_zh: '老牌开源与软件工程访谈，提供官方同步字幕。', summary_en: 'Open-source and software engineering interviews with transcripts.' },
+      ],
+    }),
+    'podcasts.charts': (p) => [{ rank: 1, apple_id: '1', title: `Top ${p.genre} Show`, author: 'Demo Network', feed_url: 'https://example.com/top.xml', genre: String(p.genre), episode_count: 120, summary: 'Popular English podcast in this category.' }],
+    'podcasts.preview': (p) => ({
+      feed_url: p.url, title: 'Preview Podcast', description: 'Preview episodes without subscribing.', subscribed: false, total_episodes: 2,
+      episodes: [
+        { guid: 'ep-1', title: 'Sample Episode 1', url: 'https://example.com/ep1', published_at: now - 86400000, excerpt: 'A sample episode description for preview.', audio_url: 'https://example.com/ep1.mp3', duration_ms: 480000, has_transcript: true, est_level: 'B2' },
+      ],
+    }),
+    'feeds.importOpml': () => ({ added: 2, skipped: 0, invalid: 0, total: 2 }),
+    'feeds.exportOpml': (p) => ({ filename: p.kind === 'podcast' ? 'tibi-podcasts.opml' : 'tibi-feeds.opml', xml: '<?xml version="1.0" encoding="UTF-8"?><opml version="2.0"><body></body></opml>', count: FEEDS.length }),
     'feeds.list': (p) => FEEDS.filter(f => !p.kind || p.kind === 'article').map(f => ({ ...f, kind: 'article', unread: FEED_ITEMS.filter(i => i.feed_id === f.id && i.state === 'new').length })),
     'feeds.status': () => ({ unread: FEED_ITEMS.filter(i => i.state === 'new').length, radio_unread: 0, refreshing: false, auto_refresh: true }),
     'feeds.items': (p) => pageOf(FEED_ITEMS.filter(i => (!p.feed_id || i.feed_id === p.feed_id) && (p.filter === 'all' ? i.state !== 'dismissed' : p.filter === 'saved' ? i.state === 'saved' : i.state === 'new')), p),

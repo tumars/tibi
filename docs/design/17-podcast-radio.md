@@ -1,7 +1,7 @@
 # 17 · 电台（播客听读与 AI 理解）总体方案
 
 > 状态：**P1 与 P2 本地离线 ASR + 国内一站式预设已实现并通过测试、构建与真机浏览器端到端走查**（2026-11-25）；P2 余项（原声语境 FSRS 复习/听写、听后理解题）与 P3（直播流电台）待排期。  
-> 调研依据：[`research/08-podcast-radio.md`](../research/08-podcast-radio.md)；实施清单：[`dev/plan-podcast-p1.md`](../dev/plan-podcast-p1.md)、[`dev/plan-asr-onboarding.md`](../dev/plan-asr-onboarding.md)。  
+> 调研依据：[`research/08-podcast-radio.md`](../research/08-podcast-radio.md)；发现与低门槛订阅细化：[`19-radio-discovery.md`](19-radio-discovery.md)；实施清单：[`dev/plan-podcast-p1.md`](../dev/plan-podcast-p1.md)、[`dev/plan-asr-onboarding.md`](../dev/plan-asr-onboarding.md)。  
 > 相关：[`00-concept-design.md`](00-concept-design.md)（§3.4 音频）、[`01-database.md`](01-database.md)、[`02-ai-assistant.md`](02-ai-assistant.md)、[`08-sync.md`](08-sync.md)、[`11-rss-reader.md`](11-rss-reader.md)、[`tibi-hosted-ai.md`](tibi-hosted-ai.md)。
 
 ---

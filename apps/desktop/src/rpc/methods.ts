@@ -5,6 +5,7 @@ import type {
   Answer, AnswerResult, MessageBlock, MessageStep, WidgetBlock, Conversation, Document, DocumentSummary, FeedKind, Genre, Id, IntervalPreview, Kind, MediaCacheStats, Memory, Message, Ok, Page, PodcastSearchResult, Profile, Provider, Rating, ReviewSession, Skill,
   DictEntryResult, DictSuggestResult, SampleInfo, SearchResult, SectionContent, Status, SyncBackendCfg, SyncStatus, TimedSegment, TranscriptSource, TurnId, UsageSummary, Term, TermDetail, DictEntry, Undo, Approval, AskState,
   FeedView, FeedItemView, FeedCandidate, RefreshResult,
+  OpmlImportResult, PodcastChartCountry, PodcastChartGenre, PodcastChartItem, PodcastPreviewResult, RadioCatalogResult,
 } from '@tibi/core';
 export type { SyncBackendCfg, SyncStatus };
 
@@ -19,7 +20,7 @@ export interface MethodTable {
   'system.mediaCache': { params: Record<string, never>; result: MediaCacheStats & { supported: boolean } };
   'system.clearMediaCache': { params: Record<string, never>; result: { freed_bytes: number } };
   'stats.export_summary': { params: Record<string, never>; result: UsageSummary };
-  'documents.import': { params: { source: { type: 'text'; text: string } | { type: 'url'; url: string; title?: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string } | { type: 'podcast_item'; id: string } | { type: 'audio'; path: string; transcript_path?: string; title?: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink'; /** false：从订阅/电台里直接读，不进书架 */ shelve?: boolean }; result: { import_id: Id } };
+  'documents.import': { params: { source: { type: 'text'; text: string } | { type: 'url'; url: string; title?: string } | { type: 'file'; path: string } | { type: 'images'; paths: string[] } | { type: 'sample'; id: string } | { type: 'podcast_item'; id: string } | { type: 'podcast_episode'; feed_url: string; guid: string; title?: string } | { type: 'audio'; path: string; transcript_path?: string; title?: string }; hints?: { kind?: Kind; genre?: Genre; tags?: string[] }; origin?: 'user' | 'deeplink'; /** false：从订阅/电台里直接读，不进书架 */ shelve?: boolean }; result: { import_id: Id } };
   'documents.samples': { params: Record<string, never>; result: SampleInfo[] };
   'documents.checkUrl': { params: { url: string }; result: { ok: boolean; url?: string; host?: string; error?: string } };
   'documents.list': { params: { kind?: Kind; genre?: Genre; tags?: string[]; q?: string; sort?: 'fit' | 'opened' | 'added' | 'progress' | 'minutes'; archived?: boolean; status?: 'unread' | 'reading' | 'done'; cursor?: string; limit?: number }; result: Page<DocumentSummary> };
@@ -100,7 +101,12 @@ export interface MethodTable {
   'feeds.configure': { params: { auto_refresh: boolean }; result: { auto_refresh: boolean } };
   'feeds.items': { params: { kind?: FeedKind; feed_id?: Id; folder?: string; filter?: 'unread' | 'all' | 'saved' | 'transcript'; cursor?: string; limit?: number; as_of?: number }; result: { items: FeedItemView[]; total: number; next_cursor?: string } };
   'feeds.mark': { params: { ids?: Id[]; feed_id?: Id; kind?: FeedKind; all?: boolean; state: 'seen' | 'dismissed' | 'new' }; result: { count: number; undo?: Undo } };
+  'feeds.importOpml': { params: { xml: string; kind?: FeedKind; folder?: string }; result: OpmlImportResult };
+  'feeds.exportOpml': { params: { kind?: FeedKind }; result: { filename: string; xml: string; count: number } };
   'podcasts.search': { params: { q: string; limit?: number }; result: PodcastSearchResult[] };
+  'podcasts.catalog': { params: { force?: boolean }; result: RadioCatalogResult };
+  'podcasts.charts': { params: { genre: PodcastChartGenre; country?: PodcastChartCountry; limit?: number; force?: boolean }; result: PodcastChartItem[] };
+  'podcasts.preview': { params: { url: string; limit?: number }; result: PodcastPreviewResult };
   'mcp.config': { params: Record<string, never>; result: { enabled: boolean; write_tools: string[]; tools: { name: string; description: string; write: boolean }[] } };
   'mcp.configure': { params: { enabled?: boolean; write_tools?: string[] }; result: Ok };
   'memory.list': { params: { type?: Memory['type']; q?: string }; result: Memory[] };

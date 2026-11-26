@@ -1,15 +1,15 @@
 {
   "notices": [
     {
-      "id": "release-0.2.1-macos",
+      "id": "release-0.2.2-macos",
       "message": {
-        "zh": "Tibi 0.2.1 已发布：修复 macOS 播客本地音频播放偶发闪退，精简默认订阅与电台源，完善可选使用统计并在首次引导开放选择，同步优化多处稳定性与安全细节。",
-        "en": "Tibi 0.2.1 is out: fixes a macOS crash during local podcast audio playback, streamlines default feeds and podcasts, refines optional usage analytics with an onboarding choice, and improves stability and security across the app."
+        "zh": "Tibi 0.2.2 已发布：电台新增一级「发现电台」广场（内置 45 档英文精选与 Apple 实时分类榜）、支持不订阅直接预览并试听单集、AI 对话找播客，以及电台与订阅的 OPML 导入导出。",
+        "en": "Tibi 0.2.2 is out: adds the Discover hub for Podcasts (45 curated English picks + live Apple category charts), episode preview & listen without subscribing, AI podcast discovery, and OPML import/export."
       },
       "platforms": [
         "macos"
       ],
-      "below": "0.2.1",
+      "below": "0.2.2",
       "until": "2026-12-26",
       "url": "tibi://settings?sec=about",
       "label": {

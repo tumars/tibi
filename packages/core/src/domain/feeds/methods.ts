@@ -5,6 +5,10 @@ import { capability, method, type CapabilityMap, type Ctx, type MethodMap } from
 import { TibiError, type FeedKind } from '../../types.js';
 import { WPM } from '../documents/repo.js';
 import { recordUndo, registerUndo } from '../shared/undo.js';
+import { filterRadioCatalog, loadRadioCatalog } from './catalog.js';
+import { fetchPodcastCharts } from './charts.js';
+import { exportOpmlFeeds, importOpmlFeeds } from './opml.js';
+import { previewPodcast } from './preview.js';
 import { discoverFeeds, isRefreshing, refreshFeeds, searchPodcasts } from './refresh.js';
 import { getFeed, getFeedByUrl, listFeeds, toView, unreadCount, type FeedRow, type FeedView, type ItemState } from './repo.js';
 
@@ -245,7 +249,17 @@ export const feedsMethods: MethodMap = {
   }, '自动刷新订阅（本机设置）'),
   'feeds.items': method(Type.Object({ kind: Type.Optional(FEED_KIND), feed_id: Type.Optional(Type.String()), folder: Type.Optional(Type.String()), filter: Type.Optional(Type.Union([Type.Literal('unread'), Type.Literal('all'), Type.Literal('saved'), Type.Literal('transcript')])), cursor: Type.Optional(Type.String()), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })), as_of: Type.Optional(Type.Integer()) }), async (p, ctx) => listItems(ctx, p), '条目列表，按发布时间倒序'),
   'feeds.mark': method(Type.Object({ ids: Type.Optional(Type.Array(Type.String())), feed_id: Type.Optional(Type.String()), kind: Type.Optional(FEED_KIND), all: Type.Optional(Type.Boolean()), state: Type.Union([Type.Literal('seen'), Type.Literal('dismissed'), Type.Literal('new')]) }), async (p, ctx) => markItems(ctx, p), '标已读 / 不感兴趣（可撤销）/ 改回未读'),
+  'feeds.importOpml': method(Type.Object({ xml: Type.String({ minLength: 1, maxLength: 2_000_000 }), kind: Type.Optional(FEED_KIND), folder: Type.Optional(Type.String({ maxLength: 40 })) }), async (p, ctx) => importOpmlFeeds(ctx, p), '导入 OPML 2.0 订阅列表（单次上限 100 条，去重后后台刷新）'),
+  'feeds.exportOpml': method(Type.Object({ kind: Type.Optional(FEED_KIND) }), async (p, ctx) => exportOpmlFeeds(ctx, p.kind), '导出当前订阅 / 电台为 OPML 2.0 XML'),
   'podcasts.search': method(Type.Object({ q: Type.String({ minLength: 1, maxLength: 120 }), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 25 })) }), async (p, ctx) => searchPodcasts(ctx, p.q, p.limit), '用 iTunes Search API 搜全球英文播客'),
+  'podcasts.catalog': method(Type.Object({ force: Type.Optional(Type.Boolean()) }), async (p, ctx) => loadRadioCatalog(ctx, p), '按需加载英语精选电台目录（24h 本机缓存 + dl.ferecord.com 远端更新 + 内置兜底）'),
+  'podcasts.charts': method(Type.Object({
+    genre: Type.Union([Type.Literal('language'), Type.Literal('tech'), Type.Literal('science'), Type.Literal('business'), Type.Literal('news'), Type.Literal('history')]),
+    country: Type.Optional(Type.Union([Type.Literal('us'), Type.Literal('gb')])),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 30 })),
+    force: Type.Optional(Type.Boolean()),
+  }), async (p, ctx) => fetchPodcastCharts(ctx, p), '按分类与地区拉取 Apple 实时热门播客榜（免 Key，语言榜自动过滤非英语课程）'),
+  'podcasts.preview': method(Type.Object({ url: Type.String({ minLength: 1 }), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 20 })) }), async (p, ctx) => previewPodcast(ctx, p.url, p.limit), '只读预览播客简介与最近单集（不写订阅表，支持免订阅试听）'),
 };
 
 export const feedsCapabilities: CapabilityMap = {
@@ -270,6 +284,40 @@ export const feedsCapabilities: CapabilityMap = {
     name: 'search_podcasts', description: '按关键词搜索全球播客电台，返回节目名、作者、RSS 地址与集数', perm: 'read', mcp: false,
     params: Type.Object({ q: Type.String({ minLength: 1, maxLength: 120 }), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 15 })) }),
     async run(p, ctx) { return searchPodcasts(ctx, p.q, p.limit); },
+  }),
+  list_radio_catalog: capability({
+    name: 'list_radio_catalog', description: '按场景（intensive / spoken / tech / news_biz / science_story）、难度（A2–C1）、口音（US / UK / AU / intl）、单集时长上限或官方字幕筛选 Tibi 英语精选播客目录', perm: 'read', mcp: false,
+    params: Type.Object({
+      scene: Type.Optional(Type.Union([Type.Literal('intensive'), Type.Literal('spoken'), Type.Literal('tech'), Type.Literal('news_biz'), Type.Literal('science_story')])),
+      level: Type.Optional(Type.Union([Type.Literal('A2'), Type.Literal('B1'), Type.Literal('B2'), Type.Literal('C1')])),
+      accent: Type.Optional(Type.Union([Type.Literal('US'), Type.Literal('UK'), Type.Literal('AU'), Type.Literal('intl')])),
+      max_minutes: Type.Optional(Type.Integer({ minimum: 1, maximum: 300 })),
+      has_transcript: Type.Optional(Type.Boolean()),
+      q: Type.Optional(Type.String({ maxLength: 120 })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 20 })),
+    }),
+    async run(p, ctx) {
+      const cat = await loadRadioCatalog(ctx);
+      return filterRadioCatalog(cat, { ...p, limit: p.limit ?? 12 });
+    },
+  }),
+  preview_podcast: capability({
+    name: 'preview_podcast', description: '只读预览某个播客 RSS 的简介与最近单集（时长、是否有官方字幕、预估难度），不订阅', perm: 'read', mcp: false,
+    params: Type.Object({ url: Type.String({ minLength: 1 }), limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 10 })) }),
+    async run(p, ctx) {
+      const r = await previewPodcast(ctx, p.url, p.limit ?? 5);
+      return {
+        feed_url: r.feed_url, title: r.title, subscribed: r.subscribed, total_episodes: r.total_episodes,
+        ...(r.description ? { description: r.description } : {}),
+        episodes: r.episodes.map(e => ({
+          title: e.title,
+          ...(e.duration_ms ? { minutes: Math.max(1, Math.round(e.duration_ms / 60_000)) } : {}),
+          ...(e.has_transcript ? { has_transcript: true } : {}),
+          ...(e.est_level ? { est_level: e.est_level } : {}),
+          ...(e.published_at ? { published_at: e.published_at } : {}),
+        })),
+      };
+    },
   }),
   manage_feed: capability({
     name: 'manage_feed', description: '管理订阅和电台：add 给网站或订阅地址（网站有多个订阅时返回候选、不加，用 ask_user 问用户选哪个）；remove / toggle 用 list_feeds 里的 id', perm: 'confirm', mcp: false,

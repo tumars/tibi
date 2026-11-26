@@ -14,6 +14,7 @@ import { groupTranscriptParagraphs, mergeTimedSegments, parseJsonChapters, parse
 import { bumpEncounter, contextExists, getTermsByTexts, hasPrimaryContext, insertContext, upsertForm, type TermRow } from '../terms/repo.js';
 import { prefersLocalAsr, resolveAsrConfig } from '../profile/methods.js';
 import { getSample, sampleUri, writeSampleAi } from './samples.js';
+import { resolvePreviewEpisode } from '../feeds/preview.js';
 import { linkImported, linkImportedItem } from '../feeds/repo.js';
 import { putAiResult } from './analyze.js';
 import { background } from './imports.js';
@@ -31,6 +32,7 @@ export type ImportSource =
   | { type: 'images'; paths: string[] }
   | { type: 'sample'; id: string }
   | { type: 'podcast_item'; id: string }
+  | { type: 'podcast_episode'; feed_url: string; guid: string; title?: string }
   | { type: 'audio'; path: string; transcript_path?: string; title?: string };
 
 export interface ImportInput {
@@ -83,6 +85,9 @@ async function fetchStep(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<
   if (s.type === 'podcast_item') {
     return fetchPodcastItem(job, ctx, s.id);
   }
+  if (s.type === 'podcast_episode') {
+    return fetchPodcastEpisode(job, ctx, s.feed_url, s.guid);
+  }
   if (s.type === 'audio') {
     return fetchLocalAudio(job, ctx, s.path, s.transcript_path, s.title);
   }
@@ -127,7 +132,84 @@ async function fetchStep(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<
   return { title: sample.title, author: sample.author, markdown, source_type: 'sample', source_uri: sampleUri(sample.id), genre: sample.genre, kind: sample.kind };
 }
 
-/** 播客单集导入：Tier 0 官方字幕（流式 + 静默缓存）> Tier 2 云端 BYOK ASR > 纯听兜底 */
+interface EpisodePayload {
+  title: string;
+  author: string;
+  url: string;
+  published_at?: number;
+  cover_path?: string;
+  audio_url: string;
+  audio_mime?: string;
+  duration_ms?: number;
+  transcript_url?: string;
+  transcript_type?: string;
+  chapters_url?: string;
+  notes: string;
+}
+
+/** 共用单集拉取流程：Tier 0 官方字幕（流式 + 静默缓存）> Tier 2 云端 BYOK ASR > 纯听兜底 */
+async function ingestPodcastEpisode(job: ImportRun, ctx: Ctx, ep: EpisodePayload): Promise<Fetched> {
+  if (!checkUrlShape(ep.audio_url).ok) throw new TibiError('invalid_source', '音频地址不对，或者是本机 / 局域网地址');
+  const base: Omit<Fetched, 'markdown'> = {
+    title: ep.title,
+    author: ep.author,
+    kind: 'episode',
+    source_type: 'podcast',
+    source_uri: ep.url,
+    published_at: ep.published_at,
+    cover_path: ep.cover_path,
+    media_url: ep.audio_url,
+    duration_ms: ep.duration_ms,
+    chapters_url: ep.chapters_url && checkUrlShape(ep.chapters_url).ok ? ep.chapters_url : undefined,
+  };
+
+  // Tier 0：优先拉取官方 <podcast:transcript>（免费秒开）
+  if (ep.transcript_url && checkUrlShape(ep.transcript_url).ok) {
+    job.progress('正在拉取官方逐字稿');
+    try {
+      const page = await ctx.platform.fetchUrl(ep.transcript_url, { timeout_ms: 15_000, signal: job.signal });
+      if (page.status < 400 && page.body.trim()) {
+        const segs = parseTranscript(page.body, page.content_type || ep.transcript_type || '');
+        if (segs.length) {
+          const md = buildTranscriptMarkdown(segs);
+          return { ...base, markdown: md, timed_segments: segs, transcript_source: 'rss_vtt', need_silent_cache: true };
+        }
+      }
+    } catch { /* 官方字幕拉取失败，优雅降级到 ASR 或纯听 */ }
+  }
+
+  // Tier 2：若未优先使用本地离线转写且已配置云端 BYOK ASR，下载并转写
+  const asrCfg = (await prefersLocalAsr(ctx)) ? undefined : await resolveAsrConfig(ctx);
+  if (asrCfg && ctx.platform.downloadMedia && ctx.platform.transcribeAudio) {
+    job.progress('正在下载音频准备转写');
+    const cacheKey = await sha256Hex(ep.audio_url).then(h => h.slice(0, 24));
+    const dl = await ctx.platform.downloadMedia(ep.audio_url, cacheKey, {
+      maxBytes: MAX_AUDIO_BYTES, signal: job.signal,
+      onProgress: (loaded, total) => {
+        const pct = total ? ` ${Math.min(99, Math.round((loaded / total) * 100))}%` : ` ${(loaded / (1 << 20)).toFixed(1)} MB`;
+        job.progress(`正在下载音频${pct}`);
+      },
+    });
+    job.progress('正在 AI 转写逐字稿');
+    const tr = await ctx.platform.transcribeAudio(
+      { path: dl.path, url: ep.audio_url, mime: dl.mime || ep.audio_mime || undefined },
+      { config: asrCfg, signal: job.signal, onProgress: label => job.progress(label) },
+    );
+    const segs = mergeTimedSegments(tr.segments);
+    if (segs.length) {
+      const md = buildTranscriptMarkdown(segs);
+      return {
+        ...base, markdown: md, media_path: dl.path, duration_ms: base.duration_ms ?? tr.duration_ms,
+        timed_segments: segs, transcript_source: 'cloud_asr', need_silent_cache: false,
+      };
+    }
+  }
+
+  // 兜底：纯听模式（保留 Show Notes 作为简介正文，流式播放 + 后台静默缓存，随时可补转写或导入字幕）
+  return { ...base, markdown: ep.notes || ep.title, transcript_source: 'none', need_silent_cache: true };
+}
+
+/** 播客单集导入（已订阅 feed_items） */
 async function fetchPodcastItem(job: ImportRun, ctx: Ctx, itemId: string): Promise<Fetched> {
   const row = await ctx.db.get<{
     id: string; feed_id: string; feed_title: string; feed_artwork: string | null;
@@ -143,68 +225,40 @@ async function fetchPodcastItem(job: ImportRun, ctx: Ctx, itemId: string): Promi
   );
   if (!row) throw new TibiError('not_found', '找不到这期单集');
   if (!row.audio_url) throw new TibiError('invalid_source', '这期条目没有音频地址');
-  if (!checkUrlShape(row.audio_url).ok) throw new TibiError('invalid_source', '音频地址不对，或者是本机 / 局域网地址');
-
-  const cover_path = row.artwork_url || row.feed_artwork || undefined;
-  const author = row.author || row.feed_title;
-  const base: Omit<Fetched, 'markdown'> = {
+  return ingestPodcastEpisode(job, ctx, {
     title: row.title,
-    author,
-    kind: 'episode',
-    source_type: 'podcast',
-    source_uri: row.url,
+    author: row.author || row.feed_title,
+    url: row.url,
     published_at: row.published_at != null ? Number(row.published_at) : undefined,
-    cover_path,
-    media_url: row.audio_url,
+    cover_path: row.artwork_url || row.feed_artwork || undefined,
+    audio_url: row.audio_url,
+    audio_mime: row.audio_mime ?? undefined,
     duration_ms: row.duration_ms != null ? Number(row.duration_ms) : undefined,
-    chapters_url: row.chapters_url && checkUrlShape(row.chapters_url).ok ? row.chapters_url : undefined,
-  };
+    transcript_url: row.transcript_url ?? undefined,
+    transcript_type: row.transcript_type ?? undefined,
+    chapters_url: row.chapters_url ?? undefined,
+    notes: (row.content_md || row.excerpt || row.title).trim(),
+  });
+}
 
-  // Tier 0：优先拉取官方 <podcast:transcript>（免费秒开）
-  if (row.transcript_url && checkUrlShape(row.transcript_url).ok) {
-    job.progress('正在拉取官方逐字稿');
-    try {
-      const page = await ctx.platform.fetchUrl(row.transcript_url, { timeout_ms: 15_000, signal: job.signal });
-      if (page.status < 400 && page.body.trim()) {
-        const segs = parseTranscript(page.body, page.content_type || row.transcript_type || '');
-        if (segs.length) {
-          const md = buildTranscriptMarkdown(segs);
-          return { ...base, markdown: md, timed_segments: segs, transcript_source: 'rss_vtt', need_silent_cache: true };
-        }
-      }
-    } catch { /* 官方字幕拉取失败，优雅降级到 ASR 或纯听 */ }
-  }
-
-  // Tier 2：若未优先使用本地离线转写且已配置云端 BYOK ASR，下载并转写
-  const asrCfg = (await prefersLocalAsr(ctx)) ? undefined : await resolveAsrConfig(ctx);
-  if (asrCfg && ctx.platform.downloadMedia && ctx.platform.transcribeAudio) {
-    job.progress('正在下载音频准备转写');
-    const cacheKey = await sha256Hex(row.audio_url).then(h => h.slice(0, 24));
-    const dl = await ctx.platform.downloadMedia(row.audio_url, cacheKey, {
-      maxBytes: MAX_AUDIO_BYTES, signal: job.signal,
-      onProgress: (loaded, total) => {
-        const pct = total ? ` ${Math.min(99, Math.round((loaded / total) * 100))}%` : ` ${(loaded / (1 << 20)).toFixed(1)} MB`;
-        job.progress(`正在下载音频${pct}`);
-      },
-    });
-    job.progress('正在 AI 转写逐字稿');
-    const tr = await ctx.platform.transcribeAudio(
-      { path: dl.path, url: row.audio_url, mime: dl.mime || row.audio_mime || undefined },
-      { config: asrCfg, signal: job.signal, onProgress: label => job.progress(label) },
-    );
-    const segs = mergeTimedSegments(tr.segments);
-    if (segs.length) {
-      const md = buildTranscriptMarkdown(segs);
-      return {
-        ...base, markdown: md, media_path: dl.path, duration_ms: base.duration_ms ?? tr.duration_ms,
-        timed_segments: segs, transcript_source: 'cloud_asr', need_silent_cache: false,
-      };
-    }
-  }
-
-  // 兜底：纯听模式（保留 Show Notes 作为简介正文，流式播放 + 后台静默缓存，随时可补转写或导入字幕）
-  const notes = (row.content_md || row.excerpt || row.title).trim();
-  return { ...base, markdown: notes, transcript_source: 'none', need_silent_cache: true };
+/** 播客单集免订阅试听导入（来自预览缓存或直接拉取 RSS，不写 feeds 表） */
+async function fetchPodcastEpisode(job: ImportRun, ctx: Ctx, feedUrl: string, guid: string): Promise<Fetched> {
+  const { feed, item } = await resolvePreviewEpisode(ctx, feedUrl, guid);
+  const md = item.content_html && ctx.platform.htmlToMarkdown ? (() => { try { return ctx.platform.htmlToMarkdown!(item.content_html!, item.url).trim(); } catch { return ''; } })() : '';
+  return ingestPodcastEpisode(job, ctx, {
+    title: item.title,
+    author: item.author || feed.title,
+    url: item.url,
+    published_at: item.published_at,
+    cover_path: item.artwork_url || feed.artwork_url,
+    audio_url: item.audio_url!,
+    audio_mime: item.audio_mime,
+    duration_ms: item.duration_ms,
+    transcript_url: item.transcript_url,
+    transcript_type: item.transcript_type,
+    chapters_url: item.chapters_url,
+    notes: (md || item.excerpt || item.title).trim(),
+  });
 }
 
 /** 本地音频文件导入（.mp3 / .m4a / .wav / .ogg），可选附带 .vtt/.srt 字幕 */
@@ -510,12 +564,15 @@ export async function runImport(job: ImportRun, ctx: Ctx, input: ImportInput): P
     if (await linkImported(ctx.db, [input.source.url, doc?.source_uri], r.document_id)) ctx.events.emit('data.changed', { table: 'feed_items' });
   } else if (input.source.type === 'podcast_item') {
     if (await linkImportedItem(ctx.db, input.source.id, r.document_id)) ctx.events.emit('data.changed', { table: 'feed_items' });
+  } else if (input.source.type === 'podcast_episode') {
+    const doc = await getDocument(ctx.db, r.document_id);
+    if (await linkImported(ctx.db, [doc?.source_uri, doc?.media_url], r.document_id)) ctx.events.emit('data.changed', { table: 'feed_items' });
   }
   return r;
 }
 
 async function importOnce(job: ImportRun, ctx: Ctx, input: ImportInput): Promise<ImportResult> {
-  job.progress(input.source.type === 'podcast_item' || input.source.type === 'audio' ? '准备电台单集' : '取正文');
+  job.progress(input.source.type === 'podcast_item' || input.source.type === 'podcast_episode' || input.source.type === 'audio' ? '准备电台单集' : '取正文');
   const fetched = await fetchStep(job, ctx, input);
   const isTimedEpisode = !!fetched.timed_segments?.length;
   const seg = isTimedEpisode ? undefined : segmentMarkdown(fetched.markdown, { kind: input.hints?.kind ?? (fetched.kind === 'episode' ? 'article' : fetched.kind) ?? 'article', title: fetched.title });

@@ -1,5 +1,5 @@
 import type { FeedKind, FeedView } from '@tibi/core';
-import { Plus } from 'lucide-react';
+import { Download, Plus, Upload } from 'lucide-react';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Empty } from '../components/Empty';
 import { Top } from '../components/Shell';
@@ -9,6 +9,7 @@ import { tl } from '../lib/i18n';
 import { fmtAgo } from '../lib/util';
 import { errorInfo, rpc } from '../rpc';
 import { toast } from '../store/ui';
+import { pickOpmlXml, runExportOpml, runImportOpml } from './opmlActions';
 
 export interface FeedManageViewProps {
   kind: FeedKind;
@@ -96,6 +97,7 @@ export function FeedManageView({
   const [feeds, setFeeds] = useState<FeedView[]>();
   const [auto, setAuto] = useState<boolean>();
   const [adding, setAdding] = useState(false);
+  const [opmlBusy, setOpmlBusy] = useState(false);
 
   const load = useCallback(() => rpc.call('feeds.list', { kind }).then(setFeeds, () => setFeeds([])), [kind]);
   useEffect(() => {
@@ -139,11 +141,27 @@ export function FeedManageView({
     }
   };
 
+  const importOpml = async () => {
+    const xml = await pickOpmlXml();
+    if (!xml) return;
+    setOpmlBusy(true);
+    try {
+      const ok = await runImportOpml(xml, kind);
+      if (ok) await load();
+    } finally {
+      setOpmlBusy(false);
+    }
+  };
+
   return (
     <>
       <Top
         crumbs={[{ label: crumbLabel, to: crumbTo }, { label: tl('管理') }]}
-        right={<button className="btn sm" onClick={() => setAdding(true)}><Plus />{addLabel}</button>}
+        right={<div className="feedtop">
+          <button className="btn sm" disabled={opmlBusy} onClick={() => void importOpml()}><Upload size={14} />{tl('导入 OPML')}</button>
+          <button className="btn sm" disabled={!feeds?.length} onClick={() => void runExportOpml(kind)}><Download size={14} />{tl('导出 OPML')}</button>
+          <button className="btn sm pri" onClick={() => setAdding(true)}><Plus />{addLabel}</button>
+        </div>}
       />
       <div className="scroll">
         <div className="page feedmanage">

@@ -22,6 +22,7 @@ const sourceSchema = Type.Union([
   Type.Object({ type: Type.Literal('images'), paths: Type.Array(Type.String()) }),
   Type.Object({ type: Type.Literal('sample'), id: Type.String() }),
   Type.Object({ type: Type.Literal('podcast_item'), id: Type.String({ minLength: 1 }) }),
+  Type.Object({ type: Type.Literal('podcast_episode'), feed_url: Type.String({ minLength: 1 }), guid: Type.String({ minLength: 1 }), title: Type.Optional(Type.String()) }),
   Type.Object({ type: Type.Literal('audio'), path: Type.String({ minLength: 1 }), transcript_path: Type.Optional(Type.String()), title: Type.Optional(Type.String()) }),
 ]);
 const hintsSchema = Type.Optional(Type.Object({ kind: Type.Optional(S.kind), genre: Type.Optional(S.genre), tags: Type.Optional(Type.Array(Type.String())) }));
@@ -31,6 +32,10 @@ export async function submitImport(ctx: Ctx, input: ImportInput): Promise<{ impo
     const c = checkUrlShape(input.source.url);
     if (!c.ok) throw new TibiError('invalid_source', '网址不对，或者是本机 / 局域网地址');
     input.source = { type: 'url', url: c.url!, ...(input.source.title?.trim() ? { title: input.source.title.trim() } : {}) };
+  }
+  if (input.source.type === 'podcast_episode') {
+    const c = checkUrlShape(input.source.feed_url);
+    if (!c.ok) throw new TibiError('invalid_source', '播客地址不对，或者是本机 / 局域网地址');
   }
   if (input.source.type === 'file' && !ctx.platform.isPathAllowed(input.source.path)) throw new TibiError('permission_denied', '这个文件没有经过选择或拖入');
   if (input.source.type === 'audio') {
@@ -49,6 +54,8 @@ export async function submitImport(ctx: Ctx, input: ImportInput): Promise<{ impo
   else if (input.source.type === 'podcast_item') {
     const row = await ctx.db.get<{ title: string }>('SELECT title FROM feed_items WHERE id = ?', [input.source.id]);
     title = row?.title ?? '电台单集';
+  } else if (input.source.type === 'podcast_episode') {
+    title = input.source.title?.trim() || '电台单集';
   }
   return startImport(ctx, input, title);
 }
